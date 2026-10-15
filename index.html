@@ -16,7 +16,7 @@
     --line: #e2e8f0;
     --bg: #f7fafc;
     --white: #fff;
-    --accent: #f6ad55;
+    --accent: #67b437;   /* zielony KG (jak w Butli) */
     --red: #e53e3e;
     --orange: #dd6b20;
     --green: #38a169;
@@ -82,7 +82,7 @@
   #screen-login { align-items: center; justify-content: center; background: var(--dark); }
   .login-box { background: #fff; padding: 34px 32px 28px; width: min(360px, calc(100vw - 32px)); box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
   .login-box .lt { font-size: 2rem; font-weight: 900; letter-spacing: 6px; text-align: center; }
-  .login-box .lt span { color: var(--orange); }
+  .login-box .lt span { color: var(--accent); }
   .login-box .ls { text-align: center; color: var(--gray); font-size: 0.8rem; margin: 4px 0 22px; }
   .login-box input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--line); margin-bottom: 10px; font-size: 0.95rem; }
   .login-box input:focus { outline: none; border-color: var(--dark); }
@@ -98,7 +98,7 @@
   .avatar img, .avatar-sm img, .la-c img { width: 100%; height: 100%; object-fit: cover; border-radius: 50% !important; display: block; }
   .avatar, .avatar-sm { overflow: hidden; }
   .login-err { color: var(--red); font-size: 0.8rem; min-height: 1.2em; margin-bottom: 6px; }
-  .demo-badge { position: fixed; right: 10px; bottom: 10px; background: var(--orange); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; z-index: 300; }
+  .demo-badge { position: fixed; right: 10px; bottom: 10px; background: var(--accent); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; z-index: 300; }
 
   /* lista projektów */
   #screen-home { overflow-y: auto; padding: 18px; }
@@ -138,7 +138,7 @@
   #viewer-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--gray); gap: 14px; text-align: center; padding: 20px; pointer-events: none; }
   #viewer-empty .big { font-size: 1.15rem; font-weight: 700; color: var(--dark); }
   #viewer-empty .btn { pointer-events: auto; }
-  #drop-hint { position: absolute; inset: 8px; border: 3px dashed var(--accent); background: rgba(246,173,85,0.18); display: flex; align-items: center; justify-content: center; color: var(--dark); font-size: 1.3rem; font-weight: 800; z-index: 15; pointer-events: none; }
+  #drop-hint { position: absolute; inset: 8px; border: 3px dashed var(--accent); background: rgba(103,180,55,0.18); display: flex; align-items: center; justify-content: center; color: var(--dark); font-size: 1.3rem; font-weight: 800; z-index: 15; pointer-events: none; }
 
   .toolbar { position: absolute; left: 10px; top: 10px; display: flex; gap: 0; background: rgba(26,32,44,0.92); z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.3); flex-wrap: wrap; }
   .toolbar button { background: transparent; border: none; color: #e2e8f0; padding: 7px 10px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
@@ -169,8 +169,8 @@
   table.el th { position: sticky; top: 0; background: var(--bg); text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: .4px; color: var(--gray); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; z-index: 1; }
   table.el td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   table.el tr { cursor: pointer; }
-  table.el tbody tr:hover { background: #fffaf0; }
-  table.el tr.sel { background: #feebc8 !important; }
+  table.el tbody tr:hover { background: #f1f8ec; }
+  table.el tr.sel { background: #d9eecb !important; }
   table.el tr.nodim td.dims { color: var(--orange); font-weight: 700; }
   table.el td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   table.el td.dims { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -192,7 +192,7 @@
   .log-item.click:hover { background: #fff; }
   .log-item .lt { color: var(--gray); font-size: 0.68rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .log-item.fresh { animation: fresh 2.5s ease-out; }
-  @keyframes fresh { from { background: #fefcbf; } to { background: transparent; } }
+  @keyframes fresh { from { background: #e3f3d6; } to { background: transparent; } }
 
   /* ---------- panel boczny: targi → stoiska ---------- */
   #app-row { flex: 1 1 auto; min-height: 0; display: flex; }
@@ -210,7 +210,7 @@
   #side-tree { flex: 1 1 auto; overflow-y: auto; padding: 4px 0; }
   .fair-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 6px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid #edf2f7; }
   .fair-row:hover, .stand-row:hover { background: var(--bg); }
-  .fair-row.sel, .stand-row.sel { background: #fffaf0; border-left-color: var(--accent); }
+  .fair-row.sel, .stand-row.sel { background: #f1f8ec; border-left-color: var(--accent); }
   .fair-row .car { width: 14px; flex: 0 0 auto; color: var(--gray); font-size: 0.7rem; text-align: center; }
   .fair-row .fn { font-weight: 800; font-size: 0.88rem; }
   .fair-row .fm { font-size: 0.72rem; color: var(--gray); margin-top: 1px; }
@@ -252,7 +252,7 @@
   .type-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
   .type-btn { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; text-align: left; font-size: 0.8rem; font-weight: 600; line-height: 1.2; }
   .type-btn:hover { border-color: var(--gray); }
-  .type-btn.on { border-color: var(--dark); background: #fffaf0; box-shadow: inset 4px 0 0 var(--accent); }
+  .type-btn.on { border-color: var(--dark); background: #f1f8ec; box-shadow: inset 4px 0 0 var(--accent); }
   .type-btn .sw { width: 14px; height: 14px; flex: 0 0 auto; }
   .type-prev { border: 1.5px solid var(--line); background: var(--bg); display: flex; flex-direction: column; }
   .type-prev .pimg { height: 190px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
@@ -1538,7 +1538,7 @@ function renderOverlay() {
   // numery wizek i przycisk usuwania
   S.photos.forEach((p, i) => {
     const b = L.map[p.id], cur = p.id === S.photoId && S.photos.length > 1;
-    if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#f6ad55" stroke-width="${3 * s}"/>`;
+    if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#67b437" stroke-width="${3 * s}"/>`;
     out += `<g class="plab"><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/>
       <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text></g>
       <g class="pdel" data-pid="${p.id}"><title>Usuń wizkę #${i + 1}</title><rect x="${b.x + b.w - 24 * s}" y="0" width="${24 * s}" height="${24 * s}" fill="rgba(229,62,62,.9)"/>
@@ -1573,11 +1573,11 @@ function renderOverlay() {
   if (pendingShape && L.map[pendingShape.photoId]) {
     const b = L.map[pendingShape.photoId], sh = pendingShape.shape;
     out += sh.kind === 'point'
-      ? `<circle cx="${X(b, sh.pts[0])}" cy="${Y(sh.pts[0])}" r="${15 * s}" fill="#f6ad55" stroke="#fff" stroke-width="${2 * s}"/>`
-      : `<polygon points="${P(b, shapePolyPts(sh))}" fill="#f6ad55" fill-opacity=".3" stroke="#f6ad55" stroke-width="${3 * s}"/>`;
+      ? `<circle cx="${X(b, sh.pts[0])}" cy="${Y(sh.pts[0])}" r="${15 * s}" fill="#67b437" stroke="#fff" stroke-width="${2 * s}"/>`
+      : `<polygon points="${P(b, shapePolyPts(sh))}" fill="#67b437" fill-opacity=".3" stroke="#67b437" stroke-width="${3 * s}"/>`;
   }
   if (draft && L.map[draft.photoId]) {
-    const b = L.map[draft.photoId], c = '#f6ad55';
+    const b = L.map[draft.photoId], c = '#67b437';
     const pts = draft.cursor ? [...draft.pts, draft.cursor] : draft.pts;
     out += `<polyline points="${P(b, pts)}" fill="${c}" fill-opacity=".15" stroke="${c}" stroke-width="${2.5 * s}" stroke-dasharray="${7 * s} ${4 * s}"/>`;
     draft.pts.forEach((q, i) => out += `<circle cx="${X(b, q)}" cy="${Y(q)}" r="${(i === 0 ? 7 : 4) * s}" fill="${i === 0 ? '#fff' : c}" stroke="${c}" stroke-width="${2 * s}"/>`);
@@ -1813,7 +1813,7 @@ function openElementDialog({ id, shape, photoId }) {
   renderOverlay();
   const m = openModal({
     onClose: () => { pendingShape = null; renderOverlay(); },
-    title: `<span class="badge" style="background:${editing ? typeById(el.typeId).color : '#f6ad55'}" id="ed-badge">${lab}</span> ${editing ? 'Element ' + lab : 'Nowy element ' + lab}
+    title: `<span class="badge" style="background:${editing ? typeById(el.typeId).color : '#67b437'}" id="ed-badge">${lab}</span> ${editing ? 'Element ' + lab : 'Nowy element ' + lab}
       <span style="font-weight:400;font-size:.8rem;opacity:.75">· ${(editing ? editing.photoId : photoId) ? 'wizka #' + photoNo(editing ? editing.photoId : photoId) : 'bez zaznaczenia'}</span>`,
     wide: true,
     body: `
@@ -1855,7 +1855,7 @@ function openElementDialog({ id, shape, photoId }) {
     $('ed-prev').innerHTML = t
       ? `<div class="pimg">${exampleHtml(t)}</div><div class="ptxt"><b>${esc(t.name)}</b>${esc(t.desc || '')}</div>`
       : `<div class="pimg" style="color:var(--gray);font-size:.85rem;text-align:center;padding:20px">Wybierz typ po lewej —<br>tu pokaże się przykład, jak to wygląda.</div><div class="ptxt">Nie wiesz? Wybierz „Nie wiem — do ustalenia" i opisz element w uwagach.</div>`;
-    $('ed-badge').style.background = t ? t.color : '#f6ad55';
+    $('ed-badge').style.background = t ? t.color : '#67b437';
     const cur = read();
     const g = grossOf(cur);
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
