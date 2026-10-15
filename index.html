@@ -217,6 +217,8 @@
   .fair-row .fc { margin-left: auto; font-size: 0.7rem; color: var(--gray); font-weight: 700; border: 1px solid var(--line); padding: 0 6px; }
   .fair-row .ed { background: none; border: none; cursor: pointer; color: var(--gray); padding: 2px 4px; visibility: hidden; }
   .fair-row:hover .ed { visibility: visible; }
+  .fair-row .add { background: none; border: 1.5px solid var(--dark); color: var(--dark); cursor: pointer; width: 22px; height: 22px; font-size: 1rem; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .fair-row .add:hover { background: var(--accent); border-color: var(--accent); }
   .stand-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 30px; cursor: pointer; font-size: 0.82rem; border-left: 4px solid transparent; }
   .stand-row::before { content: ''; width: 7px; height: 7px; flex: 0 0 auto; background: var(--accent); }
   .stand-row.open .sn { font-weight: 800; }
@@ -540,17 +542,28 @@ const safeName = s => String(s || 'projekt').normalize('NFD').replace(/[̀-ͯ]/g
 //  WARSTWA BAZY: Firebase albo localStorage (demo) — to samo API
 // =====================================================================
 const strip = o => JSON.parse(JSON.stringify(o)); // Firestore nie przyjmuje undefined
+// Firestore nie przyjmuje tablic w tablicach — punkty kształtu [[x,y],…] trzymamy w bazie jako [{x,y},…]
+function toFire(o) {
+  o = strip(o);
+  if (o.shape && Array.isArray(o.shape.pts)) o.shape.pts = o.shape.pts.map(q => Array.isArray(q) ? { x: q[0], y: q[1] } : q);
+  return o;
+}
+function fromFire(d) {
+  const o = { id: d.id, ...d.data() };
+  if (o.shape && Array.isArray(o.shape.pts)) o.shape = { ...o.shape, pts: o.shape.pts.map(q => Array.isArray(q) ? q : [q.x, q.y]) };
+  return o;
+}
 let db = null;
 const FireDB = {
   sub(path, cb) {
-    return db.collection(path).onSnapshot(s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))),
+    return db.collection(path).onSnapshot(s => cb(s.docs.map(fromFire)),
       e => { console.error(path, e); toast('Błąd bazy: ' + e.message, 'error', 6000); });
   },
-  async get(path, id) { const d = await db.collection(path).doc(id).get(); return d.exists ? { id: d.id, ...d.data() } : null; },
-  async list(path) { const s = await db.collection(path).get(); return s.docs.map(d => ({ id: d.id, ...d.data() })); },
-  async add(path, o) { const r = await db.collection(path).add(strip(o)); return r.id; },
-  async set(path, id, o, merge) { await db.collection(path).doc(id).set(strip(o), merge ? { merge: true } : {}); },
-  async update(path, id, o) { await db.collection(path).doc(id).update(strip(o)); },
+  async get(path, id) { const d = await db.collection(path).doc(id).get(); return d.exists ? fromFire(d) : null; },
+  async list(path) { const s = await db.collection(path).get(); return s.docs.map(fromFire); },
+  async add(path, o) { const r = await db.collection(path).add(toFire(o)); return r.id; },
+  async set(path, id, o, merge) { await db.collection(path).doc(id).set(toFire(o), merge ? { merge: true } : {}); },
+  async update(path, id, o) { await db.collection(path).doc(id).update(toFire(o)); },
   async del(path, id) { await db.collection(path).doc(id).delete(); },
 };
 const LocalDB = (() => {
@@ -861,7 +874,6 @@ function renderHome() {
         <div>${countdownHtml(p, true)}</div>
         <div class="proj-meta">
           <span>🖼 ${p.photosCount || 0}</span><span>▦ ${p.elementsCount || 0} el.</span>
-          ${p.agency ? `<span>· ${esc(p.agency)}</span>` : ''}
           <span style="margin-left:auto;display:flex;gap:2px">${(p.users || []).map(avatarSm).join('')}</span>
         </div>
       </div></div>`;
@@ -942,11 +954,12 @@ function renderSide() {
         <div style="min-width:0"><div class="fn">${esc(f.name)}${f.archived ? '<span class="arch-tag">archiwum</span>' : ''}</div>
           ${real ? `<div class="fm">${esc([f.city, fairDates(f)].filter(Boolean).join(' · ') || 'brak terminów')}</div>` : ''}</div>
         <span class="fc" title="Liczba stoisk">${list.length}</span>
+        ${real ? `<button class="add" title="Nowe stoisko na tych targach" onclick="event.stopPropagation(); openProjectForm(null, '${f.id}')">+</button>` : ''}
         ${adm && real ? `<button class="ed" title="Edytuj targi" onclick="event.stopPropagation(); openFairForm('${f.id}')">✎</button>` : ''}
       </div>` + (!open ? '' : list.length ? list.map(p => `
       <div class="stand-row ${sel && sel.kind === 'stand' && sel.id === p.id ? 'sel' : ''} ${p.id === openPid ? 'open' : ''} ${p.archived ? 'arch' : ''}" onclick="sideClickStand('${p.id}')">
         <span class="sn">${esc(p.name)}</span>${p.archived ? '<span class="arch-tag">archiwum</span>' : ''}
-        <span class="sm">${p.agency ? esc(p.agency) + ' · ' : ''}▦ ${p.elementsCount || 0}</span>
+        <span class="sm">▦ ${p.elementsCount || 0}</span>
       </div>`).join('') : `<div class="stand-empty">brak stoisk — „+ New stand"</div>`);
   }).join('') : `<div class="empty-state" style="padding:30px 14px">Nie ma jeszcze targów.<br>Dodaj pierwsze przyciskiem <b>+ New fairs</b>.</div>`;
 
@@ -978,6 +991,28 @@ function newStandFromSide() {
   openProjectForm(null, t ? (t.kind === 'fair' ? t.id : t.obj.fairId || '') : '');
 }
 
+// Deadline graficzny: domyślnie DEADLINE_DAYS dni przed startem targów (ta sama godzina).
+// Zmieniać go ręcznie może tylko administrator; pozostali widzą pole zablokowane.
+const DEADLINE_DAYS = 25;
+function autoDeadline(start) {
+  const t = tsOf(start); if (!t) return '';
+  const d = new Date(t); d.setDate(d.getDate() - DEADLINE_DAYS);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+const deadlineField = (id, value) => `<div class="fld"><label>Deadline graficzny</label>
+  <input type="datetime-local" id="${id}" value="${esc(value || '')}" ${isAdmin() ? '' : 'disabled'}>
+  <div class="hint">Ustawia się sam: ${DEADLINE_DAYS} dni przed startem targów.${isAdmin() ? ' Jako administrator możesz go przesunąć.' : ' Zmienić może tylko administrator.'}</div></div>`;
+// podpina przeliczanie: zmiana startu przestawia deadline, dopóki admin nie ustawił go ręcznie
+function wireAutoDeadline(startId, dlId) {
+  const st = $(startId), dl = $(dlId);
+  let manual = !!dl.value && dl.value !== autoDeadline(st.value);
+  if (!dl.value && st.value) dl.value = autoDeadline(st.value);
+  dl.addEventListener('input', () => { manual = !!dl.value; });
+  const sync = () => { if (!manual || !isAdmin()) dl.value = autoDeadline(st.value); };
+  st.addEventListener('input', sync); st.addEventListener('change', sync);
+  return { setManual: v => { manual = v; } };
+}
+
 function openFairForm(fid) {
   const f = fid ? fairById(fid) : {};
   if (fid && !f) return;
@@ -990,11 +1025,11 @@ function openFairForm(fid) {
         <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="ff-ev" value="${esc(f.eventStart || '')}"></div>
         <div class="fld"><label>Koniec imprezy</label><input type="datetime-local" id="ff-evend" value="${esc(f.eventEnd || '')}"></div>
       </div>
-      <div class="fld"><label>Deadline graficzny</label><input type="datetime-local" id="ff-dl" value="${esc(f.deadlineGfx || '')}">
-        <div class="hint">Nowe stoiska na tych targach dostają te terminy automatycznie (w stoisku można je zmienić).</div></div>`,
+      ${deadlineField('ff-dl', f.deadlineGfx)}`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ff-ok">${fid ? 'Zapisz' : 'Utwórz'}</button>`,
   });
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  wireAutoDeadline('ff-ev', 'ff-dl');
   $('ff-ok').onclick = async () => {
     const d = { name: $('ff-name').value.trim(), city: $('ff-city').value.trim(), eventStart: $('ff-ev').value,
       eventEnd: $('ff-evend').value, deadlineGfx: $('ff-dl').value, updatedAt: nowIso() };
@@ -1105,7 +1140,7 @@ function openProjectForm(pid, fairId) {
   let p = pid ? S.projects.find(x => x.id === pid) : {};
   if (!pid && fairId && fairById(fairId)) {
     const f = fairById(fairId);
-    p = { fairId, deadlineGfx: f.deadlineGfx || '', eventStart: f.eventStart || '', eventEnd: f.eventEnd || '' };
+    p = { fairId, deadlineGfx: f.deadlineGfx || autoDeadline(f.eventStart), eventStart: f.eventStart || '', eventEnd: f.eventEnd || '' };
   }
   const others = S.users.filter(u => !u.admin);
   const fairOpts = S.fairs.filter(f => !f.archived || f.id === p.fairId).sort(fairSort)
@@ -1116,15 +1151,11 @@ function openProjectForm(pid, fairId) {
       <div class="fld"><label>Klient / nazwa stoiska *</label><input type="text" id="pf-name" value="${esc(p.name || '')}" placeholder="np. DAICEL"></div>
       <div class="fld"><label>Targi</label><select id="pf-fairid"><option value="">— bez targów${p.fair && !p.fairId ? ' (było: ' + esc(p.fair) + ')' : ''} —</option>${fairOpts}</select>
         <div class="hint">Nowe targi dodasz w panelu bocznym przyciskiem „+ New fairs".</div></div>
-      <div class="fld"><label>Agencja</label><input type="text" id="pf-agency" value="${esc(p.agency || '')}"></div>
       <div class="row2">
-        <div class="fld"><label>Deadline graficzny</label><input type="datetime-local" id="pf-dl" value="${esc(p.deadlineGfx || '')}"></div>
         <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="pf-ev" value="${esc(p.eventStart || '')}"></div>
-      </div>
-      <div class="row2">
         <div class="fld"><label>Koniec imprezy (opcjonalnie)</label><input type="datetime-local" id="pf-evend" value="${esc(p.eventEnd || '')}"></div>
-        <div></div>
       </div>
+      ${deadlineField('pf-dl', p.deadlineGfx)}
       <div class="fld ${isAdmin() ? '' : 'hidden'}"><label>Dostęp dla (agencja / współpracownicy)</label>
         <div class="users-chk">${others.length ? others.map(u => `<label class="chk"><input type="checkbox" value="${u.id}" ${(p.users || []).includes(u.id) ? 'checked' : ''}> ${esc(u.login)} <span style="color:var(--gray);font-size:.75rem">${esc(u.company || u.name || '')}</span></label>`).join('')
           : '<div class="hint" style="padding:6px 0">Brak kont zewnętrznych — dodaj je w menu awatara → Użytkownicy.</div>'}</div>
@@ -1135,10 +1166,13 @@ function openProjectForm(pid, fairId) {
       <button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="pf-ok">${pid ? 'Zapisz' : 'Utwórz'}</button>`,
   });
   m.el.querySelector('[data-c]').onclick = () => m.close();
-  // wybór targów podpowiada ich terminy
+  const autoDl = wireAutoDeadline('pf-ev', 'pf-dl');
+  // wybór targów podpowiada ich terminy (deadline też z targów — mógł go tam przesunąć administrator)
   $('pf-fairid').onchange = () => {
     const f = fairById($('pf-fairid').value); if (!f) return;
-    [['pf-dl', 'deadlineGfx'], ['pf-ev', 'eventStart'], ['pf-evend', 'eventEnd']].forEach(([i, k]) => { if (f[k]) $(i).value = f[k]; });
+    [['pf-ev', 'eventStart'], ['pf-evend', 'eventEnd']].forEach(([i, k]) => { if (f[k]) $(i).value = f[k]; });
+    $('pf-dl').value = f.deadlineGfx || autoDeadline($('pf-ev').value);
+    autoDl.setManual($('pf-dl').value !== autoDeadline($('pf-ev').value));
   };
   $('pf-ok').onclick = async () => {
     const fo = fairById($('pf-fairid').value);
@@ -1147,7 +1181,7 @@ function openProjectForm(pid, fairId) {
       fairId: fo ? fo.id : '',
       // nazwa i miasto targów kopiowane do stoiska (nagłówek, kafelki, PDF); stare stoiska bez targów zachowują swój opis
       fair: fo ? fo.name : (p.fairId ? '' : p.fair || ''), city: fo ? fo.city || '' : (p.fairId ? '' : p.city || ''),
-      agency: $('pf-agency').value.trim(), deadlineGfx: $('pf-dl').value, eventStart: $('pf-ev').value, eventEnd: $('pf-evend').value,
+      deadlineGfx: $('pf-dl').value, eventStart: $('pf-ev').value, eventEnd: $('pf-evend').value,
       notes: $('pf-notes').value.trim(),
       users: isAdmin() ? [...m.el.querySelectorAll('.users-chk input:checked')].map(i => i.value) : (p.users || [S.me.id]),
       updatedAt: nowIso(),
@@ -1230,7 +1264,7 @@ function renderProjectHeader() {
   const p = S.project; if (!p) return;
   $('hdr-project').classList.remove('hidden');
   $('hdr-pname').textContent = p.name;
-  $('hdr-pfair').textContent = [p.fair, p.city, p.agency].filter(Boolean).join(' · ');
+  $('hdr-pfair').textContent = [p.fair, p.city].filter(Boolean).join(' · ');
   $('hdr-cd').innerHTML = countdownHtml(p, false);
   $('hdr-actions').innerHTML = `
     <button class="btn" onclick="toggleExportMenu(event)">⇩ Eksport ▾</button>
@@ -1788,8 +1822,7 @@ function openElementDialog({ id, shape, photoId }) {
         <div class="type-list">${types.map(t => `<button type="button" class="type-btn ${t.id === el.typeId ? 'on' : ''}" data-t="${t.id}"><span class="sw" style="background:${t.color}"></span>${esc(t.name)}</button>`).join('')}</div>
         <div class="type-prev" id="ed-prev"></div>
       </div>
-      <div class="fld"><label>2. Opis / gdzie to jest</label><input type="text" id="ed-name" value="${esc(el.name)}" placeholder="np. ściana tylna, front lady, logo nad wejściem"></div>
-      <div class="fld"><label>3. Wymiar widoczny (netto)</label>
+      <div class="fld"><label>2. Wymiar widoczny (netto)</label>
         <div class="row3">
           <div class="fld" style="margin:0"><input type="number" id="ed-w" min="0" step="1" value="${esc(el.w)}" placeholder="szerokość [mm]"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-h" min="0" step="1" value="${esc(el.h)}" placeholder="wysokość [mm]"></div>
@@ -1811,7 +1844,6 @@ function openElementDialog({ id, shape, photoId }) {
   const read = () => ({
     ...el,
     typeId: el.typeId,
-    name: $('ed-name').value.trim(),
     w: $('ed-w').value === '' ? '' : Math.max(0, Number($('ed-w').value)),
     h: $('ed-h').value === '' ? '' : Math.max(0, Number($('ed-h').value)),
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
@@ -1838,7 +1870,7 @@ function openElementDialog({ id, shape, photoId }) {
   });
   m.el.querySelectorAll('input').forEach(i => i.addEventListener('input', refresh));
   refresh();
-  setTimeout(() => { const f = $('ed-name'); if (f) f.focus(); }, 40);
+  setTimeout(() => { const f = $('ed-w'); if (f) f.focus(); }, 40);
   m.el.querySelector('[data-c]').onclick = () => m.close();
   m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
   $('ed-ok').onclick = async () => {
@@ -1922,14 +1954,13 @@ function renderElements() {
     return;
   }
   $('el-scroll').innerHTML = `<table class="el"><thead><tr>
-      <th>Znak</th><th>Wizka</th><th>Typ</th><th>Opis</th><th>Netto [mm]</th><th>Spad</th><th>Do druku [mm]</th><th>Szt.</th><th>m²</th><th>Uwagi</th><th>Kto</th><th></th>
+      <th>Znak</th><th>Wizka</th><th>Typ</th><th>Netto [mm]</th><th>Spad</th><th>Do druku [mm]</th><th>Szt.</th><th>m²</th><th>Uwagi</th><th>Kto</th><th></th>
     </tr></thead><tbody>${list.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
         <td><span class="badge" style="background:${t.color}">${letterOf(e.num)}</span></td>
         <td>${e.photoId ? '#' + photoNo(e.photoId) : '<span class="tag-warn" title="Element nie jest zaznaczony na żadnej wizce">—</span>'}</td>
         <td><span class="tdot" style="background:${t.color}"></span>${esc(t.name)}</td>
-        <td>${esc(e.name || '')}</td>
         <td class="dims">${dims ? intPL(e.w) + ' × ' + intPL(e.h) : 'do ustalenia'}</td>
         <td class="num">${g.b ? g.b + ' mm' : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
         <td class="dims">${dims ? intPL(g.w) + ' × ' + intPL(g.h) : ''}</td>
