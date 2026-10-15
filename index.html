@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDEX — POL-SERVICE Expo</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --dark: #1a202c;
+    --dark2: #2d3748;
+    --gray: #4a5568;
+    --mid: #a0aec0;
+    --line: #e2e8f0;
+    --bg: #f7fafc;
+    --white: #fff;
+    --accent: #f6ad55;
+    --red: #e53e3e;
+    --orange: #dd6b20;
+    --green: #38a169;
+    --blue: #3182ce;
+    --font: 'Segoe UI', Arial, sans-serif;
+    --top-h: 58%;
+    --log-w: 320px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; }
+  html, body { height: 100%; }
+  body { font-family: var(--font); background: var(--bg); color: var(--dark); overflow: hidden; display: flex; flex-direction: column; }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+  .hidden { display: none !important; }
+
+  /* ---------- przyciski: konturowe jak w Archiwum X ---------- */
+  .btn { background: transparent; border: 1.5px solid currentColor; color: var(--dark); padding: 6px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; line-height: 1.2; }
+  .btn:hover { background: rgba(0,0,0,0.06); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn-sm { padding: 3px 8px; font-size: 0.75rem; }
+  .btn-red { color: var(--red); }
+  .btn-green { color: var(--green); }
+  .btn-blue { color: var(--blue); }
+  .btn-solid { background: var(--dark); color: #fff; border-color: var(--dark); }
+  .btn-solid:hover { background: var(--dark2); }
+  header .btn { color: #fff; border-color: rgba(255,255,255,0.55); }
+  header .btn:hover { background: rgba(255,255,255,0.12); }
+
+  /* ---------- nagłówek ---------- */
+  header { background: var(--dark); color: #fff; display: flex; align-items: center; gap: 10px 14px; padding: 6px 14px; flex-wrap: wrap; flex: 0 0 auto; position: relative; z-index: 20; }
+  .hdr-logo { height: 30px; max-width: 190px; object-fit: contain; cursor: pointer; }
+  .hdr-title { font-weight: 900; letter-spacing: 3px; font-size: 1.15rem; cursor: pointer; }
+  .hdr-title span { color: var(--accent); }
+  .hdr-project { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .hdr-project .pname { font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32vw; }
+  .hdr-project .pfair { color: var(--mid); font-size: 0.8rem; white-space: nowrap; }
+  .hdr-spacer { flex: 1; }
+  .avatar { width: 34px; height: 34px; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; color: #fff; cursor: pointer; user-select: none; flex: 0 0 auto; }
+  .avatar-sm { display: inline-flex; width: 22px; height: 22px; border-radius: 50% !important; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 800; color: #fff; flex: 0 0 auto; }
+  .menu { position: absolute; background: #fff; color: var(--dark); box-shadow: 0 6px 24px rgba(0,0,0,0.25); min-width: 220px; z-index: 100; padding: 6px 0; }
+  .menu .mi { padding: 9px 16px; cursor: pointer; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; }
+  .menu .mi:hover { background: var(--bg); }
+  .menu .mh { padding: 8px 16px 6px; font-size: 0.72rem; color: var(--gray); border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+  .menu .sep { border-top: 1px solid var(--line); margin: 4px 0; }
+
+  /* ---------- liczniki terminów ---------- */
+  .cd { display: inline-flex; align-items: stretch; border: 1.5px solid rgba(255,255,255,0.4); font-size: 0.78rem; white-space: nowrap; }
+  .cd .cd-lab { padding: 4px 8px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; font-size: 0.68rem; display: flex; align-items: center; background: rgba(255,255,255,0.08); }
+  .cd .cd-val { padding: 4px 10px; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 0.95rem; display: flex; align-items: center; }
+  .cd .cd-next { padding: 4px 8px; color: var(--mid); font-size: 0.7rem; display: flex; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); }
+  .cd.ph-deadline { border-color: var(--accent); }
+  .cd.ph-deadline .cd-lab { background: var(--accent); color: var(--dark); }
+  .cd.ph-event { border-color: #63b3ed; }
+  .cd.ph-event .cd-lab { background: #63b3ed; color: var(--dark); }
+  .cd.urgent { border-color: var(--red); }
+  .cd.urgent .cd-lab { background: var(--red); color: #fff; }
+  .cd.ph-live .cd-lab { background: var(--green); color: #fff; }
+  .cd.ph-done, .cd.ph-none { opacity: .7; }
+
+  /* ---------- ekrany ---------- */
+  .screen { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+  /* logowanie */
+  #screen-login { align-items: center; justify-content: center; background: var(--dark); }
+  .login-box { background: #fff; padding: 34px 32px 28px; width: min(360px, calc(100vw - 32px)); box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+  .login-box .lt { font-size: 2rem; font-weight: 900; letter-spacing: 6px; text-align: center; }
+  .login-box .lt span { color: var(--orange); }
+  .login-box .ls { text-align: center; color: var(--gray); font-size: 0.8rem; margin: 4px 0 22px; }
+  .login-box input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--line); margin-bottom: 10px; font-size: 0.95rem; }
+  .login-box input:focus { outline: none; border-color: var(--dark); }
+  .login-box .btn { width: 100%; padding: 10px; font-size: 0.95rem; }
+  .login-team { display: flex; justify-content: center; gap: 18px; margin-bottom: 18px; flex-wrap: wrap; }
+  .login-team:empty { display: none; }
+  .la { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px; }
+  .la-c { width: 64px; height: 64px; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 1.25rem; overflow: hidden; box-shadow: 0 0 0 3px #fff, 0 0 0 4px var(--line); transition: box-shadow .15s; }
+  .la:hover .la-c { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--mid); }
+  .la.on .la-c { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--accent); }
+  .la-n { font-size: 0.8rem; font-weight: 700; color: var(--gray); }
+  .la.on .la-n { color: var(--dark); }
+  .avatar img, .avatar-sm img, .la-c img { width: 100%; height: 100%; object-fit: cover; border-radius: 50% !important; display: block; }
+  .avatar, .avatar-sm { overflow: hidden; }
+  .login-err { color: var(--red); font-size: 0.8rem; min-height: 1.2em; margin-bottom: 6px; }
+  .demo-badge { position: fixed; right: 10px; bottom: 10px; background: var(--orange); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; z-index: 300; }
+
+  /* lista projektów */
+  #screen-home { overflow-y: auto; padding: 18px; }
+  .home-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .home-bar h2 { font-size: 1.1rem; margin-right: auto; }
+  .proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .proj-card { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); cursor: pointer; display: flex; flex-direction: column; border-top: 4px solid var(--accent); transition: box-shadow .15s; }
+  .proj-card:hover { box-shadow: 0 4px 22px rgba(0,0,0,0.18); }
+  .proj-card.done { border-top-color: var(--mid); opacity: .75; }
+  .proj-cover { height: 140px; background: #edf2f7 center/cover no-repeat; display: flex; align-items: center; justify-content: center; color: var(--mid); font-size: 0.8rem; }
+  .proj-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .proj-name { font-weight: 800; font-size: 1rem; }
+  .proj-fair { color: var(--gray); font-size: 0.8rem; }
+  .proj-meta { display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--gray); flex-wrap: wrap; }
+  .proj-card .cd { border-color: var(--line); color: var(--dark); }
+  .proj-card .cd .cd-lab { background: var(--bg); }
+  .proj-card .cd .cd-next { color: var(--gray); border-left-color: var(--line); }
+  .empty-state { text-align: center; color: var(--gray); padding: 60px 20px; font-size: 0.95rem; line-height: 1.6; }
+
+  /* ---------- ekran projektu ---------- */
+  #screen-project { position: relative; }
+  #pane-top { flex: 0 0 var(--top-h); min-height: 120px; display: flex; flex-direction: column; background: #e2e5e9; position: relative; }
+
+  /* wszystkie wizki obok siebie na jednym płótnie */
+  #viewer { flex: 1 1 auto; position: relative; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+  #viewer.t-point { cursor: crosshair; }
+  #viewer.t-poly { cursor: crosshair; }
+  #viewer.panning { cursor: grabbing; }
+  #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  #stage-imgs img { position: absolute; top: 0; display: block; pointer-events: none; -webkit-user-drag: none; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,0.18); }
+  #overlay { position: absolute; left: 0; top: 0; overflow: visible; }
+  #overlay .shp { cursor: move; }
+  #viewer.t-poly #overlay .shp { pointer-events: none; }
+  #overlay .hdl { cursor: pointer; }
+  #overlay .plab { pointer-events: none; }
+  #overlay .pdel { cursor: pointer; }
+  #viewer-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--gray); gap: 14px; text-align: center; padding: 20px; pointer-events: none; }
+  #viewer-empty .big { font-size: 1.15rem; font-weight: 700; color: var(--dark); }
+  #viewer-empty .btn { pointer-events: auto; }
+  #drop-hint { position: absolute; inset: 8px; border: 3px dashed var(--accent); background: rgba(246,173,85,0.18); display: flex; align-items: center; justify-content: center; color: var(--dark); font-size: 1.3rem; font-weight: 800; z-index: 15; pointer-events: none; }
+
+  .toolbar { position: absolute; left: 10px; top: 10px; display: flex; gap: 0; background: rgba(26,32,44,0.92); z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.3); flex-wrap: wrap; }
+  .toolbar button { background: transparent; border: none; color: #e2e8f0; padding: 7px 10px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .toolbar button:hover { background: rgba(255,255,255,0.1); }
+  .toolbar button.on { background: var(--accent); color: var(--dark); }
+  .toolbar .sep { width: 1px; background: rgba(255,255,255,0.2); margin: 4px 2px; }
+  .toolbar .zl { color: #e2e8f0; font-size: 0.75rem; min-width: 46px; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+  .toolbar kbd { font-family: inherit; font-size: 0.62rem; opacity: .6; border: 1px solid currentColor; padding: 0 3px; }
+  #viewer-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); background: rgba(26,32,44,0.88); color: #fff; padding: 6px 12px; font-size: 0.78rem; z-index: 10; pointer-events: none; max-width: calc(100% - 20px); text-align: center; }
+  #assign-bar { position: absolute; right: 10px; top: 10px; background: var(--accent); color: var(--dark); padding: 6px 10px; font-size: 0.8rem; font-weight: 700; z-index: 11; display: flex; gap: 10px; align-items: center; }
+
+  .split-h { flex: 0 0 8px; background: var(--dark2); cursor: row-resize; position: relative; touch-action: none; }
+  .split-h::after { content: ''; position: absolute; left: 50%; top: 2px; width: 40px; height: 4px; margin-left: -20px; border-top: 1px solid #718096; border-bottom: 1px solid #718096; }
+  .split-v { flex: 0 0 6px; background: var(--line); cursor: col-resize; touch-action: none; }
+  .split-v:hover, .split-h:hover { background: var(--accent); }
+
+  #pane-bottom { flex: 1 1 auto; min-height: 100px; display: flex; background: #fff; }
+  #el-pane { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .el-bar { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; flex: 0 0 auto; }
+  .el-bar h3 { font-size: 0.9rem; margin-right: 4px; }
+  .el-bar .stats { margin-left: auto; font-size: 0.78rem; color: var(--gray); }
+  .el-bar .stats b { color: var(--dark); }
+  .seg { display: inline-flex; border: 1.5px solid var(--dark); }
+  .seg button { background: transparent; border: none; padding: 3px 9px; font-size: 0.74rem; font-weight: 600; cursor: pointer; }
+  .seg button.on { background: var(--dark); color: #fff; }
+  .el-scroll { flex: 1 1 auto; overflow: auto; }
+  table.el { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  table.el th { position: sticky; top: 0; background: var(--bg); text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: .4px; color: var(--gray); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; z-index: 1; }
+  table.el td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.el tr { cursor: pointer; }
+  table.el tbody tr:hover { background: #fffaf0; }
+  table.el tr.sel { background: #feebc8 !important; }
+  table.el tr.nodim td.dims { color: var(--orange); font-weight: 700; }
+  table.el td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.el td.dims { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.el td.notes { color: var(--gray); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.el tfoot td { font-weight: 700; background: var(--bg); position: sticky; bottom: 0; }
+  .badge { display: inline-flex; min-width: 24px; height: 24px; padding: 0 5px; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.78rem; border-radius: 50% !important; }
+  .tdot { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; }
+  .row-act { white-space: nowrap; text-align: right; }
+  .row-act button { background: none; border: none; cursor: pointer; padding: 2px 5px; font-size: 0.85rem; color: var(--gray); }
+  .row-act button:hover { color: var(--dark); }
+  .tag-warn { color: var(--orange); font-weight: 700; font-size: 0.72rem; }
+
+  #log-pane { flex: 0 0 var(--log-w); min-width: 180px; display: flex; flex-direction: column; background: var(--bg); }
+  .log-bar { padding: 8px 10px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .log-bar span { font-weight: 400; color: var(--gray); font-size: 0.72rem; margin-left: auto; }
+  #log-list { flex: 1 1 auto; overflow-y: auto; padding: 4px 0; }
+  .log-item { padding: 6px 10px; display: flex; gap: 8px; font-size: 0.76rem; line-height: 1.35; border-bottom: 1px solid #edf2f7; }
+  .log-item.click { cursor: pointer; }
+  .log-item.click:hover { background: #fff; }
+  .log-item .lt { color: var(--gray); font-size: 0.68rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .log-item.fresh { animation: fresh 2.5s ease-out; }
+  @keyframes fresh { from { background: #fefcbf; } to { background: transparent; } }
+
+  /* ---------- panel boczny: targi → stoiska ---------- */
+  #app-row { flex: 1 1 auto; min-height: 0; display: flex; }
+  #screens { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; position: relative; }
+  #side { flex: 0 0 auto; display: flex; background: #fff; border-right: 1px solid var(--line); position: relative; z-index: 15; }
+  body:not(.logged) #side { display: none; }
+  #side-panel { width: 10cm; max-width: calc(100vw - 24px); display: flex; flex-direction: column; min-height: 0; }
+  #side.closed #side-panel { display: none; }
+  #side-handle { flex: 0 0 24px; background: var(--dark2); color: #e2e8f0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; user-select: none; }
+  #side-handle:hover { background: var(--accent); color: var(--dark); }
+  #side-handle .vt { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+  #side-handle .arr { font-size: 0.8rem; }
+  .side-acts { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 10px 8px; }
+  .side-sel { font-size: 0.72rem; color: var(--gray); padding: 0 10px 8px; border-bottom: 1px solid var(--line); min-height: 1.6em; }
+  #side-tree { flex: 1 1 auto; overflow-y: auto; padding: 4px 0; }
+  .fair-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 6px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid #edf2f7; }
+  .fair-row:hover, .stand-row:hover { background: var(--bg); }
+  .fair-row.sel, .stand-row.sel { background: #fffaf0; border-left-color: var(--accent); }
+  .fair-row .car { width: 14px; flex: 0 0 auto; color: var(--gray); font-size: 0.7rem; text-align: center; }
+  .fair-row .fn { font-weight: 800; font-size: 0.88rem; }
+  .fair-row .fm { font-size: 0.72rem; color: var(--gray); margin-top: 1px; }
+  .fair-row .fc { margin-left: auto; font-size: 0.7rem; color: var(--gray); font-weight: 700; border: 1px solid var(--line); padding: 0 6px; }
+  .fair-row .ed { background: none; border: none; cursor: pointer; color: var(--gray); padding: 2px 4px; visibility: hidden; }
+  .fair-row:hover .ed { visibility: visible; }
+  .stand-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 30px; cursor: pointer; font-size: 0.82rem; border-left: 4px solid transparent; }
+  .stand-row::before { content: ''; width: 7px; height: 7px; flex: 0 0 auto; background: var(--accent); }
+  .stand-row.open .sn { font-weight: 800; }
+  .stand-row .sm { margin-left: auto; font-size: 0.7rem; color: var(--gray); white-space: nowrap; }
+  .stand-empty { padding: 5px 10px 8px 34px; font-size: 0.74rem; color: var(--mid); font-style: italic; }
+  .arch { opacity: .5; }
+  .arch-tag { font-size: 0.6rem; font-weight: 700; border: 1px solid currentColor; padding: 0 4px; color: var(--gray); text-transform: uppercase; margin-left: 6px; }
+  .side-foot { padding: 8px 10px; border-top: 1px solid var(--line); font-size: 0.78rem; margin: 0; }
+
+  /* ---------- okna ---------- */
+  .modal-back { position: fixed; inset: 0; background: rgba(10,14,22,0.6); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal { background: #fff; width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+  .modal.wide { width: min(940px, 100%); }
+  .modal-h { padding: 14px 18px; background: var(--dark); color: #fff; font-weight: 800; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 2; }
+  .modal-h .x { margin-left: auto; cursor: pointer; font-size: 1.2rem; opacity: .8; background: none; border: none; color: #fff; }
+  .modal-b { padding: 16px 18px; }
+  .modal-f { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; position: sticky; bottom: 0; background: #fff; flex-wrap: wrap; }
+  .fld { margin-bottom: 12px; }
+  .fld label { display: block; font-size: 0.72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+  .fld input[type=text], .fld input[type=password], .fld input[type=number], .fld input[type=datetime-local], .fld select, .fld textarea { width: 100%; padding: 8px 10px; border: 1.5px solid var(--line); font-size: 0.9rem; background: #fff; }
+  .fld input:focus, .fld select:focus, .fld textarea:focus { outline: none; border-color: var(--dark); }
+  .fld textarea { min-height: 60px; resize: vertical; }
+  .fld .hint { font-size: 0.72rem; color: var(--gray); margin-top: 3px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 12px; }
+  .chk { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; margin: 4px 0; }
+  .chk input { width: 16px; height: 16px; }
+
+  /* wybór typu elementu */
+  .type-wrap { display: grid; grid-template-columns: 1fr 300px; gap: 14px; margin-bottom: 14px; }
+  .type-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
+  .type-btn { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; text-align: left; font-size: 0.8rem; font-weight: 600; line-height: 1.2; }
+  .type-btn:hover { border-color: var(--gray); }
+  .type-btn.on { border-color: var(--dark); background: #fffaf0; box-shadow: inset 4px 0 0 var(--accent); }
+  .type-btn .sw { width: 14px; height: 14px; flex: 0 0 auto; }
+  .type-prev { border: 1.5px solid var(--line); background: var(--bg); display: flex; flex-direction: column; }
+  .type-prev .pimg { height: 190px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
+  .type-prev .pimg img, .type-prev .pimg svg { max-width: 100%; max-height: 100%; display: block; }
+  .type-prev .ptxt { padding: 9px 11px; font-size: 0.78rem; line-height: 1.45; color: var(--gray); }
+  .type-prev .ptxt b { color: var(--dark); font-size: 0.85rem; display: block; margin-bottom: 3px; }
+  .calc { background: var(--bg); border-left: 4px solid var(--accent); padding: 9px 12px; font-size: 0.82rem; margin-top: 4px; line-height: 1.5; }
+  .calc b { font-variant-numeric: tabular-nums; }
+  details.adm { margin-top: 12px; border: 1px dashed var(--mid); padding: 8px 12px; }
+  details.adm summary { cursor: pointer; font-size: 0.78rem; font-weight: 700; color: var(--gray); }
+
+  /* panele admina */
+  table.adm-t { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  table.adm-t th { text-align: left; font-size: 0.68rem; text-transform: uppercase; color: var(--gray); padding: 6px; border-bottom: 1px solid var(--line); }
+  table.adm-t td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.adm-t input[type=text], table.adm-t input[type=number] { width: 100%; padding: 5px 7px; border: 1.5px solid var(--line); }
+  table.adm-t input[type=color] { width: 36px; height: 30px; border: none; padding: 0; background: none; cursor: pointer; }
+  .ex-thumb { width: 64px; height: 44px; background: var(--bg) center/cover no-repeat; border: 1px solid var(--line); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: var(--gray); text-align: center; }
+  .users-chk { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px 12px; max-height: 180px; overflow-y: auto; border: 1.5px solid var(--line); padding: 6px 10px; }
+
+  /* toasty */
+  #toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+  .toast { background: var(--dark); color: #fff; padding: 9px 16px; font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.3); border-left: 4px solid var(--accent); max-width: 90vw; }
+  .toast.error { border-left-color: var(--red); }
+  .toast.success { border-left-color: var(--green); }
+
+  @media (max-width: 760px) {
+    .hdr-logo { display: none; }
+    .hdr-project .pname { max-width: 46vw; }
+    .type-wrap { grid-template-columns: 1fr; }
+    .type-list { grid-template-columns: 1fr; }
+    .row3 { grid-template-columns: 1fr 1fr 80px; }
+    #log-pane { display: none; }
+    #split-v { display: none; }
+    .toolbar button .lbl { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header id="hdr">
+  <img class="hdr-logo" id="hdr-logo" alt="POL-SERVICE Expo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAS4AAABACAYAAACkyZrdAAAhu0lEQVR42u19eZhdVZXvb6197r1FUpUYzMCUBFCQGJpG0YciaoAWhYj6OTwVn/o5YUvbtgOirX4NNt3y+lN5qDi9RkRfO6EodCONA4PS4gRGQQYJU6bKRMZKTfectdb7o9ZObw73Vt1bVZEQzvq++6Vy7zn77L32Pmuv4bfWJkwTmVkgIjGz5QC+oarrAWwE0A9gLTOvAbDe/78JwFYAO4hIOmyfAXD5a/8AgBGRoaKKKtrnKdsDbW4CMJuZZwM4qtUFqjoMYCczbzWzzaq6CcB6Zu534bYewGYADwPYDmAXESkA7VDAwa+vqKKK9kGiadS4mIjUzBar6r3MXFPVsvAgImKizh6rqqPMvF1Vt7lAXA9gg5mtCyH0A9jgWt1WANuJaKia0ooqqgRXN4KLiMjMbJaqrmTm+apq1EJKmZm1MvWSSxgAM3OnAm4QwHZm3ghgC4DLieib0XytprmiiipTcSIacOEx34XRowRXIsxoAoFUFnBWErpERMzMMwHMBHCw37cGwDenUzBXVFFFj0PBZWathM0j/nZzsSkimwAsKQma7tXB7gScASiYObRw4ldUUUVPJMEVTcAkYjehMGLm9Z1eOy327piAI3fMBwB9f87nV1RRRXuJ4Er8Q68xs48CGAZgqpoDiJ8mgJyZm6qaM7MAOEdVH+zUP7WHfHYzK8FVUUVPTI0rCgEBcEyiTbXTsuKfX2Lm+x7LQbnPq6KKKtpXBVcJ2Gl4tCN8DQBNHOVlIWGOeiiYOQNwEIC10x217EbjUtVK46qoon2YmIiUiAr/iP/fAKgLtS2qKtHpTUQh/ZhZRkSZa28ZgEXNZrP/MRJckfZL4BlVZLGiivY1jUtErnRn+koADwBYjTGg51YiKsxsA4CdAJ7cYZuLm83m5nq9DmbmdliuPS24ANQw5oOrqKKK9kEf1wkADsAj4QU7Aaw3szUAPuzm4pPb4bJKZtqi3t7e7ao6+Bj4migRXPVKcFVU0T5qKgL4DYBCVUdVVcwMzDyLmZ8G4K8ALGXmVegcCnEwEY1iLM/wsfIzNQD0VNNbUUX7ruBaGf1TRBQioFNVmxiLKM5203EiIRQ1rqi9bdhLBFfl46qoon1NcDHz3W0AnQwgqOqBIrK+CzNtrpk1mHntYziuxujo6H7V9FZU0T6scZkZorZVFkTMfGAIYWMn6HVvp3fXrl1P8nzBP6vGFfvAzNxoNCrBVVFF+7DgesjMBogordqAxFF/EMaSpic0u8xMiQj1en2ema16LAYUx5DneV9lKlZU0b4ruDYwcyt/VHzhDyiKYiC5fly5AQD1ev1AM1v95xJSJbSF+neVxlVRRfswALWpqqvHEVzzsiwb8VxE6kRwiciiLMv2GHo+CixmJiIyVS3K2mKWZZXgqqgi7Nu5ivcDOCUVXAlo9Ml5niOEsA3AfHNI+niNhhAWAfiptxOmWWBZUmGwX1UzAHPKfRKRKZmKnSLuJ1Pn3tsul+wxdFE3v1X/prvmftJPKm1sLfs52SyFtK2p8H06eFJuI97f7vupzHWrdqaDh08YwcXMK9GmzhUz15m5rqqbxysOWLpvMTNvdS2tNh3oeTOLaUcE4F5VfQDA05h5gZmFstYXQpg5RUd/NwszAJDx7vHrYj18aRe0SHJHx21vTy5U7wNN0E8q92E6+jQJvms8X6CdMOumzXbXdjO2Tue61TOrA1+607hWttFONKlvtQHA0k4gEcx8CIBBjNWCXzANWpZ4AvdOAN8AMAvAS5l5dot4QtS4eqf43LqPR9Ny0gDCtm3bwpw5cwxATkTDAIq07v44JYIk/h9jyehzAczwEkHbAPQT0WB85nilp0v9Y9eCmtN1doD/3QCwCMD+vlaGvJ+bvZ9lYVdH+3LcAIA777yTli5dikST09hvb6MW2/BrY421uGkJgFEiyhO+xxOm9nN+aFyL3fCEiOzBBx/sOfTQQ9X7wP39/eGggw5q+vgl6Xfe4VzHwgNz8zyfAaCo1Wo7/d3Y4uNIBV495d2dd96JpUuX2jjwI055+EQTXA+1Mesiw+b4sWKdglAPCiGoV0Jd0ImW1i5K6WZhBuAaAD8A8EYAy5gZ42lyIYTeKb64/wpgmQNxo9DKAGSzZ89mr4jRdIzbTwYHBy8mos3lHTR5qTIAy1X1Vap6PIBDmHlGoqUWADaKyB3MfM3AwMB3iOhhf5ktNVn876sBLPEDRRqq+luM1U7jyZ5w5G2rmR2iqh9S1eUAFvqmAYe7DKrqDjP7IRGd5Un2BcZOdLrOD0ixZON7xHpZsmQJqSoBUNfkrwfwFv95kape7zmusmTJElZVBlBj5uD3GTPv8hzaXwP4KhH90cxIRP46hPA+VR2Omr6ZnUpE94/HlxtvvDFbtmyZAHg5gM/4nIOZZ86bN+/VInJMCOEjfjpV3ftwEoBVJUEf57rH23qFqj4LwMHMvF+tVkumW3f4KVeXEdEnAGDXrl3zent7bwIwU1UFAC1ZsuRRlVl87bPztgbgDgDLn3Bql5k9WUR2mJmJiDpy3kQkH/tKPi4i/+K/5/H38kdE1MxURDaZWSYi1/k9Rbt7xmkrtzEaLYrinWb2BjPb6O1JB/f9S7LjdXU+pP97lXVH95vZEWYWK7HubivP89PNbEWX7a0zs3dGYRp9H/FfEfl96fob0+PZJmkewsyOEZH+2KjP6aNIRO7zscZ+HWWTIBG5NunDonbPG4dGi6J4t99/ZPn+oijOmWgdxLGLyE2ltu8GgKIoPlrqs5rZwhLf4rp5pZnd1cX4/zPpx/4ismsSbPxDp/4xn7Osiw/trXAInH/++dsArGuhUamj65tm1t9BewqAmHkexhKd13YLQo3rzXf53wF4pid4/xuA+aoqRMQdnPzTNxmG3HTTTVFr3OE7Y1PHaKeqrlPVNaq6WlV3+XWiqqMADlfVy6Nmmey+H8uy7IcAjhWRIpq2fjLRHap6M4AVfgRb/K3p5sWXRORffUfn0iLa5f0b8X93TTWKa2ZBVS9j5gPjuJmZVHWXqv4GwC9UdSWAUQCHA1iQaJdN54M6T9Tve9jPzdwYP6oaz9IcdvM/UjMZV2xjo6qudZ6vc77FtLTczOohhM+Z2V8R0b0Arkz5QkRnunCRcTYqM7NnMfPzXdPJXWCd65cNe5ujvsZ3Jgn8FudaRD7uz1+iqoVr0XFON6jqCgC/VtV7VPVh154OS7pTuIslHf9Q5KGqtuLhoBdF6NgcTspYdfKxvbWQYCAiOf/88x9MD7hw4VFX1e+KyE+Y+RmdOM/dIX/umjVrioULF27q1jR0wZcB+DKAD6nq50MIb/AFxZ1GKSdbmWLZsmXx/iL6jpiZReQjIYTLE7/SHADnMvN7VJW8ZtkJAJ5JRLf6wn8XgAu87xZCyNxH9M/M/F0iWp2MfT6AU1T1Y8z8dF/0xsxvF5FBInpvfMn8e01MWPb+TvVMzGOY+Tg39zIXWtcy89lEtMqvrQFYxMzLojD1xU1Jf+KhJe9xk5ajPyrCWPy7Gcw8GtsYGBiQmTNnms8zzMyY+SUA/hQ9AM73MwB8CkCPmeVElKnq2WZ2PYAvAng1gLqqwtft8UT0y3Y+Q6/bdq6Pp+n3/so3HIQQRlJe+/zH8QQiKoqi+Ftm/gcvWBDXMNzlcDkz/5GIdiaa0f7+vj3FzGqJrys+I2fmGoALAXwhfud8jpF1BtDDzDaRYz+pTzdHRM4KIUBENIQQFQ4VEQCgEEIaCf0qEW3pJsjx5zITM1eTPxNNwcTcuqgoir8TkRVmtrydmZZc329mx5nZF83s5KIo3jiReRk/RVFIovqeZWb7mdkv/P5mpyammeV+z5WpCt8tP8zsUm9nxPt0ZtkUM7PgJp2JSNPM1Mze6r8dama7ZIxyN6HXmNnTW5kpyf/7ROSn0cROeHtKIjhgZjf6NaP++3cnM96SmbMszrFrh9ZsNp8dn9vKbEhMpcOdB+l6OKMbCIKbSlvNLK4rGR4efmqb4Mtn0vGLyG9jf0Tkd+ncicilrXgTTXAzW2JmTRHROG4ze0ly3VnJHJuIbDazJ8W+Dw8PH25mw2ZW+P3iJt/pnUA2kvHPcjfL7mdFM3iaIsUws8O6NEOXOI9qvt5Dq/WTfKjFd+kna7dGk9+5NEdZ+T3hZBeMu1qRaDz/GUK4mJnnuApvZTMtmnWqejeAZ7mj9a8BzAkhrO0wVUhCCKyqO4qiOAnAFW4mnqCqBRHVOp0gd+BiqgdmlB2iIkIu1Oo+ibXk8JAUfBsrbJzlfVAArKpQ1TcT0V1mVo8TnDh2yXfeAWZ+HYBNvqvGKN2H0+eUzpyEa3WTpei0/pOqjjhMzgCgVqu9KzFjuLSYqBTIKfO65tc1WvhOHrHQAWDHjh2W9AUArKenh9PF6xtaiKWWXPM0j3iCiJSZv1ASVK80s/3ddKdyeiuAD8TCk241/JKIroubhIiUx7U7akhEVq/X3w2gx+eEXHM7i4iu9bkOyXxb9A22EASteBj51dMJDycChwMYdjdIoaq5u0BWqeoDpc9aVe0HMOzmZe4VkqWFti7JJ2p/0uZTlOch+oWT3zWZoFihWVNfb5YM6D5XQXvcPPgcgFv8pZjtteUHmHlWjOYlQuu2TZs2vXD+/PkXM/PbfVIPBXDnRKlCSRurmPnUoaGhHb29vb8HsNiF1mQPrZ1qEUMrRSlHPHpWJH1/HREtdl9QcDV7hf98WmLSZap6c61Wu8GjcM02OKHchdfDZnZZIqxIVZ9nZgcRUf8Ewocmg51yM2q9iFwC4Bxf2MrMbzEzAfAeIhpOoojagUN4oMyz8TSu2bNnq5upKUXYgSb+JpjZaxOsIQG4KdEsrlDVfw4hzHfXxRwAr3KzLQAo/Do1s8WqeqbPd8Q1fhwAHnrooeDmmbVbG2aWqerpiQnPbmZ+c4K5RgKZoHHA3Ls64WGXxTYzVQ3Ot0tdcKfmfMTIzQCw1cxe7+Z3E8A6Ijon4ujcTH5TCOF0b+NXAC5V1S+6C0MdJF5zWNNmAD8gop+kwtx9hScAeKmqHgvgQOfnOgArAFxFRL/bza+ogg0PDz/VVdQHzOxgEbkrNQ3zPD9JRO6PUZVEpb71xhtvzMzsc/7bkH//2Z07d86NUZ40WtnCxLzDzA4wswNFZHWn5mWbqKL4/bdNBomcmM5fLpli7zez09ycWm5mnxKREedFNElu8d1jrohsL6n8fx8jOhOZbX7dSYnZJqm56P27oWTKfr2D6FkYJ3oUfEermdmVLdwGK8xsafkZqQmSmG3ic/FbEbnKzL7vbV7p/7/azK43szeUzPPZ0VTy+4fN7C/M7BAz6zOz+Wa2TER+WJqbNWY2L2qtzp+LSubiL0v9zVpdZ2b/lWqV7qt8e8lU7DezPr9ucfKMprdxTidz3cJU7BORR0TOzewOEblKRH7g/LvSzH4gIleb2U/N7H2duAiSZxwgIgPJe3lxYgpSGilOtKFDzGxzYj6+Znc0pdl8XpQFvk6PNrP9J7I/3f8b259rZt+d6BYzu8T7yY+wr81si5k9W0QuTxZufGmW+4tpRVHECbrLYQ/nx4lLBnGVP2R7K8GVvBC3+UDnJYJxUkKrJLjuLkMIpiK4iqJ4fwoTSIRKDL9vTl7soxI+xHG+rhN4RvJiHZmMJbbx2uS6m0ov5lcnA/9oESonx0R9PhEgUSBty/P85SW/WOzvU5IXW/2lm2jxnlvy282KL24ytqUi8mszWy8iW1rACW5N+M5Jf5b4+tVknp4ZeeTjnO8bzO6NOM/zU1Mh73+/oyS41iWC6xkJn4rUt9epv7Hk49rcDQ/N7PMdrqt2guvCDv2fx/lGkrtyEVzRWO++3aaZnRwDTb4B5SJyY57nLzGzU4ui+KCZ7UggUzPMrMfnMM7nCjN7W7PZfHaz2TzBzP7OzFYmv3/TzCgrnVB9BoBjmfnN0UwzswIAi8gcIlrv6muGsaqozxWRN4YQzlPVnIhqHhkEgIOJKBeRh5l5dgpCTczDFcz8IjdLfsbMh0/RPMQ0HpgRSilE96jqtQDellZhBCCq+iNm/gAR3ZP4g6wN0nnS5morKEvJ7zJRROntDmNoJm0TxirG/paIvh8jlyGEvzGz24nos0RUV9UmMz+Jma8ys48Q0YWlF5M6qB5SNoNGWvAorhEwcwNj1UsuAPAfDrxU90VdCuBHzHydH+qSAkGZiO4WkeuZ+cXe94aqvtV9p8HveRczz05AvL+o1Wo/jv6WRBhwC95TyUSfLjOu23UyMoXT3w3AK0TkYP9b3Xysq2qdmd9HRGvcfXGbHwz9aWZeCOAiVT2amQ/wjf7cLMtucAFZRJOUmR8IIVznj/2xiJxGRCcBmDswMDCzr6/v9cx8nMuAW5n5RUS0K+nqLWb2HVX9OTMfzsyvB3Btlkz0wMjIyLZarfY5P5G6vFvM86qmqqrNPM9PbjQaTw8hXOYdLQubBWZGqroBwFMSmIW40LpraGjotN7e3p0AbmDmo6dJaMWJ7/EXcqqCK1JvnuefbjQa6wD0+oJ5EMCvQgh/LKV7bHGsz/6J0/6IDjW/qKof6I5iTV6cTUnwIEsP550ADkEeSHgzM5/Y5povAfh+hHu4f+bLZnYHgG8w86GqWvjC/oSI9BDReaWXm5IkbBKRD5vZ7QAsy7Jm6bos8YEKAGzfvp1mzZpFSaoXNZvNBT09PdeIyE3M/EIPHtUB/IiIrolaVgkVH1PPvgDgxclcxlPZd3pU8F0+PzGg8vE2m8x4AvlhVR1i5hm+aQcAh5eSq7vBVe4WiA79+SSAG72fzaIokGVZysMHJtq4WglHIoLDRY7CWNZDqwOePxL74uvhIhF5kUNU3hPXn6r+vyzLLo6wju3bt6Ovry8GjerJBnqUqj7NN4WBvr6+IVV9IzOrmWXMfC4R7fJUswj9qBHRhqIoPu5YTgXwjnTRaa1We5PvPEU5lYaIDhCR9SEEZubXNhqNzQB+6ZEUTq7fXcLZhcfaUgpPUNXVzLy8r69vo5ldAeD5UWPD9NedH+gSgNpScInIzJ6enrsBnNfOvIvREiLaJiL3Ajg+4d/LiOgfzWyixN+4258aH+14nsHBwcF72p1C3klUsd0p5H7/SMlZWvhivcWdplcw84n+nIKZ/8HMfkFEPwaA0dFRrtVqlOaOisg1jUbjzk41S49Yc8Iz+NmdBOCD7viNUcavOLRkewutR/2e61T1fmZ+ijvp54vIq7Isu6woineEEBYk2tbNtVrtJ1HbmuDE9/Td2ODCY2nCy5eFED7TLo+2Q8Fl7l+7oVarXTcNyelRw+JEsENV1wFYxcyFb5LkgSZJwMHRec4A/pdvOHO9nbuZ+a2ufUsLHi0SkSs8qHc8M0cYyUW++T/V53QzEf3B562ZpLjFs1F/lRRtOCIrvYB3tTNxfNK3qOrXQgj/LiK/805IGRTqav5+AJ6EsXMa445QU9WdzPwKInpIRD4J4DUeOZpOoZVqXOmkdQJAtTYalyWJxKl2o6XdPkatfgDgOdG8YebjPAr5bQ+RS+mFi1Ga3Mzmq+o7IrDQ+/7L3t7e9Yl2US+XSvHFE1pVsvXfPoqxBPWyqdjDzA+4ORn9JQpAXHitN7OXAvg1Mx/pEBBT1XcB+DEANBqNFNlPGCsoOcv9V+0Wtab5jJ4D+gi+1+v1+FLeamZfY+a3urCZr6oXhBDO9v4WpShpRkRNM/sKgE/E5xDR683s66r67lTbipHEVlqSiNQcqPkoAeOI+WsBHB3HxMwnmdnpEQ7hY9cW71WEu+g45nbvBDw0fwe1G+Hoa5LN7DNZln1yAqGoSSbIUwHs59FcqOo8Zn4KEf0prhtXYijJgz4CwHN943xIRL6SZdk/mdncOPfMnMeKKG0sk6ZbgrXd72bigDuhRb6iJBGzI30iPz+eEz3eMzo6+pdFUfxNdHKLiOZ5/lLfSd4xVUf8OPmSsQ9HdJu/F3khIt9Knd9FUbytUydoElnc7I7I3MzEHZOnT3D/XBH5eQsA6ksScxRJ1Dc6zv/PNIAUx4WQiMj3kmeqiPwqufcZScQ5epWXdumcPiDm6iVtHBvncHBw8BDn4W5Qr5md2A5c6v8e7G3GdbHFzC5Igx4i8rM2YODoSvlQyTm/xcz2T+b7UHdcFz5nKiJbo6O/0/EPDg4enIw/zvuLpxmAulhEhpOg27keRNvPN9Ra8gkloO4CM1vbIkDy2xidTtbwFv/t62Y2x8yOGx0dXWpmM9KcSRG5JwZHRkdH/8K/ryfvUd2vP8kfpyKyIis5gdc4ALGnXHmBmRcT0b0e2Tp7PH9UTEep1+sHucalzFwXkQ/UarVrzOz5AC7xHSRgDx2Y4TgUTJOPK+sSE/Wwmb0NwNVElIlIEUKYBeCHZvZNAF8fHBy8febMmdtcezoYwKmq+j5mXpyk/NRU9bIQwnXJrlcra1zMvMjMjs/zfPfO7NUIIiangbHyRf0tNNDMfQrniMgzzezbRVH8rtForFu5cmV+xBFHzALwclU9LQFZIjlvMwZDUKoEcqQHdzIPnYd6vR6rbATH2j2MseoG0bzP2sxDNnPmzLUicgkzfyT6VVX1S2Z2nGu5lAAgo5awzsyuBnCmiAgz7w/gY9HFMZG2FRW/FlpLSFJ+HiqK4r3uJ1Q37+cw849E5GvM/G9uXm33e/ocp3Q0gGN37NhxIYCtM2bM6BGRRqkvh42MjDyt0WjUElMv5Hme1Wq1iLUaJKLfdLiu60npIADY4elG+QRamqrqt5n5YP/uQlU9mZmPZ+ZnqeqFIYQPJrXIYv/rRLQNwG0l5YCIqPAk86cxM9Xr9fOJ6FUlv3T8++8jmNvMrirveHURebCExYk71VYPTW9yqddJhYZ3mtkxfv/X/BkHeerLuFUepkPrajabz+02DSbRuK72HXTQMSRndwM3iO0URfEGMxtK4BN5slPtMLNVIrI+CaWncBMzs2/deuuttVKof4aHpAsP+Rcdhs5f02oMCV7pnUnfmiKyTkQeKKXhxNQmM7NlSRuneH+arnVEbTFCZIo0xJ/097KkjSO9/SL+a2bPLkEYFjiEoXAtx0Tk/DZaV8TEvcDXbNq3UZ+StlU1EmjMBcnzCn/+gkRziJrJ+5L3pSjN9U4zWy0ia0RkW3JdfwIHeXqitcX0obzUb2nBw59OtM7j+FyrkQTqdL2IfFJELnJM22fN7AtmdqmIXL5z5865zoOLk7F8P1YSMbPhRPs9zb8/xKFVIiLfTnBiaZWTqMUdGNPmvO1/N7OTHde5wOfu6uT3e81sTqvSHj9LS9EkDB5xEOqGdoDSsuASkQtGRkaOdExVny+kn0621E23WK48z0+ZhOCKfLilhDn6aLc4qWRB/2UETXZBq83sb8v4Kvx3GaJmt7VP8jw/rd0LnpTf6YQKM3tvisHK8/yVkyxrc0nSj+NaXHJimvvmc/OpFtc9r83YyPMX72nThRe1WyOJ4LqkxX3tytqcaGY/62L8NyXP+x+T5OF/dCC4Yv+e29UiXL16PzM7O3nW7WY2MxG2ZyWXD5rZYhdGjyjb04a/kXdHm9kfSmMaLJf4EZE/mtlRZfOH3aS7D8ALUlPCvfkNZp7h+UudFgc8vNFobATwP4loQEQuZOZTphGrNW6UKsuymZO9l5lXeKmWEWbuDSGs7zb30c26QER/ALDczJ6tqmcw8wmqegTGKh3UXQUeYub1qvp7M7suhHANEe0o57glZsTPHW/TqjSwuiOUPeQNVa1lWdbudHF1ft0G4H8DOMbL9MxzU4SZeQjAelX9BTN/2XE9nNy7HcAtsQhfu2ckzmdl5oYHhCIKO6/X6zc77ooANJrNZhrZgpnR0NDQxT09Pcd6PknuUcGXmdktLZ4bo7SfVtU3MfOwV2+oe3T7ejcxZZy1cD+Am30t1JyneZu5/i8AL3Rt9GWq+lyHksyKgRsAw8y8zTFq30nGP5Jl2S3MnLsp2xEPmfm2LtZmDuD2JLVKShVHIkwiqOqmhQsXLnUYzW1eseItRDQYNxIi+r8i8izHYgUAZwH4LIBbAQRmfqhd32L+IRH9cfXq1c9ZuHDhG1X1DI/Qzvd1uwrAXcx8DTNfTkRDj9COE3PhwwlqvkgE3kbfEW+YSGNKUOM37+ZWni9P2tU9pW0lzy+Kojhzqmjy6XKMliMlnjR7oJkdNjQ0tHj79u37t9slH8M+7+876KGelkHtqlpUNO5c95nZQp/rhe6srj1OxlMfr8JFi7Fm3a6NFkGRhqdwzfdqso+6NmvRyMro3HU8xzDGahx9moj6RWQXM8cyvhOBQKMfYJGqfjU6F6d6cEYnNeoB1EMIfdNwwg3GO9mmQ81LSwdhKBGNePZBK2FFHhqWTie7m350cQDFVv88qvBem3rrkxFmVip1zRP1uRW4s4Ox8WR40u3z0jLOyTwOoAWeMMH/6XTycDpOtYoafnIeACXxLy1dxwkWr+j2kBLXvNK1Nwpgc5sDZLQsuKLKf7+rePAowgVEdFfsjKqu7QDwtvtMRq+qeT4zz9vTJmJSiLCOsUqUVzlDZJKnzdg0Rzy1RVWFFG2O8YRVty/cJMdctOtfcmrNHutTJ21MZm6m0rdJPk/G2wTb9WlPzOtkT1dqc/qQddLnbgVpm7X3qPemVSqDJUjgawCcHEJ4PRHd5dUfakQUy0x0SrMAzPZ0FNvDKm3BY6QAPkhEryaijXvrkU9e48i83pDuCUE53f2rjs6aEi+14mXXa68tn7IWEnITEZ1RUmWLJMLSX0IRt8RSJXWS5ojI/V4Odo+Zhl788H4AbyWin7uqrtUCqaiifY+4nb3pEYM0nSVWSejvoDigYQw4RgAOCyGs2oOmIVxoXQngOS60srQaY0UVVbSPC65EVZNWoeFms7kxOfDgUQLLD40gL0myDsCWoii2TPUEmnamoRf5j6bhwy5wi2pqK6roCSa4xqN6vb7ZD8akNJnXy9VQGLMjt6nqPwI4lohWmNmuyT5vvOPLVPV+ETk5y7JPxTB0p87tiiqqCE8IfEpEbc8siqI/PQ0mRdc7ynhRCbl8mFdItKlguEoVR7/n2eWPOU6roooqehyQw/7LeXffMrOj0QKIZmZPKpekncLJ1rmZfWBvAGlWVFFFjxNUsAuuHyUC67qYT5Ymtpa0tN25Yt0mVnuJkJj7eF+z2XxB+TkVVVRRRZ0clvptM7vdzJaXBNajfFjnnXde1Lp+3m1ydWoaei2oJ1emYUUVVTRZP9cR9957b6N8ssoEZWKu6KZwYGUaVlRRRe0om0xaABGtLB0O0cnhFf2TAJTehzFA6c0JoLSKGlZUESo4xKQz4LsRIma2rktA6fcwBii9uQKUVlRRRY+VX+zMaPpNZBoWRVGZhhVVVNFjKrhCWuy+HFVMo4Z+Yu2JVdSwoooq2isgFGa2dCwjqG3U8LtV1LCiiira2yKRC/zAgDI2Kzez91emYUUVVbQ3Cq6GiKyKp6240EpNQ65Mw4oqqmivE15+cGSkyjSsqKKK9n4HvYj8RESKoijeU5mGFVVU0ePFQf9PeZ6/vIoaVlRRRVOh/w9c/Og2vs4tdwAAAABJRU5ErkJggg==" onclick="goHome()">
+  <div class="hdr-title" onclick="goHome()">IN<span>DEX</span></div>
+  <div class="hdr-project hidden" id="hdr-project">
+    <button class="btn btn-sm" onclick="goHome()">‹ Projekty</button>
+    <div style="min-width:0">
+      <div class="pname" id="hdr-pname"></div>
+      <div class="pfair" id="hdr-pfair"></div>
+    </div>
+  </div>
+  <div id="hdr-cd"></div>
+  <div class="hdr-spacer"></div>
+  <div id="hdr-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  <div class="avatar hidden" id="avatar" onclick="toggleUserMenu(event)"></div>
+</header>
+
+<div id="app-row">
+<!-- PANEL BOCZNY: targi → stoiska (rozsuwany belką) -->
+<aside id="side" class="closed">
+  <div id="side-panel">
+    <div class="side-acts" id="side-acts"></div>
+    <div class="side-sel" id="side-sel"></div>
+    <div id="side-tree"></div>
+    <label class="chk side-foot hidden" id="side-foot"><input type="checkbox" id="side-showarch" onchange="S.showArch = this.checked; renderSide()"> Pokaż archiwum</label>
+  </div>
+  <div id="side-handle" onclick="toggleSide()" title="Targi i stoiska — kliknij, aby rozsunąć / schować">
+    <span class="arr" id="side-arr">▸</span><span class="vt">Targi · stoiska</span><span class="arr" id="side-arr2">▸</span>
+  </div>
+</aside>
+<div id="screens">
+
+<!-- LOGOWANIE -->
+<section class="screen" id="screen-login">
+  <form class="login-box" onsubmit="doLogin(event)">
+    <div class="lt">IN<span>DEX</span></div>
+    <div class="ls">Graficzny index stoisk · POL-SERVICE Expo</div>
+    <div class="login-team" id="login-team"></div>
+    <input type="text" id="login-user" placeholder="Login" autocomplete="username" autocapitalize="off" oninput="renderLoginAvatars()">
+    <input type="password" id="login-pass" placeholder="Hasło" autocomplete="current-password">
+    <div class="login-err" id="login-err"></div>
+    <button class="btn btn-solid" type="submit" id="login-btn">Zaloguj</button>
+  </form>
+</section>
+
+<!-- LISTA PROJEKTÓW -->
+<section class="screen hidden" id="screen-home">
+  <div class="home-bar">
+    <h2>Projekty</h2>
+    <div class="seg" id="home-seg">
+      <button class="on" data-v="active" onclick="setHomeFilter('active')">Bieżące</button>
+      <button data-v="all" onclick="setHomeFilter('all')">Wszystkie</button>
+    </div>
+  </div>
+  <div class="proj-grid" id="proj-grid"></div>
+</section>
+
+<!-- PROJEKT -->
+<section class="screen hidden" id="screen-project">
+  <div id="pane-top">
+    <div id="viewer" class="t-point">
+      <div id="stage">
+        <div id="stage-imgs"></div>
+        <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="toolbar" id="toolbar">
+        <button data-tool="point" title="Kliknij w dane miejsce na wizce, aby dodać element. Kliknięcie w znacznik zaznacza go, przeciągnięcie tła przesuwa widok.">📍 <span class="lbl">Zaznacz kliknięciem</span></button>
+        <button data-tool="poly" title="Obrys wielokątem — klikaj kolejne narożniki (P)">⬠ <span class="lbl">Wielokąt</span></button>
+        <div class="sep"></div>
+        <button onclick="zoomBy(1/1.25)" title="Pomniejsz (−)">−</button>
+        <div class="zl" id="zoom-label">100%</div>
+        <button onclick="zoomBy(1.25)" title="Powiększ (+)">+</button>
+        <button onclick="fitView()" title="Pokaż wszystkie wizki (F)">⤢ <span class="lbl">Dopasuj</span></button>
+        <div class="sep"></div>
+        <button onclick="pickPhotos()" title="Dodaj wizki z dysku">＋ <span class="lbl">Wizki</span></button>
+        <button onclick="pasteFromClipboard()" title="Wklej obrazek ze schowka">📋 <span class="lbl">Ctrl+V</span></button>
+      </div>
+      <div id="viewer-empty">
+        <div class="big">Przeciągnij tu wizki stoiska</div>
+        <div>albo skopiuj obrazek i wklej go przyciskiem poniżej</div>
+        <div style="display:flex;gap:10px;pointer-events:auto">
+          <button class="btn btn-solid" onclick="pasteFromClipboard()">📋 Wklej (Ctrl+V)</button>
+          <button class="btn" onclick="pickPhotos()">Wybierz pliki…</button>
+        </div>
+      </div>
+      <div id="viewer-hint" class="hidden"></div>
+      <div id="assign-bar" class="hidden"></div>
+      <div id="drop-hint" class="hidden">Upuść, aby dodać wizki</div>
+    </div>
+  </div>
+  <div class="split-h" id="split-h" title="Przeciągnij, aby zmienić podział ekranu"></div>
+  <div id="pane-bottom">
+    <div id="el-pane">
+      <div class="el-bar">
+        <h3>Elementy</h3>
+        <div class="seg" id="el-seg">
+          <button class="on" data-v="all" onclick="setElFilter('all')">Wszystkie</button>
+          <button data-v="photo" onclick="setElFilter('photo')">Bieżąca wizka</button>
+        </div>
+        <button class="btn btn-sm" onclick="newElementWithoutShape()" title="Element, którego nie da się zaznaczyć na wizce">+ Element bez zaznaczenia</button>
+        <div class="stats" id="el-stats"></div>
+      </div>
+      <div class="el-scroll" id="el-scroll"></div>
+    </div>
+    <div class="split-v" id="split-v"></div>
+    <div id="log-pane">
+      <div class="log-bar">Historia zmian <span id="log-count"></span></div>
+      <div id="log-list"></div>
+    </div>
+  </div>
+  <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
+</section>
+</div><!-- #screens -->
+</div><!-- #app-row -->
+
+<div id="toasts"></div>
+<input type="file" id="file-generic" accept="image/*" class="hidden">
+
+<script>
+'use strict';
+// =====================================================================
+//  INDEX — graficzny index stoisk (POL-SERVICE Expo)
+//  Baza: ten sam projekt Firebase co Archiwum X, osobne kolekcje index_*
+//  Zdjęcia: Cloudinary (jak w Archiwum X)
+// =====================================================================
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB5qDeta9NuJX0Ixy3NTK1UttjAdatpw5o",
+  authDomain: "archiwum-x-3d094.firebaseapp.com",
+  projectId: "archiwum-x-3d094",
+  storageBucket: "archiwum-x-3d094.firebasestorage.app",
+  messagingSenderId: "773383997184",
+  appId: "1:773383997184:web:c29e4ab46c26a9bf78d5e5"
+};
+const CLOUDINARY_CLOUD = 'dahvxm9me';
+const CLOUDINARY_PRESET = 'ProService';
+
+// Kolekcje (osobne od Archiwum X, nic tam nie ruszamy)
+const C_USERS = 'index_users';
+const C_PROJECTS = 'index_projects';
+const C_TYPES = 'index_types';
+const C_FAIRS = 'index_fairs';
+const pPhotos = pid => `${C_PROJECTS}/${pid}/photos`;
+const pElements = pid => `${C_PROJECTS}/${pid}/elements`;
+const pLog = pid => `${C_PROJECTS}/${pid}/log`;
+
+// Tryb demo (?demo w adresie): wszystko w localStorage, Firebase nietknięty
+const DEMO = new URLSearchParams(location.search).has('demo');
+
+// Administratorzy na sztywno (w kodzie tylko skrót SHA-256 hasła; każdy może je potem zmienić w menu awatara).
+const SEED_USERS = [
+  { id: 'kg', login: 'KG', name: 'Krzysztof', company: 'POL-SERVICE Expo', admin: true, color: '#38a169',
+    passHash: 'a7f92b0888667e855055b8f88e2b1b63ea5aac30d5cabac6ed1711926a100575' },
+  { id: 'dm', login: 'DM', name: 'Dima', company: 'POL-SERVICE Expo', admin: true, color: '#3182ce',
+    passHash: '569a11f08559908735f8b8a9ab0fb04e9eeafde4dc1307af1813de954888f146' },
+];
+const FIXED_ADMINS = ['kg', 'dm'];
+if (DEMO) SEED_USERS.push({ id: 'test', login: 'TEST', name: 'Konto testowe', company: 'Demo', admin: true, color: '#805ad5',
+  passHash: 'f930645105f875323be574d47b1c2a245d60c1b33c2ece08b22ef218bcc8b167' });
+const USER_COLORS = ['#38a169','#3182ce','#e53e3e','#d69e2e','#805ad5','#dd6b20','#319795','#d53f8c','#2b6cb0','#975a16'];
+
+// Typy elementów — startowe, admin edytuje je w panelu „Typy elementów".
+// Kolory i reguła spadu przeniesione z Index graficzny (CorelDRAW). Spady do potwierdzenia.
+const DEFAULT_TYPES = [
+  { id: 'folia-kontur', order: 1, name: 'Folia cięta po konturze', color: '#45b731', bleed: 0, icon: 'cut',
+    desc: 'Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.' },
+  { id: 'folia-laminat', order: 2, name: 'Folia z nadrukiem + laminat', color: '#00a0e3', bleed: 10, icon: 'print',
+    desc: 'Zadrukowana folia z laminatem, oklejająca całą powierzchnię (ściana, lada, słup).' },
+  { id: 'pcw', order: 3, name: 'Płyta PCW z nadrukiem', color: '#e31e24', bleed: 10, icon: 'board',
+    desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
+  { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 10, icon: 'banner',
+    desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).' },
+  { id: 'lightbox', order: 5, name: 'Lightbox (podświetlany)', color: '#f5c400', bleed: 10, icon: 'light',
+    desc: 'Grafika na tkaninie lub folii podświetlana od tyłu — rama aluminiowa ze światłem LED.' },
+  { id: 'tkanina', order: 6, name: 'Tkanina w ramie (SEG)', color: '#8e44ad', bleed: 10, icon: 'fabric',
+    desc: 'Zadrukowana tkanina z silikonową krawędzią wpinana w ramę aluminiową, bez podświetlenia.' },
+  { id: 'dibond', order: 7, name: 'Dibond / płyta kompozytowa', color: '#f07d00', bleed: 10, icon: 'board',
+    desc: 'Płyta aluminiowo-kompozytowa z nadrukiem — sztywna, trwała, do wielokrotnego użytku.' },
+  { id: 'nie-wiem', order: 99, name: 'Nie wiem — do ustalenia', color: '#7f8c8d', bleed: 0, icon: 'other',
+    desc: 'Wybierz, gdy nie wiesz, z czego ma być element. Opisz go w uwagach — ustalimy to z Tobą.' },
+];
+
+// =====================================================================
+//  NARZĘDZIA
+// =====================================================================
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pad = n => String(n).padStart(2, '0');
+const nowIso = () => new Date().toISOString();
+const clone = o => JSON.parse(JSON.stringify(o));
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function letterOf(n) { let s = ''; n = n | 0; while (n > 0) { n--; s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26); } return s || '?'; }
+function fmtDate(d) { if (!d) return '—'; const x = new Date(d); if (isNaN(x)) return '—'; return `${pad(x.getDate())}.${pad(x.getMonth()+1)}.${x.getFullYear()}`; }
+function fmtDateTime(d) { if (!d) return '—'; const x = new Date(d); if (isNaN(x)) return '—'; return `${fmtDate(x)} ${pad(x.getHours())}:${pad(x.getMinutes())}`; }
+function fmtShort(d) { const x = new Date(d); return `${pad(x.getDate())}.${pad(x.getMonth()+1)} ${pad(x.getHours())}:${pad(x.getMinutes())}`; }
+function numPL(v, dec = 2) { return Number(v || 0).toLocaleString('pl-PL', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
+function intPL(v) { return v === '' || v == null ? '' : Number(v).toLocaleString('pl-PL', { maximumFractionDigits: 1 }); }
+async function sha256(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const passHashOf = (login, pass) => sha256('INDEX|' + login.trim().toLowerCase() + '|' + pass);
+
+function toast(msg, kind = '', ms = 3200) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind; t.textContent = msg;
+  $('toasts').appendChild(t);
+  setTimeout(() => t.remove(), ms);
+  return t;
+}
+
+// ---- okna dialogowe ----
+let modalStack = [];
+function openModal({ title, body, footer = '', wide = false, onClose }) {
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `<div class="modal ${wide ? 'wide' : ''}">
+    <div class="modal-h"><span>${title}</span><button class="x" data-close>✕</button></div>
+    <div class="modal-b">${body}</div>
+    ${footer ? `<div class="modal-f">${footer}</div>` : ''}</div>`;
+  document.body.appendChild(back);
+  const m = { el: back, close() { back.remove(); modalStack = modalStack.filter(x => x !== m); if (onClose) onClose(); } };
+  back.querySelector('[data-close]').onclick = () => m.close();
+  modalStack.push(m);
+  const first = back.querySelector('input:not([type=checkbox]):not([type=color]),textarea,select');
+  if (first) setTimeout(() => first.focus(), 30);
+  return m;
+}
+function confirmBox(text, okLabel = 'Tak', danger = true) {
+  return new Promise(res => {
+    const m = openModal({ title: 'Potwierdź', body: `<div style="line-height:1.5">${text}</div>`,
+      footer: `<button class="btn" data-no>Anuluj</button><button class="btn ${danger ? 'btn-red' : 'btn-solid'}" data-yes>${okLabel}</button>`,
+      onClose: () => res(false) });
+    m.el.querySelector('[data-no]').onclick = () => m.close();
+    m.el.querySelector('[data-yes]').onclick = () => { m.onYes = true; m.el.remove(); modalStack = modalStack.filter(x => x !== m); res(true); };
+  });
+}
+function download(name, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const safeName = s => String(s || 'projekt').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[łŁ]/g, 'l').replace(/[^\w\-]+/g, '_').replace(/_+/g, '_').slice(0, 60);
+
+// =====================================================================
+//  WARSTWA BAZY: Firebase albo localStorage (demo) — to samo API
+// =====================================================================
+const strip = o => JSON.parse(JSON.stringify(o)); // Firestore nie przyjmuje undefined
+let db = null;
+const FireDB = {
+  sub(path, cb) {
+    return db.collection(path).onSnapshot(s => cb(s.docs.map(d => ({ id: d.id, ...d.data() }))),
+      e => { console.error(path, e); toast('Błąd bazy: ' + e.message, 'error', 6000); });
+  },
+  async get(path, id) { const d = await db.collection(path).doc(id).get(); return d.exists ? { id: d.id, ...d.data() } : null; },
+  async list(path) { const s = await db.collection(path).get(); return s.docs.map(d => ({ id: d.id, ...d.data() })); },
+  async add(path, o) { const r = await db.collection(path).add(strip(o)); return r.id; },
+  async set(path, id, o, merge) { await db.collection(path).doc(id).set(strip(o), merge ? { merge: true } : {}); },
+  async update(path, id, o) { await db.collection(path).doc(id).update(strip(o)); },
+  async del(path, id) { await db.collection(path).doc(id).delete(); },
+};
+const LocalDB = (() => {
+  const KEY = 'INDEX_DEMO_DB';
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  const subs = {};
+  const rows = path => Object.entries(data[path] || {}).map(([id, v]) => ({ id, ...clone(v) }));
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { toast('Pamięć trybu demo pełna', 'error'); } };
+  const emit = path => (subs[path] || []).forEach(cb => cb(rows(path)));
+  window.addEventListener('storage', e => {
+    if (e.key !== KEY) return;
+    try { data = JSON.parse(e.newValue || '{}'); } catch (x) {}
+    Object.keys(subs).forEach(emit);
+  });
+  return {
+    sub(path, cb) { (subs[path] = subs[path] || []).push(cb); setTimeout(() => cb(rows(path)), 0); return () => { subs[path] = (subs[path] || []).filter(x => x !== cb); }; },
+    async get(path, id) { const v = (data[path] || {})[id]; return v ? { id, ...clone(v) } : null; },
+    async list(path) { return rows(path); },
+    async add(path, o) { const id = uid(); (data[path] = data[path] || {})[id] = strip(o); save(); emit(path); return id; },
+    async set(path, id, o, merge) { data[path] = data[path] || {}; data[path][id] = merge ? { ...(data[path][id] || {}), ...strip(o) } : strip(o); save(); emit(path); },
+    async update(path, id, o) { if (!data[path] || !data[path][id]) throw new Error('Brak dokumentu'); Object.assign(data[path][id], strip(o)); save(); emit(path); },
+    async del(path, id) { if (data[path]) delete data[path][id]; save(); emit(path); },
+  };
+})();
+let DB = LocalDB;
+
+// =====================================================================
+//  STAN
+// =====================================================================
+const S = {
+  users: [],          // scalone: seed + baza
+  me: null,
+  types: [],
+  projects: [],
+  fairs: [],          // targi; stoisko (projekt) wskazuje je przez fairId
+  sideSel: null,      // zaznaczenie w panelu bocznym: { kind: 'fair' | 'stand', id }
+  showArch: false,
+  homeFilter: 'active',
+  project: null,      // bieżący projekt
+  photos: [],
+  elements: [],
+  log: [],
+  photoId: null,      // bieżąca wizka
+  selId: null,        // zaznaczony element
+  hoverId: null,
+  elFilter: 'all',
+  unsubProject: [],
+  logSeen: null,
+};
+
+// =====================================================================
+//  UŻYTKOWNICY I LOGOWANIE
+// =====================================================================
+function mergeUsers(dbUsers) {
+  const map = {};
+  SEED_USERS.forEach(u => map[u.id] = { ...u });
+  dbUsers.forEach(u => {
+    const id = u.id;
+    map[id] = { ...(map[id] || {}), ...u, id };
+    if (FIXED_ADMINS.includes(id)) map[id].admin = true;
+    // dla seedów pusty hasz w bazie nie kasuje hasza z kodu
+    if (!u.passHash && SEED_USERS.find(s => s.id === id)) map[id].passHash = SEED_USERS.find(s => s.id === id).passHash;
+  });
+  return Object.values(map).sort((a, b) => (b.admin - a.admin) || a.login.localeCompare(b.login));
+}
+const userById = id => S.users.find(u => u.id === id);
+const userLabel = id => { const u = userById(id); return u ? u.login : (id || '?').toUpperCase(); };
+// kółko awatara: zdjęcie, a gdy go nie ma — inicjały (KG, DM…) na kolorze użytkownika
+function avatarInner(u) {
+  return u && u.avatar ? `<img src="${esc(thumbUrl(u.avatar, 160, 160))}" alt="">` : esc((u ? u.login : '?').slice(0, 3));
+}
+function avatarSm(id) {
+  const u = userById(id);
+  return `<span class="avatar-sm" style="background:${u ? u.color : '#718096'}" title="${esc(u ? u.name || u.login : id)}">${u ? avatarInner(u) : esc(userLabel(id).slice(0, 3))}</span>`;
+}
+const isAdmin = () => !!(S.me && S.me.admin);
+
+// ekran logowania: kółeczka zespołu — klik wybiera osobę, zostaje tylko hasło
+function renderLoginAvatars() {
+  const seedIdx = u => { const i = SEED_USERS.findIndex(s => s.id === u.id); return i < 0 ? 99 : i; };
+  const team = S.users.filter(u => u.admin && u.passHash).sort((a, b) => seedIdx(a) - seedIdx(b)); // Krzysztof, Dima, …
+  const cur = $('login-user').value.trim().toLowerCase();
+  $('login-team').innerHTML = team.map(u => `
+    <button type="button" class="la ${findLoginUser(cur) === u ? 'on' : ''}" onclick="pickLoginUser('${u.id}')">
+      <span class="la-c" style="background:${u.color}">${avatarInner(u)}</span><span class="la-n">${esc(u.name || u.login)}</span></button>`).join('');
+}
+function pickLoginUser(id) {
+  const u = userById(id); if (!u) return;
+  $('login-user').value = u.login;
+  $('login-err').textContent = '';
+  renderLoginAvatars();
+  $('login-pass').focus();
+}
+// login: skrót (KG), identyfikator albo imię (Krzysztof)
+const findLoginUser = s => S.users.find(x => x.id === s || x.login.toLowerCase() === s || (x.name || '').toLowerCase() === s);
+
+async function doLogin(ev) {
+  ev && ev.preventDefault();
+  const login = $('login-user').value.trim();
+  const pass = $('login-pass').value;
+  const err = $('login-err');
+  err.textContent = '';
+  if (!login || !pass) { err.textContent = login ? 'Podaj hasło' : 'Wybierz osobę albo wpisz login'; return; }
+  const u = findLoginUser(login.toLowerCase());
+  if (!u) { err.textContent = 'Nieprawidłowy login lub hasło'; return; }
+  if (!u.passHash) { err.textContent = 'Konto nie ma jeszcze hasła — poproś administratora (KG) o jego ustawienie'; return; }
+  const h = await passHashOf(u.id, pass);
+  if (h !== u.passHash) { err.textContent = 'Nieprawidłowy login lub hasło'; return; }
+  try { localStorage.setItem('INDEX_SESSION', JSON.stringify({ id: u.id, h })); } catch (e) {}
+  $('login-pass').value = '';
+  enterApp(u);
+}
+function enterApp(u) {
+  S.me = u;
+  renderMyAvatar();
+  $('avatar').classList.remove('hidden');
+  document.body.classList.add('logged');
+  toggleSide(sideState.open);
+  startTypesSub();
+  startFairsSub();
+  startProjectsSub();
+  const pid = new URLSearchParams(location.search).get('p');
+  if (pid) openProject(pid); else goHome();
+}
+function logout() {
+  try { localStorage.removeItem('INDEX_SESSION'); } catch (e) {}
+  location.href = location.pathname + (DEMO ? '?demo' : '');
+}
+function toggleUserMenu(ev) {
+  ev.stopPropagation();
+  const old = document.querySelector('.menu.user-menu');
+  if (old) { old.remove(); return; }
+  const m = document.createElement('div');
+  m.className = 'menu user-menu';
+  const r = $('avatar').getBoundingClientRect();
+  m.style.right = (window.innerWidth - r.right) + 'px';
+  m.style.top = (r.bottom + 6) + 'px';
+  m.innerHTML = `<div class="mh"><b>${esc(S.me.name || S.me.login)}</b><br>${esc(S.me.company || '')}${isAdmin() ? ' · administrator' : ''}</div>
+    ${isAdmin() ? `<div class="mi" data-a="users">👥 Użytkownicy</div>
+    <div class="mi" data-a="types">🏷️ Typy elementów</div>
+    <div class="mi" data-a="backup">💾 Kopia wszystkich projektów (JSON)</div><div class="sep"></div>` : ''}
+    <div class="mi" data-a="avatar">🖼 ${S.me.avatar ? 'Zmień zdjęcie awatara' : 'Dodaj zdjęcie awatara'}</div>
+    ${S.me.avatar ? '<div class="mi" data-a="noavatar">✕ Usuń zdjęcie awatara</div>' : ''}
+    <div class="mi" data-a="pass">🔑 Zmień hasło</div>
+    <div class="mi" data-a="out">⎋ Wyloguj</div>`;
+  m.onclick = e => {
+    const a = e.target.closest('[data-a]'); if (!a) return;
+    m.remove();
+    ({ users: openUsersPanel, types: openTypesPanel, backup: exportAllProjects, pass: openChangePassword, out: logout,
+       avatar: pickAvatar, noavatar: () => saveAvatar('') })[a.dataset.a]();
+  };
+  document.body.appendChild(m);
+}
+function renderMyAvatar() {
+  if (!S.me) return;
+  const av = $('avatar');
+  av.innerHTML = avatarInner(S.me);
+  av.style.background = S.me.color;
+  av.title = S.me.name || S.me.login;
+}
+function pickAvatar() {
+  const inp = $('file-generic');
+  inp.onchange = async () => {
+    const f = inp.files[0]; inp.value = ''; if (!f) return;
+    try { const { url } = await storeImage(f, 400); await saveAvatar(url); }
+    catch (e) { toast('Nie udało się wgrać zdjęcia: ' + e.message, 'error'); }
+  };
+  inp.click();
+}
+async function saveAvatar(url) {
+  await DB.set(C_USERS, S.me.id, { login: S.me.login, avatar: url }, true);
+  S.me.avatar = url; renderMyAvatar();
+  toast(url ? 'Awatar zapisany' : 'Zdjęcie awatara usunięte — widać inicjały', 'success');
+}
+document.addEventListener('click', () => document.querySelectorAll('.menu').forEach(m => m.remove()));
+
+function openChangePassword() {
+  const m = openModal({ title: 'Zmiana hasła', body: `
+    <div class="fld"><label>Obecne hasło</label><input type="password" id="cp-old"></div>
+    <div class="fld"><label>Nowe hasło</label><input type="password" id="cp-new"></div>
+    <div class="fld"><label>Powtórz nowe hasło</label><input type="password" id="cp-new2"></div>`,
+    footer: `<button class="btn" data-close2>Anuluj</button><button class="btn btn-solid" id="cp-ok">Zapisz</button>` });
+  m.el.querySelector('[data-close2]').onclick = () => m.close();
+  $('cp-ok').onclick = async () => {
+    const o = $('cp-old').value, n = $('cp-new').value, n2 = $('cp-new2').value;
+    if (await passHashOf(S.me.id, o) !== S.me.passHash) return toast('Obecne hasło jest nieprawidłowe', 'error');
+    if (n.length < 6) return toast('Nowe hasło: minimum 6 znaków', 'error');
+    if (n !== n2) return toast('Hasła się różnią', 'error');
+    const h = await passHashOf(S.me.id, n);
+    await DB.set(C_USERS, S.me.id, { login: S.me.login, passHash: h }, true);
+    S.me.passHash = h;
+    try { localStorage.setItem('INDEX_SESSION', JSON.stringify({ id: S.me.id, h })); } catch (e) {}
+    m.close(); toast('Hasło zmienione', 'success');
+  };
+}
+
+// =====================================================================
+//  TYPY ELEMENTÓW
+// =====================================================================
+let typesFromDb = false;
+function startTypesSub() {
+  DB.sub(C_TYPES, rows => {
+    typesFromDb = rows.length > 0;
+    S.types = (rows.length ? rows : clone(DEFAULT_TYPES)).sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+    if (S.project) { renderOverlay(); renderElements(); }
+  });
+}
+const typeById = id => S.types.find(t => t.id === id) || { id, name: 'Nieznany typ', color: '#999', bleed: 0, icon: 'other' };
+async function ensureTypesSeeded() {
+  if (typesFromDb) return;
+  for (const t of DEFAULT_TYPES) await DB.set(C_TYPES, t.id, t);
+  typesFromDb = true;
+}
+
+// Spad: na razie z typu (+ wyjątek ELTEX i ręczne nadpisanie przez admina).
+// Docelowe reguły ustali KG — tu jest jedno miejsce do zmiany.
+function bleedOf(el) {
+  if (el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '') return Number(el.bleedOverride) || 0;
+  if (el.eltex) return 0;
+  return Number(typeById(el.typeId).bleed) || 0;
+}
+const hasDims = el => Number(el.w) > 0 && Number(el.h) > 0;
+function grossOf(el) {
+  const b = bleedOf(el);
+  return hasDims(el) ? { w: Number(el.w) + 2 * b, h: Number(el.h) + 2 * b, b } : { w: 0, h: 0, b };
+}
+const areaOf = el => { const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1); };
+
+// Rysunek poglądowy typu (gdy admin nie wgrał jeszcze prawdziwego zdjęcia)
+function exampleSvg(t) {
+  const c = t.color || '#999';
+  const wall = `<rect x="20" y="18" width="200" height="118" fill="#edf2f7" stroke="#cbd5e0"/><rect x="0" y="136" width="240" height="24" fill="#d9dee5"/>`;
+  const art = {
+    cut: `<text x="120" y="88" text-anchor="middle" font-size="34" font-weight="900" fill="${c}" font-family="Arial">LOGO</text><circle cx="62" cy="76" r="14" fill="none" stroke="${c}" stroke-width="7"/>`,
+    print: `<rect x="20" y="18" width="200" height="118" fill="${c}" opacity=".85"/><circle cx="160" cy="60" r="26" fill="#fff" opacity=".35"/><rect x="40" y="96" width="110" height="10" fill="#fff" opacity=".8"/><rect x="40" y="112" width="70" height="7" fill="#fff" opacity=".6"/>`,
+    board: `<rect x="60" y="38" width="120" height="74" fill="${c}" stroke="#555" stroke-width="2"/><rect x="72" y="52" width="60" height="8" fill="#fff"/><rect x="72" y="66" width="90" height="5" fill="#fff" opacity=".7"/><circle cx="64" cy="42" r="2" fill="#555"/><circle cx="176" cy="42" r="2" fill="#555"/><circle cx="64" cy="108" r="2" fill="#555"/><circle cx="176" cy="108" r="2" fill="#555"/>`,
+    banner: `<line x1="40" y1="26" x2="200" y2="26" stroke="#555" stroke-width="3"/><rect x="48" y="28" width="144" height="98" fill="${c}"/><rect x="62" y="48" width="80" height="10" fill="#fff"/><rect x="62" y="64" width="110" height="6" fill="#fff" opacity=".7"/>`,
+    light: `<rect x="44" y="30" width="152" height="96" fill="#fffbe6" stroke="#888" stroke-width="5"/><rect x="52" y="38" width="136" height="80" fill="${c}" opacity=".55"/><g stroke="${c}" stroke-width="3" opacity=".8"><line x1="120" y1="8" x2="120" y2="22"/><line x1="200" y1="78" x2="214" y2="78"/><line x1="26" y1="78" x2="40" y2="78"/></g>`,
+    fabric: `<rect x="40" y="26" width="160" height="102" fill="#888"/><path d="M46 32 H194 V122 H46 Z" fill="${c}"/><path d="M46 70 Q90 54 120 74 T194 70" stroke="#fff" stroke-width="3" fill="none" opacity=".6"/>`,
+    other: `<text x="120" y="98" text-anchor="middle" font-size="64" font-weight="900" fill="${c}" font-family="Arial">?</text>`,
+  }[t.icon || 'other'] || '';
+  return `<svg viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg">${wall}${art}</svg>`;
+}
+const exampleHtml = t => t.example ? `<img src="${esc(t.example)}" alt="">` : exampleSvg(t);
+
+// =====================================================================
+//  LISTA PROJEKTÓW
+// =====================================================================
+let projectsUnsub = null;
+function startProjectsSub() {
+  if (projectsUnsub) return;
+  projectsUnsub = DB.sub(C_PROJECTS, rows => {
+    S.projects = rows;
+    if (S.project) {
+      const p = rows.find(r => r.id === S.project.id);
+      if (p) { S.project = p; renderProjectHeader(); }
+    }
+    if (!$('screen-home').classList.contains('hidden')) renderHome();
+    renderSide();
+  });
+}
+const canSee = p => isAdmin() || (p.users || []).includes(S.me.id);
+
+function showScreen(id) {
+  ['screen-login', 'screen-home', 'screen-project'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+}
+function goHome() {
+  if (!S.me) return;
+  closeProject();
+  showScreen('screen-home');
+  $('hdr-project').classList.add('hidden');
+  $('hdr-cd').innerHTML = '';
+  $('hdr-actions').innerHTML = isAdmin() ? `<button class="btn" onclick="openProjectForm()">+ Nowy projekt</button>` : '';
+  history.replaceState(null, '', location.pathname + (DEMO ? '?demo' : ''));
+  renderHome();
+  renderSide();
+}
+function setHomeFilter(v) {
+  S.homeFilter = v;
+  document.querySelectorAll('#home-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  renderHome();
+}
+function sortKey(p) {
+  const c = countdownInfo(p);
+  return c.target ? c.target : (c.phase === 'live' ? 0 : 9e15 - (new Date(p.eventStart || 0).getTime() || 0));
+}
+function renderHome() {
+  const g = $('proj-grid');
+  let list = S.projects.filter(canSee);
+  if (S.homeFilter === 'active') list = list.filter(p => countdownInfo(p).phase !== 'done' && !standArchived(p));
+  list.sort((a, b) => sortKey(a) - sortKey(b));
+  if (!list.length) {
+    g.innerHTML = `<div class="empty-state" style="grid-column:1/-1">${
+      S.projects.filter(canSee).length ? 'Brak bieżących projektów — zobacz „Wszystkie".' :
+      isAdmin() ? 'Nie ma jeszcze żadnego projektu.<br>Załóż pierwszy przyciskiem <b>+ Nowy projekt</b>.' :
+      'Nie masz jeszcze dostępu do żadnego projektu.<br>Administrator przypisze Cię do stoiska.'}</div>`;
+    return;
+  }
+  g.innerHTML = list.map(p => {
+    const c = countdownInfo(p);
+    const cover = p.cover ? `style="background-image:url('${esc(thumbUrl(p.cover, 560, 280))}')"` : '';
+    return `<div class="proj-card ${c.phase === 'done' ? 'done' : ''}" onclick="openProject('${p.id}')">
+      <div class="proj-cover" ${cover}>${p.cover ? '' : 'brak wizek'}</div>
+      <div class="proj-body">
+        <div class="proj-name">${esc(p.name)}</div>
+        <div class="proj-fair">${esc([p.fair, p.city].filter(Boolean).join(' · ') || '—')}</div>
+        <div>${countdownHtml(p, true)}</div>
+        <div class="proj-meta">
+          <span>🖼 ${p.photosCount || 0}</span><span>▦ ${p.elementsCount || 0} el.</span>
+          ${p.agency ? `<span>· ${esc(p.agency)}</span>` : ''}
+          <span style="margin-left:auto;display:flex;gap:2px">${(p.users || []).map(avatarSm).join('')}</span>
+        </div>
+      </div></div>`;
+  }).join('');
+}
+
+// =====================================================================
+//  PANEL BOCZNY: targi → stoiska
+//  Belka po lewej rozsuwa / chowa panel. Zaznaczenie (targi albo stoisko)
+//  jest celem przycisków Delete i Archive (tylko administrator).
+// =====================================================================
+let fairsUnsub = null;
+function startFairsSub() {
+  if (fairsUnsub) return;
+  fairsUnsub = DB.sub(C_FAIRS, rows => {
+    S.fairs = rows;
+    renderSide();
+    if (!$('screen-home').classList.contains('hidden')) renderHome();
+  });
+}
+const fairById = id => S.fairs.find(f => f.id === id);
+const standArchived = p => !!(p.archived || (p.fairId && (fairById(p.fairId) || {}).archived));
+
+const sideState = (() => {
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem('INDEX_SIDE') || '{}'); } catch (e) {}
+  return { open: !!s.open, fairs: new Set(s.fairs || []) };
+})();
+function saveSideState() {
+  try { localStorage.setItem('INDEX_SIDE', JSON.stringify({ open: sideState.open, fairs: [...sideState.fairs] })); } catch (e) {}
+}
+function toggleSide(force) {
+  sideState.open = force === undefined ? !sideState.open : !!force;
+  $('side').classList.toggle('closed', !sideState.open);
+  $('side-arr').textContent = $('side-arr2').textContent = sideState.open ? '◂' : '▸';
+  saveSideState();
+  renderSide();
+}
+
+const fairEnd = f => tsOf(f.eventEnd) || (tsOf(f.eventStart) ? tsOf(f.eventStart) + 864e5 : null);
+function fairSort(a, b) {
+  const now = Date.now();
+  const pa = (fairEnd(a) || Infinity) < now, pb = (fairEnd(b) || Infinity) < now;
+  if (pa !== pb) return pa - pb;                                   // minione na dół
+  const sa = tsOf(a.eventStart) || 9e15, sb = tsOf(b.eventStart) || 9e15;
+  return (pa ? sb - sa : sa - sb) || a.name.localeCompare(b.name, 'pl');
+}
+function fairDates(f) {
+  const a = tsOf(f.eventStart), b = tsOf(f.eventEnd);
+  if (!a) return '';
+  if (!b || fmtDate(a) === fmtDate(b)) return fmtDate(a);
+  const x = new Date(a), y = new Date(b);
+  return x.getFullYear() === y.getFullYear() ? `${pad(x.getDate())}.${pad(x.getMonth() + 1)}–${fmtDate(b)}` : `${fmtDate(a)}–${fmtDate(b)}`;
+}
+function sideTarget() {
+  const s = S.sideSel; if (!s) return null;
+  const obj = s.kind === 'fair' ? fairById(s.id) : S.projects.find(p => p.id === s.id);
+  return obj ? { kind: s.kind, id: s.id, obj } : null;
+}
+
+function renderSide() {
+  if (!S.me || !sideState.open) return;
+  const adm = isAdmin(), showArch = adm && S.showArch;
+  const stands = S.projects.filter(canSee).filter(p => showArch || !standArchived(p));
+  const fairs = S.fairs.filter(f => showArch || !f.archived).sort(fairSort);
+  const byFair = {};
+  stands.forEach(p => { const k = p.fairId && fairById(p.fairId) ? p.fairId : '_none'; (byFair[k] = byFair[k] || []).push(p); });
+  const groups = fairs.map(f => ({ f, list: byFair[f.id] || [] }));
+  if (byFair._none) groups.push({ f: { id: '_none', name: 'Bez targów' }, list: byFair._none });
+  const sel = S.sideSel, openPid = S.project && S.project.id;
+
+  $('side-tree').innerHTML = groups.length ? groups.map(({ f, list }) => {
+    const open = sideState.fairs.has(f.id), real = f.id !== '_none';
+    list.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+    return `<div class="fair-row ${sel && sel.kind === 'fair' && sel.id === f.id ? 'sel' : ''} ${f.archived ? 'arch' : ''}"
+        onclick="sideClickFair('${f.id}')" ${adm && real ? `ondblclick="openFairForm('${f.id}')"` : ''}>
+        <span class="car">${open ? '▾' : '▸'}</span>
+        <div style="min-width:0"><div class="fn">${esc(f.name)}${f.archived ? '<span class="arch-tag">archiwum</span>' : ''}</div>
+          ${real ? `<div class="fm">${esc([f.city, fairDates(f)].filter(Boolean).join(' · ') || 'brak terminów')}</div>` : ''}</div>
+        <span class="fc" title="Liczba stoisk">${list.length}</span>
+        ${adm && real ? `<button class="ed" title="Edytuj targi" onclick="event.stopPropagation(); openFairForm('${f.id}')">✎</button>` : ''}
+      </div>` + (!open ? '' : list.length ? list.map(p => `
+      <div class="stand-row ${sel && sel.kind === 'stand' && sel.id === p.id ? 'sel' : ''} ${p.id === openPid ? 'open' : ''} ${p.archived ? 'arch' : ''}" onclick="sideClickStand('${p.id}')">
+        <span class="sn">${esc(p.name)}</span>${p.archived ? '<span class="arch-tag">archiwum</span>' : ''}
+        <span class="sm">${p.agency ? esc(p.agency) + ' · ' : ''}▦ ${p.elementsCount || 0}</span>
+      </div>`).join('') : `<div class="stand-empty">brak stoisk — „+ New stand"</div>`);
+  }).join('') : `<div class="empty-state" style="padding:30px 14px">Nie ma jeszcze targów.<br>Dodaj pierwsze przyciskiem <b>+ New fairs</b>.</div>`;
+
+  const t = sideTarget();
+  $('side-acts').innerHTML = `
+    <button class="btn btn-sm" onclick="openFairForm()">+ New fairs</button>
+    <button class="btn btn-sm" onclick="newStandFromSide()">+ New stand</button>
+    ${adm ? `<span style="flex:1"></span>
+    <button class="btn btn-sm" onclick="sideArchive()" ${t ? '' : 'disabled'}>${t && t.obj.archived ? 'Unarchive' : 'Archive'}</button>
+    <button class="btn btn-sm btn-red" onclick="sideDelete()" ${t ? '' : 'disabled'}>Delete</button>` : ''}`;
+  $('side-sel').innerHTML = t ? `Zaznaczone: <b>${t.kind === 'fair' ? 'targi' : 'stoisko'} „${esc(t.obj.name)}"</b>`
+    : (adm ? 'Kliknij targi lub stoisko, aby je zaznaczyć' : '');
+  $('side-foot').classList.toggle('hidden', !adm);
+}
+function sideClickFair(id) {
+  const wasSel = S.sideSel && S.sideSel.kind === 'fair' && S.sideSel.id === id;
+  // pierwsze kliknięcie zaznacza i rozwija, kolejne na zaznaczonych zwija / rozwija
+  if (wasSel && sideState.fairs.has(id)) sideState.fairs.delete(id); else sideState.fairs.add(id);
+  S.sideSel = { kind: 'fair', id };
+  saveSideState(); renderSide();
+}
+function sideClickStand(id) {
+  S.sideSel = { kind: 'stand', id };
+  if (window.innerWidth < 760) toggleSide(false);
+  if (!S.project || S.project.id !== id) openProject(id); else renderSide();
+}
+function newStandFromSide() {
+  const t = sideTarget();
+  openProjectForm(null, t ? (t.kind === 'fair' ? t.id : t.obj.fairId || '') : '');
+}
+
+function openFairForm(fid) {
+  const f = fid ? fairById(fid) : {};
+  if (fid && !f) return;
+  const m = openModal({
+    title: fid ? 'Targi — edycja' : 'Nowe targi',
+    body: `
+      <div class="fld"><label>Nazwa targów *</label><input type="text" id="ff-name" value="${esc(f.name || '')}" placeholder="np. ISPO Amsterdam 2026"></div>
+      <div class="fld"><label>Miasto</label><input type="text" id="ff-city" value="${esc(f.city || '')}"></div>
+      <div class="row2">
+        <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="ff-ev" value="${esc(f.eventStart || '')}"></div>
+        <div class="fld"><label>Koniec imprezy</label><input type="datetime-local" id="ff-evend" value="${esc(f.eventEnd || '')}"></div>
+      </div>
+      <div class="fld"><label>Deadline graficzny</label><input type="datetime-local" id="ff-dl" value="${esc(f.deadlineGfx || '')}">
+        <div class="hint">Nowe stoiska na tych targach dostają te terminy automatycznie (w stoisku można je zmienić).</div></div>`,
+    footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ff-ok">${fid ? 'Zapisz' : 'Utwórz'}</button>`,
+  });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('ff-ok').onclick = async () => {
+    const d = { name: $('ff-name').value.trim(), city: $('ff-city').value.trim(), eventStart: $('ff-ev').value,
+      eventEnd: $('ff-evend').value, deadlineGfx: $('ff-dl').value, updatedAt: nowIso() };
+    if (!d.name) return toast('Podaj nazwę targów', 'error');
+    if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed imprezą', 'error');
+    if (d.eventEnd && d.eventStart && d.eventEnd < d.eventStart) return toast('Koniec imprezy jest przed startem', 'error');
+    $('ff-ok').disabled = true;
+    try {
+      if (fid) {
+        await DB.update(C_FAIRS, fid, d);
+        // stoiska dziedziczą nazwę i miasto; terminy tylko te, których nikt w stoisku nie zmienił
+        for (const p of S.projects.filter(p => p.fairId === fid)) {
+          const u = {};
+          if (p.fair !== d.name) u.fair = d.name;
+          if (p.city !== d.city) u.city = d.city;
+          for (const k of ['eventStart', 'eventEnd', 'deadlineGfx']) if ((p[k] || '') === (f[k] || '') && (p[k] || '') !== d[k]) u[k] = d[k];
+          if (Object.keys(u).length) await DB.update(C_PROJECTS, p.id, u);
+        }
+      } else {
+        Object.assign(d, { createdAt: nowIso(), createdBy: S.me.id, archived: false });
+        const id = await DB.add(C_FAIRS, d);
+        S.sideSel = { kind: 'fair', id }; sideState.fairs.add(id); saveSideState();
+      }
+      m.close(); toast(fid ? 'Zapisano' : 'Dodano targi „' + d.name + '"', 'success'); renderSide();
+    } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('ff-ok').disabled = false; }
+  };
+}
+
+async function deleteProjectDeep(pid) {
+  for (const path of [pPhotos(pid), pElements(pid), pLog(pid)]) {
+    const rows = await DB.list(path);
+    for (const r of rows) await DB.del(path, r.id);
+  }
+  await DB.del(C_PROJECTS, pid);
+}
+async function sideDelete() {
+  const t = sideTarget(); if (!t || !isAdmin()) return;
+  const stands = t.kind === 'stand' ? [t.obj] : S.projects.filter(p => p.fairId === t.id);
+  const msg = t.kind === 'stand'
+    ? `Usunąć stoisko <b>${esc(t.obj.name)}</b> razem ze wszystkimi wizkami, elementami i historią?`
+    : `Usunąć targi <b>${esc(t.obj.name)}</b>?` + (stands.length
+      ? `<br><br>Razem z nimi zostaną usunięte <b>wszystkie stoiska (${stands.length})</b>: ${stands.map(p => esc(p.name)).join(', ')} — z wizkami, elementami i historią.` : '');
+  if (!await confirmBox(msg + '<br><br>Tej operacji nie da się cofnąć. Jeśli chcesz tylko schować — użyj <b>Archive</b>.', t.kind === 'stand' ? 'Usuń stoisko' : 'Usuń targi')) return;
+  try {
+    for (const p of stands) await deleteProjectDeep(p.id);
+    if (t.kind === 'fair') await DB.del(C_FAIRS, t.id);
+    S.sideSel = null;
+    toast(t.kind === 'stand' ? 'Stoisko usunięte' : 'Targi usunięte');
+    if (S.project && stands.some(p => p.id === S.project.id)) goHome(); else renderSide();
+  } catch (e) { toast('Błąd usuwania: ' + e.message, 'error'); }
+}
+async function sideArchive() {
+  const t = sideTarget(); if (!t || !isAdmin()) return;
+  const arch = !t.obj.archived;
+  try {
+    if (t.kind === 'stand') {
+      await DB.update(C_PROJECTS, t.id, { archived: arch, updatedAt: nowIso() });
+      addLog(t.id, arch ? 'Stoisko przeniesione do archiwum' : 'Stoisko przywrócone z archiwum');
+    } else await DB.update(C_FAIRS, t.id, { archived: arch, updatedAt: nowIso() });
+    if (arch && !S.showArch) S.sideSel = null;
+    toast(arch ? `„${t.obj.name}" w archiwum` + (S.showArch ? '' : ' (widać po zaznaczeniu „Pokaż archiwum")') : `„${t.obj.name}" przywrócone`, 'success', 4500);
+    renderSide();
+  } catch (e) { toast('Błąd: ' + e.message, 'error'); }
+}
+
+// =====================================================================
+//  LICZNIKI: najpierw deadline graficzny, potem czas do imprezy
+// =====================================================================
+const tsOf = v => { if (!v) return null; const t = new Date(v).getTime(); return isNaN(t) ? null : t; };
+function countdownInfo(p, now = Date.now()) {
+  const dl = tsOf(p.deadlineGfx), ev = tsOf(p.eventStart), evEnd = tsOf(p.eventEnd) || (ev ? ev + 864e5 : null);
+  if (dl && now < dl) return { phase: 'deadline', label: 'Deadline graficzny', target: dl, next: ev ? 'impreza ' + fmtDate(ev) : '' };
+  if (ev && now < ev) return { phase: 'event', label: 'Do imprezy', target: ev, next: dl ? 'deadline graf. minął ' + fmtDate(dl) : '' };
+  if (ev && now < evEnd) return { phase: 'live', label: 'Impreza trwa', target: null, next: 'do ' + fmtDate(evEnd) };
+  if (ev) return { phase: 'done', label: 'Po imprezie', target: null, next: fmtDate(ev) };
+  return { phase: 'none', label: 'Brak terminów', target: null, next: '' };
+}
+function fmtLeft(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return (d ? d + ' d ' : '') + pad(h) + ':' + pad(m) + ':' + pad(x);
+}
+function countdownHtml(p, compact) {
+  const c = countdownInfo(p);
+  const urgent = c.target && c.target - Date.now() < (c.phase === 'deadline' ? 72 : 48) * 3600e3;
+  return `<span class="cd ph-${c.phase} ${urgent ? 'urgent' : ''}" data-cd="${p.id}">
+    <span class="cd-lab">${c.label}</span>
+    ${c.target ? `<span class="cd-val">${fmtLeft(c.target - Date.now())}</span>` : ''}
+    ${c.next && !compact ? `<span class="cd-next">${c.next}</span>` : ''}
+    ${c.next && compact && !c.target ? `<span class="cd-next">${c.next}</span>` : ''}</span>`;
+}
+setInterval(() => {
+  document.querySelectorAll('[data-cd]').forEach(el => {
+    const p = S.projects.find(x => x.id === el.dataset.cd) || (S.project && S.project.id === el.dataset.cd ? S.project : null);
+    if (!p) return;
+    const c = countdownInfo(p);
+    if (!el.classList.contains('ph-' + c.phase)) { el.outerHTML = countdownHtml(p, !!el.closest('.proj-card')); return; }
+    const v = el.querySelector('.cd-val');
+    if (v && c.target) v.textContent = fmtLeft(c.target - Date.now());
+    el.classList.toggle('urgent', !!(c.target && c.target - Date.now() < (c.phase === 'deadline' ? 72 : 48) * 3600e3));
+  });
+}, 1000);
+
+// =====================================================================
+//  PROJEKT — formularz (admin)
+// =====================================================================
+function openProjectForm(pid, fairId) {
+  let p = pid ? S.projects.find(x => x.id === pid) : {};
+  if (!pid && fairId && fairById(fairId)) {
+    const f = fairById(fairId);
+    p = { fairId, deadlineGfx: f.deadlineGfx || '', eventStart: f.eventStart || '', eventEnd: f.eventEnd || '' };
+  }
+  const others = S.users.filter(u => !u.admin);
+  const fairOpts = S.fairs.filter(f => !f.archived || f.id === p.fairId).sort(fairSort)
+    .map(f => `<option value="${f.id}" ${f.id === p.fairId ? 'selected' : ''}>${esc(f.name)}${f.city ? ' · ' + esc(f.city) : ''}</option>`).join('');
+  const m = openModal({
+    title: pid ? 'Ustawienia stoiska' : 'Nowe stoisko',
+    body: `
+      <div class="fld"><label>Klient / nazwa stoiska *</label><input type="text" id="pf-name" value="${esc(p.name || '')}" placeholder="np. DAICEL"></div>
+      <div class="fld"><label>Targi</label><select id="pf-fairid"><option value="">— bez targów${p.fair && !p.fairId ? ' (było: ' + esc(p.fair) + ')' : ''} —</option>${fairOpts}</select>
+        <div class="hint">Nowe targi dodasz w panelu bocznym przyciskiem „+ New fairs".</div></div>
+      <div class="fld"><label>Agencja</label><input type="text" id="pf-agency" value="${esc(p.agency || '')}"></div>
+      <div class="row2">
+        <div class="fld"><label>Deadline graficzny</label><input type="datetime-local" id="pf-dl" value="${esc(p.deadlineGfx || '')}"></div>
+        <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="pf-ev" value="${esc(p.eventStart || '')}"></div>
+      </div>
+      <div class="row2">
+        <div class="fld"><label>Koniec imprezy (opcjonalnie)</label><input type="datetime-local" id="pf-evend" value="${esc(p.eventEnd || '')}"></div>
+        <div></div>
+      </div>
+      <div class="fld ${isAdmin() ? '' : 'hidden'}"><label>Dostęp dla (agencja / współpracownicy)</label>
+        <div class="users-chk">${others.length ? others.map(u => `<label class="chk"><input type="checkbox" value="${u.id}" ${(p.users || []).includes(u.id) ? 'checked' : ''}> ${esc(u.login)} <span style="color:var(--gray);font-size:.75rem">${esc(u.company || u.name || '')}</span></label>`).join('')
+          : '<div class="hint" style="padding:6px 0">Brak kont zewnętrznych — dodaj je w menu awatara → Użytkownicy.</div>'}</div>
+        <div class="hint">Administratorzy (KG, DM) widzą wszystkie projekty.</div>
+      </div>
+      <div class="fld"><label>Uwagi</label><textarea id="pf-notes">${esc(p.notes || '')}</textarea></div>`,
+    footer: `${pid && isAdmin() ? '<button class="btn btn-red" id="pf-del" style="margin-right:auto">Usuń stoisko</button>' : ''}
+      <button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="pf-ok">${pid ? 'Zapisz' : 'Utwórz'}</button>`,
+  });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  // wybór targów podpowiada ich terminy
+  $('pf-fairid').onchange = () => {
+    const f = fairById($('pf-fairid').value); if (!f) return;
+    [['pf-dl', 'deadlineGfx'], ['pf-ev', 'eventStart'], ['pf-evend', 'eventEnd']].forEach(([i, k]) => { if (f[k]) $(i).value = f[k]; });
+  };
+  $('pf-ok').onclick = async () => {
+    const fo = fairById($('pf-fairid').value);
+    const d = {
+      name: $('pf-name').value.trim(),
+      fairId: fo ? fo.id : '',
+      // nazwa i miasto targów kopiowane do stoiska (nagłówek, kafelki, PDF); stare stoiska bez targów zachowują swój opis
+      fair: fo ? fo.name : (p.fairId ? '' : p.fair || ''), city: fo ? fo.city || '' : (p.fairId ? '' : p.city || ''),
+      agency: $('pf-agency').value.trim(), deadlineGfx: $('pf-dl').value, eventStart: $('pf-ev').value, eventEnd: $('pf-evend').value,
+      notes: $('pf-notes').value.trim(),
+      users: isAdmin() ? [...m.el.querySelectorAll('.users-chk input:checked')].map(i => i.value) : (p.users || [S.me.id]),
+      updatedAt: nowIso(),
+    };
+    if (!d.name) return toast('Podaj nazwę stoiska', 'error');
+    if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed imprezą', 'error');
+    $('pf-ok').disabled = true;
+    try {
+      if (pid) {
+        const changes = [];
+        if (p.deadlineGfx !== d.deadlineGfx) changes.push('deadline graficzny → ' + fmtDateTime(d.deadlineGfx));
+        if (p.eventStart !== d.eventStart) changes.push('start imprezy → ' + fmtDateTime(d.eventStart));
+        if (p.name !== d.name) changes.push('nazwa → ' + d.name);
+        await DB.update(C_PROJECTS, pid, d);
+        addLog(pid, 'Zmieniono ustawienia projektu' + (changes.length ? ': ' + changes.join(', ') : ''));
+        m.close(); toast('Zapisano', 'success');
+      } else {
+        Object.assign(d, { createdAt: nowIso(), createdBy: S.me.id, photosCount: 0, elementsCount: 0, cover: '' });
+        const id = await DB.add(C_PROJECTS, d);
+        addLog(id, 'Utworzono stoisko „' + d.name + '"' + (fo ? ' (targi: ' + fo.name + ')' : ''));
+        S.sideSel = { kind: 'stand', id };
+        if (fo) { sideState.fairs.add(fo.id); saveSideState(); }
+        m.close(); openProject(id);
+      }
+    } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('pf-ok').disabled = false; }
+  };
+  if (pid && isAdmin()) $('pf-del').onclick = async () => {
+    const ok = await confirmBox(`Usunąć stoisko <b>${esc(p.name)}</b> razem ze wszystkimi wizkami, elementami i historią?<br><br>Tej operacji nie da się cofnąć.`, 'Usuń stoisko');
+    if (!ok) return;
+    try {
+      await deleteProjectDeep(pid);
+      m.close(); toast('Stoisko usunięte'); goHome();
+    } catch (e) { toast('Błąd usuwania: ' + e.message, 'error'); }
+  };
+}
+
+// =====================================================================
+//  PROJEKT — otwieranie i subskrypcje
+// =====================================================================
+async function openProject(pid) {
+  let p = S.projects.find(x => x.id === pid) || await DB.get(C_PROJECTS, pid);
+  if (!p) { toast('Nie znaleziono projektu', 'error'); return goHome(); }
+  if (!canSee(p)) { toast('Brak dostępu do tego projektu', 'error'); return goHome(); }
+  closeProject();
+  S.project = p;
+  S.photos = []; S.elements = []; S.log = []; S.photoId = null; S.selId = null; S.logSeen = null;
+  showScreen('screen-project');
+  history.replaceState(null, '', location.pathname + '?' + (DEMO ? 'demo&' : '') + 'p=' + pid);
+  renderProjectHeader();
+  if (p.fairId) { sideState.fairs.add(p.fairId); saveSideState(); }
+  if (!S.sideSel || S.sideSel.kind !== 'stand') S.sideSel = { kind: 'stand', id: pid };
+  renderSide();
+  setTool('point');
+  let prevCount = -1;
+  S.unsubProject.push(DB.sub(pPhotos(pid), rows => {
+    S.photos = rows.sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.createdAt).localeCompare(String(b.createdAt)));
+    if (!S.photos.find(x => x.id === S.photoId)) S.photoId = S.photos[0] ? S.photos[0].id : null;
+    // przy pierwszym wczytaniu i gdy przybyło / ubyło wizek — pokaż wszystkie
+    renderStage(S.photos.length !== prevCount);
+    prevCount = S.photos.length;
+    renderElements(); syncProjectStats(); updateHint();
+  }));
+  S.unsubProject.push(DB.sub(pElements(pid), rows => {
+    S.elements = rows.sort((a, b) => (a.num || 0) - (b.num || 0));
+    if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
+    renderOverlay(); renderElements(); syncProjectStats(); updateHint();
+  }));
+  S.unsubProject.push(DB.sub(pLog(pid), rows => {
+    S.log = rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    renderLog();
+  }));
+}
+function closeProject() {
+  S.unsubProject.forEach(u => { try { u(); } catch (e) {} });
+  S.unsubProject = [];
+  S.project = null;
+  cancelDraft(); cancelAssign();
+}
+function renderProjectHeader() {
+  const p = S.project; if (!p) return;
+  $('hdr-project').classList.remove('hidden');
+  $('hdr-pname').textContent = p.name;
+  $('hdr-pfair').textContent = [p.fair, p.city, p.agency].filter(Boolean).join(' · ');
+  $('hdr-cd').innerHTML = countdownHtml(p, false);
+  $('hdr-actions').innerHTML = `
+    <button class="btn" onclick="toggleExportMenu(event)">⇩ Eksport ▾</button>
+    ${isAdmin() ? `<button class="btn" onclick="openProjectForm('${p.id}')">⚙ Projekt</button>` : ''}`;
+}
+let statsTimer = null;
+function syncProjectStats() {
+  clearTimeout(statsTimer);
+  statsTimer = setTimeout(() => {
+    const p = S.project; if (!p) return;
+    const cover = S.photos[0] ? S.photos[0].url : '';
+    const d = { photosCount: S.photos.length, elementsCount: S.elements.length, cover };
+    if (d.photosCount !== p.photosCount || d.elementsCount !== p.elementsCount || d.cover !== p.cover)
+      DB.update(C_PROJECTS, p.id, d).catch(e => console.warn(e));
+  }, 800);
+}
+function addLog(pid, text, eid) {
+  return DB.add(pLog(pid), { at: nowIso(), user: S.me.id, text, eid: eid || '' }).catch(e => console.warn('log', e));
+}
+
+// =====================================================================
+//  WIZKI (zdjęcia): dodawanie, pasek miniatur
+// =====================================================================
+function thumbUrl(url, w = 200, h = 140) {
+  if (url && url.includes('res.cloudinary.com') && url.includes('/upload/')) return url.replace('/upload/', `/upload/c_fill,w_${w},h_${h},q_auto/`);
+  return url;
+}
+function pickPhotos() { $('file-photos').click(); }
+$('file-photos').onchange = e => { addPhotoFiles([...e.target.files]); e.target.value = ''; };
+
+async function prepareImage(file, maxSide, quality = 0.9) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('To nie jest obrazek')); i.src = url; });
+    let w = img.naturalWidth, h = img.naturalHeight;
+    const k = Math.min(1, maxSide / Math.max(w, h));
+    w = Math.round(w * k); h = Math.round(h * k);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', quality));
+    return { blob, w, h };
+  } finally { URL.revokeObjectURL(url); }
+}
+async function uploadToCloudinary(blob, name) {
+  const fd = new FormData();
+  fd.append('file', blob, name || 'wizka.jpg');
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: fd });
+  if (!r.ok) throw new Error('Cloudinary ' + r.status);
+  return (await r.json()).secure_url;
+}
+const blobToDataUrl = b => new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
+async function storeImage(file, maxSide) {
+  const { blob, w, h } = await prepareImage(file, DEMO ? Math.min(maxSide, 1400) : maxSide, DEMO ? 0.8 : 0.9);
+  const url = DEMO ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, (file.name || 'wizka').replace(/\.\w+$/, '') + '.jpg');
+  return { url, w, h };
+}
+let uploading = 0;
+async function addPhotoFiles(files) {
+  const pid = S.project && S.project.id; if (!pid) return;
+  files = files.filter(f => f && f.type && f.type.startsWith('image/'));
+  if (!files.length) return toast('To nie są pliki graficzne', 'error');
+  let order = S.photos.reduce((m, p) => Math.max(m, p.order || 0), 0);
+  let lastId = null;
+  for (const f of files) {
+    const t = toast(`Wgrywanie wizki ${f.name || ''}…`, '', 60000);
+    uploading++;
+    try {
+      const { url, w, h } = await storeImage(f, 3200);
+      order++;
+      lastId = await DB.add(pPhotos(pid), { url, w, h, name: f.name || 'wklejona', order, createdAt: nowIso(), createdBy: S.me.id });
+      addLog(pid, `Dodano wizkę #${order}`);
+    } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error', 6000); }
+    finally { uploading--; t.remove(); }
+  }
+  if (lastId) toast('Wizki dodane', 'success');
+}
+function photoNo(id) { const i = S.photos.findIndex(p => p.id === id); return i < 0 ? '—' : i + 1; }
+// przycisk „Ctrl+V": czyta obrazek prosto ze schowka (przeglądarka może zapytać o zgodę)
+async function pasteFromClipboard() {
+  if (!S.project) return;
+  if (!navigator.clipboard || !navigator.clipboard.read) return toast('Ta przeglądarka nie daje dostępu do schowka — naciśnij Ctrl+V na klawiaturze', 'error', 5000);
+  try {
+    const files = [];
+    for (const item of await navigator.clipboard.read()) {
+      const type = item.types.find(t => t.startsWith('image/'));
+      if (type) { const b = await item.getType(type); files.push(new File([b], 'wklejona.' + (type.split('/')[1] || 'png'), { type })); }
+    }
+    if (!files.length) return toast('W schowku nie ma obrazka — skopiuj wizkę (np. print screen) i spróbuj ponownie', 'error', 5000);
+    addPhotoFiles(files);
+  } catch (e) {
+    toast('Brak zgody na odczyt schowka — zezwól przeglądarce albo naciśnij Ctrl+V na klawiaturze', 'error', 5000);
+  }
+}
+async function deletePhoto(id) {
+  const n = S.elements.filter(e => e.photoId === id).length;
+  const no = photoNo(id);
+  const ok = await confirmBox(`Usunąć wizkę #${no}?` + (n ? `<br>Razem z nią znikną <b>${n}</b> zaznaczone na niej elementy.` : ''), 'Usuń');
+  if (!ok) return;
+  const pid = S.project.id;
+  for (const e of S.elements.filter(e => e.photoId === id)) await DB.del(pElements(pid), e.id);
+  await DB.del(pPhotos(pid), id);
+  addLog(pid, `Usunięto wizkę #${no}` + (n ? ` (i ${n} el.)` : ''));
+}
+
+// wklejanie i przeciąganie
+document.addEventListener('paste', e => {
+  if (!S.project || modalStack.length) return;
+  const tag = (document.activeElement || {}).tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const files = [...(e.clipboardData || {}).items || []].filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile());
+  if (files.length) { e.preventDefault(); addPhotoFiles(files); }
+});
+let dragDepth = 0;
+const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('drop', e => { if (hasFiles(e)) e.preventDefault(); });
+$('pane-top').addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; $('drop-hint').classList.remove('hidden'); });
+$('pane-top').addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop-hint').classList.add('hidden'); } });
+$('pane-top').addEventListener('drop', e => {
+  dragDepth = 0; $('drop-hint').classList.add('hidden');
+  if (!hasFiles(e)) return;
+  e.preventDefault(); addPhotoFiles([...e.dataTransfer.files]);
+});
+
+// =====================================================================
+//  PODGLĄD WIZEK: wszystkie obok siebie, powiększanie, przesuwanie, zaznaczanie
+//  Płótno w jednostkach „sceny": każda wizka ma wysokość H0, kolejne stoją
+//  w rzędzie z odstępem GAP. Kształty trzymamy znormalizowane (0..1) do swojej wizki.
+// =====================================================================
+const V = { scale: 1, tx: 0, ty: 0, fit: 1 };
+const H0 = 1000, GAP = 70;
+let L = { map: {}, W: 0 };    // układ: id wizki -> { x, w, h }
+let tool = 'point';
+let draft = null;          // rysowany wielokąt {kind, photoId, pts:[[x,y]...], cursor}
+let assignTo = null;       // element bez zaznaczenia, któremu właśnie wskazujemy miejsce
+let spaceDown = false;
+const viewer = $('viewer'), stage = $('stage'), stageImgs = $('stage-imgs'), overlay = $('overlay');
+const curPhoto = () => S.photos.find(p => p.id === S.photoId) || null;
+const hasPhotos = () => S.photos.length > 0;
+
+function layoutPhotos() {
+  let x = 0; const map = {};
+  for (const p of S.photos) {
+    const w = Math.round(H0 * ((Number(p.w) || 4) / (Number(p.h) || 3)));
+    map[p.id] = { x, w, h: H0 };
+    x += w + GAP;
+  }
+  L = { map, W: Math.max(1, x - GAP) };
+}
+function renderStage(refit) {
+  layoutPhotos();
+  const has = hasPhotos();
+  $('viewer-empty').classList.toggle('hidden', has);
+  stage.classList.toggle('hidden', !has);
+  const key = S.photos.map(p => p.id + '|' + p.url.length + '|' + p.url.slice(-24)).join(';');
+  if (stageImgs.dataset.key !== key) {
+    stageImgs.dataset.key = key;
+    stageImgs.innerHTML = S.photos.map(p => { const b = L.map[p.id];
+      return `<img src="${esc(p.url)}" alt="" draggable="false" style="left:${b.x}px;width:${b.w}px;height:${b.h}px">`; }).join('');
+  }
+  stage.style.width = L.W + 'px'; stage.style.height = H0 + 'px';
+  overlay.setAttribute('width', L.W); overlay.setAttribute('height', H0);
+  overlay.setAttribute('viewBox', `0 0 ${L.W} ${H0}`);
+  if (has && refit) fitView(); else renderOverlay();
+  if (S.elFilter === 'photo') renderElements();
+  updateHint();
+}
+// wizka „bieżąca" = ostatnio kliknięta (filtr „Bieżąca wizka" na liście elementów)
+function setCurrentPhoto(id) {
+  if (!id || id === S.photoId) return;
+  S.photoId = id;
+  if (S.elFilter === 'photo') renderElements();
+}
+function fitView() {
+  if (!hasPhotos()) return;
+  const r = viewer.getBoundingClientRect();
+  const top = 48; // miejsce na pasek narzędzi
+  const s = Math.min(r.width / L.W, (r.height - top) / H0) * 0.95;
+  V.fit = s; V.scale = s;
+  V.tx = (r.width - L.W * s) / 2;
+  V.ty = top + (r.height - top - H0 * s) / 2;
+  applyView();
+}
+function applyView() {
+  stage.style.transform = `translate(${V.tx}px,${V.ty}px) scale(${V.scale})`;
+  $('zoom-label').textContent = Math.round(V.scale / V.fit * 100) + '%';
+  renderOverlay();
+}
+function zoomAt(cx, cy, f) {
+  const r = viewer.getBoundingClientRect();
+  const px = cx - r.left, py = cy - r.top;
+  const ns = clamp(V.scale * f, V.fit * 0.25, Math.max(V.fit * 60, 4));
+  const k = ns / V.scale;
+  V.tx = px - (px - V.tx) * k; V.ty = py - (py - V.ty) * k; V.scale = ns;
+  applyView();
+}
+function zoomBy(f) { const r = viewer.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, f); }
+// zdarzenie -> współrzędne sceny
+function toStage(e) { const r = viewer.getBoundingClientRect(); return [(e.clientX - r.left - V.tx) / V.scale, (e.clientY - r.top - V.ty) / V.scale]; }
+// która wizka leży pod punktem sceny (null = odstęp / tło)
+function photoAt(sx, sy) {
+  if (sy < 0 || sy > H0) return null;
+  const p = S.photos.find(p => { const b = L.map[p.id]; return sx >= b.x && sx <= b.x + b.w; });
+  return p ? p.id : null;
+}
+function normIn(pid, sx, sy) { const b = L.map[pid]; return [clamp((sx - b.x) / b.w, 0, 1), clamp(sy / H0, 0, 1)]; }
+const toNorm = (e, pid) => normIn(pid, ...toStage(e));
+function centerOn(pid, nx, ny) {
+  const b = L.map[pid]; if (!b) return;
+  const r = viewer.getBoundingClientRect();
+  V.tx = r.width / 2 - (b.x + nx * b.w) * V.scale;
+  V.ty = (r.height + 48) / 2 - ny * H0 * V.scale;
+  applyView();
+}
+
+function setTool(t) {
+  if (t !== tool) cancelDraft();
+  tool = t;
+  document.querySelectorAll('#toolbar [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  viewer.classList.toggle('t-point', t === 'point');
+  viewer.classList.toggle('t-poly', t === 'poly');
+  updateHint();
+}
+document.querySelectorAll('#toolbar [data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+$('toolbar').addEventListener('pointerdown', e => e.stopPropagation());
+
+function updateHint() {
+  const h = $('viewer-hint');
+  let txt = '';
+  if (!hasPhotos()) txt = '';
+  else if (assignTo) txt = 'Kliknij miejsce na wizce, w którym jest ten element (albo obrysuj go narzędziem Wielokąt)';
+  else if (tool === 'poly') txt = draft ? 'Klikaj kolejne narożniki · zamknij klikając pierwszy punkt, Enterem lub podwójnym kliknięciem · Esc = anuluj'
+                                        : 'Wielokąt: klikaj kolejne narożniki elementu (dla skośnych i nieregularnych kształtów)';
+  else txt = S.elements.some(e => e.shape) ? 'Kliknij w miejsce na wizce = nowy element · kliknij znacznik = zaznacz · dwuklik = edycja · przeciągnij tło = przesuwanie · kółko myszy = powiększenie'
+                                           : 'Kliknij w dane miejsce na wizce, aby dodać element · przeciągnij tło = przesuwanie · kółko myszy = powiększenie';
+  h.textContent = txt;
+  h.classList.toggle('hidden', !txt);
+}
+
+// --- geometria kształtów (współrzędne znormalizowane 0..1) ---
+// kind: 'point' (kliknięcie w miejsce), 'poly' (wielokąt), 'rect' (starsze zaznaczenia)
+function rectNorm(pts) { const [a, b] = pts; return { x1: Math.min(a[0], b[0]), y1: Math.min(a[1], b[1]), x2: Math.max(a[0], b[0]), y2: Math.max(a[1], b[1]) }; }
+function shapePolyPts(sh) {
+  if (sh.kind === 'rect') { const r = rectNorm(sh.pts); return [[r.x1, r.y1], [r.x2, r.y1], [r.x2, r.y2], [r.x1, r.y2]]; }
+  return sh.pts;
+}
+function shapeCenter(sh) {
+  if (sh.kind === 'point') return sh.pts[0];
+  const pts = shapePolyPts(sh);
+  if (sh.kind === 'rect') return [(pts[0][0] + pts[2][0]) / 2, (pts[0][1] + pts[2][1]) / 2];
+  // środek ciężkości wielokąta (fallback: średnia wierzchołków)
+  let A = 0, cx = 0, cy = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length], f = x0 * y1 - x1 * y0;
+    A += f; cx += (x0 + x1) * f; cy += (y0 + y1) * f;
+  }
+  if (Math.abs(A) < 1e-9) return [pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length];
+  return [cx / (3 * A), cy / (3 * A)];
+}
+
+// --- rysowanie nakładki ---
+let liveShape = null; // {eid, shape} podczas przeciągania
+let pendingShape = null; // narysowany kształt czekający na opis w oknie
+function renderOverlay() {
+  if (!hasPhotos()) { overlay.innerHTML = ''; return; }
+  const s = 1 / V.scale;
+  const X = (b, q) => (b.x + q[0] * b.w).toFixed(1), Y = q => (q[1] * H0).toFixed(1);
+  const P = (b, pts) => pts.map(q => X(b, q) + ',' + Y(q)).join(' ');
+  let out = '';
+  // numery wizek i przycisk usuwania
+  S.photos.forEach((p, i) => {
+    const b = L.map[p.id], cur = p.id === S.photoId && S.photos.length > 1;
+    if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#f6ad55" stroke-width="${3 * s}"/>`;
+    out += `<g class="plab"><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/>
+      <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text></g>
+      <g class="pdel" data-pid="${p.id}"><title>Usuń wizkę #${i + 1}</title><rect x="${b.x + b.w - 24 * s}" y="0" width="${24 * s}" height="${24 * s}" fill="rgba(229,62,62,.9)"/>
+      <text x="${b.x + b.w - 12 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${14 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">✕</text></g>`;
+  });
+  const els = S.elements.filter(e => e.shape && L.map[e.photoId]);
+  // zaznaczony na końcu (na wierzchu)
+  els.sort((a, b) => (a.id === S.selId) - (b.id === S.selId));
+  for (const el of els) {
+    const b = L.map[el.photoId];
+    const sh = liveShape && liveShape.eid === el.id ? liveShape.shape : el.shape;
+    const t = typeById(el.typeId), sel = el.id === S.selId, hov = el.id === S.hoverId;
+    const [cx, cy] = shapeCenter(sh);
+    const r = (sh.kind === 'point' ? 15 : 13) * s;
+    out += `<g class="shp" data-eid="${el.id}">`;
+    if (sh.kind !== 'point') {
+      const pts = shapePolyPts(sh);
+      out += `<polygon points="${P(b, pts)}" fill="${t.color}" fill-opacity="${sel || hov ? 0.35 : 0.2}" stroke="${t.color}" stroke-width="${(sel ? 3.5 : 2.2) * s}" stroke-linejoin="round"/>
+        ${sel ? `<polygon points="${P(b, pts)}" fill="none" stroke="#fff" stroke-width="${1.2 * s}" stroke-dasharray="${6 * s} ${5 * s}"/>` : ''}`;
+    } else if (sel || hov) {
+      out += `<circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r + 7 * s}" fill="${t.color}" fill-opacity=".25" stroke="${t.color}" stroke-width="${2 * s}"/>`;
+    }
+    out += `<circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
+      <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s}" text-anchor="middle" font-size="${(el.num > 26 ? 10.5 : 13) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${letterOf(el.num)}</text>
+    </g>`;
+    if (sel && tool === 'point' && sh.kind !== 'point') {
+      shapePolyPts(sh).forEach((q, i) => {
+        out += `<rect class="hdl" data-h="${i}" data-eid="${el.id}" x="${+X(b, q) - 5 * s}" y="${+Y(q) - 5 * s}" width="${10 * s}" height="${10 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"/>`;
+      });
+    }
+  }
+  if (pendingShape && L.map[pendingShape.photoId]) {
+    const b = L.map[pendingShape.photoId], sh = pendingShape.shape;
+    out += sh.kind === 'point'
+      ? `<circle cx="${X(b, sh.pts[0])}" cy="${Y(sh.pts[0])}" r="${15 * s}" fill="#f6ad55" stroke="#fff" stroke-width="${2 * s}"/>`
+      : `<polygon points="${P(b, shapePolyPts(sh))}" fill="#f6ad55" fill-opacity=".3" stroke="#f6ad55" stroke-width="${3 * s}"/>`;
+  }
+  if (draft && L.map[draft.photoId]) {
+    const b = L.map[draft.photoId], c = '#f6ad55';
+    const pts = draft.cursor ? [...draft.pts, draft.cursor] : draft.pts;
+    out += `<polyline points="${P(b, pts)}" fill="${c}" fill-opacity=".15" stroke="${c}" stroke-width="${2.5 * s}" stroke-dasharray="${7 * s} ${4 * s}"/>`;
+    draft.pts.forEach((q, i) => out += `<circle cx="${X(b, q)}" cy="${Y(q)}" r="${(i === 0 ? 7 : 4) * s}" fill="${i === 0 ? '#fff' : c}" stroke="${c}" stroke-width="${2 * s}"/>`);
+  }
+  overlay.innerHTML = out;
+}
+
+// --- obsługa myszy / dotyku ---
+const pointers = new Map();
+let act = null; // bieżąca operacja
+viewer.addEventListener('wheel', e => {
+  if (!hasPhotos()) return;
+  e.preventDefault();
+  const d = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY;
+  zoomAt(e.clientX, e.clientY, Math.pow(1.0018, -d));
+}, { passive: false });
+
+viewer.addEventListener('pointerdown', e => {
+  if (!hasPhotos() || e.button === 2) return;
+  viewer.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    act = { mode: 'pinch', d0: Math.hypot(a.x - b.x, a.y - b.y), s0: V.scale, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, tx0: V.tx, ty0: V.ty };
+    return;
+  }
+  const pan = () => { act = { mode: 'pan', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty }; viewer.classList.add('panning'); };
+  if (e.button === 1 || spaceDown) { e.preventDefault(); return pan(); }
+
+  const del = !draft && e.target.closest('.pdel'); // w trakcie rysowania wielokąta ✕ nie przeszkadza
+  if (del) { deletePhoto(del.dataset.pid); return; }
+
+  if (tool === 'poly') {
+    const [sx, sy] = toStage(e);
+    if (!draft) {
+      const pid = photoAt(sx, sy);
+      if (!pid) return toast('Zacznij wielokąt na wizce', 'error');
+      setCurrentPhoto(pid);
+      const q = normIn(pid, sx, sy);
+      draft = { kind: 'poly', photoId: pid, pts: [q], cursor: q };
+    } else {
+      const b = L.map[draft.photoId], q = normIn(draft.photoId, sx, sy), f = draft.pts[0];
+      const distPx = Math.hypot((q[0] - f[0]) * b.w, (q[1] - f[1]) * H0) * V.scale;
+      if (draft.pts.length >= 3 && distPx < 12) { finishPoly(); return; }
+      const last = draft.pts[draft.pts.length - 1];
+      if (Math.hypot((q[0] - last[0]) * b.w, (q[1] - last[1]) * H0) * V.scale > 3) draft.pts.push(q);
+    }
+    act = null; renderOverlay(); updateHint(); return;
+  }
+  // narzędzie „Zaznacz kliknięciem"
+  const h = e.target.closest('.hdl');
+  const g = e.target.closest('.shp');
+  if (h) {
+    const el = S.elements.find(x => x.id === h.dataset.eid);
+    act = { mode: 'handle', eid: el.id, pid: el.photoId, idx: +h.dataset.h, orig: clone(el.shape), changed: false };
+    return;
+  }
+  if (g) {
+    const el = S.elements.find(x => x.id === g.dataset.eid);
+    selectElement(el.id, false);
+    setCurrentPhoto(el.photoId);
+    act = { mode: 'move', eid: el.id, pid: el.photoId, start: toNorm(e, el.photoId), orig: clone(el.shape), changed: false };
+    return;
+  }
+  // tło: krótkie kliknięcie = nowy element w tym miejscu, przeciągnięcie = przesuwanie widoku
+  act = { mode: 'tap', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty, at: toStage(e) };
+});
+viewer.addEventListener('pointermove', e => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!hasPhotos()) return;
+  if (!act) {
+    if (draft) { draft.cursor = toNorm(e, draft.photoId); renderOverlay(); }
+    return;
+  }
+  if (act.mode === 'pinch' && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const r = viewer.getBoundingClientRect();
+    const ns = clamp(act.s0 * d / act.d0, V.fit * 0.25, Math.max(V.fit * 60, 4));
+    const k = ns / act.s0;
+    V.scale = ns;
+    V.tx = (mx - r.left) - ((act.mx - r.left) - act.tx0) * k;
+    V.ty = (my - r.top) - ((act.my - r.top) - act.ty0) * k;
+    applyView(); return;
+  }
+  if (act.mode === 'tap' && Math.hypot(e.clientX - act.x, e.clientY - act.y) > 5) { act.mode = 'pan'; viewer.classList.add('panning'); }
+  if (act.mode === 'pan') {
+    V.tx = act.tx + e.clientX - act.x; V.ty = act.ty + e.clientY - act.y; applyView(); return;
+  }
+  if (act.mode === 'move') {
+    const q = toNorm(e, act.pid);
+    let dx = q[0] - act.start[0], dy = q[1] - act.start[1];
+    const pts = shapePolyPts(act.orig);
+    // nie wyjeżdżamy poza wizkę
+    dx = clamp(dx, -Math.min(...pts.map(p => p[0])), 1 - Math.max(...pts.map(p => p[0])));
+    dy = clamp(dy, -Math.min(...pts.map(p => p[1])), 1 - Math.max(...pts.map(p => p[1])));
+    liveShape = { eid: act.eid, shape: { kind: act.orig.kind, pts: act.orig.pts.map(p => [p[0] + dx, p[1] + dy]) } };
+    act.changed = Math.abs(dx) + Math.abs(dy) > 0.0005;
+    renderOverlay(); return;
+  }
+  if (act.mode === 'handle') {
+    const q = toNorm(e, act.pid);
+    let sh;
+    if (act.orig.kind === 'rect') {
+      const r = rectNorm(act.orig.pts);
+      if (act.idx === 0 || act.idx === 3) r.x1 = q[0]; else r.x2 = q[0];
+      if (act.idx === 0 || act.idx === 1) r.y1 = q[1]; else r.y2 = q[1];
+      sh = { kind: 'rect', pts: [[r.x1, r.y1], [r.x2, r.y2]] };
+    } else {
+      sh = clone(act.orig); sh.pts[act.idx] = q;
+    }
+    liveShape = { eid: act.eid, shape: sh };
+    act.changed = true;
+    renderOverlay(); return;
+  }
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  viewer.classList.remove('panning');
+  const a = act;
+  if (a && a.mode === 'pinch') { if (pointers.size < 2) act = null; return; }
+  act = null;
+  if (!a) return;
+  if (a.mode === 'tap') {
+    const pid = photoAt(a.at[0], a.at[1]);
+    if (!pid) { if (S.selId) selectElement(null); return; }
+    setCurrentPhoto(pid);
+    if (S.selId && !assignTo) { selectElement(null); return; } // pierwsze kliknięcie obok tylko odznacza
+    onShapeDrawn({ kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }, pid);
+    return;
+  }
+  if ((a.mode === 'move' || a.mode === 'handle') && liveShape) {
+    const sh = liveShape.shape, eid = a.eid;
+    if (sh.kind === 'rect') { const r = rectNorm(sh.pts); sh.pts = [[r.x1, r.y1], [r.x2, r.y2]]; }
+    if (a.changed) {
+      const el = S.elements.find(x => x.id === eid);
+      if (el) el.shape = sh; // od razu lokalnie, żeby nie mrugało przed odpowiedzią bazy
+      DB.update(pElements(S.project.id), eid, { shape: sh, updatedAt: nowIso(), updatedBy: S.me.id })
+        .then(() => addLog(S.project.id, `Poprawiono zaznaczenie elementu ${letterOf(el.num)} na wizce #${photoNo(el.photoId)}`, eid))
+        .catch(err => toast('Błąd zapisu: ' + err.message, 'error'));
+    }
+    liveShape = null;
+    renderOverlay();
+  }
+}
+viewer.addEventListener('pointerup', endPointer);
+viewer.addEventListener('pointercancel', endPointer);
+viewer.addEventListener('dblclick', e => {
+  if (tool === 'poly' && draft) { finishPoly(); return; }
+  if (tool !== 'point') return;
+  const g = e.target.closest('.shp');
+  if (g) openElementDialog({ id: g.dataset.eid });
+});
+viewer.addEventListener('contextmenu', e => { if (draft) { e.preventDefault(); cancelDraft(); } });
+
+function finishPoly() {
+  if (!draft || draft.kind !== 'poly') return;
+  const b = L.map[draft.photoId], pid = draft.photoId;
+  // usuń punkty zdublowane (np. z dwukliku)
+  const pts = draft.pts.filter((q, i, arr) => i === 0 || Math.hypot((q[0] - arr[i - 1][0]) * b.w, (q[1] - arr[i - 1][1]) * H0) * V.scale > 3);
+  draft = null; renderOverlay(); updateHint();
+  if (pts.length < 3) { toast('Wielokąt potrzebuje co najmniej 3 punktów', 'error'); return; }
+  onShapeDrawn({ kind: 'poly', pts }, pid);
+}
+function cancelDraft() { draft = null; liveShape = null; act = null; if (S.project) renderOverlay(); updateHint(); }
+
+async function onShapeDrawn(shape, photoId) {
+  if (assignTo) {
+    const el = S.elements.find(e => e.id === assignTo);
+    cancelAssign();
+    if (el) {
+      await DB.update(pElements(S.project.id), el.id, { shape, photoId, updatedAt: nowIso(), updatedBy: S.me.id });
+      addLog(S.project.id, `Zaznaczono element ${letterOf(el.num)} na wizce #${photoNo(photoId)}`, el.id);
+      selectElement(el.id, false);
+    }
+    return;
+  }
+  openElementDialog({ shape, photoId });
+}
+
+// --- zaznaczanie elementu (lista <-> wizka) ---
+function selectElement(id, focus = true) {
+  S.selId = id;
+  const el = S.elements.find(e => e.id === id);
+  if (el && focus && el.photoId && el.shape && L.map[el.photoId]) {
+    setCurrentPhoto(el.photoId);
+    const [cx, cy] = shapeCenter(el.shape);
+    centerOn(el.photoId, cx, cy);
+  }
+  renderOverlay();
+  document.querySelectorAll('#el-scroll tr[data-eid]').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
+  const row = document.querySelector(`#el-scroll tr[data-eid="${id}"]`);
+  if (row) row.scrollIntoView({ block: 'nearest' });
+}
+
+// klawiatura
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && modalStack.length) { modalStack[modalStack.length - 1].close(); return; }
+  if (modalStack.length || !S.project) return;
+  const tag = (document.activeElement || {}).tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === ' ') { spaceDown = true; e.preventDefault(); return; }
+  if (k === 'p') setTool(tool === 'poly' ? 'point' : 'poly');
+  else if (k === 'f') fitView();
+  else if (k === '+' || k === '=') zoomBy(1.25);
+  else if (k === '-') zoomBy(1 / 1.25);
+  else if (k === 'enter' && draft && draft.kind === 'poly') finishPoly();
+  else if (k === 'escape') { if (draft) cancelDraft(); else if (assignTo) cancelAssign(); else if (tool === 'poly') setTool('point'); else selectElement(null); }
+  else if (k === 'backspace' && draft && draft.kind === 'poly') { draft.pts.pop(); if (!draft.pts.length) draft = null; renderOverlay(); updateHint(); }
+  else if ((k === 'delete' || k === 'backspace') && S.selId) deleteElement(S.selId);
+  else return;
+  e.preventDefault();
+});
+document.addEventListener('keyup', e => { if (e.key === ' ') spaceDown = false; });
+window.addEventListener('resize', () => { if (S.project && hasPhotos()) applyView(); });
+// rozsunięcie / schowanie panelu bocznego zmienia szerokość podglądu bez zdarzenia resize okna
+if (window.ResizeObserver) new ResizeObserver(() => { if (S.project && hasPhotos()) applyView(); }).observe($('viewer'));
+
+// =====================================================================
+//  ELEMENTY: okno opisu, lista
+// =====================================================================
+function nextNum() { return S.elements.reduce((m, e) => Math.max(m, e.num || 0), 0) + 1; }
+function openElementDialog({ id, shape, photoId }) {
+  const editing = id ? S.elements.find(e => e.id === id) : null;
+  if (id && !editing) return;
+  const el = editing ? clone(editing) : { typeId: '', name: '', w: '', h: '', qty: 1, notes: '', num: nextNum() };
+  const lab = letterOf(el.num);
+  const types = S.types;
+  pendingShape = editing ? null : (shape ? { shape, photoId } : null);
+  renderOverlay();
+  const m = openModal({
+    onClose: () => { pendingShape = null; renderOverlay(); },
+    title: `<span class="badge" style="background:${editing ? typeById(el.typeId).color : '#f6ad55'}" id="ed-badge">${lab}</span> ${editing ? 'Element ' + lab : 'Nowy element ' + lab}
+      <span style="font-weight:400;font-size:.8rem;opacity:.75">· ${(editing ? editing.photoId : photoId) ? 'wizka #' + photoNo(editing ? editing.photoId : photoId) : 'bez zaznaczenia'}</span>`,
+    wide: true,
+    body: `
+      <div class="fld"><label>1. Co to jest? Wybierz typ *</label></div>
+      <div class="type-wrap">
+        <div class="type-list">${types.map(t => `<button type="button" class="type-btn ${t.id === el.typeId ? 'on' : ''}" data-t="${t.id}"><span class="sw" style="background:${t.color}"></span>${esc(t.name)}</button>`).join('')}</div>
+        <div class="type-prev" id="ed-prev"></div>
+      </div>
+      <div class="fld"><label>2. Opis / gdzie to jest</label><input type="text" id="ed-name" value="${esc(el.name)}" placeholder="np. ściana tylna, front lady, logo nad wejściem"></div>
+      <div class="fld"><label>3. Wymiar widoczny (netto)</label>
+        <div class="row3">
+          <div class="fld" style="margin:0"><input type="number" id="ed-w" min="0" step="1" value="${esc(el.w)}" placeholder="szerokość [mm]"></div>
+          <div class="fld" style="margin:0"><input type="number" id="ed-h" min="0" step="1" value="${esc(el.h)}" placeholder="wysokość [mm]"></div>
+          <div class="fld" style="margin:0"><input type="number" id="ed-q" min="1" step="1" value="${esc(el.qty || 1)}" title="Ilość sztuk"></div>
+        </div>
+        <div class="hint">Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".</div>
+      </div>
+      <div class="calc" id="ed-calc"></div>
+      <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>
+      ${isAdmin() ? `<details class="adm" ${el.eltex || (el.bleedOverride !== undefined && el.bleedOverride !== '') ? 'open' : ''}><summary>Ustawienia produkcyjne (tylko administrator)</summary>
+        <div class="row2" style="margin-top:10px">
+          <div class="fld"><label>Spad ręcznie [mm / stronę]</label><input type="number" id="ed-bleed" min="0" step="1" value="${el.bleedOverride == null ? '' : esc(el.bleedOverride)}" placeholder="puste = automatycznie"></div>
+          <div class="fld"><label>&nbsp;</label><label class="chk" style="text-transform:none;font-weight:400;font-size:.85rem;color:var(--dark)"><input type="checkbox" id="ed-eltex" ${el.eltex ? 'checked' : ''}> ELTEX (bez spadu)</label></div>
+        </div></details>` : ''}`,
+    footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
+      ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}` : ''}
+      <button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : 'Dodaj element'}</button>`,
+  });
+  const read = () => ({
+    ...el,
+    typeId: el.typeId,
+    name: $('ed-name').value.trim(),
+    w: $('ed-w').value === '' ? '' : Math.max(0, Number($('ed-w').value)),
+    h: $('ed-h').value === '' ? '' : Math.max(0, Number($('ed-h').value)),
+    qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
+    notes: $('ed-notes').value.trim(),
+    ...(isAdmin() ? { bleedOverride: $('ed-bleed').value === '' ? '' : Number($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
+  });
+  const refresh = () => {
+    const t = el.typeId ? typeById(el.typeId) : null;
+    $('ed-prev').innerHTML = t
+      ? `<div class="pimg">${exampleHtml(t)}</div><div class="ptxt"><b>${esc(t.name)}</b>${esc(t.desc || '')}</div>`
+      : `<div class="pimg" style="color:var(--gray);font-size:.85rem;text-align:center;padding:20px">Wybierz typ po lewej —<br>tu pokaże się przykład, jak to wygląda.</div><div class="ptxt">Nie wiesz? Wybierz „Nie wiem — do ustalenia" i opisz element w uwagach.</div>`;
+    $('ed-badge').style.background = t ? t.color : '#f6ad55';
+    const cur = read();
+    const g = grossOf(cur);
+    $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
+      : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b} mm</b> / stronę`
+      : `Netto <b>${intPL(cur.w)} × ${intPL(cur.h)} mm</b> · spad <b>${g.b ? g.b + ' mm' : 'brak'}</b> → do druku <b>${intPL(g.w)} × ${intPL(g.h)} mm</b>
+         · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
+  };
+  m.el.querySelectorAll('.type-btn').forEach(b => b.onclick = () => {
+    el.typeId = b.dataset.t;
+    m.el.querySelectorAll('.type-btn').forEach(x => x.classList.toggle('on', x === b));
+    refresh();
+  });
+  m.el.querySelectorAll('input').forEach(i => i.addEventListener('input', refresh));
+  refresh();
+  setTimeout(() => { const f = $('ed-name'); if (f) f.focus(); }, 40);
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
+  $('ed-ok').onclick = async () => {
+    const d = read();
+    if (!d.typeId) return toast('Wybierz typ elementu', 'error');
+    $('ed-ok').disabled = true;
+    const pid = S.project.id;
+    try {
+      if (editing) {
+        const fields = { typeId: d.typeId, name: d.name, w: d.w, h: d.h, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
+        const diff = describeDiff(editing, { ...editing, ...fields });
+        await DB.update(pElements(pid), editing.id, fields);
+        if (diff) addLog(pid, `Element ${lab}: ${diff}`, editing.id);
+        m.close();
+      } else {
+        const rec = { num: el.num, typeId: d.typeId, name: d.name, w: d.w, h: d.h, qty: d.qty, notes: d.notes,
+          photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
+        if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
+        const newId = await DB.add(pElements(pid), rec);
+        addLog(pid, `Dodano element ${lab} — ${typeById(d.typeId).name}${hasDims(d) ? ', ' + intPL(d.w) + '×' + intPL(d.h) + ' mm' : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
+        m.close();
+        S.selId = newId;
+      }
+    } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('ed-ok').disabled = false; }
+  };
+  if (editing) {
+    $('ed-del').onclick = async () => { m.close(); deleteElement(editing.id); };
+    const as = $('ed-assign'); if (as) as.onclick = () => { m.close(); startAssign(editing.id); };
+  }
+}
+function describeDiff(a, b) {
+  const ch = [];
+  if (a.typeId !== b.typeId) ch.push(`typ ${typeById(a.typeId).name} → ${typeById(b.typeId).name}`);
+  if (String(a.w) !== String(b.w) || String(a.h) !== String(b.h))
+    ch.push(`wymiar ${hasDims(a) ? intPL(a.w) + '×' + intPL(a.h) : '?'} → ${hasDims(b) ? intPL(b.w) + '×' + intPL(b.h) : '?'} mm`);
+  if ((a.qty || 1) !== (b.qty || 1)) ch.push(`ilość ${a.qty || 1} → ${b.qty || 1}`);
+  if ((a.name || '') !== (b.name || '')) ch.push(`opis „${b.name || '—'}"`);
+  if ((a.notes || '') !== (b.notes || '')) ch.push('uwagi zmienione');
+  if (String(a.bleedOverride ?? '') !== String(b.bleedOverride ?? '') || !!a.eltex !== !!b.eltex) ch.push(`spad → ${bleedOf(b)} mm`);
+  return ch.join(', ');
+}
+async function deleteElement(id) {
+  const el = S.elements.find(e => e.id === id); if (!el) return;
+  const ok = await confirmBox(`Usunąć element <b>${letterOf(el.num)}</b> — ${esc(typeById(el.typeId).name)}${el.name ? ' (' + esc(el.name) + ')' : ''}?`, 'Usuń');
+  if (!ok) return;
+  await DB.del(pElements(S.project.id), id);
+  addLog(S.project.id, `Usunięto element ${letterOf(el.num)} — ${typeById(el.typeId).name}${el.name ? ' (' + el.name + ')' : ''}`);
+  if (S.selId === id) S.selId = null;
+}
+function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
+function startAssign(eid) {
+  const el = S.elements.find(e => e.id === eid); if (!el) return;
+  if (!S.photos.length) return toast('Najpierw dodaj wizkę', 'error');
+  assignTo = eid;
+  setTool('point'); updateHint();
+  const b = $('assign-bar');
+  b.innerHTML = `Zaznacz na wizce element ${letterOf(el.num)} <button class="btn btn-sm" onclick="cancelAssign()">Anuluj</button>`;
+  b.classList.remove('hidden');
+}
+function cancelAssign() { assignTo = null; $('assign-bar').classList.add('hidden'); updateHint(); }
+
+function setElFilter(v) {
+  S.elFilter = v;
+  document.querySelectorAll('#el-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  renderElements();
+}
+function renderElements() {
+  if (!S.project) return;
+  const list = S.elFilter === 'photo' ? S.elements.filter(e => e.photoId === S.photoId) : S.elements;
+  const totalA = S.elements.reduce((s, e) => s + areaOf(e), 0);
+  const noDim = S.elements.filter(e => !hasDims(e)).length;
+  const unknown = S.elements.filter(e => e.typeId === 'nie-wiem').length;
+  $('el-stats').innerHTML = `<b>${S.elements.length}</b> el. · <b>${numPL(totalA)} m²</b> do druku`
+    + (noDim ? ` · <span class="tag-warn">${noDim} bez wymiaru</span>` : '')
+    + (unknown ? ` · <span class="tag-warn">${unknown} typ do ustalenia</span>` : '');
+  if (!list.length) {
+    $('el-scroll').innerHTML = `<div class="empty-state" style="padding:30px 20px">${S.photos.length
+      ? 'Brak elementów. <b>Kliknij w dane miejsce na wizce</b>, aby dodać pierwszy element (albo obrysuj go narzędziem <b>Wielokąt</b>).'
+      : 'Zacznij od dodania wizek stoiska — przeciągnij je w górną część ekranu albo wklej (Ctrl+V).'}</div>`;
+    return;
+  }
+  $('el-scroll').innerHTML = `<table class="el"><thead><tr>
+      <th>Znak</th><th>Wizka</th><th>Typ</th><th>Opis</th><th>Netto [mm]</th><th>Spad</th><th>Do druku [mm]</th><th>Szt.</th><th>m²</th><th>Uwagi</th><th>Kto</th><th></th>
+    </tr></thead><tbody>${list.map(e => {
+      const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
+      return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
+        <td><span class="badge" style="background:${t.color}">${letterOf(e.num)}</span></td>
+        <td>${e.photoId ? '#' + photoNo(e.photoId) : '<span class="tag-warn" title="Element nie jest zaznaczony na żadnej wizce">—</span>'}</td>
+        <td><span class="tdot" style="background:${t.color}"></span>${esc(t.name)}</td>
+        <td>${esc(e.name || '')}</td>
+        <td class="dims">${dims ? intPL(e.w) + ' × ' + intPL(e.h) : 'do ustalenia'}</td>
+        <td class="num">${g.b ? g.b + ' mm' : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
+        <td class="dims">${dims ? intPL(g.w) + ' × ' + intPL(g.h) : ''}</td>
+        <td class="num">${e.qty || 1}</td>
+        <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
+        <td class="notes" title="${esc(e.notes || '')}">${esc(e.notes || '')}</td>
+        <td>${avatarSm(e.updatedBy || e.createdBy)}</td>
+        <td class="row-act">
+          ${e.shape ? '' : `<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
+          <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
+          <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+    <tfoot><tr><td colspan="7">Razem${S.elFilter === 'photo' ? ' (ta wizka)' : ''}</td><td class="num">${list.reduce((s, e) => s + (Number(e.qty) || 1), 0)}</td><td class="num">${numPL(list.reduce((s, e) => s + areaOf(e), 0))}</td><td colspan="3"></td></tr></tfoot></table>`;
+  $('el-scroll').querySelectorAll('tr[data-eid]').forEach(tr => {
+    tr.onclick = () => selectElement(tr.dataset.eid);
+    tr.ondblclick = () => openElementDialog({ id: tr.dataset.eid });
+    tr.onmouseenter = () => { S.hoverId = tr.dataset.eid; renderOverlay(); };
+    tr.onmouseleave = () => { S.hoverId = null; renderOverlay(); };
+  });
+}
+
+// =====================================================================
+//  HISTORIA ZMIAN (prawe okienko)
+// =====================================================================
+function renderLog() {
+  const list = $('log-list');
+  const prevTop = S.logSeen;
+  $('log-count').textContent = S.log.length ? S.log.length + ' wpisów' : '';
+  list.innerHTML = S.log.slice(0, 400).map(l => `
+    <div class="log-item ${l.eid ? 'click' : ''} ${prevTop && l.at > prevTop ? 'fresh' : ''}" ${l.eid ? `data-eid="${l.eid}"` : ''}>
+      ${avatarSm(l.user)}
+      <div><div class="lt">${fmtShort(l.at)}</div>${esc(l.text)}</div>
+    </div>`).join('') || '<div class="empty-state" style="padding:20px;font-size:.8rem">Tu pojawi się każda zmiana w projekcie.</div>';
+  S.logSeen = S.log[0] ? S.log[0].at : (prevTop || '0');
+  list.querySelectorAll('[data-eid]').forEach(d => d.onclick = () => { if (S.elements.find(e => e.id === d.dataset.eid)) selectElement(d.dataset.eid); });
+}
+
+// =====================================================================
+//  PODZIAŁ EKRANU (przeciągane belki)
+// =====================================================================
+(function splitters() {
+  const root = document.documentElement;
+  try {
+    const t = localStorage.getItem('INDEX_TOP_H'); if (t) root.style.setProperty('--top-h', t);
+    const l = localStorage.getItem('INDEX_LOG_W'); if (l) root.style.setProperty('--log-w', l);
+  } catch (e) {}
+  function drag(bar, onMove, onEnd) {
+    bar.addEventListener('pointerdown', e => {
+      e.preventDefault(); bar.setPointerCapture(e.pointerId);
+      const mv = ev => onMove(ev);
+      const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); onEnd(); };
+      bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+    });
+  }
+  drag($('split-h'), e => {
+    const r = $('screen-project').getBoundingClientRect();
+    const h = clamp(e.clientY - r.top, 120, r.height - 110);
+    root.style.setProperty('--top-h', h + 'px');
+    if (hasPhotos()) applyView();
+  }, () => { try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
+  drag($('split-v'), e => {
+    const r = $('pane-bottom').getBoundingClientRect();
+    root.style.setProperty('--log-w', clamp(r.right - e.clientX, 180, r.width * 0.6) + 'px');
+  }, () => { try { localStorage.setItem('INDEX_LOG_W', getComputedStyle(root).getPropertyValue('--log-w').trim()); } catch (e) {} });
+})();
+
+// =====================================================================
+//  EKSPORT: PDF (wizki z oznaczeniami + tabela), Excel (CSV), JSON
+// =====================================================================
+function toggleExportMenu(ev) {
+  ev.stopPropagation();
+  const old = document.querySelector('.menu.exp-menu'); if (old) { old.remove(); return; }
+  const btn = ev.currentTarget, r = btn.getBoundingClientRect();
+  const m = document.createElement('div');
+  m.className = 'menu exp-menu';
+  m.style.left = Math.min(r.left, window.innerWidth - 270) + 'px'; m.style.top = (r.bottom + 6) + 'px';
+  m.innerHTML = `
+    <div class="mi" data-a="pdf">📄 PDF — wizki z oznaczeniami + tabela</div>
+    <div class="mi" data-a="csv">📊 Excel (CSV) — lista elementów</div>
+    <div class="mi" data-a="json">💾 JSON — pełna kopia danych</div>
+    <div class="sep"></div>
+    <div class="mi" data-a="all">⇩ Wszystko naraz</div>`;
+  m.onclick = async e => {
+    const a = e.target.closest('[data-a]'); if (!a) return;
+    m.remove();
+    if (a.dataset.a === 'pdf') await exportPdf();
+    if (a.dataset.a === 'csv') exportCsv();
+    if (a.dataset.a === 'json') exportJson();
+    if (a.dataset.a === 'all') { exportCsv(); exportJson(); await exportPdf(); }
+  };
+  document.body.appendChild(m);
+}
+function exportRows() {
+  return S.elements.map(e => {
+    const t = typeById(e.typeId), g = grossOf(e);
+    return { znak: letterOf(e.num), wizka: e.photoId ? photoNo(e.photoId) : '', typ: t.name, opis: e.name || '',
+      w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
+      qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: e.notes || '', kto: userLabel(e.updatedBy || e.createdBy), color: t.color, el: e };
+  });
+}
+const baseName = () => 'INDEX_' + safeName(S.project.name) + (S.project.fair ? '_' + safeName(S.project.fair) : '');
+function exportCsv() {
+  const head = ['Znak', 'Wizka', 'Typ', 'Opis', 'Szer. netto [mm]', 'Wys. netto [mm]', 'Spad [mm/str.]', 'Szer. do druku [mm]', 'Wys. do druku [mm]', 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
+  const q = v => { const s = String(v == null ? '' : v); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const num = v => v === '' ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
+  const lines = [head.join(';')].concat(exportRows().map(r => [r.znak, r.wizka, r.typ, r.opis, num(r.w), num(r.h), r.spad, num(r.bw), num(r.bh), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
+  download(baseName() + '.csv', new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  addLog(S.project.id, 'Wyeksportowano listę elementów (Excel/CSV)');
+}
+function exportJson() {
+  const data = { app: 'INDEX', version: 1, exportedAt: nowIso(), exportedBy: S.me.id, project: S.project,
+    photos: S.photos, elements: S.elements.map(e => ({ ...e, label: letterOf(e.num), bleed: bleedOf(e), gross: grossOf(e), area: areaOf(e) })),
+    types: S.types, log: S.log };
+  download(baseName() + '.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  addLog(S.project.id, 'Wyeksportowano pełną kopię danych (JSON)');
+}
+async function exportAllProjects() {
+  const t = toast('Zbieranie danych wszystkich projektów…', '', 60000);
+  try {
+    const out = { app: 'INDEX', version: 1, exportedAt: nowIso(), types: S.types, projects: [] };
+    for (const p of S.projects) {
+      out.projects.push({ project: p, photos: await DB.list(pPhotos(p.id)), elements: await DB.list(pElements(p.id)), log: await DB.list(pLog(p.id)) });
+    }
+    download('INDEX_kopia_' + new Date().toISOString().slice(0, 10) + '.json', new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
+  } catch (e) { toast('Błąd: ' + e.message, 'error'); }
+  t.remove();
+}
+function loadImg(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('Nie można wczytać zdjęcia')); i.src = src; });
+}
+function fitText(g, s, maxW) {
+  s = String(s || '');
+  if (g.measureText(s).width <= maxW) return s;
+  while (s.length && g.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+  return s + '…';
+}
+async function exportPdf() {
+  if (!window.jspdf) return toast('Brak biblioteki PDF (sprawdź internet)', 'error');
+  const t = toast('Tworzenie PDF…', '', 120000);
+  try {
+    const PW = 2339, PH = 1654; // A4 poziomo, ~200 dpi
+    const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+    let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
+    const p = S.project, rows = exportRows();
+    const pages = [];
+    const header = (g, sub) => {
+      g.fillStyle = '#1a202c'; g.fillRect(0, 0, PW, 110);
+      if (logo) { const lh = 58, lw = logo.width * lh / logo.height; g.drawImage(logo, 40, 26, lw, lh); }
+      g.fillStyle = '#fff'; g.font = '900 44px Segoe UI, Arial'; g.textAlign = 'left';
+      g.fillText('INDEX', logo ? 400 : 40, 72);
+      g.font = '700 34px Segoe UI, Arial';
+      g.fillText(fitText(g, p.name + (p.fair ? '  ·  ' + p.fair : '') + (p.city ? ', ' + p.city : ''), 1150), logo ? 580 : 220, 70);
+      g.textAlign = 'right'; g.font = '400 26px Segoe UI, Arial'; g.fillStyle = '#cbd5e0';
+      g.fillText(sub, PW - 40, 70);
+      g.textAlign = 'left';
+      g.fillStyle = '#718096'; g.font = '400 22px Segoe UI, Arial';
+      const foot = [p.deadlineGfx ? 'Deadline graficzny: ' + fmtDateTime(p.deadlineGfx) : '', p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
+        'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
+      g.fillText(foot, 40, PH - 28);
+    };
+    const newPage = () => { const c = document.createElement('canvas'); c.width = PW; c.height = PH; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); pages.push(c); return g; };
+    const badge = (g, x, y, r, color, txt) => {
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = color; g.fill(); g.lineWidth = r * 0.16; g.strokeStyle = '#fff'; g.stroke();
+      g.fillStyle = '#fff'; g.font = `800 ${Math.round(r * (txt.length > 1 ? 0.8 : 1.05))}px Segoe UI, Arial`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(txt, x, y + 1); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    };
+
+    // 1) strony z wizkami
+    for (let i = 0; i < S.photos.length; i++) {
+      const ph = S.photos[i];
+      const els = rows.filter(r => r.el.photoId === ph.id);
+      const g = newPage();
+      header(g, `Wizka ${i + 1} / ${S.photos.length}`);
+      let img;
+      try { img = await loadImg(ph.url); } catch (e) { g.fillStyle = '#e53e3e'; g.font = '30px Arial'; g.fillText('Nie udało się wczytać wizki #' + (i + 1), 60, 200); continue; }
+      const AX = 40, AY = 140, AW = els.length ? 1640 : PW - 80, AH = PH - 140 - 70;
+      const k = Math.min(AW / img.width, AH / img.height);
+      const iw = img.width * k, ih = img.height * k, ix = AX + (AW - iw) / 2, iy = AY + (AH - ih) / 2;
+      g.drawImage(img, ix, iy, iw, ih);
+      g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.strokeRect(ix, iy, iw, ih);
+      for (const r of els) {
+        if (!r.el.shape || r.el.shape.kind === 'point') continue; // punkt = sam znacznik z literą
+        const pts = shapePolyPts(r.el.shape);
+        g.beginPath(); pts.forEach((q, j) => { const x = ix + q[0] * iw, y = iy + q[1] * ih; j ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+        g.globalAlpha = 0.22; g.fillStyle = r.color; g.fill(); g.globalAlpha = 1;
+        g.lineWidth = 5; g.strokeStyle = r.color; g.lineJoin = 'round'; g.stroke();
+      }
+      for (const r of els) {
+        if (!r.el.shape) continue;
+        const [cx, cy] = shapeCenter(r.el.shape);
+        badge(g, ix + cx * iw, iy + cy * ih, 24, r.color, r.znak);
+      }
+      // legenda po prawej
+      if (els.length) {
+        const LX = 1710, LW = PW - LX - 40;
+        g.fillStyle = '#1a202c'; g.font = '800 30px Segoe UI, Arial'; g.fillText('Elementy na tej wizce', LX, 175);
+        const rowH = Math.min(118, (PH - 290) / els.length);
+        const fs = rowH < 80 ? 0.75 : 1;
+        els.forEach((r, j) => {
+          const y = 210 + j * rowH;
+          badge(g, LX + 24 * fs, y + 24 * fs, 22 * fs, r.color, r.znak);
+          g.fillStyle = '#1a202c'; g.font = `700 ${Math.round(25 * fs)}px Segoe UI, Arial`;
+          g.fillText(fitText(g, r.typ, LW - 64 * fs), LX + 60 * fs, y + 22 * fs);
+          g.fillStyle = '#4a5568'; g.font = `400 ${Math.round(22 * fs)}px Segoe UI, Arial`;
+          if (r.opis) g.fillText(fitText(g, r.opis, LW - 64 * fs), LX + 60 * fs, y + 50 * fs);
+          g.fillStyle = r.w === '' ? '#dd6b20' : '#1a202c'; g.font = `600 ${Math.round(22 * fs)}px Segoe UI, Arial`;
+          const dimTxt = r.w === '' ? 'wymiar do ustalenia' : `${intPL(r.w)}×${intPL(r.h)} → druk ${intPL(r.bw)}×${intPL(r.bh)} mm` + (r.qty > 1 ? ` · ${r.qty} szt.` : '');
+          g.fillText(fitText(g, dimTxt, LW - 64 * fs), LX + 60 * fs, y + (r.opis ? 78 : 50) * fs);
+        });
+      }
+    }
+
+    // 2) tabela zbiorcza
+    const cols = [['Znak', 80], ['Wizka', 85], ['Typ', 330], ['Opis', 400], ['Netto [mm]', 210], ['Spad', 95], ['Do druku [mm]', 210], ['Szt.', 70], ['m²', 120], ['Uwagi', 0]];
+    cols[cols.length - 1][1] = PW - 80 - cols.reduce((s, c) => s + c[1], 0);
+    const RH = 50, TOP = 210, perPage = Math.floor((PH - TOP - 100) / RH);
+    const tablePages = Math.max(1, Math.ceil((rows.length + 6) / perPage));
+    let idx = 0, pageNo = 0;
+    const summary = {};
+    rows.forEach(r => { const s = summary[r.typ] = summary[r.typ] || { color: r.color, n: 0, m2: 0 }; s.n += r.qty; s.m2 += r.m2 || 0; });
+    let summaryDone = false;
+    while (!summaryDone) {
+      pageNo++;
+      const g = newPage();
+      header(g, `Lista elementów ${pageNo} / ${tablePages}`);
+      g.fillStyle = '#1a202c'; g.font = '800 32px Segoe UI, Arial';
+      g.fillText(`Lista elementów (${rows.length})`, 40, 175);
+      let x = 40;
+      g.fillStyle = '#edf2f7'; g.fillRect(40, TOP, PW - 80, RH);
+      g.fillStyle = '#4a5568'; g.font = '700 21px Segoe UI, Arial';
+      cols.forEach(([n, w]) => { g.fillText(n.toUpperCase(), x + 10, TOP + 32); x += w; });
+      let y = TOP + RH;
+      while (idx < rows.length && y + RH <= PH - 90) {
+        const r = rows[idx++];
+        if (idx % 2 === 0) { g.fillStyle = '#f7fafc'; g.fillRect(40, y, PW - 80, RH); }
+        x = 40;
+        const cells = [null, r.wizka ? '#' + r.wizka : '—', r.typ, r.opis, r.w === '' ? 'do ustalenia' : `${intPL(r.w)} × ${intPL(r.h)}`,
+          r.spad ? r.spad + ' mm' : '—', r.w === '' ? '' : `${intPL(r.bw)} × ${intPL(r.bh)}`, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
+        cols.forEach(([n, w], j) => {
+          if (j === 0) badge(g, x + 30, y + RH / 2, 18, r.color, r.znak);
+          else if (j === 2) {
+            g.fillStyle = r.color; g.fillRect(x + 10, y + 17, 16, 16);
+            g.fillStyle = '#1a202c'; g.font = '400 22px Segoe UI, Arial'; g.fillText(fitText(g, cells[j], w - 46), x + 34, y + 33);
+          } else {
+            g.fillStyle = (j === 4 && r.w === '') ? '#dd6b20' : (j === 9 ? '#4a5568' : '#1a202c');
+            g.font = (j === 6 ? '700 ' : '400 ') + '22px Segoe UI, Arial';
+            g.fillText(fitText(g, cells[j], w - 20), x + 10, y + 33);
+          }
+          x += w;
+        });
+        g.strokeStyle = '#e2e8f0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(40, y + RH); g.lineTo(PW - 40, y + RH); g.stroke();
+        y += RH;
+      }
+      if (idx >= rows.length) {
+        const need = (Object.keys(summary).length + 2) * 42 + 40;
+        if (y + need <= PH - 90 || !rows.length) {
+          y += 40;
+          g.fillStyle = '#1a202c'; g.font = '800 26px Segoe UI, Arial'; g.fillText('Podsumowanie wg typu', 40, y); y += 14;
+          Object.entries(summary).forEach(([typ, s]) => {
+            y += 40;
+            g.fillStyle = s.color; g.fillRect(40, y - 20, 18, 18);
+            g.fillStyle = '#1a202c'; g.font = '400 23px Segoe UI, Arial';
+            g.fillText(`${typ}: ${s.n} szt. · ${numPL(s.m2)} m²`, 72, y - 3);
+          });
+          const tot = rows.reduce((s, r) => s + (r.m2 || 0), 0), nd = rows.filter(r => r.w === '').length;
+          y += 46; g.font = '800 24px Segoe UI, Arial';
+          g.fillText(`Razem: ${rows.reduce((s, r) => s + r.qty, 0)} szt. · ${numPL(tot)} m² do druku` + (nd ? `   (${nd} el. bez wymiaru — nie wliczone)` : ''), 40, y);
+          summaryDone = true;
+        }
+      }
+    }
+    pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, 297, 210); });
+    pdf.save(baseName() + '.pdf');
+    addLog(S.project.id, `Wyeksportowano PDF (wizki: ${S.photos.length}, elementy: ${rows.length})`);
+  } catch (e) {
+    console.error(e);
+    toast('Błąd PDF: ' + e.message, 'error', 6000);
+  }
+  t.remove();
+}
+
+// =====================================================================
+//  PANELE ADMINA: użytkownicy, typy elementów
+// =====================================================================
+function openUsersPanel() {
+  const m = openModal({ title: '👥 Użytkownicy INDEX', wide: true, body: '<div id="up-body"></div>',
+    footer: '<button class="btn" data-c>Zamknij</button>' });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  const render = () => {
+    $('up-body').innerHTML = `
+      <table class="adm-t"><thead><tr><th></th><th>Login</th><th>Imię i nazwisko</th><th>Firma / agencja</th><th>Rola</th><th>Hasło</th><th></th></tr></thead>
+      <tbody>${S.users.map(u => `<tr>
+        <td><span class="avatar-sm" style="background:${u.color}">${esc(u.login.slice(0, 3))}</span></td>
+        <td><b>${esc(u.login)}</b></td><td>${esc(u.name || '')}</td><td>${esc(u.company || '')}</td>
+        <td>${u.admin ? '👑 administrator' : 'użytkownik'}</td>
+        <td>${u.passHash ? '✓ ustawione' : '<span class="tag-warn">brak — konto nieaktywne</span>'}</td>
+        <td style="white-space:nowrap;text-align:right">
+          <button class="btn btn-sm" data-pass="${u.id}">Ustaw hasło</button>
+          ${FIXED_ADMINS.includes(u.id) || u.id === 'test' ? '' : `<button class="btn btn-sm btn-red" data-del="${u.id}">Usuń</button>`}</td>
+      </tr>`).join('')}</tbody></table>
+      <h4 style="margin:20px 0 10px;font-size:.9rem">Nowe konto (np. dla agencji)</h4>
+      <div class="row2">
+        <div class="fld"><label>Login *</label><input type="text" id="nu-login" placeholder="np. anna.agencja" autocapitalize="off"></div>
+        <div class="fld"><label>Hasło * (min. 6 znaków)</label><input type="text" id="nu-pass" autocomplete="off"></div>
+      </div>
+      <div class="row2">
+        <div class="fld"><label>Imię i nazwisko</label><input type="text" id="nu-name"></div>
+        <div class="fld"><label>Firma / agencja</label><input type="text" id="nu-company"></div>
+      </div>
+      <button class="btn btn-solid" id="nu-add">Dodaj konto</button>
+      <div class="hint" style="margin-top:8px;font-size:.75rem;color:var(--gray)">Nowe konto nie widzi żadnego projektu, dopóki nie zaznaczysz go w ustawieniach projektu (⚙ Projekt → Dostęp dla).</div>`;
+    $('up-body').querySelectorAll('[data-pass]').forEach(b => b.onclick = () => setUserPassword(b.dataset.pass, render));
+    $('up-body').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      const u = userById(b.dataset.del);
+      if (!await confirmBox(`Usunąć konto <b>${esc(u.login)}</b>? Wpisy w historii zostaną.`, 'Usuń')) return;
+      await DB.del(C_USERS, u.id); await reloadUsers(); render();
+    });
+    $('nu-add').onclick = async () => {
+      const login = $('nu-login').value.trim(), pass = $('nu-pass').value;
+      if (!/^[\w.\-]{2,30}$/.test(login)) return toast('Login: 2–30 znaków, litery bez ogonków, cyfry, kropka, myślnik', 'error');
+      if (userById(login.toLowerCase())) return toast('Taki login już istnieje', 'error');
+      if (pass.length < 6) return toast('Hasło: minimum 6 znaków', 'error');
+      const id = login.toLowerCase();
+      await DB.set(C_USERS, id, { login, name: $('nu-name').value.trim(), company: $('nu-company').value.trim(), admin: false,
+        color: USER_COLORS[S.users.length % USER_COLORS.length], passHash: await passHashOf(id, pass), createdAt: nowIso(), createdBy: S.me.id });
+      await reloadUsers(); render();
+      toast(`Konto ${login} utworzone — przekaż login i hasło osobie z agencji`, 'success', 5000);
+    };
+  };
+  render();
+}
+function setUserPassword(id, after) {
+  const u = userById(id);
+  const m = openModal({ title: 'Hasło dla ' + esc(u.login), body: `<div class="fld"><label>Nowe hasło (min. 6 znaków)</label><input type="text" id="sp-pass" autocomplete="off"></div>`,
+    footer: '<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="sp-ok">Zapisz</button>' });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('sp-ok').onclick = async () => {
+    const p = $('sp-pass').value;
+    if (p.length < 6) return toast('Minimum 6 znaków', 'error');
+    await DB.set(C_USERS, id, { login: u.login, name: u.name || '', company: u.company || '', admin: !!u.admin, color: u.color, passHash: await passHashOf(id, p) }, true);
+    await reloadUsers();
+    if (S.me.id === id) S.me = userById(id);
+    m.close(); toast('Hasło ustawione', 'success'); after && after();
+  };
+}
+async function reloadUsers() {
+  try { S.users = mergeUsers(await DB.list(C_USERS)); } catch (e) { S.users = mergeUsers([]); toast('Nie udało się wczytać użytkowników: ' + e.message, 'error'); }
+}
+
+function openTypesPanel() {
+  const m = openModal({ title: '🏷️ Typy elementów', wide: true, body: '<div id="tp-body"></div>',
+    footer: '<button class="btn" id="tp-add" style="margin-right:auto">+ Nowy typ</button><button class="btn" data-c>Zamknij</button>' });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  const render = () => {
+    $('tp-body').innerHTML = `<div class="hint" style="font-size:.78rem;color:var(--gray);margin-bottom:10px">Kolor = kolor obwódki na wizce i w PDF. Spad dodawany automatycznie z każdej strony.
+      Przykładowe zdjęcie zobaczy agencja przy wyborze typu — kliknij miniaturę, aby je wgrać.</div>
+      <table class="adm-t"><thead><tr><th>Kol.</th><th>Nazwa</th><th>Opis dla agencji</th><th>Spad [mm]</th><th>Przykład</th><th>Kolej.</th><th></th></tr></thead>
+      <tbody>${S.types.map(t => `<tr data-id="${t.id}">
+        <td><input type="color" data-f="color" value="${esc(t.color)}"></td>
+        <td style="min-width:170px"><input type="text" data-f="name" value="${esc(t.name)}"></td>
+        <td style="min-width:240px"><input type="text" data-f="desc" value="${esc(t.desc || '')}"></td>
+        <td style="width:80px"><input type="number" data-f="bleed" min="0" value="${esc(t.bleed || 0)}"></td>
+        <td><div class="ex-thumb" data-ex style="${t.example ? `background-image:url('${esc(thumbUrl(t.example, 130, 90))}')` : ''}">${t.example ? '' : 'wgraj<br>zdjęcie'}</div></td>
+        <td style="width:64px"><input type="number" data-f="order" value="${esc(t.order || 0)}"></td>
+        <td style="white-space:nowrap"><button class="btn btn-sm btn-green" data-save>Zapisz</button>
+          ${t.id === 'nie-wiem' ? '' : '<button class="btn btn-sm btn-red" data-del>✕</button>'}</td></tr>`).join('')}</tbody></table>`;
+    $('tp-body').querySelectorAll('tr[data-id]').forEach(tr => {
+      const id = tr.dataset.id;
+      const val = () => {
+        const o = {}; tr.querySelectorAll('[data-f]').forEach(i => o[i.dataset.f] = i.type === 'number' ? Number(i.value) || 0 : i.value.trim());
+        return o;
+      };
+      tr.querySelector('[data-save]').onclick = async () => {
+        await ensureTypesSeeded();
+        const t = S.types.find(x => x.id === id) || {};
+        await DB.set(C_TYPES, id, { ...t, ...val(), id: undefined });
+        toast('Zapisano typ', 'success');
+      };
+      const del = tr.querySelector('[data-del]');
+      if (del) del.onclick = async () => {
+        const used = S.elements.filter(e => e.typeId === id).length;
+        if (!await confirmBox('Usunąć ten typ?' + (used ? ` W bieżącym projekcie używa go ${used} el.` : ''), 'Usuń')) return;
+        await ensureTypesSeeded(); await DB.del(C_TYPES, id); setTimeout(render, 100);
+      };
+      tr.querySelector('[data-ex]').onclick = () => {
+        const fi = $('file-generic');
+        fi.onchange = async () => {
+          const f = fi.files[0]; fi.value = ''; if (!f) return;
+          const tt = toast('Wgrywanie zdjęcia…', '', 60000);
+          try {
+            const { url } = await storeImage(f, 1200);
+            await ensureTypesSeeded();
+            await DB.set(C_TYPES, id, { example: url }, true);
+            setTimeout(render, 150);
+          } catch (e) { toast('Błąd: ' + e.message, 'error'); }
+          tt.remove();
+        };
+        fi.click();
+      };
+    });
+  };
+  $('tp-add').onclick = async () => {
+    await ensureTypesSeeded();
+    await DB.set(C_TYPES, 'typ-' + uid(), { name: 'Nowy typ', color: '#3182ce', bleed: 10, desc: '', order: 50, icon: 'print' });
+    setTimeout(render, 150);
+  };
+  render();
+}
+
+// =====================================================================
+//  START
+// =====================================================================
+window.addEventListener('load', async () => {
+  if (DEMO) {
+    DB = LocalDB;
+    const b = document.createElement('div'); b.className = 'demo-badge'; b.textContent = 'TRYB DEMO — dane tylko w tej przeglądarce';
+    document.body.appendChild(b);
+  } else {
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+      DB = FireDB;
+    } catch (e) {
+      $('login-err').textContent = 'Brak połączenia z bazą: ' + e.message;
+      return;
+    }
+  }
+  $('login-btn').disabled = true;
+  await reloadUsers();
+  $('login-btn').disabled = false;
+  DB.sub(C_USERS, rows => {
+    S.users = mergeUsers(rows);
+    if (S.me) { const me = userById(S.me.id); if (me) { S.me = me; renderMyAvatar(); } }
+    else renderLoginAvatars();
+  });
+  // zapamiętana sesja
+  try {
+    const sess = JSON.parse(localStorage.getItem('INDEX_SESSION') || 'null');
+    const u = sess && userById(sess.id);
+    if (u && u.passHash && u.passHash === sess.h) return enterApp(u);
+  } catch (e) {}
+  showScreen('screen-login');
+  renderLoginAvatars();
+});
+</script>
+</body>
+</html>
