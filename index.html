@@ -1373,6 +1373,20 @@ const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 
 // Pełna nazwa typu z wykonaniem, grubością i SEG — do tabeli, PDF, CSV i historii
 // czy typ / wykonanie pyta o grubość materiału (Logo 3D z PCW, pleksi, blokowa; płyta PCW)
 const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || typeById(el.typeId).thick); };
+// wysłony dostają same nazwy W1, W2… (kolejny wolny numer); własna nazwa zostaje,
+// a automatyczna W… znika, gdy element przestaje być wysłoną
+const isAutoWysName = n => /^W\d+$/.test(String(n || '').trim());
+function autoWysName(d, selfId) {
+  const name = String(d.name || '').trim();
+  if (typeById(d.typeId).wyslona && d.wyslona) {
+    if (name && !isAutoWysName(name)) return name;
+    const used = S.elements.filter(e => e.id !== selfId && isAutoWysName(e.name)).map(e => +String(e.name).trim().slice(1));
+    if (isAutoWysName(name) && !used.includes(+name.slice(1))) return name;
+    let n = 1; while (used.includes(n)) n++;
+    return 'W' + n;
+  }
+  return isAutoWysName(name) ? '' : name;
+}
 // uwagi do tabel: SEG z opcji + to, co wpisano
 const notesOf = el => { const t = typeById(el.typeId);
   return [t.seg && el.seg ? 'SEG' : '', t.wyslona && el.wyslona ? 'Wysłona' : '', el.notes || ''].filter(Boolean).join(' · '); };
@@ -2770,6 +2784,7 @@ async function arcSave() {
   if (!ARC || !ARC.typeId) return;
   if (arcSteps().some(st => !st.done)) return;
   const d = arcEl(), pid = S.project.id, num = nextNum(), lab = letterOf(num);
+  d.name = autoWysName(d);
   const rec = { num, ...d, photoId: ARC.photoId, shape: ARC.shape, createdAt: nowIso(), createdBy: S.me.id };
   const go = ARC.root.querySelector('.ap-go'); if (go) go.disabled = true;
   try {
@@ -2914,7 +2929,11 @@ function openElementDialog({ id, shape, photoId }) {
     $('ed-opts').innerHTML = h;
     $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
-    $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => { el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys'; renderOpts(); refresh(); });
+    $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
+      el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
+      $('ed-name').value = autoWysName({ ...el, name: $('ed-name').value }, editing ? editing.id : null); // od razu widać W1, W2…
+      renderOpts(); refresh();
+    });
     $('ed-opts').querySelectorAll('input[data-tog]').forEach(i => i.addEventListener('change', () => { el[i.dataset.tog] = i.checked; refresh(); }));
     // pola wymiaru zależne od kształtu
     const m = dimsMode(el);
@@ -2956,6 +2975,7 @@ function openElementDialog({ id, shape, photoId }) {
   m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
   $('ed-ok').onclick = async () => {
     const d = read();
+    d.name = autoWysName(d, editing ? editing.id : null);
     if (!d.typeId) return toast('Wybierz typ elementu', 'error');
     $('ed-ok').disabled = true;
     const pid = S.project.id;
