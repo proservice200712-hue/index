@@ -183,7 +183,14 @@
   .row-act button:hover { color: var(--dark); }
   .tag-warn { color: var(--orange); font-weight: 700; font-size: 0.72rem; }
 
-  #log-pane { flex: 0 0 var(--log-w); min-width: 180px; display: flex; flex-direction: column; background: var(--bg); }
+  #logside { flex: 0 0 auto; display: flex; background: var(--bg); border-left: 1px solid var(--line); position: relative; z-index: 15; }
+  #logside.closed #log-pane, #logside.closed .split-v { display: none; }
+  #log-pane { width: var(--log-w); max-width: calc(100vw - 60px); display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+  #log-handle { flex: 0 0 24px; background: var(--dark2); color: #e2e8f0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; user-select: none; }
+  #log-handle:hover { background: var(--accent); color: var(--dark); }
+  #log-handle .vt { writing-mode: vertical-rl; font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+  #log-handle .arr { font-size: 0.8rem; }
+  .log-new { background: var(--red); color: #fff; font-size: 0.62rem; font-weight: 800; min-width: 18px; height: 18px; padding: 0 3px; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; }
   .log-bar { padding: 8px 10px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
   .log-bar span { font-weight: 400; color: var(--gray); font-size: 0.72rem; margin-left: auto; }
   #log-list { flex: 1 1 auto; overflow-y: auto; padding: 4px 0; }
@@ -259,6 +266,12 @@
   .type-prev .pimg img, .type-prev .pimg svg { max-width: 100%; max-height: 100%; display: block; }
   .type-prev .ptxt { padding: 9px 11px; font-size: 0.78rem; line-height: 1.45; color: var(--gray); }
   .type-prev .ptxt b { color: var(--dark); font-size: 0.85rem; display: block; margin-bottom: 3px; }
+  #ed-opts { margin: -4px 0 6px; }
+  .var-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .var-btn { flex: 0 0 auto; }
+  .seg-chk { margin: 0 0 12px; padding: 8px 10px; border: 1.5px dashed var(--line); font-size: 0.82rem; }
+  .row-dims { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 12px; }
+  .row-dims.four { grid-template-columns: 1fr 1fr 1fr 90px; }
   .calc { background: var(--bg); border-left: 4px solid var(--accent); padding: 9px 12px; font-size: 0.82rem; margin-top: 4px; line-height: 1.5; }
   .calc b { font-variant-numeric: tabular-nums; }
   details.adm { margin-top: 12px; border: 1px dashed var(--mid); padding: 8px 12px; }
@@ -285,7 +298,7 @@
     .type-wrap { grid-template-columns: 1fr; }
     .type-list { grid-template-columns: 1fr; }
     .row3 { grid-template-columns: 1fr 1fr 80px; }
-    #log-pane { display: none; }
+    #logside:not(.closed) { position: absolute; right: 0; top: 0; bottom: 0; box-shadow: -6px 0 20px rgba(0,0,0,0.25); }
     #split-v { display: none; }
     .toolbar button .lbl { display: none; }
   }
@@ -396,15 +409,21 @@
       </div>
       <div class="el-scroll" id="el-scroll"></div>
     </div>
-    <div class="split-v" id="split-v"></div>
-    <div id="log-pane">
-      <div class="log-bar">Historia zmian <span id="log-count"></span></div>
-      <div id="log-list"></div>
-    </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
 </section>
 </div><!-- #screens -->
+<!-- PANEL PRAWY: historia zmian projektu (rozsuwany belką, jak „Targi · stoiska") -->
+<aside id="logside" class="closed hidden">
+  <div id="log-handle" onclick="toggleLog()" title="Historia zmian — kliknij, aby rozsunąć / schować">
+    <span class="arr" id="log-arr">◂</span><span class="vt">Historia zmian</span><span class="log-new hidden" id="log-new"></span><span class="arr" id="log-arr2">◂</span>
+  </div>
+  <div class="split-v" id="split-v" title="Przeciągnij, aby zmienić szerokość"></div>
+  <div id="log-pane">
+    <div class="log-bar">Historia zmian <span id="log-count"></span></div>
+    <div id="log-list"></div>
+  </div>
+</aside>
 </div><!-- #app-row -->
 
 <div id="toasts"></div>
@@ -462,14 +481,24 @@ const DEFAULT_TYPES = [
     desc: 'Zadrukowana folia z laminatem, oklejająca całą powierzchnię (ściana, lada, słup).' },
   { id: 'pcw', order: 3, name: 'Płyta PCW z nadrukiem', color: '#e31e24', bleed: 10, icon: 'board',
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
-  { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 10, icon: 'banner',
+  { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 10, icon: 'banner', seg: true,
     desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).' },
-  { id: 'lightbox', order: 5, name: 'Lightbox (podświetlany)', color: '#f5c400', bleed: 10, icon: 'light',
-    desc: 'Grafika na tkaninie lub folii podświetlana od tyłu — rama aluminiowa ze światłem LED.' },
-  { id: 'tkanina', order: 6, name: 'Tkanina w ramie (SEG)', color: '#8e44ad', bleed: 10, icon: 'fabric',
-    desc: 'Zadrukowana tkanina z silikonową krawędzią wpinana w ramę aluminiową, bez podświetlenia.' },
-  { id: 'dibond', order: 7, name: 'Dibond / płyta kompozytowa', color: '#f07d00', bleed: 10, icon: 'board',
-    desc: 'Płyta aluminiowo-kompozytowa z nadrukiem — sztywna, trwała, do wielokrotnego użytku.' },
+  { id: 'lightbox', order: 5, name: 'Lightbox (podświetlany)', color: '#f5c400', bleed: 10, icon: 'light', seg: true,
+    desc: 'Grafika na tkaninie podświetlana od tyłu — rama aluminiowa ze światłem LED.' },
+  { id: 'podwieszana', order: 6, name: 'Konstrukcja podwieszana', color: '#8e44ad', bleed: 0, icon: 'hang-ring',
+    desc: 'Konstrukcja z grafiką wieszana nad stoiskiem. Wybierz kształt i podaj wymiar konstrukcji.',
+    variants: [
+      { id: 'okragla', name: 'Okrągła', dims: 'ring', icon: 'hang-ring', desc: 'Pierścień z grafiką dookoła. Podaj średnicę i wysokość.' },
+      { id: 'kwadratowa', name: 'Kwadratowa / prostokątna', dims: 'box', icon: 'hang-box', desc: 'Grafika na czterech bokach. Podaj szerokość, głębokość i wysokość.' },
+    ] },
+  { id: 'logo3d', order: 7, name: 'Logo 3D', color: '#f07d00', bleed: 0, icon: 'l3d-pcw',
+    desc: 'Przestrzenne logo lub litery. Wybierz wykonanie poniżej.',
+    variants: [
+      { id: 'pcw', name: '3D z PCW', thick: true, icon: 'l3d-pcw', desc: 'Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.' },
+      { id: 'plexi', name: '3D z pleksi', thick: true, icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
+      { id: 'halo', name: 'Efekt halo', icon: 'l3d-halo', desc: 'Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.' },
+      { id: 'blok', name: 'Blokowa', thick: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe. Podaj grubość (głębokość) liter.' },
+    ] },
   { id: 'nie-wiem', order: 99, name: 'Nie wiem — do ustalenia', color: '#7f8c8d', bleed: 0, icon: 'other',
     desc: 'Wybierz, gdy nie wiesz, z czego ma być element. Opisz go w uwagach — ustalimy to z Tobą.' },
 ];
@@ -683,6 +712,7 @@ function enterApp(u) {
   $('avatar').classList.remove('hidden');
   document.body.classList.add('logged');
   toggleSide(sideState.open);
+  toggleLog(logState.open);
   startTypesSub();
   startFairsSub();
   startProjectsSub();
@@ -768,7 +798,9 @@ let typesFromDb = false;
 function startTypesSub() {
   DB.sub(C_TYPES, rows => {
     typesFromDb = rows.length > 0;
-    S.types = (rows.length ? rows : clone(DEFAULT_TYPES)).sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+    const merged = clone(DEFAULT_TYPES).map(d => ({ ...d, ...(rows.find(r => r.id === d.id) || {}) }))
+      .concat(rows.filter(r => !DEFAULT_TYPES.some(d => d.id === r.id) && !LEGACY_TYPES[r.id]));
+    S.types = merged.sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
     if (S.project) { renderOverlay(); renderElements(); }
   });
 }
@@ -779,17 +811,57 @@ async function ensureTypesSeeded() {
   typesFromDb = true;
 }
 
-// Spad: na razie z typu (+ wyjątek ELTEX i ręczne nadpisanie przez admina).
+// Stare typy (sprzed 2026-10-16): tkanina SEG → Blackback z opcją SEG; Dibond wycofany
+const LEGACY_TYPES = { tkanina: { typeId: 'blackback', seg: true }, dibond: {} };
+function normalizeEl(e) {
+  const L = LEGACY_TYPES[e.typeId];
+  return L && L.typeId ? { ...e, ...L } : e;
+}
+const variantOf = el => (typeById(el.typeId).variants || []).find(v => v.id === el.variant) || null;
+const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 'flat'; }; // flat | ring | box
+// Pełna nazwa typu z wykonaniem, grubością i SEG — do tabeli, PDF, CSV i historii
+function typeLabel(el) {
+  const t = typeById(el.typeId), v = variantOf(el);
+  let s = t.name;
+  if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
+  if (v && v.thick && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
+  if (t.seg && el.seg) s += ' · SEG';
+  return s;
+}
+const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
+
+// Spad: na razie z typu (+ SEG i ELTEX bez spadu, ręczne nadpisanie przez admina).
 // Docelowe reguły ustali KG — tu jest jedno miejsce do zmiany.
 function bleedOf(el) {
   if (el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '') return Number(el.bleedOverride) || 0;
   if (el.eltex) return 0;
-  return Number(typeById(el.typeId).bleed) || 0;
+  const t = typeById(el.typeId), v = variantOf(el);
+  if (t.seg && el.seg) return 0;
+  if (v && v.bleed !== undefined) return Number(v.bleed) || 0;
+  return Number(t.bleed) || 0;
 }
+const depthOf = el => Number(el.d) > 0 ? Number(el.d) : Number(el.w); // kwadratowa: głębokość = szerokość
 const hasDims = el => Number(el.w) > 0 && Number(el.h) > 0;
+// Wymiar do druku. Konstrukcja podwieszana: grafika dookoła → pas o długości obwodu.
 function grossOf(el) {
   const b = bleedOf(el);
-  return hasDims(el) ? { w: Number(el.w) + 2 * b, h: Number(el.h) + 2 * b, b } : { w: 0, h: 0, b };
+  if (!hasDims(el)) return { w: 0, h: 0, b };
+  const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
+  if (m === 'ring') return { w: Math.round(Math.PI * W) + 2 * b, h: H + 2 * b, b };
+  if (m === 'box') return { w: 2 * (W + depthOf(el)) + 2 * b, h: H + 2 * b, b };
+  return { w: W + 2 * b, h: H + 2 * b, b };
+}
+function netTxt(el) {
+  if (!hasDims(el)) return '';
+  const m = dimsMode(el);
+  if (m === 'ring') return `Ø ${intPL(el.w)} × ${intPL(el.h)}`;
+  if (m === 'box') return `${intPL(el.w)} × ${intPL(depthOf(el))} × ${intPL(el.h)}`;
+  return `${intPL(el.w)} × ${intPL(el.h)}`;
+}
+function grossTxt(el) {
+  if (!hasDims(el)) return '';
+  const g = grossOf(el);
+  return `${intPL(g.w)} × ${intPL(g.h)}` + (dimsMode(el) === 'flat' ? '' : ' (pas)');
 }
 const areaOf = el => { const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1); };
 
@@ -805,10 +877,18 @@ function exampleSvg(t) {
     light: `<rect x="44" y="30" width="152" height="96" fill="#fffbe6" stroke="#888" stroke-width="5"/><rect x="52" y="38" width="136" height="80" fill="${c}" opacity=".55"/><g stroke="${c}" stroke-width="3" opacity=".8"><line x1="120" y1="8" x2="120" y2="22"/><line x1="200" y1="78" x2="214" y2="78"/><line x1="26" y1="78" x2="40" y2="78"/></g>`,
     fabric: `<rect x="40" y="26" width="160" height="102" fill="#888"/><path d="M46 32 H194 V122 H46 Z" fill="${c}"/><path d="M46 70 Q90 54 120 74 T194 70" stroke="#fff" stroke-width="3" fill="none" opacity=".6"/>`,
     other: `<text x="120" y="98" text-anchor="middle" font-size="64" font-weight="900" fill="${c}" font-family="Arial">?</text>`,
+    'l3d-pcw': `<text x="126" y="98" text-anchor="middle" font-size="46" font-weight="900" fill="#777" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="46" font-weight="900" fill="${c}" font-family="Arial">LOGO</text>`,
+    'l3d-plexi': `<text x="127" y="99" text-anchor="middle" font-size="46" font-weight="900" fill="${c}" opacity=".25" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="46" font-weight="900" fill="${c}" fill-opacity=".45" stroke="${c}" stroke-width="1.5" font-family="Arial">LOGO</text>`,
+    'l3d-halo': `<rect x="20" y="18" width="200" height="118" fill="#2d3748"/><text x="120" y="92" text-anchor="middle" font-size="46" font-weight="900" fill="none" stroke="#fff6c2" stroke-width="12" stroke-opacity=".35" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="46" font-weight="900" fill="${c}" font-family="Arial">LOGO</text>`,
+    'l3d-blok': `<g font-size="46" font-weight="900" font-family="Arial" text-anchor="middle">${[10, 8, 6, 4, 2].map(o => `<text x="${120 + o}" y="${92 + o}" fill="#555">LOGO</text>`).join('')}<text x="120" y="92" fill="${c}">LOGO</text></g>`,
+    'hang-ring': `<line x1="80" y1="0" x2="86" y2="52" stroke="#555"/><line x1="160" y1="0" x2="154" y2="52" stroke="#555"/><ellipse cx="120" cy="88" rx="80" ry="16" fill="#cbd5e0"/><rect x="40" y="56" width="160" height="32" fill="${c}"/><ellipse cx="120" cy="56" rx="80" ry="16" fill="${c}" stroke="#fff" stroke-width="1.5"/><ellipse cx="120" cy="56" rx="74" ry="12" fill="#e2e8f0"/>`,
+    'hang-box': `<line x1="70" y1="0" x2="70" y2="44" stroke="#555"/><line x1="170" y1="0" x2="170" y2="44" stroke="#555"/><polygon points="50,52 150,52 190,40 90,40" fill="#e2e8f0" stroke="${c}"/><rect x="50" y="52" width="100" height="40" fill="${c}"/><polygon points="150,52 190,40 190,80 150,92" fill="${c}" opacity=".7"/>`,
   }[t.icon || 'other'] || '';
   return `<svg viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg">${wall}${art}</svg>`;
 }
-const exampleHtml = t => t.example ? `<img src="${esc(t.example)}" alt="">` : exampleSvg(t);
+const exampleHtml = (t, v) => (v && v.example) ? `<img src="${esc(v.example)}" alt="">`
+  : (!v && t.example) ? `<img src="${esc(t.example)}" alt="">`
+  : exampleSvg(v ? { ...t, icon: v.icon || t.icon } : t);
 
 // =====================================================================
 //  LISTA PROJEKTÓW
@@ -1234,6 +1314,8 @@ async function openProject(pid) {
   if (p.fairId) { sideState.fairs.add(p.fairId); saveSideState(); }
   if (!S.sideSel || S.sideSel.kind !== 'stand') S.sideSel = { kind: 'stand', id: pid };
   renderSide();
+  $('logside').classList.remove('hidden');
+  S.logReadAt = null;
   setTool('point');
   let prevCount = -1;
   S.unsubProject.push(DB.sub(pPhotos(pid), rows => {
@@ -1245,7 +1327,7 @@ async function openProject(pid) {
     renderElements(); syncProjectStats(); updateHint();
   }));
   S.unsubProject.push(DB.sub(pElements(pid), rows => {
-    S.elements = rows.sort((a, b) => (a.num || 0) - (b.num || 0));
+    S.elements = rows.map(normalizeEl).sort((a, b) => (a.num || 0) - (b.num || 0));
     if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
     renderOverlay(); renderElements(); syncProjectStats(); updateHint();
   }));
@@ -1258,7 +1340,23 @@ function closeProject() {
   S.unsubProject.forEach(u => { try { u(); } catch (e) {} });
   S.unsubProject = [];
   S.project = null;
+  $('logside').classList.add('hidden');
   cancelDraft(); cancelAssign();
+}
+const logState = { open: (() => { try { return localStorage.getItem('INDEX_LOG_OPEN') === '1'; } catch (e) { return false; } })() };
+function toggleLog(force) {
+  logState.open = force === undefined ? !logState.open : !!force;
+  try { localStorage.setItem('INDEX_LOG_OPEN', logState.open ? '1' : '0'); } catch (e) {}
+  $('logside').classList.toggle('closed', !logState.open);
+  $('log-arr').textContent = $('log-arr2').textContent = logState.open ? '▸' : '◂';
+  if (logState.open && S.log[0]) S.logReadAt = S.log[0].at;
+  renderLogBadge();
+}
+// licznik nowych wpisów (cudzych) na belce, gdy historia jest schowana
+function renderLogBadge() {
+  const n = logState.open || !S.logReadAt ? 0 : S.log.filter(l => l.at > S.logReadAt && l.user !== (S.me && S.me.id)).length;
+  $('log-new').textContent = n > 99 ? '99+' : n;
+  $('log-new').classList.toggle('hidden', !n);
 }
 function renderProjectHeader() {
   const p = S.project; if (!p) return;
@@ -1822,13 +1920,15 @@ function openElementDialog({ id, shape, photoId }) {
         <div class="type-list">${types.map(t => `<button type="button" class="type-btn ${t.id === el.typeId ? 'on' : ''}" data-t="${t.id}"><span class="sw" style="background:${t.color}"></span>${esc(t.name)}</button>`).join('')}</div>
         <div class="type-prev" id="ed-prev"></div>
       </div>
-      <div class="fld"><label>2. Wymiar widoczny (netto)</label>
-        <div class="row3">
+      <div id="ed-opts"></div>
+      <div class="fld"><label id="ed-dims-lab">2. Wymiar widoczny (netto)</label>
+        <div class="row-dims" id="ed-dims">
           <div class="fld" style="margin:0"><input type="number" id="ed-w" min="0" step="1" value="${esc(el.w)}" placeholder="szerokość [mm]"></div>
+          <div class="fld" style="margin:0" id="ed-d-wrap"><input type="number" id="ed-d" min="0" step="1" value="${esc(el.d || '')}" placeholder="głębokość [mm]"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-h" min="0" step="1" value="${esc(el.h)}" placeholder="wysokość [mm]"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-q" min="1" step="1" value="${esc(el.qty || 1)}" title="Ilość sztuk"></div>
         </div>
-        <div class="hint">Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".</div>
+        <div class="hint" id="ed-dims-hint"></div>
       </div>
       <div class="calc" id="ed-calc"></div>
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>
@@ -1846,30 +1946,59 @@ function openElementDialog({ id, shape, photoId }) {
     typeId: el.typeId,
     w: $('ed-w').value === '' ? '' : Math.max(0, Number($('ed-w').value)),
     h: $('ed-h').value === '' ? '' : Math.max(0, Number($('ed-h').value)),
+    d: dimsMode(el) === 'box' && $('ed-d').value !== '' ? Math.max(0, Number($('ed-d').value)) : '',
+    variant: el.variant || '',
+    thick: variantOf(el) && variantOf(el).thick && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
+    seg: typeById(el.typeId).seg ? !!el.seg : false,
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
     ...(isAdmin() ? { bleedOverride: $('ed-bleed').value === '' ? '' : Number($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
   });
+  // podział typu: wykonanie (Logo 3D) / kształt (konstrukcja), grubość, SEG
+  const renderOpts = () => {
+    const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
+    let h = '';
+    if (t && t.variants && t.variants.length) {
+      h += `<div class="fld"><label>${t.id === 'podwieszana' ? 'Kształt konstrukcji' : 'Wykonanie'}</label>
+        <div class="var-list">${t.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === el.variant ? 'on' : ''}" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>`;
+      if (v && v.thick) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
+    }
+    if (t && t.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-seg" ${el.seg ? 'checked' : ''}> <span><b>SEG</b> — tkanina z silikonowym kedrem wpinana w ramę (wymiar = wymiar ramy, <b>bez spadu</b>)</span></label>`;
+    $('ed-opts').innerHTML = h;
+    $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
+    const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
+    const sg = $('ed-seg'); if (sg) sg.addEventListener('change', () => { el.seg = sg.checked; refresh(); });
+    // pola wymiaru zależne od kształtu
+    const m = dimsMode(el);
+    $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
+    $('ed-dims').classList.toggle('four', m === 'box');
+    $('ed-w').placeholder = m === 'ring' ? 'średnica [mm]' : 'szerokość [mm]';
+    $('ed-dims-lab').textContent = m === 'flat' ? '2. Wymiar widoczny (netto)' : '2. Wymiar konstrukcji';
+    $('ed-dims-hint').textContent = m === 'ring' ? 'Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).'
+      : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
+      : 'Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".';
+  };
   const refresh = () => {
-    const t = el.typeId ? typeById(el.typeId) : null;
+    const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
     $('ed-prev').innerHTML = t
-      ? `<div class="pimg">${exampleHtml(t)}</div><div class="ptxt"><b>${esc(t.name)}</b>${esc(t.desc || '')}</div>`
+      ? `<div class="pimg">${exampleHtml(t, v)}</div><div class="ptxt"><b>${esc(v ? t.name + ' — ' + v.name : t.name)}</b>${esc(v && v.desc ? v.desc : t.desc || '')}</div>`
       : `<div class="pimg" style="color:var(--gray);font-size:.85rem;text-align:center;padding:20px">Wybierz typ po lewej —<br>tu pokaże się przykład, jak to wygląda.</div><div class="ptxt">Nie wiesz? Wybierz „Nie wiem — do ustalenia" i opisz element w uwagach.</div>`;
     $('ed-badge').style.background = t ? t.color : '#67b437';
     const cur = read();
     const g = grossOf(cur);
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
-      : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b} mm</b> / stronę`
-      : `Netto <b>${intPL(cur.w)} × ${intPL(cur.h)} mm</b> · spad <b>${g.b ? g.b + ' mm' : 'brak'}</b> → do druku <b>${intPL(g.w)} × ${intPL(g.h)} mm</b>
+      : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? g.b + ' mm</b> / stronę' : 'brak</b>'}`
+      : `${dimsMode(cur) === 'flat' ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} mm</b> · spad <b>${g.b ? g.b + ' mm' : 'brak'}</b> → do druku <b>${grossTxt(cur)} mm</b>
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
-  m.el.querySelectorAll('.type-btn').forEach(b => b.onclick = () => {
+  m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
+    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; }
     el.typeId = b.dataset.t;
-    m.el.querySelectorAll('.type-btn').forEach(x => x.classList.toggle('on', x === b));
-    refresh();
+    m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
+    renderOpts(); refresh();
   });
-  m.el.querySelectorAll('input').forEach(i => i.addEventListener('input', refresh));
-  refresh();
+  ['ed-w', 'ed-d', 'ed-h', 'ed-q', 'ed-bleed', 'ed-eltex'].forEach(id => { const i = $(id); if (i) i.addEventListener('input', refresh); });
+  renderOpts(); refresh();
   setTimeout(() => { const f = $('ed-w'); if (f) f.focus(); }, 40);
   m.el.querySelector('[data-c]').onclick = () => m.close();
   m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
@@ -1880,18 +2009,18 @@ function openElementDialog({ id, shape, photoId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, name: d.name, w: d.w, h: d.h, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
         if (diff) addLog(pid, `Element ${lab}: ${diff}`, editing.id);
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, name: d.name, w: d.w, h: d.h, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
-        addLog(pid, `Dodano element ${lab} — ${typeById(d.typeId).name}${hasDims(d) ? ', ' + intPL(d.w) + '×' + intPL(d.h) + ' mm' : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
+        addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' mm' : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
         m.close();
         S.selId = newId;
       }
@@ -1904,21 +2033,20 @@ function openElementDialog({ id, shape, photoId }) {
 }
 function describeDiff(a, b) {
   const ch = [];
-  if (a.typeId !== b.typeId) ch.push(`typ ${typeById(a.typeId).name} → ${typeById(b.typeId).name}`);
-  if (String(a.w) !== String(b.w) || String(a.h) !== String(b.h))
-    ch.push(`wymiar ${hasDims(a) ? intPL(a.w) + '×' + intPL(a.h) : '?'} → ${hasDims(b) ? intPL(b.w) + '×' + intPL(b.h) : '?'} mm`);
+  if (typeLabel(a) !== typeLabel(b)) ch.push(`typ ${typeLabel(a)} → ${typeLabel(b)}`);
+  if (netTxt(a) !== netTxt(b)) ch.push(`wymiar ${netTxt(a) || '?'} → ${netTxt(b) || '?'} mm`);
   if ((a.qty || 1) !== (b.qty || 1)) ch.push(`ilość ${a.qty || 1} → ${b.qty || 1}`);
   if ((a.name || '') !== (b.name || '')) ch.push(`opis „${b.name || '—'}"`);
   if ((a.notes || '') !== (b.notes || '')) ch.push('uwagi zmienione');
-  if (String(a.bleedOverride ?? '') !== String(b.bleedOverride ?? '') || !!a.eltex !== !!b.eltex) ch.push(`spad → ${bleedOf(b)} mm`);
+  if (bleedOf(a) !== bleedOf(b)) ch.push(`spad → ${bleedOf(b)} mm`);
   return ch.join(', ');
 }
 async function deleteElement(id) {
   const el = S.elements.find(e => e.id === id); if (!el) return;
-  const ok = await confirmBox(`Usunąć element <b>${letterOf(el.num)}</b> — ${esc(typeById(el.typeId).name)}${el.name ? ' (' + esc(el.name) + ')' : ''}?`, 'Usuń');
+  const ok = await confirmBox(`Usunąć element <b>${letterOf(el.num)}</b> — ${esc(typeLabel(el))}${el.name ? ' (' + esc(el.name) + ')' : ''}?`, 'Usuń');
   if (!ok) return;
   await DB.del(pElements(S.project.id), id);
-  addLog(S.project.id, `Usunięto element ${letterOf(el.num)} — ${typeById(el.typeId).name}${el.name ? ' (' + el.name + ')' : ''}`);
+  addLog(S.project.id, `Usunięto element ${letterOf(el.num)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`);
   if (S.selId === id) S.selId = null;
 }
 function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
@@ -1943,7 +2071,7 @@ function renderElements() {
   const list = S.elFilter === 'photo' ? S.elements.filter(e => e.photoId === S.photoId) : S.elements;
   const totalA = S.elements.reduce((s, e) => s + areaOf(e), 0);
   const noDim = S.elements.filter(e => !hasDims(e)).length;
-  const unknown = S.elements.filter(e => e.typeId === 'nie-wiem').length;
+  const unknown = S.elements.filter(typeUndecided).length;
   $('el-stats').innerHTML = `<b>${S.elements.length}</b> el. · <b>${numPL(totalA)} m²</b> do druku`
     + (noDim ? ` · <span class="tag-warn">${noDim} bez wymiaru</span>` : '')
     + (unknown ? ` · <span class="tag-warn">${unknown} typ do ustalenia</span>` : '');
@@ -1960,10 +2088,10 @@ function renderElements() {
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
         <td><span class="badge" style="background:${t.color}">${letterOf(e.num)}</span></td>
         <td>${e.photoId ? '#' + photoNo(e.photoId) : '<span class="tag-warn" title="Element nie jest zaznaczony na żadnej wizce">—</span>'}</td>
-        <td><span class="tdot" style="background:${t.color}"></span>${esc(t.name)}</td>
-        <td class="dims">${dims ? intPL(e.w) + ' × ' + intPL(e.h) : 'do ustalenia'}</td>
+        <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
+        <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
         <td class="num">${g.b ? g.b + ' mm' : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
-        <td class="dims">${dims ? intPL(g.w) + ' × ' + intPL(g.h) : ''}</td>
+        <td class="dims">${dims ? grossTxt(e) : ''}</td>
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
         <td class="notes" title="${esc(e.notes || '')}">${esc(e.notes || '')}</td>
@@ -1996,6 +2124,8 @@ function renderLog() {
       <div><div class="lt">${fmtShort(l.at)}</div>${esc(l.text)}</div>
     </div>`).join('') || '<div class="empty-state" style="padding:20px;font-size:.8rem">Tu pojawi się każda zmiana w projekcie.</div>';
   S.logSeen = S.log[0] ? S.log[0].at : (prevTop || '0');
+  if (!S.logReadAt || logState.open) S.logReadAt = S.log[0] ? S.log[0].at : '0';
+  renderLogBadge();
   list.querySelectorAll('[data-eid]').forEach(d => d.onclick = () => { if (S.elements.find(e => e.id === d.dataset.eid)) selectElement(d.dataset.eid); });
 }
 
@@ -2023,8 +2153,8 @@ function renderLog() {
     if (hasPhotos()) applyView();
   }, () => { try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
   drag($('split-v'), e => {
-    const r = $('pane-bottom').getBoundingClientRect();
-    root.style.setProperty('--log-w', clamp(r.right - e.clientX, 180, r.width * 0.6) + 'px');
+    const r = $('logside').getBoundingClientRect();
+    root.style.setProperty('--log-w', clamp(r.right - e.clientX, 200, window.innerWidth * 0.5) + 'px');
   }, () => { try { localStorage.setItem('INDEX_LOG_W', getComputedStyle(root).getPropertyValue('--log-w').trim()); } catch (e) {} });
 })();
 
@@ -2057,17 +2187,18 @@ function toggleExportMenu(ev) {
 function exportRows() {
   return S.elements.map(e => {
     const t = typeById(e.typeId), g = grossOf(e);
-    return { znak: letterOf(e.num), wizka: e.photoId ? photoNo(e.photoId) : '', typ: t.name, opis: e.name || '',
-      w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
+    return { znak: letterOf(e.num), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
+      w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
+      net: netTxt(e), gross: grossTxt(e), spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
       qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: e.notes || '', kto: userLabel(e.updatedBy || e.createdBy), color: t.color, el: e };
   });
 }
 const baseName = () => 'INDEX_' + safeName(S.project.name) + (S.project.fair ? '_' + safeName(S.project.fair) : '');
 function exportCsv() {
-  const head = ['Znak', 'Wizka', 'Typ', 'Opis', 'Szer. netto [mm]', 'Wys. netto [mm]', 'Spad [mm/str.]', 'Szer. do druku [mm]', 'Wys. do druku [mm]', 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
+  const head = ['Znak', 'Wizka', 'Typ', 'Opis', 'Wymiar netto [mm]', 'Szer. / średnica [mm]', 'Głęb. [mm]', 'Wys. netto [mm]', 'Spad [mm/str.]', 'Szer. do druku [mm]', 'Wys. do druku [mm]', 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
   const q = v => { const s = String(v == null ? '' : v); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const num = v => v === '' ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
-  const lines = [head.join(';')].concat(exportRows().map(r => [r.znak, r.wizka, r.typ, r.opis, num(r.w), num(r.h), r.spad, num(r.bw), num(r.bh), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
+  const lines = [head.join(';')].concat(exportRows().map(r => [r.znak, r.wizka, r.typ, r.opis, r.net, num(r.w), num(r.d), num(r.h), r.spad, num(r.bw), num(r.bh), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
   download(baseName() + '.csv', new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   addLog(S.project.id, 'Wyeksportowano listę elementów (Excel/CSV)');
 }
@@ -2168,14 +2299,14 @@ async function exportPdf() {
           g.fillStyle = '#4a5568'; g.font = `400 ${Math.round(22 * fs)}px Segoe UI, Arial`;
           if (r.opis) g.fillText(fitText(g, r.opis, LW - 64 * fs), LX + 60 * fs, y + 50 * fs);
           g.fillStyle = r.w === '' ? '#dd6b20' : '#1a202c'; g.font = `600 ${Math.round(22 * fs)}px Segoe UI, Arial`;
-          const dimTxt = r.w === '' ? 'wymiar do ustalenia' : `${intPL(r.w)}×${intPL(r.h)} → druk ${intPL(r.bw)}×${intPL(r.bh)} mm` + (r.qty > 1 ? ` · ${r.qty} szt.` : '');
+          const dimTxt = r.w === '' ? 'wymiar do ustalenia' : `${r.net} → druk ${r.gross} mm` + (r.qty > 1 ? ` · ${r.qty} szt.` : '');
           g.fillText(fitText(g, dimTxt, LW - 64 * fs), LX + 60 * fs, y + (r.opis ? 78 : 50) * fs);
         });
       }
     }
 
     // 2) tabela zbiorcza
-    const cols = [['Znak', 80], ['Wizka', 85], ['Typ', 330], ['Opis', 400], ['Netto [mm]', 210], ['Spad', 95], ['Do druku [mm]', 210], ['Szt.', 70], ['m²', 120], ['Uwagi', 0]];
+    const cols = [['Znak', 80], ['Wizka', 85], ['Typ', 520], ['Opis', 210], ['Netto [mm]', 260], ['Spad', 95], ['Do druku [mm]', 210], ['Szt.', 70], ['m²', 120], ['Uwagi', 0]];
     cols[cols.length - 1][1] = PW - 80 - cols.reduce((s, c) => s + c[1], 0);
     const RH = 50, TOP = 210, perPage = Math.floor((PH - TOP - 100) / RH);
     const tablePages = Math.max(1, Math.ceil((rows.length + 6) / perPage));
@@ -2198,8 +2329,8 @@ async function exportPdf() {
         const r = rows[idx++];
         if (idx % 2 === 0) { g.fillStyle = '#f7fafc'; g.fillRect(40, y, PW - 80, RH); }
         x = 40;
-        const cells = [null, r.wizka ? '#' + r.wizka : '—', r.typ, r.opis, r.w === '' ? 'do ustalenia' : `${intPL(r.w)} × ${intPL(r.h)}`,
-          r.spad ? r.spad + ' mm' : '—', r.w === '' ? '' : `${intPL(r.bw)} × ${intPL(r.bh)}`, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
+        const cells = [null, r.wizka ? '#' + r.wizka : '—', r.typ, r.opis, r.w === '' ? 'do ustalenia' : r.net,
+          r.spad ? r.spad + ' mm' : '—', r.w === '' ? '' : r.gross, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
         cols.forEach(([n, w], j) => {
           if (j === 0) badge(g, x + 30, y + RH / 2, 18, r.color, r.znak);
           else if (j === 2) {
