@@ -173,7 +173,6 @@
   .gc.dragging .gc-h { cursor: grabbing; }
   .gc-ed { background: none; border: 1.5px solid var(--line); color: var(--gray); cursor: pointer; width: 24px; height: 24px; font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; }
   .gc-ed:hover { border-color: var(--dark); color: var(--dark); background: var(--bg); }
-  .gc-auto { position: sticky; float: right; top: 6px; right: 10px; margin: 6px 10px 0 0; background: #fff; z-index: 6; }
   .gc-h .gc-t { font-family: Bahnschrift, 'Segoe UI', Arial, sans-serif; font-size: 1rem; font-weight: 600; letter-spacing: .2px; color: var(--dark); }
   .gc-h .gc-q { font-size: .72rem; color: var(--gray); font-weight: 700; }
   .gc.sel .gc-t { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 3px; }
@@ -560,6 +559,10 @@
           <button data-v="graph" onclick="setElView('graph')" title="Wizki z opisami i strzałkami — jak index z Corela">➚ Grafika</button>
         </div>
         <button class="btn btn-sm" onclick="newElementWithoutShape()" title="Element, którego nie da się zaznaczyć na wizce">+ Element bez zaznaczenia</button>
+        <span id="gc-tools" class="hidden" style="display:inline-flex;gap:8px">
+          <button class="btn btn-sm" onclick="graphAutoLayout()" title="Ułóż okienka automatycznie">↺ Ułóż automatycznie</button>
+          <button class="btn btn-sm" onclick="graphAlign()" title="Rozsuń nachodzące na siebie okienka na równy odstęp">⇔ Wyrównaj</button>
+        </span>
         <div class="stats" id="el-stats"></div>
       </div>
       <div class="el-scroll" id="el-scroll"></div>
@@ -933,6 +936,7 @@ const I18N_PAIRS = [
   ['Brak dostępu do tego projektu', 'Немає доступу до цього проєкту', 'No access to this project'], ['Nie znaleziono projektu', 'Проєкт не знайдено', 'Project not found'],
   ['Polski', 'Polski', 'Polski'],
   ['Przeciągnij, aby przesunąć okienko', 'Перетягніть, щоб перемістити віконце', 'Drag to move the box'], ['Ułóż automatycznie', 'Розташувати автоматично', 'Auto layout'],
+  ['Wyrównaj', 'Вирівняти', 'Align'], ['Rozsuń nachodzące na siebie okienka na równy odstęp', 'Розсунути віконця, що накладаються, на рівну відстань', 'Spread overlapping boxes to an even gap'],
   ['Ułóż okienka automatycznie', 'Розташувати віконця автоматично', 'Arrange boxes automatically'],
   ['Przeciągnij, aby zmienić miejsce, którego dotyczy znacznik', 'Перетягніть, щоб змінити місце, якого стосується мітка', 'Drag to change the spot this marker points to'],
 ];
@@ -2222,10 +2226,10 @@ function renderOverlay() {
     if (sh.lab) {
       const x1 = +X(b, [cx]), y1 = +Y([0, cy]), x2 = +X(b, [ax]), y2 = +Y([0, ay]);
       const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len;
-      const hl = 13 * s, hw = 6 * s, bx = x2 - ux * hl, by = y2 - uy * hl;
-      out += `<line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="#fff" stroke-width="${5 * s}" stroke-linecap="round"/>
-        <line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${t.color}" stroke-width="${2.5 * s}" stroke-linecap="round"/>
-        <polygon points="${x2},${y2} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}" fill="${t.color}" stroke="#fff" stroke-width="${1.2 * s}" stroke-linejoin="round"/>`;
+      const hl = 9 * s, hw = 3.6 * s, bx = x2 - ux * hl, by = y2 - uy * hl;
+      out += `<line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="#fff" stroke-opacity=".85" stroke-width="${3 * s}" stroke-linecap="round"/>
+        <line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${t.color}" stroke-width="${1.4 * s}" stroke-linecap="round"/>
+        <polygon points="${x2},${y2} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}" fill="${t.color}" stroke="#fff" stroke-width="${.8 * s}" stroke-linejoin="round"/>`;
       if (sel) out += `<circle class="hdl anc" data-eid="${el.id}" cx="${x2}" cy="${y2}" r="${6 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"><title>Przeciągnij, aby zmienić miejsce, którego dotyczy znacznik</title></circle>`;
     }
     if (sh.kind !== 'point') {
@@ -2919,8 +2923,7 @@ function renderGraph() {
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
   box.innerHTML = `<svg width="0" height="0" style="position:absolute"><defs><marker id="gArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4a5568"/></marker></defs></svg>
-    <div class="gidx">${cards}</div>
-    ${S.elements.some(e => e.gpos) ? '<button type="button" class="btn btn-sm gc-auto" title="Ułóż okienka automatycznie">↺ Ułóż automatycznie</button>' : ''}`;
+    <div class="gidx">${cards}</div>`;
   // okienka bez zapisanej pozycji układają się same; potem wszystkie dostają pozycję absolutną (da się je przesuwać)
   const wrap = box.querySelector('.gidx');
   const flow = [...wrap.querySelectorAll('.gc:not(.abs)')].map(c => [c, c.offsetLeft, c.offsetTop]);
@@ -2931,10 +2934,6 @@ function renderGraph() {
     wrap.style.width = (w + 24) + 'px'; wrap.style.height = (h + 24) + 'px';
   };
   wrap.classList.add('free'); fitWrap();
-  const auto = box.querySelector('.gc-auto');
-  if (auto) auto.onclick = async () => {
-    for (const e of S.elements.filter(x => x.gpos)) await DB.update(pElements(S.project.id), e.id, { gpos: null });
-  };
   box.querySelectorAll('.gc').forEach(c => {
     c.onmouseenter = () => setHover(c.dataset.eid);
     c.onmouseleave = () => setHover(null);
@@ -3024,6 +3023,44 @@ async function removeThumb(eid) {
   await DB.update(pElements(S.project.id), eid, { thumb: '', updatedAt: nowIso(), updatedBy: S.me.id });
   addLog(S.project.id, `Usunięto miniaturę grafiki z elementu ${letterOf(el.num)}`, eid);
 }
+// okienka znów w automatycznym układzie
+async function graphAutoLayout() {
+  for (const e of S.elements.filter(x => x.gpos)) await DB.update(pElements(S.project.id), e.id, { gpos: null });
+}
+// Wyrównaj: okienka zostają mniej więcej tam, gdzie je postawiono, ale nachodzące
+// na siebie rozsuwamy (w prawo albo w dół — krótszą drogą) na równy odstęp
+async function graphAlign() {
+  const GAP = 28;
+  const cards = [...document.querySelectorAll('#el-scroll .gc')].map(c => ({ id: c.dataset.eid, x: c.offsetLeft, y: c.offsetTop, w: c.offsetWidth, h: c.offsetHeight }));
+  if (!cards.length) return;
+  // wiersze: okienka, których góry są blisko siebie, ustawiamy na jednej wysokości
+  cards.sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let i = 1; i < cards.length; i++) {
+    const prev = cards[i - 1];
+    if (Math.abs(cards[i].y - prev.y) < 30) cards[i].y = prev.y;
+  }
+  const hits = (a, b) => a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP;
+  cards.sort((a, b) => a.y - b.y || a.x - b.x);
+  for (let pass = 0; pass < 60; pass++) {
+    let moved = false;
+    for (let i = 0; i < cards.length; i++) for (let j = 0; j < i; j++) {
+      const a = cards[j], b = cards[i];
+      if (!hits(a, b)) continue;
+      const pushX = a.x + a.w + GAP - b.x, pushY = a.y + a.h + GAP - b.y;
+      if (pushX <= pushY) b.x += pushX; else b.y += pushY;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  // całość dosunięta do lewego górnego rogu
+  const minX = Math.min(...cards.map(c => c.x)), minY = Math.min(...cards.map(c => c.y));
+  for (const c of cards) {
+    const gpos = { x: Math.round(c.x - minX + 16), y: Math.round(c.y - minY + 12) }; // margines jak w układzie automatycznym
+    const el = S.elements.find(x => x.id === c.id);
+    if (el && el.gpos && el.gpos.x === gpos.x && el.gpos.y === gpos.y) continue;
+    await DB.update(pElements(S.project.id), c.id, { gpos });
+  }
+}
 let graphRO = null;
 if (window.ResizeObserver) {
   let tmr = null;
@@ -3045,6 +3082,7 @@ function renderElements() {
     + (noDim ? ` · <span class="tag-warn">${noDim} bez wymiaru</span>` : '')
     + (unknown ? ` · <span class="tag-warn">${unknown} typ do ustalenia</span>` : '');
   document.querySelectorAll('#el-view button').forEach(b => b.classList.toggle('on', b.dataset.v === S.elView));
+  $('gc-tools').classList.toggle('hidden', S.elView !== 'graph');
   if (S.elView === 'graph') return renderGraph();
   if (!list.length) {
     $('el-scroll').innerHTML = `<div class="empty-state" style="padding:30px 20px">${S.photos.length
@@ -3258,12 +3296,12 @@ async function exportPdf() {
         if (r.el.shape.lab) {
           const [ax, ay] = shapeCenter(r.el.shape);
           const x1 = ix + cx * iw, y1 = iy + cy * ih, x2 = ix + ax * iw, y2 = iy + ay * ih;
-          const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len, bx = x2 - ux * 26, by = y2 - uy * 26;
+          const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len, bx = x2 - ux * 18, by = y2 - uy * 18;
           g.lineCap = 'round';
-          g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
-          g.strokeStyle = r.color; g.lineWidth = 5; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
-          g.beginPath(); g.moveTo(x2, y2); g.lineTo(bx - uy * 12, by + ux * 12); g.lineTo(bx + uy * 12, by - ux * 12); g.closePath();
-          g.fillStyle = r.color; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+          g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 6; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
+          g.strokeStyle = r.color; g.lineWidth = 2.8; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
+          g.beginPath(); g.moveTo(x2, y2); g.lineTo(bx - uy * 7, by + ux * 7); g.lineTo(bx + uy * 7, by - ux * 7); g.closePath();
+          g.fillStyle = r.color; g.fill(); g.lineWidth = 1.5; g.strokeStyle = '#fff'; g.stroke();
         }
         badge(g, ix + cx * iw, iy + cy * ih, 24, r.color, r.znak);
       }
