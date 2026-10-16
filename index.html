@@ -169,7 +169,14 @@
   .gidx.free { display: block; }
   .gc.abs { position: absolute; }
   .gc.dragging { z-index: 5; opacity: .92; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
-  .gc-h { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: nowrap; user-select: none; }
+  .gc-h { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: normal; user-select: none; }
+  .gc-h .gc-t { flex: 1 1 auto; min-width: 0; line-height: 1.25; padding-top: 3px; overflow-wrap: anywhere; }
+  .gc-h .gc-q, .gc-h .gc-ed { flex: 0 0 auto; margin-top: 2px; }
+  /* nawigacja w widoku Grafika */
+  .el-scroll.gnav { overflow: hidden; position: relative; cursor: grab; touch-action: none; }
+  .el-scroll.gnav.panning { cursor: grabbing; }
+  .gstage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  .ghint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); background: rgba(26,32,44,.85); color: #fff; padding: 5px 12px; font-size: .74rem; pointer-events: none; max-width: calc(100% - 20px); text-align: center; z-index: 3; }
   .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: grab; touch-action: none; }
   .gidx.moving .gc-frame:hover { background: #fff; color: var(--mid); }
   .gidx.moving .gc { animation: gcWiggle .3s ease-in-out infinite alternate; transform-origin: 50% 40%; }
@@ -194,7 +201,7 @@
   .gc-frame .x { position: absolute; right: 0; top: 0; width: 18px; height: 18px; background: rgba(229,62,62,.9); color: #fff; font-size: .7rem; display: none; align-items: center; justify-content: center; z-index: 2; }
   .gc-frame:hover .x { display: flex; }
   .gc-frame.nodim { border: 1.5px dashed var(--orange); }
-  .gc-note { font-size: .7rem; color: var(--gray); max-width: 260px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gc-note { font-size: .7rem; color: var(--gray); margin-top: 2px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
   .gc-note.w { color: var(--orange); font-weight: 700; }
   #clock-pane { flex: 0 0 210px; border-left: 1px solid var(--line); background: linear-gradient(180deg, #fff, var(--bg)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 10px; min-height: 0; overflow: hidden; }
   #clock-svg { width: 100%; max-width: 170px; max-height: 170px; flex: 1 1 0; min-height: 0; overflow: visible; }
@@ -583,6 +590,7 @@
         <button class="btn btn-sm" onclick="newElementWithoutShape()" title="Element, którego nie da się zaznaczyć na wizce">+ Element bez zaznaczenia</button>
         <span id="gc-tools" class="hidden" style="display:inline-flex;gap:8px">
           <button class="btn btn-sm" id="gc-move" onclick="toggleGraphMove()" title="Włącz przesuwanie okienek">✥ Przesuń</button>
+          <button class="btn btn-sm" onclick="graphFit()" title="Pokaż wszystkie okienka">⤢ Dopasuj</button>
           <button class="btn btn-sm" onclick="graphAutoLayout()" title="Ułóż okienka automatycznie">↺ Ułóż automatycznie</button>
           <button class="btn btn-sm" onclick="graphAlign()" title="Rozsuń nachodzące na siebie okienka na równy odstęp">⇔ Wyrównaj</button>
         </span>
@@ -959,7 +967,9 @@ const I18N_PAIRS = [
   ['Brak dostępu do tego projektu', 'Немає доступу до цього проєкту', 'No access to this project'], ['Nie znaleziono projektu', 'Проєкт не знайдено', 'Project not found'],
   ['Polski', 'Polski', 'Polski'],
   ['Przeciągnij, aby przesunąć okienko', 'Перетягніть, щоб перемістити віконце', 'Drag to move the box'], ['Ułóż automatycznie', 'Розташувати автоматично', 'Auto layout'],
-  ['Wyrównaj', 'Вирівняти', 'Align'], ['Przesuń', 'Перемістити', 'Move'], ['Zakończ przesuwanie', 'Завершити переміщення', 'Finish moving'],
+  ['Wyrównaj', 'Вирівняти', 'Align'], ['Pokaż wszystkie okienka', 'Показати всі віконця', 'Show all boxes'],
+  ['Kliknij okienko = wklej grafikę · przeciągnij tło = przesuwanie · kółko myszy = powiększenie · ✥ Przesuń = układanie okienek', 'Клік по віконцю = вставити графіку · перетягнути фон = зсув · коліщатко миші = масштаб · ✥ Перемістити = розташування віконець', 'Click a box = paste artwork · drag background = pan · mouse wheel = zoom · ✥ Move = arrange boxes'],
+  ['Przeciągnij okienko w nowe miejsce — pozostałe zrobią miejsce · przeciągnij tło = przesuwanie · kółko myszy = powiększenie', 'Перетягніть віконце на нове місце — інші звільнять місце · перетягнути фон = зсув · коліщатко миші = масштаб', 'Drag a box to a new place — the others make room · drag background = pan · mouse wheel = zoom'], ['Przesuń', 'Перемістити', 'Move'], ['Zakończ przesuwanie', 'Завершити переміщення', 'Finish moving'],
   ['Włącz przesuwanie okienek', 'Увімкнути переміщення віконець', 'Turn on moving boxes'], ['Zakończ przesuwanie okienek', 'Завершити переміщення віконець', 'Finish moving boxes'], ['Kliknij, aby zaznaczyć', 'Натисніть, щоб виділити', 'Click to select'],
   ['Co?', 'Що?', 'What?'], ['Druk czy eksport?', 'Друк чи експорт?', 'Print or export?'], ['Druk', 'Друк', 'Print'], ['Eksport (zapis pliku)', 'Експорт (збереження файлу)', 'Export (save file)'],
   ['Drukuj', 'Друкувати', 'Print'], ['Numer wersji indexu', 'Номер версії індексу', 'Index version number'], ['ostatnio', 'останній раз', 'last'], ['Plik', 'Файл', 'File'],
@@ -2899,6 +2909,9 @@ function toggleGraphMove(force) {
   b.classList.toggle('btn-solid', S.graphMove);
   b.title = S.graphMove ? 'Zakończ przesuwanie okienek' : 'Włącz przesuwanie okienek';
   const w = document.querySelector('#el-scroll .gidx'); if (w) w.classList.toggle('moving', S.graphMove);
+  const hint = document.querySelector('#el-scroll .ghint');
+  if (hint) hint.textContent = S.graphMove ? 'Przeciągnij okienko w nowe miejsce — pozostałe zrobią miejsce · przeciągnij tło = przesuwanie · kółko myszy = powiększenie'
+    : 'Kliknij okienko = wklej grafikę · przeciągnij tło = przesuwanie · kółko myszy = powiększenie · ✥ Przesuń = układanie okienek';
 }
 function setElView(v) {
   if (v !== 'graph') toggleGraphMove(false);
@@ -2960,13 +2973,18 @@ function renderGraph() {
       ${e.thumb ? `<img src="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>`;
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : dimsMode(e) !== 'flat' ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · pas do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
-    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''}" data-eid="${e.id}" style="--c:${t.color};${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
+    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''}" data-eid="${e.id}" style="--c:${t.color};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
+  box.classList.add('gnav');
   box.innerHTML = `<svg width="0" height="0" style="position:absolute"><defs><marker id="gArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4a5568"/></marker></defs></svg>
-    <div class="gidx">${cards}</div>`;
+    <div class="gstage" id="gstage"><div class="gidx">${cards}</div></div>
+    <div class="ghint">${S.graphMove ? 'Przeciągnij okienko w nowe miejsce — pozostałe zrobią miejsce · przeciągnij tło = przesuwanie · kółko myszy = powiększenie'
+      : 'Kliknij okienko = wklej grafikę · przeciągnij tło = przesuwanie · kółko myszy = powiększenie · ✥ Przesuń = układanie okienek'}</div>`;
+  if (G.key !== S.project.id) { G.key = S.project.id; G.s = 1; G.tx = 0; G.ty = 0; }
+  applyGraphView();
   // okienka bez zapisanej pozycji układają się same; potem wszystkie dostają pozycję absolutną (da się je przesuwać)
   const wrap = box.querySelector('.gidx');
   const flow = [...wrap.querySelectorAll('.gc:not(.abs)')].map(c => [c, c.offsetLeft, c.offsetTop]);
@@ -2992,10 +3010,11 @@ function renderGraph() {
     // w trybie „Przesuń" okienko łapie się w dowolnym miejscu: nazwa, prostokąt, wymiary, miniatura
     card.onpointerdown = e => {
       if (e.button !== 0 || !S.graphMove || e.target.closest('.gc-ed')) return;
-      e.preventDefault();
+      e.preventDefault(); e.stopPropagation();
       card.setPointerCapture(e.pointerId);
+      S.graphBusy = true; // w trakcie żadnych przerysowań — inaczej okienko „wypada" spod kursora
       const x0 = e.clientX, y0 = e.clientY, l0 = card.offsetLeft, t0 = card.offsetTop;
-      let moved = false, items = [];
+      let moved = false, items = [], raf = 0, last = null;
       // pozostałe okienka: pozycje z chwili chwycenia (do nich wracają, gdy zrobi się miejsce)
       const others = [...card.parentElement.querySelectorAll('.gc')].filter(c => c !== card)
         .map(c => ({ c, id: c.dataset.eid, hx: c.offsetLeft, hy: c.offsetTop, w: c.offsetWidth, h: c.offsetHeight }));
@@ -3026,26 +3045,31 @@ function renderGraph() {
         list.forEach(it => { it.c.style.left = it.x + 'px'; it.c.style.top = it.y + 'px'; });
         return list;
       };
-      const mv = ev => {
-        const dx = ev.clientX - x0, dy = ev.clientY - y0;
-        if (!moved && Math.hypot(dx, dy) < 4) return;
-        moved = true; card.classList.add('dragging'); card.parentElement.classList.add('sorting');
+      // ruch liczony raz na klatkę obrazu (requestAnimationFrame) — płynnie nawet przy wielu okienkach
+      const frame = () => {
+        raf = 0; if (!last) return;
+        const dx = (last.x - x0) / G.s, dy = (last.y - y0) / G.s;
         const nx = Math.max(0, l0 + dx), ny = Math.max(0, t0 + dy);
         card.style.left = nx + 'px'; card.style.top = ny + 'px';
         items = makeRoom(nx, ny);
         fitWrap();
       };
+      const mv = ev => {
+        if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
+        if (!moved) { moved = true; card.classList.add('dragging'); card.parentElement.classList.add('sorting'); }
+        last = { x: ev.clientX, y: ev.clientY };
+        if (!raf) raf = requestAnimationFrame(frame);
+      };
       const up = async () => {
         card.removeEventListener('pointermove', mv); card.removeEventListener('pointerup', up); card.removeEventListener('pointercancel', up);
+        if (raf) { cancelAnimationFrame(raf); frame(); }
         card.classList.remove('dragging');
-        if (!moved) { selectElement(eid); return; }
-        // zapis: przeciągnięte okienko i wszystkie, które się rozjechały
+        if (!moved) { S.graphBusy = false; if (S.graphDirty) renderElements(); selectElement(eid); return; }
+        // zapis: przeciągnięte okienko i wszystkie, które się rozjechały — jedno przerysowanie na końcu
         const changes = [{ id: eid, gpos: { x: Math.round(parseFloat(card.style.left)), y: Math.round(parseFloat(card.style.top)) } }]
           .concat(items.filter(it => it.x !== it.hx || it.y !== it.hy).map(it => ({ id: it.id, gpos: { x: Math.round(it.x), y: Math.round(it.y) } })));
-        for (const ch of changes) { const el = S.elements.find(x => x.id === ch.id); if (el) el.gpos = ch.gpos; }
-        setTimeout(() => card.parentElement && card.parentElement.classList.remove('sorting'), 300);
-        try { for (const ch of changes) await DB.update(pElements(S.project.id), ch.id, { gpos: ch.gpos }); }
-        catch (err) { toast('Błąd zapisu: ' + err.message, 'error'); }
+        await new Promise(r => setTimeout(r, 240)); // niech rozjeżdżanie się skończy
+        await saveGpos(changes);
       };
       card.addEventListener('pointermove', mv); card.addEventListener('pointerup', up); card.addEventListener('pointercancel', up);
     };
@@ -3106,7 +3130,7 @@ async function removeThumb(eid) {
 }
 // okienka znów w automatycznym układzie
 async function graphAutoLayout() {
-  for (const e of S.elements.filter(x => x.gpos)) await DB.update(pElements(S.project.id), e.id, { gpos: null });
+  await saveGpos(S.elements.filter(x => x.gpos).map(e => ({ id: e.id, gpos: null })));
 }
 // Wyrównaj: okienka zostają mniej więcej tam, gdzie je postawiono, ale nachodzące
 // na siebie rozsuwamy (w prawo albo w dół — krótszą drogą) na równy odstęp
@@ -3135,17 +3159,75 @@ async function graphAlign() {
   }
   // całość dosunięta do lewego górnego rogu
   const minX = Math.min(...cards.map(c => c.x)), minY = Math.min(...cards.map(c => c.y));
-  for (const c of cards) {
-    const gpos = { x: Math.round(c.x - minX + 16), y: Math.round(c.y - minY + 12) }; // margines jak w układzie automatycznym
-    const el = S.elements.find(x => x.id === c.id);
-    if (el && el.gpos && el.gpos.x === gpos.x && el.gpos.y === gpos.y) continue;
-    await DB.update(pElements(S.project.id), c.id, { gpos });
-  }
+  await saveGpos(cards.map(c => ({ id: c.id, gpos: { x: Math.round(c.x - minX + 16), y: Math.round(c.y - minY + 12) } })) // margines jak w układzie automatycznym
+    .filter(ch => { const el = S.elements.find(x => x.id === ch.id); return !(el && el.gpos && el.gpos.x === ch.gpos.x && el.gpos.y === ch.gpos.y); }));
 }
+// widok „Grafika": powiększenie i przesunięcie jak przy wizkach
+const G = { s: 1, tx: 0, ty: 0, key: null, panned: false };
+function applyGraphView() {
+  const st = $('gstage'); if (st) st.style.transform = `translate(${G.tx}px,${G.ty}px) scale(${G.s})`;
+}
+function graphZoomAt(cx, cy, f) {
+  const r = $('el-scroll').getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
+  const ns = clamp(G.s * f, 0.2, 4), k = ns / G.s;
+  G.tx = px - (px - G.tx) * k; G.ty = py - (py - G.ty) * k; G.s = ns;
+  applyGraphView();
+}
+function graphFit() {
+  const box = $('el-scroll'), w = box.querySelector('.gidx'); if (!w) return;
+  const bw = box.clientWidth, bh = box.clientHeight, ww = w.offsetWidth, wh = w.offsetHeight;
+  G.s = clamp(Math.min((bw - 20) / ww, (bh - 20) / wh), 0.2, 1.5);
+  G.tx = Math.max(10, (bw - ww * G.s) / 2); G.ty = 10;
+  applyGraphView();
+}
+(function graphNav() {
+  const box = $('el-scroll');
+  box.addEventListener('wheel', e => {
+    if (S.elView !== 'graph' || !box.querySelector('#gstage')) return;
+    e.preventDefault();
+    const d = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY;
+    graphZoomAt(e.clientX, e.clientY, Math.pow(1.0018, -d));
+  }, { passive: false });
+  // przeciągnięcie tła (albo okienka poza trybem „Przesuń") przesuwa widok; krótkie kliknięcie działa jak zwykle
+  box.addEventListener('pointerdown', e => {
+    if (S.elView !== 'graph' || e.button !== 0 || !box.querySelector('#gstage')) return;
+    if (e.target.closest('.gc-ed, button, input')) return;
+    const x0 = e.clientX, y0 = e.clientY, tx0 = G.tx, ty0 = G.ty;
+    let pan = false;
+    const mv = ev => {
+      if (!pan && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+      if (!pan) { pan = true; box.classList.add('panning'); }
+      G.tx = tx0 + ev.clientX - x0; G.ty = ty0 + ev.clientY - y0; applyGraphView();
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      box.classList.remove('panning');
+      if (pan) G.panned = true; // następny „click" to koniec przesuwania, nie kliknięcie w okienko
+    };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
+  box.addEventListener('click', e => { if (G.panned) { G.panned = false; e.stopPropagation(); e.preventDefault(); } }, true);
+})();
+// zapis pozycji wielu okienek naraz: w trakcie bez przerysowań, na końcu jedno
+async function saveGpos(changes) {
+  if (!changes.length) return;
+  for (const ch of changes) { const el = S.elements.find(x => x.id === ch.id); if (el) el.gpos = ch.gpos; }
+  S.graphBusy = true;
+  try { for (const ch of changes) await DB.update(pElements(S.project.id), ch.id, { gpos: ch.gpos }); }
+  catch (err) { toast('Błąd zapisu: ' + err.message, 'error'); }
+  S.graphBusy = false; S.graphDirty = false;
+  renderElements();
+}
+// przerysowanie przy zmianie rozmiaru panelu — tylko przy prawdziwej zmianie i nigdy w trakcie przeciągania
 let graphRO = null;
 if (window.ResizeObserver) {
-  let tmr = null;
-  graphRO = new ResizeObserver(() => { if (S.project && S.elView === 'graph') { clearTimeout(tmr); tmr = setTimeout(renderElements, 120); } });
+  let tmr = null, last = '';
+  graphRO = new ResizeObserver(entries => {
+    const r = entries[0].contentRect, key = Math.round(r.width / 40) + 'x' + Math.round(r.height / 40);
+    if (key === last) return;
+    last = key;
+    if (S.project && S.elView === 'graph' && !S.graphBusy) { clearTimeout(tmr); tmr = setTimeout(renderElements, 150); }
+  });
   graphRO.observe($('el-scroll'));
 }
 // najechanie na wiersz: tylko przełączamy klasę, bez przerysowania (animacja nie zaczyna się od nowa)
@@ -3163,8 +3245,9 @@ function renderElements() {
     + (noDim ? ` · <span class="tag-warn">${noDim} bez wymiaru</span>` : '')
     + (unknown ? ` · <span class="tag-warn">${unknown} typ do ustalenia</span>` : '');
   document.querySelectorAll('#el-view button').forEach(b => b.classList.toggle('on', b.dataset.v === S.elView));
+  if (S.elView !== 'graph') $('el-scroll').classList.remove('gnav');
   $('gc-tools').classList.toggle('hidden', S.elView !== 'graph');
-  if (S.elView === 'graph') return renderGraph();
+  if (S.elView === 'graph') { if (S.graphBusy) { S.graphDirty = true; return; } return renderGraph(); }
   if (!list.length) {
     $('el-scroll').innerHTML = `<div class="empty-state" style="padding:30px 20px">${S.photos.length
       ? 'Brak elementów. <b>Kliknij w dane miejsce na wizce</b>, aby dodać pierwszy element (albo obrysuj go narzędziem <b>Wielokąt</b>).'
@@ -3353,6 +3436,18 @@ function fitText(g, s, maxW) {
 }
 // wspólne kawałki rysowania stron (canvas → PDF albo druk)
 const PDF_FONT = 'Bahnschrift, Segoe UI, Arial, sans-serif';
+// tekst w kilku liniach na płótnie (max linii, ostatnia z „…")
+function wrapCanvas(g, text, maxW, maxLines = 3) {
+  const words = String(text || '').split(/\s+/), lines = [];
+  let line = '';
+  for (const w of words) {
+    const t = line ? line + ' ' + w : w;
+    if (g.measureText(t).width <= maxW || !line) line = t; else { lines.push(line); line = w; }
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = fitText(g, lines[maxLines - 1] + '…', maxW); }
+  return lines;
+}
 function drawBadge(g, x, y, r, color, txt) {
   g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = color; g.fill(); g.lineWidth = r * 0.16; g.strokeStyle = '#fff'; g.stroke();
   g.fillStyle = '#fff'; g.font = `700 ${Math.round(r * (txt.length > 1 ? 0.8 : 1.05))}px ${PDF_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -3454,9 +3549,14 @@ async function renderIndexA3(stamp) {
       const d = r.w !== '', gb = r.spad;
       const FW = d ? Math.max(90, r.bw * k) : 220, FH = d ? Math.max(70, r.bh * k) : 140;
       const LM = !d ? 0 : gb ? 112 : 64, BM = !d ? 0 : gb ? 92 : 50;
-      const notes = (!d && r.uwagi) ? 80 : (r.uwagi || !d || dimsMode(r.el) !== 'flat') ? 40 : 0;
-      const tw = (g.font = `600 ${FS * 1.2}px ${PDF_FONT}`, g.measureText(r.typ).width + 70);
-      return { r, d, FW, FH, LM, BM, w: Math.max(LM + FW + 10, Math.min(tw, 700)), h: HEAD + FH + BM + notes };
+      const w = Math.max(LM + FW + 10, 320);
+      g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
+      const title = wrapCanvas(g, r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), w - 60, 3);
+      g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
+      const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
+      const head = 22 + title.length * 38;
+      const notes = (!d ? 40 : dimsMode(r.el) !== 'flat' ? 36 : 0) + nlines.length * 30 + (nlines.length ? 10 : 0);
+      return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes, title, nlines, head };
     };
     const layout = k => {
       let cx = 0, cy = 0, rowH = 0; const out = [];
@@ -3467,14 +3567,14 @@ async function renderIndexA3(stamp) {
       }
       return { out, h: cy + rowH };
     };
-    let k = Math.min((areaH - HEAD - 92 - 40) / maxH, (areaW * 0.45) / maxW), L = layout(k);
+    let k = Math.min((areaH - 60 - 92 - 40) / maxH, (areaW * 0.45) / maxW), L = layout(k);
     for (let i = 0; i < 80 && L.h > areaH; i++) { k *= 0.93; L = layout(k); }
     for (const cd of L.out) {
       const { r, d, FW, FH, LM, BM } = cd, bx = M + cd.x, by = y0 + cd.y;
       drawBadge(g, bx + 24, by + 24, 22, r.color, r.znak);
       g.fillStyle = '#1a202c'; g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
-      g.fillText(fitText(g, r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), cd.w - 60), bx + 58, by + 35);
-      const fx = bx + LM, fy = by + HEAD;
+      cd.title.forEach((ln, i) => g.fillText(ln, bx + 58, by + 35 + i * 38));
+      const fx = bx + LM, fy = by + cd.head;
       const th = thumbs[r.el.id];
       if (th) { // miniatura grafiki wypełnia okienko (przycięta jak w podglądzie)
         const s2 = Math.max(FW / th.width, FH / th.height), sw = FW / s2, sh = FH / s2;
@@ -3502,7 +3602,11 @@ async function renderIndexA3(stamp) {
         }
         if (dimsMode(r.el) !== 'flat') { g.fillStyle = '#4a5568'; g.font = `400 ${FS * .9}px ${PDF_FONT}`; g.fillText(`konstrukcja ${r.net} ${UNIT()} · pas do druku`, bx, fy + FH + BM + 30); }
       }
-      if (r.uwagi) { g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`; g.fillText(fitText(g, r.uwagi, cd.w - 10), bx, fy + FH + BM + (!d ? 72 : dimsMode(r.el) !== 'flat' ? 62 : 30)); }
+      if (cd.nlines.length) {
+        g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
+        const ny = fy + FH + BM + (!d ? 72 : dimsMode(r.el) !== 'flat' ? 62 : 30);
+        cd.nlines.forEach((ln, i) => g.fillText(ln, bx, ny + i * 30));
+      }
     }
   }
   return c;
