@@ -54,6 +54,11 @@
   .hdr-project .pfair { color: var(--mid); font-size: 0.8rem; white-space: nowrap; }
   .hdr-spacer { flex: 1; }
   .avatar { width: 34px; height: 34px; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; color: #fff; cursor: pointer; user-select: none; flex: 0 0 auto; }
+  .langs { display: flex; gap: 6px; align-items: center; }
+  .lang { width: 28px; height: 28px; padding: 2px; border: none; background: none; cursor: pointer; border-radius: 50% !important; opacity: .55; transition: opacity .15s, transform .15s; display: flex; }
+  .lang:hover { opacity: .9; transform: scale(1.08); }
+  .lang.on { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }
+  .lang svg { display: block; }
   .avatar-sm { display: inline-flex; width: 22px; height: 22px; border-radius: 50% !important; align-items: center; justify-content: center; font-size: 0.6rem; font-weight: 800; color: #fff; flex: 0 0 auto; }
   .menu { position: absolute; background: #fff; color: var(--dark); box-shadow: 0 6px 24px rgba(0,0,0,0.25); min-width: 220px; z-index: 100; padding: 6px 0; }
   .menu .mi { padding: 9px 16px; cursor: pointer; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; }
@@ -66,10 +71,10 @@
   .cd .cd-lab { padding: 4px 8px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; font-size: 0.68rem; display: flex; align-items: center; background: rgba(255,255,255,0.08); }
   .cd .cd-val { padding: 4px 10px; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 0.95rem; display: flex; align-items: center; }
   .cd .cd-next { padding: 4px 8px; color: var(--mid); font-size: 0.7rem; display: flex; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); }
-  .cd.ph-deadline { border-color: #ecc94b; }
-  .cd.ph-deadline .cd-lab { background: #ecc94b; color: var(--dark); }
-  .cd.ph-pack { border-color: var(--accent); }
-  .cd.ph-pack .cd-lab { background: var(--accent); color: #fff; }
+  .cd.ph-deadline { border-color: var(--accent); }
+  .cd.ph-deadline .cd-lab { background: var(--accent); color: #fff; }
+  .cd.ph-pack { border-color: #ecc94b; }
+  .cd.ph-pack .cd-lab { background: #ecc94b; color: var(--dark); }
   .cd.ph-event { border-color: var(--red); }
   .cd.ph-event .cd-lab { background: var(--red); color: #fff; }
   .cd.ph-live .cd-lab { background: var(--green); color: #fff; }
@@ -170,7 +175,6 @@
   .gc-body svg text { font: 400 11.5px Bahnschrift, 'Segoe UI', Arial, sans-serif; fill: #38a169; }
   .gc-frame { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; background: #fff; cursor: pointer; overflow: hidden; color: var(--mid); font-size: .66rem; line-height: 1.3; padding: 4px; }
   .gc-frame:hover { background: #f7fafc; color: var(--gray); }
-  .gc-frame.armed { outline: 3px solid var(--accent); outline-offset: 2px; background: #f1f8ec; color: #2f855a; font-weight: 700; }
   .gc-frame.drag { outline: 3px dashed var(--accent); outline-offset: 2px; }
   .gc-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .gc-frame .x { position: absolute; right: 0; top: 0; width: 18px; height: 18px; background: rgba(229,62,62,.9); color: #fff; font-size: .7rem; display: none; align-items: center; justify-content: center; z-index: 2; }
@@ -187,8 +191,8 @@
   #cl-small { font: 600 10px 'Segoe UI', Arial, sans-serif; fill: var(--gray); font-variant-numeric: tabular-nums; }
   .cl-lab { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--dark); text-align: center; margin-top: 4px; }
   .cl-sub { font-size: 0.7rem; color: var(--gray); text-align: center; }
-  #clock-pane.ph-deadline .cl-lab { color: #b7791f; }
-  #clock-pane.ph-pack .cl-lab { color: #2f855a; }
+  #clock-pane.ph-deadline .cl-lab { color: #2f855a; }
+  #clock-pane.ph-pack .cl-lab { color: #b7791f; }
   #clock-pane.ph-event .cl-lab, #clock-pane.ph-event #cl-big { color: #c53030; fill: #c53030; }
   #clock-pane.ph-none #clock-svg { opacity: .45; }
   .cl-legend { display: flex; gap: 8px; font-size: .62rem; color: var(--gray); margin-top: 3px; flex: 0 0 auto; }
@@ -418,6 +422,18 @@
   .users-chk { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px 12px; max-height: 180px; overflow-y: auto; border: 1.5px solid var(--line); padding: 6px 10px; }
 
   /* toasty */
+  /* alpaka: 2 cm wysokości, przebiega po dole ekranu */
+  #alpaca { position: fixed; left: 0; bottom: 2px; height: 2cm; width: 2cm; z-index: 120; pointer-events: none; display: none; }
+  #alpaca svg { width: 100%; height: 100%; overflow: visible; }
+  #alpaca.run svg { animation: alpBob .32s ease-in-out infinite; }
+  #alpaca .lg { transform-box: fill-box; transform-origin: 50% 8%; }
+  #alpaca.run .lf, #alpaca.run .lb2 { animation: alpLeg .32s ease-in-out infinite; }
+  #alpaca.run .lb, #alpaca.run .lf2 { animation: alpLeg .32s ease-in-out infinite reverse; }
+  #alpaca.stop .eye { animation: alpBlink .5s 2; transform-box: fill-box; transform-origin: center; }
+  @keyframes alpBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  @keyframes alpLeg { 0%, 100% { transform: rotate(-24deg); } 50% { transform: rotate(24deg); } }
+  @keyframes alpBlink { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.1); } }
+  @media (prefers-reduced-motion: reduce) { #alpaca { display: none !important; } }
   #toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
   .toast { background: var(--dark); color: #fff; padding: 9px 16px; font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.3); border-left: 4px solid var(--accent); max-width: 90vw; }
   .toast.error { border-left-color: var(--red); }
@@ -450,6 +466,7 @@
   <div id="hdr-cd"></div>
   <div class="hdr-spacer"></div>
   <div id="hdr-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  <div class="langs" id="langs" data-noi18n></div>
   <div class="avatar hidden" id="avatar" onclick="toggleUserMenu(event)"></div>
 </header>
 
@@ -551,9 +568,9 @@
         </defs>
         <g filter="url(#clShadow)">
           <circle cx="60" cy="60" r="47" fill="none" stroke="url(#clTrack)" stroke-width="13"/>
-          <!-- trzy odcinki po kolei: graficzny (żółty), pakowanie (zielony), impreza (czerwony); upływ = przyciemnienie -->
-          <circle id="cl-s1" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clYellow)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
-          <circle id="cl-s2" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <!-- trzy odcinki po kolei: graficzny (zielony), pakowanie (żółty), impreza (czerwony); upływ = przyciemnienie -->
+          <circle id="cl-s1" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <circle id="cl-s2" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clYellow)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-s3" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clRed)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-past" cx="60" cy="60" r="47" fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <!-- połysk rury -->
@@ -566,7 +583,7 @@
       </svg>
       <div class="cl-lab" id="cl-lab"></div>
       <div class="cl-sub" id="cl-sub"></div>
-      <div class="cl-legend"><span><i style="background:#ecc94b"></i>grafika</span><span><i style="background:#67b437"></i>pakowanie</span><span><i style="background:#e53e3e"></i>impreza</span></div>
+      <div class="cl-legend"><span><i style="background:#67b437"></i>grafika</span><span><i style="background:#ecc94b"></i>pakowanie</span><span><i style="background:#e53e3e"></i>impreza</span></div>
     </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
@@ -586,6 +603,31 @@
 </div><!-- #app-row -->
 
 <div id="toasts"></div>
+<!-- komiksowa alpaka: co 5 minut dobiega do połowy ekranu i wraca -->
+<div id="alpaca" aria-hidden="true">
+  <svg viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="#3b2f2f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+      <rect class="lg lb" x="25" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
+      <rect class="lg lf" x="61" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
+      <circle cx="13" cy="58" r="7" fill="#f8ecd4"/>
+      <path d="M16 72 q-9 -13 4 -22 q2 -12 16 -10 q7 -10 19 -3 q13 -6 17 7 q11 5 6 18 q-1 11 -15 10 q-8 8 -21 2 q-12 6 -21 -1 q-9 1 -5 -1z" fill="#f8ecd4"/>
+      <path d="M64 56 q1 -24 6 -38 l15 1 q-3 20 -5 41z" fill="#f8ecd4"/>
+      <path d="M66 49 q9 6 17 0" fill="none" stroke="#67b437" stroke-width="6"/>
+      <path d="M66 49 q9 6 17 0" fill="none" stroke-width="1.2"/>
+      <path d="M69 12 l-5 -13 l10 8z" fill="#f8ecd4"/>
+      <path d="M78 9 l1 -14 l7 11z" fill="#f8ecd4"/>
+      <ellipse cx="80" cy="18" rx="15" ry="11" fill="#f8ecd4"/>
+      <ellipse cx="93" cy="23" rx="8" ry="6.5" fill="#fff6e6"/>
+      <circle cx="72" cy="7" r="4.5" fill="#fff6e6"/><circle cx="78" cy="5" r="4" fill="#fff6e6"/>
+      <rect class="lg lb2" x="33" y="72" width="9" height="30" rx="4.5" fill="#f8ecd4"/>
+      <rect class="lg lf2" x="69" y="72" width="9" height="30" rx="4.5" fill="#f8ecd4"/>
+      <path d="M90 27 q3 3 6 0" fill="none" stroke-width="2"/>
+    </g>
+    <circle class="eye" cx="84" cy="15" r="2.6" fill="#3b2f2f"/>
+    <circle cx="85" cy="14" r=".9" fill="#fff"/>
+    <circle cx="87" cy="21" r="2.6" fill="#f4a3a3"/>
+  </svg>
+</div>
 <input type="file" id="file-generic" accept="image/*" class="hidden">
 
 <script>
@@ -640,9 +682,9 @@ const DEFAULT_TYPES = [
     desc: 'Zadrukowana folia z laminatem, oklejająca całą powierzchnię (ściana, lada, słup).' },
   { id: 'pcw', order: 3, name: 'Płyta PCW z nadrukiem', color: '#e31e24', bleed: 10, icon: 'board',
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
-  { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 10, icon: 'banner', seg: true,
+  { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 100, icon: 'banner', seg: true,
     desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).' },
-  { id: 'lightbox', order: 5, name: 'Lightbox (podświetlany)', color: '#f5c400', bleed: 10, icon: 'light', seg: true,
+  { id: 'lightbox', order: 5, name: 'Lightbox (podświetlany)', color: '#f5c400', bleed: 100, icon: 'light', seg: true,
     desc: 'Grafika na tkaninie podświetlana od tyłu — rama aluminiowa ze światłem LED.' },
   { id: 'podwieszana', order: 6, name: 'Konstrukcja podwieszana', color: '#8e44ad', bleed: 0, icon: 'hang-ring',
     desc: 'Konstrukcja z grafiką wieszana nad stoiskiem. Wybierz kształt i podaj wymiar konstrukcji.',
@@ -679,6 +721,17 @@ function fmtDateTime(d) { if (!d) return '—'; const x = new Date(d); if (isNaN
 function fmtShort(d) { const x = new Date(d); return `${pad(x.getDate())}.${pad(x.getMonth()+1)} ${pad(x.getHours())}:${pad(x.getMinutes())}`; }
 function numPL(v, dec = 2) { return Number(v || 0).toLocaleString('pl-PL', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
 function intPL(v) { return v === '' || v == null ? '' : Number(v).toLocaleString('pl-PL', { maximumFractionDigits: 1 }); }
+// Jednostki: w bazie zawsze mm. Krzysztof (KG) domyślnie pracuje w cm, pozostali w mm — zmiana w menu awatara.
+const UNIT = () => (S.me && (S.me.unit || (S.me.id === 'kg' ? 'cm' : 'mm'))) || 'mm';
+function lenPL(mm) {
+  if (mm === '' || mm == null) return '';
+  return UNIT() === 'cm' ? (Math.round(Number(mm)) / 10).toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : intPL(mm);
+}
+const toMM = v => v === '' || v == null ? '' : Math.max(0, Math.round(Number(String(v).replace(',', '.')) * (UNIT() === 'cm' ? 10 : 1) * 10) / 10);
+const fromMM = mm => mm === '' || mm == null ? '' : (UNIT() === 'cm' ? Math.round(Number(mm)) / 10 : Number(mm));
+const bleedTxt = b => b ? lenPL(b) + ' ' + UNIT() : 'brak';
+const unitStep = () => UNIT() === 'cm' ? '0.1' : '1';
+const unitHint = t => UNIT() === 'cm' ? t.replace('milimetrach', 'centymetrach') : t;
 async function sha256(s) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -726,6 +779,236 @@ function download(name, blob) {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 const safeName = s => String(s || 'projekt').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[łŁ]/g, 'l').replace(/[^\w\-]+/g, '_').replace(/_+/g, '_').slice(0, 60);
+
+// =====================================================================
+//  JĘZYKI: polski (źródło), ukraiński, angielski
+//  Tłumaczymy na żywo napisy na stronie (słownik + reguły dla tekstów z liczbami).
+//  Dane wpisane przez ludzi (nazwy stoisk, uwagi, historia) zostają bez zmian.
+// =====================================================================
+const LANG = (() => { try { const l = localStorage.getItem('INDEX_LANG'); return ['pl', 'uk', 'en'].includes(l) ? l : 'pl'; } catch (e) { return 'pl'; } })();
+const I18N_PAIRS = [
+  // ogólne, logowanie
+  ['Projekty', 'Проєкти', 'Projects'], ['Projekt', 'Проєкт', 'Project'], ['Eksport', 'Експорт', 'Export'],
+  ['Graficzny index stoisk · POL-SERVICE Expo', 'Графічний індекс стендів · POL-SERVICE Expo', 'Graphic stand index · POL-SERVICE Expo'],
+  ['Login', 'Логін', 'Login'], ['Hasło', 'Пароль', 'Password'], ['Zaloguj', 'Увійти', 'Sign in'],
+  ['Podaj login i hasło', 'Введіть логін і пароль', 'Enter login and password'], ['Podaj hasło', 'Введіть пароль', 'Enter the password'],
+  ['Nieprawidłowy login lub hasło', 'Неправильний логін або пароль', 'Incorrect login or password'],
+  ['Konto nie ma jeszcze hasła — poproś administratora (KG) o jego ustawienie', 'Обліковий запис ще не має пароля — попросіть адміністратора (KG) його встановити', 'This account has no password yet — ask the administrator (KG) to set one'],
+  ['Wybierz osobę albo wpisz login', 'Виберіть особу або введіть логін', 'Pick a person or type a login'],
+  ['TRYB DEMO — dane tylko w tej przeglądarce', 'ДЕМО-РЕЖИМ — дані лише в цьому браузері', 'DEMO MODE — data only in this browser'],
+  ['Anuluj', 'Скасувати', 'Cancel'], ['Anuluj (Esc)', 'Скасувати (Esc)', 'Cancel (Esc)'], ['Zapisz', 'Зберегти', 'Save'], ['Utwórz', 'Створити', 'Create'],
+  ['Usuń', 'Видалити', 'Delete'], ['Edytuj', 'Редагувати', 'Edit'], ['Zamknij', 'Закрити', 'Close'], ['Potwierdź', 'Підтвердіть', 'Confirm'], ['Tak', 'Так', 'Yes'],
+  ['Dodaj', 'Додати', 'Add'], ['Zapisano', 'Збережено', 'Saved'], ['brak', 'немає', 'none'], ['administrator', 'адміністратор', 'administrator'], ['użytkownik', 'користувач', 'user'],
+  // lista projektów
+  ['Bieżące', 'Поточні', 'Current'], ['Wszystkie', 'Усі', 'All'], ['brak wizek', 'немає візуалізацій', 'no visuals'],
+  ['Brak bieżących projektów — zobacz „Wszystkie".', 'Немає поточних проєктів — див. „Усі".', 'No current projects — see "All".'],
+  ['Nie ma jeszcze żadnego projektu.', 'Ще немає жодного проєкту.', 'No projects yet.'], ['Załóż pierwszy przyciskiem', 'Створіть перший кнопкою', 'Create the first one with'],
+  ['Nowy projekt', 'Новий проєкт', 'New project'],
+  ['Nie masz jeszcze dostępu do żadnego projektu.', 'У вас ще немає доступу до жодного проєкту.', 'You do not have access to any project yet.'],
+  ['Administrator przypisze Cię do stoiska.', 'Адміністратор призначить вас до стенду.', 'An administrator will assign you to a stand.'],
+  // panel boczny
+  ['Targi · stoiska', 'Виставки · стенди', 'Fairs · stands'], ['Targi i stoiska — kliknij, aby rozsunąć / schować', 'Виставки і стенди — натисніть, щоб розгорнути / сховати', 'Fairs and stands — click to expand / collapse'],
+  ['New fairs', 'Нова виставка', 'New fair'], ['New stand', 'Новий стенд', 'New stand'], ['Archive', 'Архівувати', 'Archive'], ['Unarchive', 'Відновити', 'Unarchive'], ['Delete', 'Видалити', 'Delete'],
+  ['Kliknij targi lub stoisko, aby je zaznaczyć', 'Натисніть виставку або стенд, щоб виділити', 'Click a fair or stand to select it'], ['Zaznaczone', 'Вибрано', 'Selected'],
+  ['Pokaż archiwum', 'Показати архів', 'Show archive'], ['archiwum', 'архів', 'archive'], ['Bez targów', 'Без виставки', 'No fair'], ['brak terminów', 'немає дат', 'no dates'],
+  ['Liczba stoisk', 'Кількість стендів', 'Number of stands'], ['Nowe stoisko na tych targach', 'Новий стенд на цій виставці', 'New stand at this fair'], ['Edytuj targi', 'Редагувати виставку', 'Edit fair'],
+  ['Zmień nazwę, terminy, zespół', 'Змінити назву, дати, команду', 'Rename, dates, team'], ['brak stoisk — „+ New stand"', 'немає стендів — „+ New stand"', 'no stands — "+ New stand"'],
+  ['Nie ma jeszcze targów.', 'Ще немає виставок.', 'No fairs yet.'], ['Dodaj pierwsze przyciskiem', 'Додайте першу кнопкою', 'Add the first one with'],
+  ['Kliknij, aby zmienić nazwę, terminy lub zespół', 'Натисніть, щоб змінити назву, дати або команду', 'Click to change the name, dates or team'],
+  // historia zmian
+  ['Historia zmian', 'Історія змін', 'Change history'], ['Historia zmian — kliknij, aby rozsunąć / schować', 'Історія змін — натисніть, щоб розгорнути / сховати', 'Change history — click to expand / collapse'],
+  ['Tu pojawi się każda zmiana w projekcie.', 'Тут з’являтиметься кожна зміна в проєкті.', 'Every change in the project will appear here.'],
+  ['Przeciągnij, aby zmienić szerokość', 'Перетягніть, щоб змінити ширину', 'Drag to change width'], ['Przeciągnij, aby zmienić podział ekranu', 'Перетягніть, щоб змінити поділ екрана', 'Drag to resize the panes'],
+  // podgląd wizek
+  ['Zaznacz kliknięciem', 'Позначити кліком', 'Click to mark'], ['Wielokąt', 'Багатокутник', 'Polygon'], ['Dopasuj', 'Вмістити', 'Fit'], ['Wizki', 'Візуалізації', 'Visuals'],
+  ['Pomniejsz (−)', 'Зменшити (−)', 'Zoom out (−)'], ['Powiększ (+)', 'Збільшити (+)', 'Zoom in (+)'], ['Pokaż wszystkie wizki (F)', 'Показати всі візуалізації (F)', 'Show all visuals (F)'],
+  ['Dodaj wizki z dysku', 'Додати візуалізації з диска', 'Add visuals from disk'], ['Wklej obrazek ze schowka', 'Вставити зображення з буфера', 'Paste image from clipboard'],
+  ['Obrys wielokątem — klikaj kolejne narożniki (P)', 'Обведення багатокутником — клацайте наступні кути (P)', 'Polygon outline — click successive corners (P)'],
+  ['Kliknij w dane miejsce na wizce, aby dodać element. Kliknięcie w znacznik zaznacza go, przeciągnięcie tła przesuwa widok.', 'Клацніть у потрібне місце на візуалізації, щоб додати елемент. Клік по мітці виділяє її, перетягування фону зсуває вид.', 'Click a spot on the visual to add an element. Clicking a marker selects it, dragging the background moves the view.'],
+  ['Przeciągnij tu wizki stoiska', 'Перетягніть сюди візуалізації стенду', 'Drag stand visuals here'], ['albo skopiuj obrazek i wklej go przyciskiem poniżej', 'або скопіюйте зображення і вставте його кнопкою нижче', 'or copy an image and paste it with the button below'],
+  ['Wklej (Ctrl+V)', 'Вставити (Ctrl+V)', 'Paste (Ctrl+V)'], ['Wybierz pliki…', 'Вибрати файли…', 'Choose files…'], ['Upuść, aby dodać wizki', 'Відпустіть, щоб додати візуалізації', 'Drop to add visuals'],
+  ['Kliknij w miejsce na wizce = nowy element · kliknij znacznik = zaznacz · dwuklik = edycja · przeciągnij tło = przesuwanie · kółko myszy = powiększenie', 'Клік на візуалізації = новий елемент · клік по мітці = виділити · подвійний клік = редагування · перетягнути фон = зсув · коліщатко миші = масштаб', 'Click the visual = new element · click a marker = select · double-click = edit · drag background = pan · mouse wheel = zoom'],
+  ['Kliknij w dane miejsce na wizce, aby dodać element · przeciągnij tło = przesuwanie · kółko myszy = powiększenie', 'Клацніть у потрібне місце на візуалізації, щоб додати елемент · перетягнути фон = зсув · коліщатко миші = масштаб', 'Click a spot on the visual to add an element · drag background = pan · mouse wheel = zoom'],
+  ['Klikaj kolejne narożniki · zamknij klikając pierwszy punkt, Enterem lub podwójnym kliknięciem · Esc = anuluj', 'Клацайте наступні кути · замкніть кліком по першій точці, Enter або подвійним кліком · Esc = скасувати', 'Click successive corners · close by clicking the first point, Enter or double-click · Esc = cancel'],
+  ['Wielokąt: klikaj kolejne narożniki elementu (dla skośnych i nieregularnych kształtów)', 'Багатокутник: клацайте наступні кути елемента (для скошених і неправильних форм)', 'Polygon: click the element corners one by one (for slanted and irregular shapes)'],
+  ['Kliknij miejsce na wizce, w którym jest ten element (albo obrysuj go narzędziem Wielokąt)', 'Клацніть місце на візуалізації, де є цей елемент (або обведіть його інструментом Багатокутник)', 'Click the spot on the visual where this element is (or outline it with the Polygon tool)'],
+  ['Wizki dodane', 'Візуалізації додано', 'Visuals added'], ['Najpierw dodaj wizkę', 'Спочатку додайте візуалізацію', 'Add a visual first'],
+  // lista elementów
+  ['Elementy', 'Елементи', 'Elements'], ['Tabela', 'Таблиця', 'Table'], ['Grafika', 'Графіка', 'Graphic'], ['Lista elementów w tabeli', 'Список елементів у таблиці', 'Element list as a table'],
+  ['Wizki z opisami i strzałkami — jak index z Corela', 'Візуалізації з описами і стрілками — як індекс у Corel', 'Visuals with labels and arrows — like the Corel index'],
+  ['Element bez zaznaczenia', 'Елемент без позначки', 'Element without marker'], ['Element, którego nie da się zaznaczyć na wizce', 'Елемент, який не можна позначити на візуалізації', 'Element that cannot be marked on a visual'],
+  ['el', 'ел', 'el'], ['do druku', 'до друку', 'to print'],
+  ['Znak', 'Знак', 'Mark'], ['Wizka', 'Віз.', 'Visual'], ['Typ', 'Тип', 'Type'], ['Netto', 'Нетто', 'Net'], ['Spad', 'Виліт', 'Bleed'], ['Do druku', 'До друку', 'To print'],
+  ['Szt.', 'Шт.', 'Pcs'], ['Uwagi', 'Примітки', 'Notes'], ['Kto', 'Хто', 'Who'], ['do ustalenia', 'визначити', 'to be decided'],
+  ['Element nie jest zaznaczony na żadnej wizce', 'Елемент не позначений на жодній візуалізації', 'Element is not marked on any visual'], ['Zaznacz na wizce', 'Позначити на візуалізації', 'Mark on visual'],
+  ['Brak elementów.', 'Немає елементів.', 'No elements.'], ['Kliknij w dane miejsce na wizce', 'Клацніть у потрібне місце на візуалізації', 'Click the spot on the visual'],
+  ['aby dodać pierwszy element (albo obrysuj go narzędziem', 'щоб додати перший елемент (або обведіть його інструментом', 'to add the first element (or outline it with the'], ['aby dodać pierwszy element', 'щоб додати перший елемент', 'to add the first element'],
+  ['Zacznij od dodania wizek stoiska — przeciągnij je w górną część ekranu albo wklej (Ctrl+V).', 'Почніть з додавання візуалізацій стенду — перетягніть їх у верхню частину екрана або вставте (Ctrl+V).', 'Start by adding stand visuals — drag them to the top of the screen or paste (Ctrl+V).'],
+  ['grafika', 'графіка', 'graphics'], ['Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)', 'Натисніть, щоб вставити графіку з буфера (або перетягніть сюди файл)', 'Click to paste the artwork from the clipboard (or drop a file here)'],
+  ['Usuń miniaturę', 'Видалити мініатюру', 'Remove thumbnail'], ['wymiar do ustalenia', 'розмір не визначено', 'size to be decided'], ['Wymiar do ustalenia', 'Розмір не визначено', 'Size to be decided'],
+  ['W schowku nie ma obrazka — wybierz plik z dysku', 'У буфері немає зображення — виберіть файл з диска', 'No image in the clipboard — choose a file from disk'], ['Wgrywanie miniatury…', 'Завантаження мініатюри…', 'Uploading thumbnail…'],
+  ['pas do druku', 'смуга до друку', 'print band'], ['konstrukcja', 'конструкція', 'structure'],
+  // typy elementów
+  ['Folia cięta po konturze', 'Плівка, вирізана по контуру', 'Contour-cut vinyl'], ['Folia z nadrukiem + laminat', 'Плівка з друком + ламінат', 'Printed vinyl + laminate'],
+  ['Płyta PCW z nadrukiem', 'ПВХ-плита з друком', 'Printed PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
+  ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
+  ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Blokowa', 'Блокова', 'Block letters'], ['Neon', 'Неон', 'Neon'], ['wykonanie do ustalenia', 'виконання не визначено', 'finish to be decided'], ['Nieznany typ', 'Невідомий тип', 'Unknown type'],
+  ['Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.', 'Напис або логотип, вирізаний з плівки, наклеєний прямо на стіну чи скло. Без фону.', 'Lettering or logo cut from vinyl, applied directly to a wall or glass. No background.'],
+  ['Zadrukowana folia z laminatem, oklejająca całą powierzchnię (ściana, lada, słup).', 'Плівка з друком і ламінатом, що вкриває всю поверхню (стіна, стійка, колона).', 'Printed laminated vinyl covering the whole surface (wall, counter, column).'],
+  ['Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.', 'Жорстка плита з графікою — таблички, панелі, елементи, що підвішуються або монтуються на стіні.', 'Rigid board with graphics — signs, panels, hung or wall-mounted elements.'],
+  ['Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).', 'Світлонепроникний банер, натягнутий або підвішений (напр. стінка, короб без підсвітки).', 'Light-blocking banner, stretched or hung (e.g. a wall, an unlit box).'],
+  ['Grafika na tkaninie podświetlana od tyłu — rama aluminiowa ze światłem LED.', 'Графіка на тканині з підсвіткою ззаду — алюмінієва рама з LED-світлом.', 'Fabric graphic backlit from behind — aluminium frame with LED light.'],
+  ['Konstrukcja z grafiką wieszana nad stoiskiem. Wybierz kształt i podaj wymiar konstrukcji.', 'Конструкція з графікою, підвішена над стендом. Виберіть форму і вкажіть розмір конструкції.', 'Structure with graphics hung above the stand. Choose the shape and enter the structure size.'],
+  ['Pierścień z grafiką dookoła. Podaj średnicę i wysokość.', 'Кільце з графікою по колу. Вкажіть діаметр і висоту.', 'A ring with graphics all around. Enter the diameter and height.'],
+  ['Grafika na czterech bokach. Podaj szerokość, głębokość i wysokość.', 'Графіка на чотирьох сторонах. Вкажіть ширину, глибину і висоту.', 'Graphics on four sides. Enter width, depth and height.'],
+  ['Przestrzenne logo lub litery. Wybierz wykonanie poniżej.', 'Об’ємний логотип або літери. Виберіть виконання нижче.', '3D logo or letters. Choose the finish below.'],
+  ['Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.', 'Літери, вирізані з ПВХ-плити, обклеєні або пофарбовані. Вкажіть товщину плити.', 'Letters cut from PVC board, wrapped or painted. Enter the board thickness.'],
+  ['Litery wycięte z pleksi (plexi). Podaj grubość.', 'Літери, вирізані з плексигласу. Вкажіть товщину.', 'Letters cut from acrylic (plexi). Enter the thickness.'],
+  ['Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.', 'Літери, відсунуті від стіни і підсвічені ззаду — сяйво навколо логотипа.', 'Letters spaced off the wall and backlit — a glowing halo around the logo.'],
+  ['Pełne, masywne litery bryłowe. Podaj grubość (głębokość) liter.', 'Суцільні масивні об’ємні літери. Вкажіть товщину (глибину) літер.', 'Solid, chunky block letters. Enter the letter thickness (depth).'],
+  ['Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.', 'Логотип з гнучкого LED-неону, зазвичай на листі плексигласу або прямо на стіні.', 'Logo made of flexible LED neon, usually on an acrylic sheet or directly on the wall.'],
+  ['Wybierz, gdy nie wiesz, z czego ma być element. Opisz go w uwagach — ustalimy to z Tobą.', 'Виберіть, якщо не знаєте, з чого має бути елемент. Опишіть його в примітках — ми узгодимо це з вами.', 'Choose this if you do not know what the element should be made of. Describe it in the notes — we will agree on it with you.'],
+  // menu łukowe i okno elementu
+  ['Wykonanie', 'Виконання', 'Finish'], ['Kształt', 'Форма', 'Shape'], ['Kształt konstrukcji', 'Форма конструкції', 'Structure shape'], ['Mocowanie', 'Кріплення', 'Mounting'],
+  ['SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami', 'SEG — тканина на алюмінієвій рамі, обшита плоскими гумками', 'SEG — fabric on an aluminium frame, edged with flat rubber strips'],
+  ['tkanina na ramie aluminiowej obszyta płaskimi gumkami', 'тканина на алюмінієвій рамі, обшита плоскими гумками', 'fabric on an aluminium frame, edged with flat rubber strips'],
+  ['Wymiar widoczny', 'Видимий розмір', 'Visible size'], ['Wymiar konstrukcji', 'Розмір конструкції', 'Structure size'],
+  ['szerokość', 'ширина', 'width'], ['wysokość', 'висота', 'height'], ['głębokość', 'глибина', 'depth'], ['średnica', 'діаметр', 'diameter'], ['grubość', 'товщина', 'thickness'],
+  ['uwagi (opcjonalnie)', 'примітки (необов’язково)', 'notes (optional)'], ['Ilość sztuk', 'Кількість штук', 'Quantity'], ['druk', 'друк', 'print'],
+  ['1. Co to jest? Wybierz typ *', '1. Що це? Виберіть тип *', '1. What is it? Choose a type *'], ['2. Wymiar widoczny (netto)', '2. Видимий розмір (нетто)', '2. Visible size (net)'], ['2. Wymiar konstrukcji', '2. Розмір конструкції', '2. Structure size'],
+  ['Wybierz typ po lewej —', 'Виберіть тип ліворуч —', 'Choose a type on the left —'], ['tu pokaże się przykład, jak to wygląda.', 'тут з’явиться приклад, як це виглядає.', 'an example of how it looks will appear here.'],
+  ['Nie wiesz? Wybierz „Nie wiem — do ustalenia" i opisz element w uwagach.', 'Не знаєте? Виберіть „Не знаю — визначимо" і опишіть елемент у примітках.', 'Not sure? Choose "Don’t know — to be decided" and describe the element in the notes.'],
+  ['Wybierz typ, aby policzyć wymiar do druku.', 'Виберіть тип, щоб розрахувати розмір до друку.', 'Choose a type to calculate the print size.'], ['Wybierz typ elementu', 'Виберіть тип елемента', 'Choose the element type'],
+  ['spad dla tego typu', 'виліт для цього типу', 'bleed for this type'], ['Konstrukcja', 'Конструкція', 'Structure'],
+  ['Wszystko, co pomoże nam zrozumieć element', 'Усе, що допоможе нам зрозуміти елемент', 'Anything that helps us understand the element'],
+  ['Ustawienia produkcyjne (tylko administrator)', 'Виробничі налаштування (лише адміністратор)', 'Production settings (administrator only)'], ['Spad ręcznie', 'Виліт вручну', 'Manual bleed'],
+  ['puste = automatycznie', 'порожньо = автоматично', 'empty = automatic'], ['ELTEX (bez spadu)', 'ELTEX (без вильоту)', 'ELTEX (no bleed)'], ['Dodaj element', 'Додати елемент', 'Add element'], ['bez zaznaczenia', 'без позначки', 'not marked'],
+  ['Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".', 'Ширина × висота в міліметрах, останнє поле — кількість штук. Не знаєте розміру? Залиште порожнім — позначимо як „визначити".', 'Width × height in millimetres, last field — quantity. Don’t know the size? Leave it empty — we will mark it "to be decided".'],
+  ['Szerokość × wysokość w centymetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".', 'Ширина × висота в сантиметрах, останнє поле — кількість штук. Не знаєте розміру? Залиште порожнім — позначимо як „визначити".', 'Width × height in centimetres, last field — quantity. Don’t know the size? Leave it empty — we will mark it "to be decided".'],
+  ['Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).', 'Діаметр × висота кільця в міліметрах, останнє поле — кількість штук. Графіку рахуємо як смугу по колу (обвід × висота).', 'Ring diameter × height in millimetres, last field — quantity. The graphic is a band all around (circumference × height).'],
+  ['Średnica × wysokość pierścienia w centymetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).', 'Діаметр × висота кільця в сантиметрах, останнє поле — кількість штук. Графіку рахуємо як смугу по колу (обвід × висота).', 'Ring diameter × height in centimetres, last field — quantity. The graphic is a band all around (circumference × height).'],
+  ['Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.', 'Ширина × глибина × висота в міліметрах (квадратна: глибину можна пропустити), останнє поле — кількість штук. Графіку рахуємо як смугу на чотирьох сторонах.', 'Width × depth × height in millimetres (square: depth can be skipped), last field — quantity. The graphic is a band on four sides.'],
+  ['Szerokość × głębokość × wysokość w centymetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.', 'Ширина × глибина × висота в сантиметрах (квадратна: глибину можна пропустити), останнє поле — кількість штук. Графіку рахуємо як смугу на чотирьох сторонах.', 'Width × depth × height in centimetres (square: depth can be skipped), last field — quantity. The graphic is a band on four sides.'],
+  // zegar i terminy
+  ['do deadline’u graficznego', 'до дедлайну графіки', 'to the graphics deadline'], ['do deadline’u pakowania', 'до дедлайну пакування', 'to the packing deadline'], ['do imprezy', 'до заходу', 'to the event'],
+  ['dziś', 'сьогодні', 'today'], ['Trwa', 'Триває', 'Ongoing'], ['Koniec', 'Кінець', 'Over'], ['pakowanie', 'пакування', 'packing'], ['impreza', 'захід', 'event'],
+  ['ustaw terminy w ⚙ Projekt', 'встановіть дати в ⚙ Проєкт', 'set dates in ⚙ Project'],
+  ['Deadline graficzny', 'Дедлайн графіки', 'Graphics deadline'], ['Deadline pakowania', 'Дедлайн пакування', 'Packing deadline'], ['Do imprezy', 'До заходу', 'To the event'],
+  ['Impreza trwa', 'Захід триває', 'Event ongoing'], ['Po imprezie', 'Після заходу', 'After the event'], ['Brak terminów', 'Немає дат', 'No dates'],
+  // formularze stoiska i targów
+  ['Ustawienia stoiska', 'Налаштування стенду', 'Stand settings'], ['Nowe stoisko', 'Новий стенд', 'New stand'], ['Klient / nazwa stoiska *', 'Клієнт / назва стенду *', 'Client / stand name *'],
+  ['Targi', 'Виставка', 'Fair'], ['bez targów', 'без виставки', 'no fair'], ['Nowe targi dodasz w panelu bocznym przyciskiem „+ New fairs".', 'Нову виставку додасте в бічній панелі кнопкою „+ New fairs".', 'Add a new fair in the side panel with "+ New fairs".'],
+  ['Start imprezy', 'Початок заходу', 'Event start'], ['Koniec imprezy (opcjonalnie)', 'Кінець заходу (необов’язково)', 'Event end (optional)'], ['Koniec imprezy', 'Кінець заходу', 'Event end'],
+  ['Zespół — kto zajmuje się projektem', 'Команда — хто займається проєктом', 'Team — who works on the project'],
+  ['dopisz osobę spoza systemu (np. Marek — drukarnia) i Enter', 'додайте особу поза системою (напр. Марко — друкарня) і Enter', 'add a person outside the system (e.g. Mark — print shop) and Enter'],
+  ['Kliknij osobę, aby dodać ją do zespołu — konto dodane do zespołu widzi to stoisko.', 'Натисніть особу, щоб додати її до команди — обліковий запис у команді бачить цей стенд.', 'Click a person to add them to the team — an account in the team can see this stand.'],
+  ['Usuń stoisko', 'Видалити стенд', 'Delete stand'], ['Nowe targi', 'Нова виставка', 'New fair'], ['Targi — edycja', 'Виставка — редагування', 'Fair — edit'], ['Nazwa targów *', 'Назва виставки *', 'Fair name *'],
+  ['Miasto', 'Місто', 'City'], ['Usuń targi', 'Видалити виставку', 'Delete fair'],
+  ['Podaj nazwę stoiska', 'Вкажіть назву стенду', 'Enter the stand name'], ['Podaj nazwę targów', 'Вкажіть назву виставки', 'Enter the fair name'],
+  ['Deadline graficzny musi być przed imprezą', 'Дедлайн графіки має бути до заходу', 'The graphics deadline must be before the event'],
+  ['Deadline pakowania musi być przed imprezą', 'Дедлайн пакування має бути до заходу', 'The packing deadline must be before the event'],
+  ['Deadline pakowania musi być po graficznym', 'Дедлайн пакування має бути після дедлайну графіки', 'The packing deadline must be after the graphics deadline'],
+  ['Zmieniono ustawienia projektu', 'Змінено налаштування проєкту', 'Project settings changed'],
+  // menu
+  ['Użytkownicy', 'Користувачі', 'Users'], ['Użytkownicy INDEX', 'Користувачі INDEX', 'INDEX users'], ['Typy elementów', 'Типи елементів', 'Element types'],
+  ['Kopia wszystkich projektów (JSON)', 'Копія всіх проєктів (JSON)', 'Backup of all projects (JSON)'], ['Dodaj zdjęcie awatara', 'Додати фото аватара', 'Add avatar photo'],
+  ['Zmień zdjęcie awatara', 'Змінити фото аватара', 'Change avatar photo'], ['Usuń zdjęcie awatara', 'Видалити фото аватара', 'Remove avatar photo'],
+  ['Zmień hasło', 'Змінити пароль', 'Change password'], ['Wyloguj', 'Вийти', 'Sign out'], ['Jednostki', 'Одиниці', 'Units'],
+  ['PDF — wizki z oznaczeniami + tabela', 'PDF — візуалізації з позначками + таблиця', 'PDF — visuals with markers + table'], ['Excel (CSV) — lista elementów', 'Excel (CSV) — список елементів', 'Excel (CSV) — element list'],
+  ['JSON — pełna kopia danych', 'JSON — повна копія даних', 'JSON — full data backup'], ['Wszystko naraz', 'Усе разом', 'Everything at once'],
+  ['Zmiana hasła', 'Зміна пароля', 'Change password'], ['Obecne hasło', 'Поточний пароль', 'Current password'], ['Nowe hasło', 'Новий пароль', 'New password'], ['Powtórz nowe hasło', 'Повторіть новий пароль', 'Repeat new password'],
+  ['Imię i nazwisko', 'Ім’я та прізвище', 'Full name'], ['Firma / agencja', 'Компанія / агенція', 'Company / agency'], ['Rola', 'Роль', 'Role'], ['ustawione', 'встановлено', 'set'],
+  ['brak — konto nieaktywne', 'немає — обліковий запис неактивний', 'none — account inactive'], ['Ustaw hasło', 'Встановити пароль', 'Set password'], ['Nowe konto (np. dla agencji)', 'Новий обліковий запис (напр. для агенції)', 'New account (e.g. for an agency)'],
+  ['Login *', 'Логін *', 'Login *'], ['Hasło * (min. 6 znaków)', 'Пароль * (мін. 6 символів)', 'Password * (min. 6 characters)'], ['Dodaj konto', 'Додати обліковий запис', 'Add account'],
+  ['Błąd zapisu', 'Помилка збереження', 'Save error'], ['Błąd bazy', 'Помилка бази', 'Database error'], ['Błąd', 'Помилка', 'Error'],
+  ['Hasło zmienione', 'Пароль змінено', 'Password changed'], ['Hasło ustawione', 'Пароль встановлено', 'Password set'], ['Hasła się różnią', 'Паролі не збігаються', 'Passwords do not match'],
+  ['Brak dostępu do tego projektu', 'Немає доступу до цього проєкту', 'No access to this project'], ['Nie znaleziono projektu', 'Проєкт не знайдено', 'Project not found'],
+  ['Polski', 'Polski', 'Polski'],
+];
+// teksty z liczbami / zmienną częścią
+const I18N_RX = [
+  [/^(\d+) wpisów$/, '$1 зап.', '$1 entries'], [/^stoisko „(.+)"$/, 'стенд „$1"', 'stand "$1"'], [/^targi „(.+)"$/, 'виставка „$1"', 'fair "$1"'], [/^(\d+) dni$/, '$1 дн.', '$1 days'], [/^1 dzień$/, '1 день', '1 day'],
+  [/^(\d+) bez wymiaru$/, '$1 без розміру', '$1 without size'], [/^(\d+) typ do ustalenia$/, '$1 тип не визначено', '$1 type to be decided'],
+  [/^Usuń wizkę #(\d+)$/, 'Видалити візуалізацію #$1', 'Delete visual #$1'], [/^Wizka #(\d+)$/, 'Візуалізація #$1', 'Visual #$1'], [/^wizka #(\d+)$/, 'візуалізація #$1', 'visual #$1'],
+  [/^Nowy element ([A-Z]+)$/, 'Новий елемент $1', 'New element $1'], [/^Element ([A-Z]+)$/, 'Елемент $1', 'Element $1'],
+  [/^Standard — spad (.+)$/, 'Стандарт — виліт $1', 'Standard — bleed $1'], [/^spad (.+)$/, 'виліт $1', 'bleed $1'],
+  [/^gr\. (.+)$/, 'тов. $1', 'th. $1'], [/^× (\d+) szt\.$/, '× $1 шт.', '× $1 pcs'], [/^(\d+) szt\.$/, '$1 шт.', '$1 pcs'],
+  [/^pakowanie (.+)$/, 'пакування $1', 'packing $1'], [/^impreza (.+)$/, 'захід $1', 'event $1'], [/^start (.+)$/, 'початок $1', 'start $1'],
+  [/^Kliknij albo naciśnij (\d+), aby wybrać$/, 'Натисніть або клавіша $1, щоб вибрати', 'Click or press $1 to select'],
+  [/^Wgrywanie wizki (.*)…$/, 'Завантаження візуалізації $1…', 'Uploading visual $1…'],
+  [/^Ustawia się sam: (\d+) dni przed startem targów\.(.*)$/, 'Встановлюється сам: за $1 дн. до початку виставки.', 'Set automatically: $1 days before the fair starts.'],
+  [/^przełącz na (mm|cm)$/, 'перемкнути на $1', 'switch to $1'], [/^deadline graf\. minął (.+)$/, 'дедлайн графіки минув $1', 'graphics deadline passed $1'],
+];
+const I18N = {};
+I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
+function trCore(t) {
+  const d = I18N[t]; if (d) return d[LANG];
+  for (const [rx, uk, en] of I18N_RX) if (rx.test(t)) return t.replace(rx, LANG === 'uk' ? uk : en);
+  return null;
+}
+function tr(raw) {
+  if (LANG === 'pl' || !raw) return raw;
+  const t = raw.trim(); if (!t || !/\p{L}/u.test(t)) return raw;
+  const lead = raw.slice(0, raw.indexOf(t[0])), trail = raw.slice(raw.lastIndexOf(t[t.length - 1]) + 1);
+  let r = trCore(t);
+  if (r == null) { // ikonki i interpunkcja na brzegach
+    const a = t.match(/^([^\p{L}]*)(.*)$/u);
+    if (a && a[1]) r = (c => c == null ? null : a[1] + c)(trCore(a[2]));
+    if (r == null) { const b = t.match(/^([^\p{L}]*)(.*?)([^\p{L}]*)$/u); if (b && b[2]) { const c = trCore(b[2]); if (c != null) r = b[1] + c + b[3]; } }
+  }
+  if (r == null) { const m = t.match(/^(.*?)\s*\[([^\]]+)\]$/); if (m) { const c = trCore(m[1]); if (c != null) r = c + ' [' + m[2] + ']'; } }
+  if (r == null) { const i = t.indexOf(': '); if (i > 0) { const c = trCore(t.slice(0, i)); if (c != null) r = c + t.slice(i); } }
+  if (r == null && /( — | · |, )/.test(t)) { // złożone etykiety, np. „Logo 3D — Neon · SEG"
+    let changed = false;
+    const out = t.split(/( — | · |, )/).map(part => { if (/^( — | · |, )$/.test(part)) return part; const c = trCore(part.trim()); if (c != null) { changed = true; return c; } return part; }).join('');
+    if (changed) r = out;
+  }
+  return r == null ? raw : lead + r + trail;
+}
+const I18N_ATTRS = ['title', 'placeholder', 'aria-label'];
+function trAttrs(n) {
+  for (const a of I18N_ATTRS) if (n.hasAttribute && n.hasAttribute(a)) { const v = n.getAttribute(a), w = tr(v); if (w !== v) n.setAttribute(a, w); }
+}
+function trNode(n) {
+  if (n.nodeType === 3) {
+    const p = n.parentNode;
+    if (!p || /^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName) || (p.closest && p.closest('[data-noi18n]'))) return;
+    const w = tr(n.nodeValue); if (w !== n.nodeValue) n.nodeValue = w;
+    return;
+  }
+  if (n.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA)$/.test(n.nodeName) || n.hasAttribute('data-noi18n')) return;
+  trAttrs(n);
+  for (const c of n.childNodes) trNode(c);
+}
+if (LANG !== 'pl') {
+  document.documentElement.lang = LANG;
+  new MutationObserver(ms => {
+    for (const m of ms) {
+      if (m.type === 'characterData') trNode(m.target);
+      else if (m.type === 'attributes') trAttrs(m.target);
+      else m.addedNodes.forEach(trNode);
+    }
+  }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: I18N_ATTRS });
+  trNode(document.body);
+}
+// wybór języka: okrągłe flagi w nagłówku
+const FLAGS = {
+  pl: '<clipPath id="fpl"><circle cx="12" cy="12" r="11"/></clipPath><g clip-path="url(#fpl)"><rect width="24" height="12" fill="#fff"/><rect y="12" width="24" height="12" fill="#dc143c"/></g>',
+  uk: '<clipPath id="fuk"><circle cx="12" cy="12" r="11"/></clipPath><g clip-path="url(#fuk)"><rect width="24" height="12" fill="#0057b7"/><rect y="12" width="24" height="12" fill="#ffd700"/></g>',
+  en: '<clipPath id="fen"><circle cx="12" cy="12" r="11"/></clipPath><g clip-path="url(#fen)"><rect width="24" height="24" fill="#012169"/><path d="M0 0 L24 24 M24 0 L0 24" stroke="#fff" stroke-width="5"/><path d="M0 0 L24 24 M24 0 L0 24" stroke="#c8102e" stroke-width="1.6"/><path d="M12 0 V24 M0 12 H24" stroke="#fff" stroke-width="7"/><path d="M12 0 V24 M0 12 H24" stroke="#c8102e" stroke-width="4"/></g>',
+};
+const LANG_NAMES = { pl: 'Polski', uk: 'Українська', en: 'English' };
+function renderLangs() {
+  $('langs').innerHTML = ['pl', 'uk', 'en'].map(l => `<button type="button" class="lang ${l === LANG ? 'on' : ''}" data-l="${l}" title="${LANG_NAMES[l]}" data-noi18n>
+    <svg viewBox="0 0 24 24" width="24" height="24">${FLAGS[l]}<circle cx="12" cy="12" r="11" fill="none" stroke="#fff" stroke-width="1.5"/></svg></button>`).join('');
+  $('langs').querySelectorAll('.lang').forEach(b => b.onclick = () => {
+    if (b.dataset.l === LANG) return;
+    try { localStorage.setItem('INDEX_LANG', b.dataset.l); } catch (e) {}
+    location.reload();
+  });
+}
+renderLangs();
 
 // =====================================================================
 //  WARSTWA BAZY: Firebase albo localStorage (demo) — to samo API
@@ -898,15 +1181,23 @@ function toggleUserMenu(ev) {
     <div class="mi" data-a="backup">💾 Kopia wszystkich projektów (JSON)</div><div class="sep"></div>` : ''}
     <div class="mi" data-a="avatar">🖼 ${S.me.avatar ? 'Zmień zdjęcie awatara' : 'Dodaj zdjęcie awatara'}</div>
     ${S.me.avatar ? '<div class="mi" data-a="noavatar">✕ Usuń zdjęcie awatara</div>' : ''}
+    <div class="mi" data-a="unit">📏 Jednostki: <b>${UNIT()}</b> — przełącz na ${UNIT() === 'cm' ? 'mm' : 'cm'}</div>
     <div class="mi" data-a="pass">🔑 Zmień hasło</div>
     <div class="mi" data-a="out">⎋ Wyloguj</div>`;
   m.onclick = e => {
     const a = e.target.closest('[data-a]'); if (!a) return;
     m.remove();
     ({ users: openUsersPanel, types: openTypesPanel, backup: exportAllProjects, pass: openChangePassword, out: logout,
-       avatar: pickAvatar, noavatar: () => saveAvatar('') })[a.dataset.a]();
+       avatar: pickAvatar, noavatar: () => saveAvatar(''), unit: toggleUnit })[a.dataset.a]();
   };
   document.body.appendChild(m);
+}
+async function toggleUnit() {
+  const u = UNIT() === 'cm' ? 'mm' : 'cm';
+  S.me.unit = u;
+  try { await DB.set(C_USERS, S.me.id, { login: S.me.login, unit: u }, true); } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); }
+  if (S.project) { renderElements(); }
+  toast('Jednostki: ' + u, 'success');
 }
 function renderMyAvatar() {
   if (!S.me) return;
@@ -1014,14 +1305,14 @@ function grossOf(el) {
 function netTxt(el) {
   if (!hasDims(el)) return '';
   const m = dimsMode(el);
-  if (m === 'ring') return `Ø ${intPL(el.w)} × ${intPL(el.h)}`;
-  if (m === 'box') return `${intPL(el.w)} × ${intPL(depthOf(el))} × ${intPL(el.h)}`;
-  return `${intPL(el.w)} × ${intPL(el.h)}`;
+  if (m === 'ring') return `Ø ${lenPL(el.w)} × ${lenPL(el.h)}`;
+  if (m === 'box') return `${lenPL(el.w)} × ${lenPL(depthOf(el))} × ${lenPL(el.h)}`;
+  return `${lenPL(el.w)} × ${lenPL(el.h)}`;
 }
 function grossTxt(el) {
   if (!hasDims(el)) return '';
   const g = grossOf(el);
-  return `${intPL(g.w)} × ${intPL(g.h)}` + (dimsMode(el) === 'flat' ? '' : ' (pas)');
+  return `${lenPL(g.w)} × ${lenPL(g.h)}` + (dimsMode(el) === 'flat' ? '' : ' (pas)');
 }
 const areaOf = el => { const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1); };
 
@@ -1365,7 +1656,7 @@ async function sideArchive() {
 }
 
 // =====================================================================
-//  LICZNIKI: deadline graficzny (żółty) → deadline pakowania (zielony) → impreza (czerwony)
+//  LICZNIKI: deadline graficzny (zielony) → deadline pakowania (żółty) → impreza (czerwony)
 // =====================================================================
 const tsOf = v => { if (!v) return null; const t = new Date(v).getTime(); return isNaN(t) ? null : t; };
 function countdownInfo(p, now = Date.now()) {
@@ -1737,8 +2028,7 @@ document.addEventListener('paste', e => {
   const files = [...(e.clipboardData || {}).items || []].filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile());
   if (!files.length) return;
   e.preventDefault();
-  // okienko elementu „uzbrojone" kliknięciem → miniatura grafiki zamiast nowej wizki
-  if (S.thumbTarget) setThumb(S.thumbTarget, files[0]); else addPhotoFiles(files);
+  addPhotoFiles(files);
 });
 let dragDepth = 0;
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
@@ -2206,7 +2496,7 @@ function arcSteps() {
   if (t.variants && t.variants.length) steps.push({ key: 'v', label: t.id === 'podwieszana' ? 'Kształt' : 'Wykonanie',
     opts: t.variants.map(x => ({ id: x.id, name: x.name, on: x.id === ARC.variant })), done: !!v });
   if (t.seg) steps.push({ key: 's', label: 'Mocowanie', done: ARC.seg !== null,
-    opts: [{ id: '0', name: `Standard — spad ${Number(t.bleed) || 0} mm`, on: ARC.seg === false }, { id: '1', name: 'SEG — bez spadu', on: ARC.seg === true }] });
+    opts: [{ id: '0', name: `Standard — spad ${bleedTxt(Number(t.bleed) || 0)}`, on: ARC.seg === false }, { id: '1', name: 'SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami', on: ARC.seg === true }] });
   return steps;
 }
 function renderArcPanel() {
@@ -2230,10 +2520,10 @@ function renderArcPanel() {
     }
     if (ready) {
       const m = dimsMode(ARC), vv = variantOf(ARC);
-      const f = (id, ph, val) => `<input type="number" min="0" step="1" data-f="${id}" value="${esc(val)}" placeholder="${ph}">`;
+      const f = (id, ph, val) => `<input type="number" min="0" step="${id === 'thick' ? '1' : unitStep()}" data-f="${id}" value="${esc(val)}" placeholder="${ph}">`;
       h += `<div class="ap-sec ap-form${fresh('form' + m + (vv && vv.thick ? 't' : ''))}">
-        <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny [mm]' : 'Wymiar konstrukcji [mm]'}</div>
-        ${vv && vv.thick ? `<div class="ap-row">${f('thick', 'grubość', ARC.thick)}</div>` : ''}
+        <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny' : 'Wymiar konstrukcji'} [${UNIT()}]</div>
+        ${vv && vv.thick ? `<div class="ap-row">${f('thick', 'grubość [mm]', ARC.thick)}</div>` : ''}
         <div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>
         <div class="ap-row r2"><input type="number" min="1" step="1" data-f="qty" value="${esc(ARC.qty)}" title="Ilość sztuk"><input type="text" data-f="notes" value="${esc(ARC.notes)}" placeholder="uwagi (opcjonalnie)"></div>
         <div class="ap-calc" id="ap-calc"></div>
@@ -2272,13 +2562,13 @@ function arcEl() {
   const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
   const vv = variantOf(ARC), m = dimsMode(ARC);
   return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: vv && vv.thick ? num(ARC.thick) : '',
-    w: num(ARC.w), h: num(ARC.h), d: m === 'box' ? num(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: '' };
+    w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: '' };
 }
 function arcCalc() {
   const c = ARC && ARC.root.querySelector('#ap-calc'); if (!c) return;
   const e = arcEl(), g = grossOf(e);
-  c.innerHTML = hasDims(e) ? `druk <b>${grossTxt(e)} mm</b> · spad ${g.b ? g.b + ' mm' : 'brak'} · <b>${numPL(areaOf(e))} m²</b>`
-    : `<span class="w">wymiar do ustalenia</span> · spad ${g.b ? g.b + ' mm' : 'brak'}`;
+  c.innerHTML = hasDims(e) ? `druk <b>${grossTxt(e)} ${UNIT()}</b> · spad ${bleedTxt(g.b)} · <b>${numPL(areaOf(e))} m²</b>`
+    : `<span class="w">wymiar do ustalenia</span> · spad ${bleedTxt(g.b)}`;
 }
 async function arcSave() {
   if (!ARC || !ARC.typeId) return;
@@ -2288,7 +2578,7 @@ async function arcSave() {
   const go = ARC.root.querySelector('.ap-go'); if (go) go.disabled = true;
   try {
     const newId = await DB.add(pElements(pid), rec);
-    addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' mm' : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
+    addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
     closeArcMenu();
     S.selId = newId; renderOverlay();
   } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); if (go) go.disabled = false; }
@@ -2336,7 +2626,6 @@ document.addEventListener('keydown', e => {
   else if (k === '+' || k === '=') zoomBy(1.25);
   else if (k === '-') zoomBy(1 / 1.25);
   else if (k === 'enter' && draft && draft.kind === 'poly') finishPoly();
-  else if (k === 'escape' && S.thumbTarget) disarmThumb();
   else if (k === 'escape') { if (draft) cancelDraft(); else if (assignTo) cancelAssign(); else if (tool === 'poly') setTool('point'); else selectElement(null); }
   else if (k === 'backspace' && draft && draft.kind === 'poly') { draft.pts.pop(); if (!draft.pts.length) draft = null; renderOverlay(); updateHint(); }
   else if ((k === 'delete' || k === 'backspace') && S.selId) deleteElement(S.selId);
@@ -2374,9 +2663,9 @@ function openElementDialog({ id, shape, photoId }) {
       <div id="ed-opts"></div>
       <div class="fld"><label id="ed-dims-lab">2. Wymiar widoczny (netto)</label>
         <div class="row-dims" id="ed-dims">
-          <div class="fld" style="margin:0"><input type="number" id="ed-w" min="0" step="1" value="${esc(el.w)}" placeholder="szerokość [mm]"></div>
-          <div class="fld" style="margin:0" id="ed-d-wrap"><input type="number" id="ed-d" min="0" step="1" value="${esc(el.d || '')}" placeholder="głębokość [mm]"></div>
-          <div class="fld" style="margin:0"><input type="number" id="ed-h" min="0" step="1" value="${esc(el.h)}" placeholder="wysokość [mm]"></div>
+          <div class="fld" style="margin:0"><input type="number" id="ed-w" min="0" step="${unitStep()}" value="${esc(fromMM(el.w))}" placeholder="szerokość [${UNIT()}]"></div>
+          <div class="fld" style="margin:0" id="ed-d-wrap"><input type="number" id="ed-d" min="0" step="${unitStep()}" value="${esc(fromMM(el.d || ''))}" placeholder="głębokość [${UNIT()}]"></div>
+          <div class="fld" style="margin:0"><input type="number" id="ed-h" min="0" step="${unitStep()}" value="${esc(fromMM(el.h))}" placeholder="wysokość [${UNIT()}]"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-q" min="1" step="1" value="${esc(el.qty || 1)}" title="Ilość sztuk"></div>
         </div>
         <div class="hint" id="ed-dims-hint"></div>
@@ -2385,7 +2674,7 @@ function openElementDialog({ id, shape, photoId }) {
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>
       ${isAdmin() ? `<details class="adm" ${el.eltex || (el.bleedOverride !== undefined && el.bleedOverride !== '') ? 'open' : ''}><summary>Ustawienia produkcyjne (tylko administrator)</summary>
         <div class="row2" style="margin-top:10px">
-          <div class="fld"><label>Spad ręcznie [mm / stronę]</label><input type="number" id="ed-bleed" min="0" step="1" value="${el.bleedOverride == null ? '' : esc(el.bleedOverride)}" placeholder="puste = automatycznie"></div>
+          <div class="fld"><label>Spad ręcznie [${UNIT()} / stronę]</label><input type="number" id="ed-bleed" min="0" step="${unitStep()}" value="${el.bleedOverride == null ? '' : esc(fromMM(el.bleedOverride))}" placeholder="puste = automatycznie"></div>
           <div class="fld"><label>&nbsp;</label><label class="chk" style="text-transform:none;font-weight:400;font-size:.85rem;color:var(--dark)"><input type="checkbox" id="ed-eltex" ${el.eltex ? 'checked' : ''}> ELTEX (bez spadu)</label></div>
         </div></details>` : ''}`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
@@ -2395,15 +2684,15 @@ function openElementDialog({ id, shape, photoId }) {
   const read = () => ({
     ...el,
     typeId: el.typeId,
-    w: $('ed-w').value === '' ? '' : Math.max(0, Number($('ed-w').value)),
-    h: $('ed-h').value === '' ? '' : Math.max(0, Number($('ed-h').value)),
-    d: dimsMode(el) === 'box' && $('ed-d').value !== '' ? Math.max(0, Number($('ed-d').value)) : '',
+    w: toMM($('ed-w').value),
+    h: toMM($('ed-h').value),
+    d: dimsMode(el) === 'box' ? toMM($('ed-d').value) : '',
     variant: el.variant || '',
     thick: variantOf(el) && variantOf(el).thick && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
     seg: typeById(el.typeId).seg ? !!el.seg : false,
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
-    ...(isAdmin() ? { bleedOverride: $('ed-bleed').value === '' ? '' : Number($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
+    ...(isAdmin() ? { bleedOverride: toMM($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
   });
   // podział typu: wykonanie (Logo 3D) / kształt (konstrukcja), grubość, SEG
   const renderOpts = () => {
@@ -2414,7 +2703,7 @@ function openElementDialog({ id, shape, photoId }) {
         <div class="var-list">${t.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === el.variant ? 'on' : ''}" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>`;
       if (v && v.thick) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
     }
-    if (t && t.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-seg" ${el.seg ? 'checked' : ''}> <span><b>SEG</b> — tkanina z silikonowym kedrem wpinana w ramę (wymiar = wymiar ramy, <b>bez spadu</b>)</span></label>`;
+    if (t && t.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-seg" ${el.seg ? 'checked' : ''}> <span><b>SEG</b> — tkanina na ramie aluminiowej obszyta płaskimi gumkami</span></label>`;
     $('ed-opts').innerHTML = h;
     $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
@@ -2423,11 +2712,11 @@ function openElementDialog({ id, shape, photoId }) {
     const m = dimsMode(el);
     $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
     $('ed-dims').classList.toggle('four', m === 'box');
-    $('ed-w').placeholder = m === 'ring' ? 'średnica [mm]' : 'szerokość [mm]';
+    $('ed-w').placeholder = (m === 'ring' ? 'średnica' : 'szerokość') + ` [${UNIT()}]`;
     $('ed-dims-lab').textContent = m === 'flat' ? '2. Wymiar widoczny (netto)' : '2. Wymiar konstrukcji';
-    $('ed-dims-hint').textContent = m === 'ring' ? 'Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).'
+    $('ed-dims-hint').textContent = unitHint(m === 'ring' ? 'Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).'
       : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
-      : 'Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".';
+      : 'Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".');
   };
   const refresh = () => {
     const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
@@ -2438,8 +2727,8 @@ function openElementDialog({ id, shape, photoId }) {
     const cur = read();
     const g = grossOf(cur);
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
-      : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? g.b + ' mm</b> / stronę' : 'brak</b>'}`
-      : `${dimsMode(cur) === 'flat' ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} mm</b> · spad <b>${g.b ? g.b + ' mm' : 'brak'}</b> → do druku <b>${grossTxt(cur)} mm</b>
+      : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? bleedTxt(g.b) + '</b> / stronę' : 'brak</b>'}`
+      : `${dimsMode(cur) === 'flat' ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
@@ -2471,7 +2760,7 @@ function openElementDialog({ id, shape, photoId }) {
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
-        addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' mm' : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
+        addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
         m.close();
         S.selId = newId;
       }
@@ -2485,11 +2774,11 @@ function openElementDialog({ id, shape, photoId }) {
 function describeDiff(a, b) {
   const ch = [];
   if (typeLabel(a) !== typeLabel(b)) ch.push(`typ ${typeLabel(a)} → ${typeLabel(b)}`);
-  if (netTxt(a) !== netTxt(b)) ch.push(`wymiar ${netTxt(a) || '?'} → ${netTxt(b) || '?'} mm`);
+  if (netTxt(a) !== netTxt(b)) ch.push(`wymiar ${netTxt(a) || '?'} → ${netTxt(b) || '?'} ${UNIT()}`);
   if ((a.qty || 1) !== (b.qty || 1)) ch.push(`ilość ${a.qty || 1} → ${b.qty || 1}`);
   if ((a.name || '') !== (b.name || '')) ch.push(`opis „${b.name || '—'}"`);
   if ((a.notes || '') !== (b.notes || '')) ch.push('uwagi zmienione');
-  if (bleedOf(a) !== bleedOf(b)) ch.push(`spad → ${bleedOf(b)} mm`);
+  if (bleedOf(a) !== bleedOf(b)) ch.push(`spad → ${bleedTxt(bleedOf(b))}`);
   return ch.join(', ');
 }
 async function deleteElement(id) {
@@ -2533,7 +2822,7 @@ function ringBadge(color, txt, size = 28) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" style="flex:0 0 auto"><circle cx="20" cy="20" r="17" fill="${color}" stroke="#fff" stroke-width="3"/>
     <text x="20" y="26.5" text-anchor="middle" font-size="${txt.length > 1 ? 14 : 19}" font-weight="700" fill="#fff" font-family="Bahnschrift, Segoe UI, Arial, sans-serif">${txt}</text></svg>`;
 }
-const cm = mm => (Math.round(mm) / 10).toFixed(1).replace('.', ',');
+const cm = mm => lenPL(mm); // linie wymiarowe w jednostce użytkownika
 function renderGraph() {
   const box = $('el-scroll');
   if (!S.elements.length) {
@@ -2573,11 +2862,10 @@ function renderGraph() {
         svg += ext(LM, 0, LM - 24, 0) + ext(LM, FH, LM - 24, FH) + L(LM - 22, 0, LM - 22, FH, cm(g.h), true);
       }
     }
-    const armed = S.thumbTarget === e.id;
-    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'} ${armed ? 'armed' : ''}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
-        title="Kliknij i wklej grafikę (Ctrl+V), upuść plik albo kliknij dwukrotnie, aby wybrać z dysku">
-      ${e.thumb ? `<img src="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : (armed ? 'Wklej teraz<br>Ctrl+V' : '+ grafika')}</div>`;
-    const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : dimsMode(e) !== 'flat' ? `<div class="gc-note">konstrukcja ${netTxt(e)} mm · pas do druku</div>` : '';
+    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
+        title="Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">
+      ${e.thumb ? `<img src="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>`;
+    const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : dimsMode(e) !== 'flat' ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · pas do druku</div>` : '';
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''}" data-eid="${e.id}" style="--c:${t.color}">
       <div class="gc-h" data-eid="${e.id}">${ringBadge(t.color, lab)}<span class="gc-t">${esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}</div>
       <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}</div>
@@ -2598,12 +2886,7 @@ function renderGraph() {
     f.onclick = e => {
       const rm = e.target.closest('[data-rm]');
       if (rm) { e.stopPropagation(); removeThumb(eid); return; }
-      e.stopPropagation(); armThumb(eid);
-    };
-    f.ondblclick = () => {
-      const fi = $('file-generic');
-      fi.onchange = () => { const file = fi.files[0]; fi.value = ''; if (file) setThumb(eid, file); };
-      fi.click();
+      e.stopPropagation(); pasteThumb(eid);
     };
     f.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); f.classList.add('drag'); } });
     f.addEventListener('dragleave', () => f.classList.remove('drag'));
@@ -2616,25 +2899,27 @@ function renderGraph() {
     });
   });
 }
-// miniatura grafiki w okienku elementu: kliknij okienko → Ctrl+V, upuść plik albo dwuklik = wybór z dysku
-function armThumb(eid) {
-  S.thumbTarget = eid;
+// miniatura grafiki w okienku elementu: kliknięcie od razu wkleja obrazek ze schowka;
+// gdy w schowku nie ma obrazka (albo przeglądarka nie da dostępu) — wybór pliku z dysku
+function pickThumbFile(eid) {
+  const fi = $('file-generic');
+  fi.onchange = () => { const file = fi.files[0]; fi.value = ''; if (file) setThumb(eid, file); };
+  fi.click();
+}
+async function pasteThumb(eid) {
   selectElement(eid, false);
-  document.querySelectorAll('#el-scroll .gc-frame').forEach(f => {
-    const on = f.dataset.eid === eid;
-    f.classList.toggle('armed', on);
-    if (!f.querySelector('img')) f.innerHTML = on ? 'Wklej teraz<br>Ctrl+V' : '+ grafika';
-  });
+  if (!navigator.clipboard || !navigator.clipboard.read) return pickThumbFile(eid);
+  try {
+    for (const item of await navigator.clipboard.read()) {
+      const type = item.types.find(t => t.startsWith('image/'));
+      if (type) { const b = await item.getType(type); return setThumb(eid, new File([b], 'grafika.' + (type.split('/')[1] || 'png'), { type })); }
+    }
+    toast('W schowku nie ma obrazka — wybierz plik z dysku', '', 3500);
+  } catch (e) { /* brak zgody na schowek */ }
+  pickThumbFile(eid);
 }
-function disarmThumb() {
-  if (!S.thumbTarget) return;
-  S.thumbTarget = null;
-  document.querySelectorAll('#el-scroll .gc-frame').forEach(f => { f.classList.remove('armed'); if (!f.querySelector('img')) f.innerHTML = '+ grafika'; });
-}
-document.addEventListener('click', e => { if (S.thumbTarget && !e.target.closest('.gc-frame')) disarmThumb(); });
 async function setThumb(eid, file) {
   const el = S.elements.find(x => x.id === eid); if (!el || !S.project) return;
-  disarmThumb();
   const t = toast('Wgrywanie miniatury…', '', 60000);
   try {
     const { url } = await storeImage(file, 900);
@@ -2678,7 +2963,7 @@ function renderElements() {
     return;
   }
   $('el-scroll').innerHTML = `<table class="el"><thead><tr>
-      <th>Znak</th><th>Wizka</th><th>Typ</th><th>Netto [mm]</th><th>Spad</th><th>Do druku [mm]</th><th>Szt.</th><th>m²</th><th>Uwagi</th><th>Kto</th><th></th>
+      <th>Znak</th><th>Wizka</th><th>Typ</th><th>Netto [${UNIT()}]</th><th>Spad</th><th>Do druku [${UNIT()}]</th><th>Szt.</th><th>m²</th><th>Uwagi</th><th>Kto</th><th></th>
     </tr></thead><tbody>${list.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
@@ -2686,7 +2971,7 @@ function renderElements() {
         <td>${e.photoId ? '#' + photoNo(e.photoId) : '<span class="tag-warn" title="Element nie jest zaznaczony na żadnej wizce">—</span>'}</td>
         <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
-        <td class="num">${g.b ? g.b + ' mm' : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
+        <td class="num">${g.b ? bleedTxt(g.b) : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
         <td class="dims">${dims ? grossTxt(e) : ''}</td>
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
@@ -2791,10 +3076,11 @@ function exportRows() {
 }
 const baseName = () => 'INDEX_' + safeName(S.project.name) + (S.project.fair ? '_' + safeName(S.project.fair) : '');
 function exportCsv() {
-  const head = ['Znak', 'Wizka', 'Typ', 'Opis', 'Wymiar netto [mm]', 'Szer. / średnica [mm]', 'Głęb. [mm]', 'Wys. netto [mm]', 'Spad [mm/str.]', 'Szer. do druku [mm]', 'Wys. do druku [mm]', 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
+  const u = UNIT();
+  const head = ['Znak', 'Wizka', 'Typ', 'Opis', `Wymiar netto [${u}]`, `Szer. / średnica [${u}]`, `Głęb. [${u}]`, `Wys. netto [${u}]`, `Spad [${u}/str.]`, `Szer. do druku [${u}]`, `Wys. do druku [${u}]`, 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
   const q = v => { const s = String(v == null ? '' : v); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const num = v => v === '' ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
-  const lines = [head.join(';')].concat(exportRows().map(r => [r.znak, r.wizka, r.typ, r.opis, r.net, num(r.w), num(r.d), num(r.h), r.spad, num(r.bw), num(r.bh), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
+  const lines = [head.join(';')].concat(exportRows().map(r => [r.znak, r.wizka, r.typ, r.opis, r.net, num(fromMM(r.w)), num(fromMM(r.d)), num(fromMM(r.h)), num(fromMM(r.spad)), num(fromMM(r.bw)), num(fromMM(r.bh)), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
   download(baseName() + '.csv', new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   addLog(S.project.id, 'Wyeksportowano listę elementów (Excel/CSV)');
 }
@@ -2895,14 +3181,14 @@ async function exportPdf() {
           g.fillStyle = '#4a5568'; g.font = `400 ${Math.round(22 * fs)}px Segoe UI, Arial`;
           if (r.opis) g.fillText(fitText(g, r.opis, LW - 64 * fs), LX + 60 * fs, y + 50 * fs);
           g.fillStyle = r.w === '' ? '#dd6b20' : '#1a202c'; g.font = `600 ${Math.round(22 * fs)}px Segoe UI, Arial`;
-          const dimTxt = r.w === '' ? 'wymiar do ustalenia' : `${r.net} → druk ${r.gross} mm` + (r.qty > 1 ? ` · ${r.qty} szt.` : '');
+          const dimTxt = r.w === '' ? 'wymiar do ustalenia' : `${r.net} → druk ${r.gross} ${UNIT()}` + (r.qty > 1 ? ` · ${r.qty} szt.` : '');
           g.fillText(fitText(g, dimTxt, LW - 64 * fs), LX + 60 * fs, y + (r.opis ? 78 : 50) * fs);
         });
       }
     }
 
     // 2) tabela zbiorcza
-    const cols = [['Znak', 80], ['Wizka', 85], ['Typ', 520], ['Opis', 210], ['Netto [mm]', 260], ['Spad', 95], ['Do druku [mm]', 210], ['Szt.', 70], ['m²', 120], ['Uwagi', 0]];
+    const cols = [['Znak', 80], ['Wizka', 85], ['Typ', 520], ['Opis', 210], [`Netto [${UNIT()}]`, 260], ['Spad', 95], [`Do druku [${UNIT()}]`, 210], ['Szt.', 70], ['m²', 120], ['Uwagi', 0]];
     cols[cols.length - 1][1] = PW - 80 - cols.reduce((s, c) => s + c[1], 0);
     const RH = 50, TOP = 210, perPage = Math.floor((PH - TOP - 100) / RH);
     const tablePages = Math.max(1, Math.ceil((rows.length + 6) / perPage));
@@ -2926,7 +3212,7 @@ async function exportPdf() {
         if (idx % 2 === 0) { g.fillStyle = '#f7fafc'; g.fillRect(40, y, PW - 80, RH); }
         x = 40;
         const cells = [null, r.wizka ? '#' + r.wizka : '—', r.typ, r.opis, r.w === '' ? 'do ustalenia' : r.net,
-          r.spad ? r.spad + ' mm' : '—', r.w === '' ? '' : r.gross, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
+          r.spad ? bleedTxt(r.spad) : '—', r.w === '' ? '' : r.gross, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
         cols.forEach(([n, w], j) => {
           if (j === 0) badge(g, x + 30, y + RH / 2, 18, r.color, r.znak);
           else if (j === 2) {
@@ -3097,6 +3383,24 @@ function openTypesPanel() {
   };
   render();
 }
+
+// =====================================================================
+//  ALPAKA — co 5 minut dobiega do połowy ekranu, mruga i wraca
+// =====================================================================
+function runAlpaca() {
+  const a = $('alpaca'); if (!a || !a.animate || document.hidden) return;
+  const w = a.offsetWidth || 76, mid = innerWidth / 2 - w / 2;
+  a.style.display = 'block'; a.className = 'run';
+  const go = (from, to, flip, ms) => a.animate([{ transform: `translateX(${from}px) scaleX(${flip})` }, { transform: `translateX(${to}px) scaleX(${flip})` }], { duration: ms, easing: 'ease-in-out', fill: 'forwards' }).finished;
+  const ms = Math.max(1800, mid * 4.5);
+  go(-w - 10, mid, 1, ms)
+    .then(() => { a.className = 'stop'; return new Promise(r => setTimeout(r, 1200)); })
+    .then(() => { a.className = 'run'; return go(mid, -w - 10, -1, ms); })
+    .then(() => { a.style.display = 'none'; a.className = ''; })
+    .catch(() => { a.style.display = 'none'; });
+}
+setTimeout(runAlpaca, 30000);
+setInterval(runAlpaca, 5 * 60 * 1000);
 
 // =====================================================================
 //  START
