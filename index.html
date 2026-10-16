@@ -452,6 +452,10 @@
   .ex-thumb { width: 64px; height: 44px; background: var(--bg) center/cover no-repeat; border: 1px solid var(--line); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: var(--gray); text-align: center; }
   .users-chk { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px 12px; max-height: 180px; overflow-y: auto; border: 1.5px solid var(--line); padding: 6px 10px; }
 
+  /* ikonka „?" z dymkiem po najechaniu */
+  .qtip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; margin-left: 7px; border-radius: 50% !important; border: 1.5px solid currentColor; font-size: .66rem; font-weight: 800; cursor: help; opacity: .8; vertical-align: 1px; }
+  .qtip:hover { opacity: 1; }
+  #qtip-pop { position: fixed; z-index: 500; max-width: 260px; padding: 7px 10px; background: #1a202c; color: #fff; font-size: .76rem; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.35); border: 1px solid #67b437; pointer-events: none; }
   /* okno eksportu */
   .exp-what { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .exp-opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px 12px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; }
@@ -729,9 +733,9 @@ const USER_COLORS = ['#38a169','#3182ce','#e53e3e','#d69e2e','#805ad5','#dd6b20'
 const DEFAULT_TYPES = [
   { id: 'folia-kontur', order: 1, name: 'Folia cięta po konturze', color: '#45b731', bleed: 0, icon: 'cut',
     desc: 'Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.' },
-  { id: 'folia-laminat', order: 2, name: 'Folia z nadrukiem + laminat', color: '#00a0e3', bleed: 10, icon: 'print',
+  { id: 'folia-laminat', order: 2, name: 'Folia + laminat', color: '#00a0e3', bleed: 10, icon: 'print',
     desc: 'Zadrukowana folia z laminatem, oklejająca całą powierzchnię (ściana, lada, słup).' },
-  { id: 'pcw', order: 3, name: 'Płyta PCW z nadrukiem', color: '#e31e24', bleed: 10, icon: 'board',
+  { id: 'pcw', order: 3, name: 'Płyta PCW', color: '#e31e24', bleed: 10, icon: 'board', thick: true, contour: true,
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
   { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 100, icon: 'banner', seg: true,
     desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).' },
@@ -742,6 +746,7 @@ const DEFAULT_TYPES = [
     variants: [
       { id: 'okragla', name: 'Okrągła', dims: 'ring', icon: 'hang-ring', desc: 'Pierścień z grafiką dookoła. Podaj średnicę i wysokość.' },
       { id: 'kwadratowa', name: 'Kwadratowa / prostokątna', dims: 'box', icon: 'hang-box', desc: 'Grafika na czterech bokach. Podaj szerokość, głębokość i wysokość.' },
+      { id: 'inny', name: 'Inny kształt', icon: 'hang-other', desc: 'Nietypowy kształt konstrukcji. Podaj wymiar i opisz kształt w uwagach.' },
     ] },
   { id: 'logo3d', order: 7, name: 'Logo 3D', color: '#f07d00', bleed: 0, icon: 'l3d-pcw',
     desc: 'Przestrzenne logo lub litery. Wybierz wykonanie poniżej.',
@@ -749,7 +754,7 @@ const DEFAULT_TYPES = [
       { id: 'pcw', name: '3D z PCW', thick: true, icon: 'l3d-pcw', desc: 'Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.' },
       { id: 'plexi', name: '3D z pleksi', thick: true, icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
       { id: 'halo', name: 'Efekt halo', icon: 'l3d-halo', desc: 'Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.' },
-      { id: 'blok', name: 'Blokowa', thick: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe. Podaj grubość (głębokość) liter.' },
+      { id: 'blok', name: 'Blokowa / 3D print', thick: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe — frezowane albo drukowane w 3D. Podaj grubość (głębokość) liter.' },
       { id: 'neon', name: 'Neon', icon: 'l3d-neon', desc: 'Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.' },
       { id: 'cnc-led', name: 'CNC + podświetlenie', icon: 'l3d-cnc', desc: 'Litery frezowane CNC z podświetleniem LED (świecące lico).' },
     ] },
@@ -901,12 +906,13 @@ const I18N_PAIRS = [
   ['W schowku nie ma obrazka — wybierz plik z dysku', 'У буфері немає зображення — виберіть файл з диска', 'No image in the clipboard — choose a file from disk'], ['Wgrywanie miniatury…', 'Завантаження мініатюри…', 'Uploading thumbnail…'],
   ['pas do druku', 'смуга до друку', 'print band'], ['konstrukcja', 'конструкція', 'structure'],
   // typy elementów
-  ['Folia cięta po konturze', 'Плівка, вирізана по контуру', 'Contour-cut vinyl'], ['Folia z nadrukiem + laminat', 'Плівка з друком + ламінат', 'Printed vinyl + laminate'],
-  ['Płyta PCW z nadrukiem', 'ПВХ-плита з друком', 'Printed PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
+  ['Folia cięta po konturze', 'Плівка, вирізана по контуру', 'Contour-cut vinyl'], ['Folia + laminat', 'Плівка + ламінат', 'Vinyl + laminate'],
+  ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
-  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Grubość', 'Товщина', 'Thickness'], ['np. 30', 'напр. 30', 'e.g. 30'], ['CNC + podświetlenie', 'CNC + підсвічування', 'CNC + backlight'],
-  ['Litery frezowane CNC z podświetleniem LED (świecące lico).', 'Літери, фрезеровані на CNC, з LED-підсвічуванням (світиться лицьова частина).', 'CNC-milled letters with LED lighting (glowing face).'], ['Blokowa', 'Блокова', 'Block letters'], ['Neon', 'Неон', 'Neon'], ['wykonanie do ustalenia', 'виконання не визначено', 'finish to be decided'], ['Nieznany typ', 'Невідомий тип', 'Unknown type'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Inny kształt', 'Інша форма', 'Other shape'], ['Cięcie po konturze', 'Різання по контуру', 'Contour cut'], ['cięcie po konturze', 'різання по контуру', 'contour cut'], ['Opcje', 'Опції', 'Options'], ['np. 5', 'напр. 5', 'e.g. 5'],
+  ['Nietypowy kształt konstrukcji. Podaj wymiar i opisz kształt w uwagach.', 'Нетипова форма конструкції. Вкажіть розмір і опишіть форму в примітках.', 'Unusual structure shape. Enter the size and describe the shape in the notes.'], ['Grubość', 'Товщина', 'Thickness'], ['np. 30', 'напр. 30', 'e.g. 30'], ['CNC + podświetlenie', 'CNC + підсвічування', 'CNC + backlight'],
+  ['Litery frezowane CNC z podświetleniem LED (świecące lico).', 'Літери, фрезеровані на CNC, з LED-підсвічуванням (світиться лицьова частина).', 'CNC-milled letters with LED lighting (glowing face).'], ['Blokowa / 3D print', 'Блокова / 3D-друк', 'Block / 3D print'], ['Neon', 'Неон', 'Neon'], ['wykonanie do ustalenia', 'виконання не визначено', 'finish to be decided'], ['Nieznany typ', 'Невідомий тип', 'Unknown type'],
   ['Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.', 'Напис або логотип, вирізаний з плівки, наклеєний прямо на стіну чи скло. Без фону.', 'Lettering or logo cut from vinyl, applied directly to a wall or glass. No background.'],
   ['Zadrukowana folia z laminatem, oklejająca całą powierzchnię (ściana, lada, słup).', 'Плівка з друком і ламінатом, що вкриває всю поверхню (стіна, стійка, колона).', 'Printed laminated vinyl covering the whole surface (wall, counter, column).'],
   ['Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.', 'Жорстка плита з графікою — таблички, панелі, елементи, що підвішуються або монтуються на стіні.', 'Rigid board with graphics — signs, panels, hung or wall-mounted elements.'],
@@ -919,6 +925,7 @@ const I18N_PAIRS = [
   ['Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.', 'Літери, вирізані з ПВХ-плити, обклеєні або пофарбовані. Вкажіть товщину плити.', 'Letters cut from PVC board, wrapped or painted. Enter the board thickness.'],
   ['Litery wycięte z pleksi (plexi). Podaj grubość.', 'Літери, вирізані з плексигласу. Вкажіть товщину.', 'Letters cut from acrylic (plexi). Enter the thickness.'],
   ['Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.', 'Літери, відсунуті від стіни і підсвічені ззаду — сяйво навколо логотипа.', 'Letters spaced off the wall and backlit — a glowing halo around the logo.'],
+  ['Pełne, masywne litery bryłowe — frezowane albo drukowane w 3D. Podaj grubość (głębokość) liter.', 'Суцільні масивні об’ємні літери — фрезеровані або надруковані на 3D-принтері. Вкажіть товщину (глибину) літер.', 'Solid block letters — milled or 3D printed. Enter the letter thickness (depth).'],
   ['Pełne, masywne litery bryłowe. Podaj grubość (głębokość) liter.', 'Суцільні масивні об’ємні літери. Вкажіть товщину (глибину) літер.', 'Solid, chunky block letters. Enter the letter thickness (depth).'],
   ['Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.', 'Логотип з гнучкого LED-неону, зазвичай на листі плексигласу або прямо на стіні.', 'Logo made of flexible LED neon, usually on an acrylic sheet or directly on the wall.'],
   ['Wybierz, gdy nie wiesz, z czego ma być element. Opisz go w uwagach — ustalimy to z Tobą.', 'Виберіть, якщо не знаєте, з чого має бути елемент. Опишіть його в примітках — ми узгодимо це з вами.', 'Choose this if you do not know what the element should be made of. Describe it in the notes — we will agree on it with you.'],
@@ -1033,7 +1040,7 @@ function tr(raw) {
   }
   return r == null ? raw : lead + r + trail;
 }
-const I18N_ATTRS = ['title', 'placeholder', 'aria-label'];
+const I18N_ATTRS = ['title', 'placeholder', 'aria-label', 'data-tip'];
 function trAttrs(n) {
   for (const a of I18N_ATTRS) if (n.hasAttribute && n.hasAttribute(a)) { const v = n.getAttribute(a), w = tr(v); if (w !== v) n.setAttribute(a, w); }
 }
@@ -1338,11 +1345,14 @@ function normalizeEl(e) {
 const variantOf = el => (typeById(el.typeId).variants || []).find(v => v.id === el.variant) || null;
 const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 'flat'; }; // flat | ring | box
 // Pełna nazwa typu z wykonaniem, grubością i SEG — do tabeli, PDF, CSV i historii
+// czy typ / wykonanie pyta o grubość materiału (Logo 3D z PCW, pleksi, blokowa; płyta PCW)
+const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || typeById(el.typeId).thick); };
 function typeLabel(el) {
   const t = typeById(el.typeId), v = variantOf(el);
   let s = t.name;
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
-  if (v && v.thick && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
+  if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
+  if (t.contour && el.contour) s += ' · cięcie po konturze';
   if (t.seg && el.seg) s += ' · SEG';
   return s;
 }
@@ -1401,6 +1411,7 @@ function exampleSvg(t) {
     'l3d-blok': `<g font-size="46" font-weight="900" font-family="Arial" text-anchor="middle">${[10, 8, 6, 4, 2].map(o => `<text x="${120 + o}" y="${92 + o}" fill="#555">LOGO</text>`).join('')}<text x="120" y="92" fill="${c}">LOGO</text></g>`,
     'l3d-neon': `<rect x="20" y="18" width="200" height="118" fill="#1a202c"/><rect x="44" y="44" width="152" height="66" fill="none" stroke="#fff" stroke-opacity=".18"/><text x="120" y="92" text-anchor="middle" font-size="44" font-weight="400" fill="none" stroke="${c}" stroke-width="9" stroke-opacity=".3" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="44" font-weight="400" fill="none" stroke="#fff" stroke-width="2.2" font-family="Arial">LOGO</text>`,
     'l3d-cnc': `<rect x="20" y="18" width="200" height="118" fill="#2d3748"/><g font-size="46" font-weight="900" font-family="Arial" text-anchor="middle">${[8, 6, 4, 2].map(o => `<text x="${120 + o}" y="${92 + o}" fill="#555">LOGO</text>`).join('')}<text x="120" y="92" fill="#fffbe6" stroke="${c}" stroke-width="3">LOGO</text></g><g stroke="${c}" stroke-width="2" opacity=".7"><line x1="58" y1="40" x2="66" y2="48"/><line x1="182" y1="40" x2="174" y2="48"/><line x1="120" y1="30" x2="120" y2="40"/></g>`,
+    'hang-other': `<line x1="80" y1="0" x2="86" y2="40" stroke="#555"/><line x1="160" y1="0" x2="154" y2="40" stroke="#555"/><polygon points="60,40 180,40 200,70 150,100 90,100 40,70" fill="${c}" stroke="#fff" stroke-width="1.5"/><text x="120" y="80" text-anchor="middle" font-size="26" font-weight="900" fill="#fff" font-family="Arial">?</text>`,
     'hang-ring': `<line x1="80" y1="0" x2="86" y2="52" stroke="#555"/><line x1="160" y1="0" x2="154" y2="52" stroke="#555"/><ellipse cx="120" cy="88" rx="80" ry="16" fill="#cbd5e0"/><rect x="40" y="56" width="160" height="32" fill="${c}"/><ellipse cx="120" cy="56" rx="80" ry="16" fill="${c}" stroke="#fff" stroke-width="1.5"/><ellipse cx="120" cy="56" rx="74" ry="12" fill="#e2e8f0"/>`,
     'hang-box': `<line x1="70" y1="0" x2="70" y2="44" stroke="#555"/><line x1="170" y1="0" x2="170" y2="44" stroke="#555"/><polygon points="50,52 150,52 190,40 90,40" fill="#e2e8f0" stroke="${c}"/><rect x="50" y="52" width="100" height="40" fill="${c}"/><polygon points="150,52 190,40 190,80 150,92" fill="${c}" opacity=".7"/>`,
   }[t.icon || 'other'] || '';
@@ -2589,7 +2600,7 @@ function closeArcMenu(instant) {
 }
 function arcPickType(id) {
   if (!ARC) return;
-  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', shown: new Set() });
+  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', contour: false, shown: new Set() });
   ARC.root.querySelectorAll('.arc-btn').forEach(b => { b.classList.toggle('on', b.dataset.t === id); b.classList.toggle('dim', b.dataset.t !== id); });
   renderArcPanel();
 }
@@ -2600,7 +2611,7 @@ function arcSteps() {
   if (t.variants && t.variants.length) steps.push({ key: 'v', label: t.id === 'podwieszana' ? 'Kształt' : 'Wykonanie',
     opts: t.variants.map(x => ({ id: x.id, name: x.name, on: x.id === ARC.variant })), done: !!v });
   if (t.seg) steps.push({ key: 's', label: 'Mocowanie', done: ARC.seg !== null,
-    opts: [{ id: '0', name: `Standard — spad ${bleedTxt(Number(t.bleed) || 0)}`, on: ARC.seg === false }, { id: '1', name: 'SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami', on: ARC.seg === true }] });
+    opts: [{ id: '0', name: `Standard — spad ${bleedTxt(Number(t.bleed) || 0)}`, on: ARC.seg === false }, { id: '1', name: 'SEG', tip: 'SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami', on: ARC.seg === true }] });
   return steps;
 }
 function renderArcPanel() {
@@ -2620,10 +2631,15 @@ function renderArcPanel() {
     for (const st of steps) {
       const vv0 = st.key === 'v' ? variantOf(ARC) : null;
       h += `<div class="ap-sec${fresh('s' + st.key)}"><div class="ap-lab">${st.label}</div>${st.opts.map(o =>
-        `<button type="button" class="ap-opt${o.on ? ' on' : ''}" data-step="${st.key}" data-o="${o.id}"><span class="k">${ready && !st.done ? k++ : '·'}</span>${esc(o.name)}</button>` +
+        `<button type="button" class="ap-opt${o.on ? ' on' : ''}" data-step="${st.key}" data-o="${o.id}"><span class="k">${ready && !st.done ? k++ : '·'}</span>${esc(o.name)}${o.tip ? `<span class="qtip" data-tip="${esc(o.tip)}">?</span>` : ''}</button>` +
         // wykonanie z grubością: pole od razu pod wybranym przyciskiem
         (o.on && vv0 && vv0.thick ? `<div class="ap-thick"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 30"></div>` : '')).join('')}</div>`;
       if (!st.done) { ready = false; break; }
+    }
+    if (ready && !t.variants && (t.thick || t.contour)) {
+      h += `<div class="ap-sec${fresh('opts' + t.id)}"><div class="ap-lab">Opcje</div>
+        ${t.thick ? `<div class="ap-thick" style="margin-left:0"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 5"></div>` : ''}
+        ${t.contour ? `<button type="button" class="ap-opt ap-tog${ARC.contour ? ' on' : ''}" data-tog="contour"><span class="k">${ARC.contour ? '✓' : ''}</span>Cięcie po konturze</button>` : ''}</div>`;
     }
     if (ready) {
       const m = dimsMode(ARC), vv = variantOf(ARC);
@@ -2650,7 +2666,8 @@ function renderArcPanel() {
   const pr = panel.getBoundingClientRect();
   if (pr.right > innerWidth - 8) panel.style.left = (baseLeft - (pr.right - innerWidth + 8)) + 'px';
   else if (pr.left < 8) panel.style.left = (baseLeft + (8 - pr.left)) + 'px';
-  panel.querySelectorAll('.ap-opt').forEach(b => b.onclick = () => arcPickOpt(b.dataset.step, b.dataset.o));
+  panel.querySelectorAll('.ap-opt[data-step]').forEach(b => b.onclick = () => arcPickOpt(b.dataset.step, b.dataset.o));
+  panel.querySelectorAll('.ap-tog').forEach(b => b.onclick = () => { ARC[b.dataset.tog] = !ARC[b.dataset.tog]; renderArcPanel(); });
   panel.querySelectorAll('[data-f]').forEach(i => i.addEventListener('input', () => { ARC[i.dataset.f] = i.value; arcCalc(); }));
   const go = panel.querySelector('.ap-go'); if (go) go.onclick = arcSave;
   const x = panel.querySelector('.ap-x'); if (x) x.onclick = () => closeArcMenu();
@@ -2667,7 +2684,7 @@ function arcPickOpt(step, o) {
 function arcEl() {
   const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
   const vv = variantOf(ARC), m = dimsMode(ARC);
-  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: vv && vv.thick ? num(ARC.thick) : '',
+  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', contour: typeById(ARC.typeId).contour ? !!ARC.contour : false,
     w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: '' };
 }
 function arcCalc() {
@@ -2794,7 +2811,8 @@ function openElementDialog({ id, shape, photoId }) {
     h: toMM($('ed-h').value),
     d: dimsMode(el) === 'box' ? toMM($('ed-d').value) : '',
     variant: el.variant || '',
-    thick: variantOf(el) && variantOf(el).thick && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
+    thick: hasThick(el) && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
+    contour: typeById(el.typeId).contour ? !!el.contour : false,
     seg: typeById(el.typeId).seg ? !!el.seg : false,
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
@@ -2807,13 +2825,15 @@ function openElementDialog({ id, shape, photoId }) {
     if (t && t.variants && t.variants.length) {
       h += `<div class="fld"><label>${t.id === 'podwieszana' ? 'Kształt konstrukcji' : 'Wykonanie'}</label>
         <div class="var-list">${t.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === el.variant ? 'on' : ''}" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>`;
-      if (v && v.thick) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
     }
-    if (t && t.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-seg" ${el.seg ? 'checked' : ''}> <span><b>SEG</b> — tkanina na ramie aluminiowej obszyta płaskimi gumkami</span></label>`;
+    if (t && hasThick(el)) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
+    if (t && t.contour) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-contour" ${el.contour ? 'checked' : ''}> <span>Cięcie po konturze</span></label>`;
+    if (t && t.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-seg" ${el.seg ? 'checked' : ''}> <span><b>SEG</b> <span class="qtip" data-tip="${esc('SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami')}">?</span></span></label>`;
     $('ed-opts').innerHTML = h;
     $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
     const sg = $('ed-seg'); if (sg) sg.addEventListener('change', () => { el.seg = sg.checked; refresh(); });
+    const ct = $('ed-contour'); if (ct) ct.addEventListener('change', () => { el.contour = ct.checked; refresh(); });
     // pola wymiaru zależne od kształtu
     const m = dimsMode(el);
     $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
@@ -2838,7 +2858,7 @@ function openElementDialog({ id, shape, photoId }) {
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
-    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; }
+    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; el.contour = false; }
     el.typeId = b.dataset.t;
     m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
     renderOpts(); refresh();
@@ -2855,14 +2875,14 @@ function openElementDialog({ id, shape, photoId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
         if (diff) addLog(pid, `Element ${lab}: ${diff}`, editing.id);
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
@@ -3859,12 +3879,24 @@ function openTypesPanel() {
   render();
 }
 
+// dymek ikonki „?" — osobny element nad wszystkim (nie przycina go przewijany panel)
+document.addEventListener('mouseover', e => {
+  const q = e.target.closest && e.target.closest('.qtip'); if (!q) return;
+  let pop = $('qtip-pop');
+  if (!pop) { pop = document.createElement('div'); pop.id = 'qtip-pop'; document.body.appendChild(pop); }
+  pop.textContent = q.dataset.tip;
+  const r = q.getBoundingClientRect(), pr = pop.getBoundingClientRect();
+  pop.style.left = clamp(r.left + r.width / 2 - pr.width / 2, 8, innerWidth - pr.width - 8) + 'px';
+  pop.style.top = (r.top - pr.height - 8 < 8 ? r.bottom + 8 : r.top - pr.height - 8) + 'px';
+});
+document.addEventListener('mouseout', e => { if (e.target.closest && e.target.closest('.qtip')) { const p = $('qtip-pop'); if (p) p.remove(); } });
+
 // =====================================================================
-//  ALPAKA — co 5 minut dobiega do połowy ekranu, mruga i wraca
+//  ALPAKA — co 5 minut dobiega do 1/4 ekranu, mruga i wraca
 // =====================================================================
 function runAlpaca() {
   const a = $('alpaca'); if (!a || !a.animate || document.hidden) return;
-  const w = a.offsetWidth || 76, mid = innerWidth / 2 - w / 2;
+  const w = a.offsetWidth || 76, mid = innerWidth / 4 - w / 2; // dobiega do 1/4 szerokości ekranu
   a.style.display = 'block'; a.className = 'run';
   const go = (from, to, flip, ms) => a.animate([{ transform: `translateX(${from}px) scaleX(${flip})` }, { transform: `translateX(${to}px) scaleX(${flip})` }], { duration: ms, easing: 'ease-in-out', fill: 'forwards' }).finished;
   const ms = Math.max(1800, mid * 4.5);
