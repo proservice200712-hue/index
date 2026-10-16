@@ -165,10 +165,11 @@
   /* zegar-butla: pierścień jak w Butli, łuk = ile czasu zostało z bieżącego odcinka */
   /* widok graficzny listy elementów — jak index z Corela: litera w kółku + typ, okienko w skali, linie wymiarowe w cm */
   .gidx { position: relative; display: flex; flex-wrap: wrap; gap: 18px 34px; padding: 12px 16px 16px; align-items: flex-start; }
-  .gc { position: relative; flex: 0 0 auto; outline: 1.5px dashed #cbd5e0; outline-offset: 8px; transition: outline-color .15s; }
-  .gc:hover { outline-color: #a0aec0; }
-  .gc.sel { outline-color: var(--accent); }
-  .gidx.moving .gc { outline-color: #a0aec0; }
+  .gc { position: relative; flex: 0 0 auto; outline: 1.5px dashed transparent; outline-offset: 8px; transition: outline-color .15s; }
+  /* ramki przerywane tylko w trybie „Przesuń" */
+  .gidx.moving .gc { outline-color: #cbd5e0; }
+  .gidx.moving .gc:hover { outline-color: #a0aec0; }
+  .gidx.moving .gc.sel { outline-color: var(--accent); }
   .gidx.free { display: block; }
   .gc.abs { position: absolute; }
   .gc.dragging { z-index: 5; opacity: .92; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
@@ -3011,6 +3012,7 @@ function renderGraph() {
     h.ondblclick = () => openElementDialog({ id: eid });
     h.onclick = () => { if (!S.graphMove) selectElement(eid); };
     // w trybie „Przesuń" okienko łapie się w dowolnym miejscu: nazwa, prostokąt, wymiary, miniatura
+    // (środkowy przycisk zostaje dla przesuwania widoku — obsługuje go #el-scroll)
     card.onpointerdown = e => {
       if (e.button !== 0 || !S.graphMove || e.target.closest('.gc-ed')) return;
       e.preventDefault(); e.stopPropagation();
@@ -3193,23 +3195,27 @@ function graphFit() {
   }, { passive: false });
   // przeciągnięcie tła (albo okienka poza trybem „Przesuń") przesuwa widok; krótkie kliknięcie działa jak zwykle
   box.addEventListener('pointerdown', e => {
-    if (S.elView !== 'graph' || e.button !== 0 || !box.querySelector('#gstage')) return;
-    if (e.target.closest('.gc-ed, button, input')) return;
+    if (S.elView !== 'graph' || !box.querySelector('#gstage')) return;
+    const middle = e.button === 1;
+    if (!middle && (e.button !== 0 || e.target.closest('.gc-ed, button, input'))) return;
+    if (middle) e.preventDefault(); // bez autoprzewijania przeglądarki
     const x0 = e.clientX, y0 = e.clientY, tx0 = G.tx, ty0 = G.ty;
     let pan = false;
     const mv = ev => {
-      if (!pan && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+      if (!pan && !middle && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
       if (!pan) { pan = true; box.classList.add('panning'); }
       G.tx = tx0 + ev.clientX - x0; G.ty = ty0 + ev.clientY - y0; applyGraphView();
     };
     const up = () => {
       window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
       box.classList.remove('panning');
-      if (pan) G.panned = true; // następny „click" to koniec przesuwania, nie kliknięcie w okienko
+      if (pan && !middle) G.panned = true; // następny „click" to koniec przesuwania, nie kliknięcie w okienko (środkowy nie daje „click")
     };
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
   });
   box.addEventListener('click', e => { if (G.panned) { G.panned = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  box.addEventListener('auxclick', e => { if (e.button === 1 && S.elView === 'graph') e.preventDefault(); });
+  box.addEventListener('mousedown', e => { if (e.button === 1 && S.elView === 'graph') e.preventDefault(); });
 })();
 // zapis pozycji wielu okienek naraz: w trakcie bez przerysowań, na końcu jedno
 async function saveGpos(changes) {
