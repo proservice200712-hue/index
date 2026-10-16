@@ -176,6 +176,7 @@
   .gc-h { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: normal; user-select: none; }
   .gc-h .gc-t { flex: 1 1 auto; min-width: 0; line-height: 1.25; padding-top: 3px; overflow-wrap: anywhere; }
   .gc-h .gc-q, .gc-h .gc-ed { flex: 0 0 auto; margin-top: 2px; }
+  .gc-h .gc-sub { display: block; font-size: .78rem; font-weight: 400; color: var(--gray); margin-top: 2px; }
   /* nawigacja w widoku Grafika */
   .el-scroll.gnav { overflow: hidden; position: relative; cursor: grab; touch-action: none; }
   .el-scroll.gnav.panning { cursor: grabbing; }
@@ -250,6 +251,7 @@
   table.el td.dims { text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
   table.el th.c, table.el td.c { text-align: center; }
   table.el td.c .avatar-sm { margin: 0 auto; }
+  table.el td.ename { font-weight: 600; max-width: 200px; }
   table.el td.notes { color: var(--gray); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.el tfoot td { font-weight: 700; background: var(--bg); position: sticky; bottom: 0; }
   .badge { display: inline-flex; min-width: 24px; height: 24px; padding: 0 5px; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.78rem; border-radius: 50% !important; }
@@ -915,7 +917,9 @@ const I18N_PAIRS = [
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
-  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Zlecenie', 'Замовлення', 'Order'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
+  ['Nazwa elementu (opcjonalnie)', 'Назва елемента (необов’язково)', 'Element name (optional)'], ['nazwa (opcjonalnie)', 'назва (необов’язково)', 'name (optional)'],
+  ['np. ściana tylna, lada, kaseton nad wejściem', 'напр. задня стіна, стійка, короб над входом', 'e.g. back wall, counter, sign above the entrance'], ['Zlecenie', 'Замовлення', 'Order'],
   ['Skopiuj listę elementów do schowka — do wklejenia w mailu', 'Скопіювати список елементів у буфер — щоб вставити в лист', 'Copy the element list to the clipboard — to paste into an email'],
   ['Brak elementów do zlecenia', 'Немає елементів для замовлення', 'No elements to order'], ['Inny kształt', 'Інша форма', 'Other shape'], ['Cięcie po konturze', 'Різання по контуру', 'Contour cut'], ['cięcie po konturze', 'різання по контуру', 'contour cut'], ['Opcje', 'Опції', 'Options'], ['np. 5', 'напр. 5', 'e.g. 5'],
   ['Nietypowy kształt konstrukcji. Podaj wymiar i opisz kształt w uwagach.', 'Нетипова форма конструкції. Вкажіть розмір і опишіть форму в примітках.', 'Unusual structure shape. Enter the size and describe the shape in the notes.'], ['Grubość', 'Товщина', 'Thickness'], ['np. 30', 'напр. 30', 'e.g. 30'], ['CNC + podświetlenie', 'CNC + підсвічування', 'CNC + backlight'],
@@ -1353,7 +1357,7 @@ function normalizeEl(e) {
   return e;
 }
 // przełączniki opcji typu: [pole, napis w opcjach, dopisek w nazwie]
-const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze'], ['wyslona', 'Wysłona', 'wysłona']];
+const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze']];
 // wartości przełączników do zapisu: tylko te, które dany typ ma
 const togValues = (src, typeId) => Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, typeById(typeId)[k] ? !!src[k] : false]));
 const togReset = () => Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, false]));
@@ -1363,7 +1367,8 @@ const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 
 // czy typ / wykonanie pyta o grubość materiału (Logo 3D z PCW, pleksi, blokowa; płyta PCW)
 const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || typeById(el.typeId).thick); };
 // uwagi do tabel: SEG z opcji + to, co wpisano
-const notesOf = el => [typeById(el.typeId).seg && el.seg ? 'SEG' : '', el.notes || ''].filter(Boolean).join(' · ');
+const notesOf = el => { const t = typeById(el.typeId);
+  return [t.seg && el.seg ? 'SEG' : '', t.wyslona && el.wyslona ? 'Wysłona' : '', el.notes || ''].filter(Boolean).join(' · '); };
 function typeLabel(el) {
   const t = typeById(el.typeId), v = variantOf(el);
   let s = t.name;
@@ -1371,6 +1376,7 @@ function typeLabel(el) {
   if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
   TYPE_TOGGLES.forEach(([k, , lab]) => { if (t[k] && el[k]) s += ' · ' + lab; });
   if (t.seg && el.seg) s += ' · SEG';
+  if (t.wyslona && el.wyslona) s += ' · wysłona';
   return s;
 }
 const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
@@ -2656,7 +2662,7 @@ function closeArcMenu(instant) {
 }
 function arcPickType(id) {
   if (!ARC) return;
-  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', ...togReset(), shown: new Set() });
+  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', ...togReset(), wyslona: false, name: '', shown: new Set() });
   ARC.root.querySelectorAll('.arc-btn').forEach(b => { b.classList.toggle('on', b.dataset.t === id); b.classList.toggle('dim', b.dataset.t !== id); });
   renderArcPanel();
 }
@@ -2667,7 +2673,8 @@ function arcSteps() {
   if (t.variants && t.variants.length) steps.push({ key: 'v', label: t.id === 'podwieszana' ? 'Kształt' : 'Wykonanie',
     opts: t.variants.map(x => ({ id: x.id, name: x.name, on: x.id === ARC.variant })), done: !!v });
   if (t.seg) steps.push({ key: 's', label: 'Mocowanie', done: ARC.seg !== null,
-    opts: [{ id: '0', name: `Standard — spad ${bleedTxt(Number(t.bleed) || 0)}`, on: ARC.seg === false }, { id: '1', name: 'SEG', tip: 'SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami', on: ARC.seg === true }] });
+    opts: [{ id: '0', name: `Standard — spad ${bleedTxt(Number(t.bleed) || 0)}`, on: ARC.seg === false && !ARC.wyslona }, { id: '1', name: 'SEG', tip: 'SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami', on: ARC.seg === true }]
+      .concat(t.wyslona ? [{ id: '2', name: 'Wysłona', on: ARC.seg === false && !!ARC.wyslona }] : []) });
   return steps;
 }
 function renderArcPanel() {
@@ -2703,6 +2710,7 @@ function renderArcPanel() {
       h += `<div class="ap-sec ap-form${fresh('form' + m + (vv && vv.thick ? 't' : ''))}">
         <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny' : 'Wymiar konstrukcji'} [${UNIT()}]</div>
         <div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>
+        <div class="ap-row" style="grid-template-columns:1fr"><input type="text" data-f="name" value="${esc(ARC.name || '')}" placeholder="nazwa (opcjonalnie)"></div>
         <div class="ap-row r2"><input type="number" min="1" step="1" data-f="qty" value="${esc(ARC.qty)}" title="Ilość sztuk"><input type="text" data-f="notes" value="${esc(ARC.notes)}" placeholder="uwagi (opcjonalnie)"></div>
         <div class="ap-calc" id="ap-calc"></div>
         <div class="ap-acts"><button type="button" class="ap-go">✔ Dodaj <small>Enter</small></button><button type="button" class="ap-x" title="Anuluj (Esc)">✕</button></div>
@@ -2734,14 +2742,14 @@ function renderArcPanel() {
 function arcPickOpt(step, o) {
   if (!ARC) return;
   if (step === 'v') { ARC.variant = o; ARC.shown.delete('form'); }
-  if (step === 's') ARC.seg = o === '1';
+  if (step === 's') { ARC.seg = o === '1'; ARC.wyslona = o === '2'; }
   renderArcPanel();
 }
 function arcEl() {
   const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
   const vv = variantOf(ARC), m = dimsMode(ARC);
-  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', ...togValues(ARC, ARC.typeId),
-    w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: '' };
+  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', ...togValues(ARC, ARC.typeId), wyslona: typeById(ARC.typeId).wyslona ? !!ARC.wyslona : false,
+    w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: String(ARC.name || '').trim() };
 }
 function arcCalc() {
   const c = ARC && ARC.root.querySelector('#ap-calc'); if (!c) return;
@@ -2840,6 +2848,7 @@ function openElementDialog({ id, shape, photoId }) {
         <div class="type-prev" id="ed-prev"></div>
       </div>
       <div id="ed-opts"></div>
+      <div class="fld"><label>Nazwa elementu (opcjonalnie)</label><input type="text" id="ed-name" value="${esc(el.name || '')}" placeholder="np. ściana tylna, lada, kaseton nad wejściem"></div>
       <div class="fld"><label id="ed-dims-lab">2. Wymiar widoczny (netto)</label>
         <div class="row-dims" id="ed-dims">
           <div class="fld" style="margin:0"><input type="number" id="ed-w" min="0" step="${unitStep()}" value="${esc(fromMM(el.w))}" placeholder="szerokość [${UNIT()}]"></div>
@@ -2870,6 +2879,8 @@ function openElementDialog({ id, shape, photoId }) {
     thick: hasThick(el) && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
     ...togValues(el, el.typeId),
     seg: typeById(el.typeId).seg ? !!el.seg : false,
+    wyslona: typeById(el.typeId).wyslona ? !!el.wyslona : false,
+    name: $('ed-name').value.trim(),
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
     ...(isAdmin() ? { bleedOverride: toMM($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
@@ -2884,11 +2895,17 @@ function openElementDialog({ id, shape, photoId }) {
     }
     if (t && hasThick(el)) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
     if (t) TYPE_TOGGLES.filter(([k]) => t[k]).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
-    if (t && t.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-seg" ${el.seg ? 'checked' : ''}> <span><b>SEG</b> <span class="qtip" data-tip="${esc('SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami')}">?</span></span></label>`;
+    if (t && t.seg) {
+      const mount = el.seg ? 'seg' : el.wyslona ? 'wys' : 'std';
+      h += `<div class="fld"><label>Mocowanie</label><div class="var-list">
+        <button type="button" class="type-btn var-btn ${mount === 'std' ? 'on' : ''}" data-mount="std">Standard</button>
+        <button type="button" class="type-btn var-btn ${mount === 'seg' ? 'on' : ''}" data-mount="seg">SEG <span class="qtip" data-tip="${esc('SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami')}">?</span></button>
+        ${t.wyslona ? `<button type="button" class="type-btn var-btn ${mount === 'wys' ? 'on' : ''}" data-mount="wys">Wysłona</button>` : ''}</div></div>`;
+    }
     $('ed-opts').innerHTML = h;
     $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
-    const sg = $('ed-seg'); if (sg) sg.addEventListener('change', () => { el.seg = sg.checked; refresh(); });
+    $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => { el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys'; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('input[data-tog]').forEach(i => i.addEventListener('change', () => { el[i.dataset.tog] = i.checked; refresh(); }));
     // pola wymiaru zależne od kształtu
     const m = dimsMode(el);
@@ -2914,7 +2931,7 @@ function openElementDialog({ id, shape, photoId }) {
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
-    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; Object.assign(el, togReset()); }
+    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; el.wyslona = false; Object.assign(el, togReset()); }
     el.typeId = b.dataset.t;
     m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
     renderOpts(); refresh();
@@ -2931,14 +2948,14 @@ function openElementDialog({ id, shape, photoId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
         if (diff) addLog(pid, `Element ${lab}: ${diff}`, editing.id);
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
@@ -3061,7 +3078,7 @@ function renderGraph() {
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : dimsMode(e) !== 'flat' ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · pas do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''}" data-eid="${e.id}" style="--c:${t.color};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
-      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
+      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
@@ -3346,12 +3363,12 @@ function renderElements() {
     return;
   }
   $('el-scroll').innerHTML = `<table class="el"><thead><tr>
-      <th>Znak</th><th class="c">Wizka</th><th>Typ</th><th class="c">Netto [${UNIT()}]</th><th class="c">Spad</th><th class="c">Do druku [${UNIT()}]</th><th class="c">Szt.</th><th class="c">m²</th><th>Uwagi</th><th class="c">Kto</th><th></th>
+      <th>Znak</th><th>Nazwa</th><th>Typ</th><th class="c">Netto [${UNIT()}]</th><th class="c">Spad</th><th class="c">Do druku [${UNIT()}]</th><th class="c">Szt.</th><th class="c">m²</th><th>Uwagi</th><th class="c">Kto</th><th></th>
     </tr></thead><tbody>${list.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
         <td><span class="badge" style="background:${t.color}">${letterOf(e.num)}</span></td>
-        <td class="c">${e.photoId ? '#' + photoNo(e.photoId) : '<span class="tag-warn" title="Element nie jest zaznaczony na żadnej wizce">—</span>'}</td>
+        <td class="ename">${esc(e.name || '')}</td>
         <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
         <td class="num">${g.b ? bleedTxt(g.b) : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
@@ -3431,13 +3448,18 @@ const dateStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1
 const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
 // Zlecenie: każdy element w osobnej linii — znak: wymiar do druku, sztuki, typ (+ dopisek przy SEG)
 function orderText() {
-  return S.elements.map(e => {
-    const t = typeById(e.typeId);
+  const line = e => {
+    const t = typeById(e.typeId), wys = t.wyslona && e.wyslona;
     const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e)];
-    if (t.seg && e.seg) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
+    if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
     if (e.notes) parts.push(e.notes);
-    return `${letterOf(e.num)}: ${parts.join(', ')}`;
-  }).join('\n');
+    return `${letterOf(e.num)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
+  };
+  // alfabetycznie (A, B, C…), wysłony osobno na końcu
+  const all = [...S.elements].sort((a, b) => (a.num || 0) - (b.num || 0));
+  const isWys = e => typeById(e.typeId).wyslona && e.wyslona;
+  const main = all.filter(e => !isWys(e)), wys = all.filter(isWys);
+  return main.map(line).join('\n') + (wys.length ? (main.length ? '\n\n' : '') + 'Wysłony:\n' + wys.map(line).join('\n') : '');
 }
 async function copyOrder() {
   if (!S.project) return;
@@ -3664,7 +3686,7 @@ async function renderIndexA3(stamp) {
       const LM = !d ? 0 : gb ? 112 : 64, BM = !d ? 0 : gb ? 92 : 50;
       const w = Math.max(LM + FW + 10, 320);
       g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
-      const title = wrapCanvas(g, r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), w - 60, 3);
+      const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), w - 60, 3);
       g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
       const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
       const head = 22 + title.length * 38;
@@ -3751,7 +3773,7 @@ async function renderTableA4(stamp) {
       const r = rows[idx++];
       if (idx % 2 === 0) { g.fillStyle = '#f7fafc'; g.fillRect(40, y, PW - 80, RH); }
       x = 40;
-      const cells = [null, r.wizka ? '#' + r.wizka : '—', r.typ, r.w === '' ? 'do ustalenia' : r.net,
+      const cells = [null, r.wizka ? '#' + r.wizka : '—', (r.opis ? r.opis + ' — ' : '') + r.typ, r.w === '' ? 'do ustalenia' : r.net,
         r.spad ? bleedTxt(r.spad) : '—', r.w === '' ? '' : r.gross, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
       cols.forEach(([n, w], j) => {
         if (j === 0) drawBadge(g, x + 30, y + RH / 2, 18, r.color, r.znak);
