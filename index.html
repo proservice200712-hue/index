@@ -162,12 +162,12 @@
   .gidx { display: flex; flex-wrap: wrap; gap: 18px 34px; padding: 12px 16px 16px; align-items: flex-start; }
   .gc { position: relative; flex: 0 0 auto; }
   .gc-h { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: nowrap; }
-  .gc-h .gc-t { font-family: 'Segoe Print', 'Comic Sans MS', 'Segoe UI', sans-serif; font-size: .95rem; font-weight: 700; color: var(--dark); }
+  .gc-h .gc-t { font-family: Bahnschrift, 'Segoe UI', Arial, sans-serif; font-size: 1rem; font-weight: 600; letter-spacing: .2px; color: var(--dark); }
   .gc-h .gc-q { font-size: .72rem; color: var(--gray); font-weight: 700; }
   .gc.sel .gc-t { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 3px; }
   .gc-body { position: relative; }
   .gc-body svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
-  .gc-body svg text { font: 600 11px 'Segoe UI', Arial, sans-serif; fill: #38a169; }
+  .gc-body svg text { font: 400 11.5px Bahnschrift, 'Segoe UI', Arial, sans-serif; fill: #38a169; }
   .gc-frame { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; background: #fff; cursor: pointer; overflow: hidden; color: var(--mid); font-size: .66rem; line-height: 1.3; padding: 4px; }
   .gc-frame:hover { background: #f7fafc; color: var(--gray); }
   .gc-frame.armed { outline: 3px solid var(--accent); outline-offset: 2px; background: #f1f8ec; color: #2f855a; font-weight: 700; }
@@ -1254,9 +1254,12 @@ const autoDeadline = start => daysBefore(start, DEADLINE_DAYS);
 // Deadline pakowania: tydzień przed startem imprezy (admin może przesunąć)
 const autoPack = start => daysBefore(start, PACK_DAYS);
 // skuteczny deadline pakowania stoiska: zapisany albo wyliczony, nigdy przed graficznym
+// skuteczny deadline graficzny: zapisany albo wyliczony ze startu imprezy
+const gfxOf = p => p.deadlineGfx || autoDeadline(p.eventStart);
 function packOf(p) {
   let pk = p.deadlinePack || autoPack(p.eventStart);
-  if (pk && p.deadlineGfx && pk < p.deadlineGfx) pk = p.deadlineGfx;
+  const dl = gfxOf(p);
+  if (pk && dl && pk < dl) pk = dl;
   return pk;
 }
 const packField = (id, value, hint = true) => `<div class="fld"><label>Deadline pakowania</label>
@@ -1366,7 +1369,7 @@ async function sideArchive() {
 // =====================================================================
 const tsOf = v => { if (!v) return null; const t = new Date(v).getTime(); return isNaN(t) ? null : t; };
 function countdownInfo(p, now = Date.now()) {
-  const dl = tsOf(p.deadlineGfx), pk = tsOf(packOf(p)), ev = tsOf(p.eventStart), evEnd = tsOf(p.eventEnd) || (ev ? ev + 864e5 : null);
+  const dl = tsOf(gfxOf(p)), pk = tsOf(packOf(p)), ev = tsOf(p.eventStart), evEnd = tsOf(p.eventEnd) || (ev ? ev + 864e5 : null);
   if (dl && now < dl) return { phase: 'deadline', label: 'Deadline graficzny', target: dl, next: pk ? 'pakowanie ' + fmtDate(pk) : ev ? 'impreza ' + fmtDate(ev) : '' };
   if (pk && now < pk) return { phase: 'pack', label: 'Deadline pakowania', target: pk, next: ev ? 'impreza ' + fmtDate(ev) : '' };
   if (ev && now < ev) return { phase: 'event', label: 'Do imprezy', target: ev, next: 'start ' + fmtDateTime(ev) };
@@ -1392,7 +1395,7 @@ function countdownHtml(p, compact) {
 function clockInfo(p, now = Date.now()) {
   const c = countdownInfo(p, now), ev = tsOf(p.eventStart);
   if (!ev) return { ...c, segs: null };
-  const pk = tsOf(packOf(p)) || ev, dl = Math.min(tsOf(p.deadlineGfx) || pk, pk);
+  const pk = tsOf(packOf(p)) || ev, dl = Math.min(tsOf(gfxOf(p)) || pk, pk);
   let t0 = tsOf(p.createdAt) || dl - 14 * 864e5;
   if (t0 > dl - 864e5) t0 = dl - 7 * 864e5;
   const pct = t => clamp((t - t0) / (ev - t0) * 100, 0, 100);
@@ -2525,10 +2528,10 @@ function bigUrl(url) {
   if (url && url.includes('res.cloudinary.com') && url.includes('/upload/')) return url.replace('/upload/', '/upload/c_limit,h_900,q_auto/');
   return url;
 }
-// litera w kółku z przerwą u dołu — jak w indexie z Corela
-function ringBadge(color, txt, size = 30) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" style="flex:0 0 auto"><circle cx="20" cy="20" r="16" fill="#fff" stroke="${color}" stroke-width="4.5" pathLength="100" stroke-dasharray="84 16" stroke-dashoffset="-33"/>
-    <text x="20" y="26.5" text-anchor="middle" font-size="${txt.length > 1 ? 13 : 19}" font-weight="700" fill="#1a202c" font-family="Segoe Print, Comic Sans MS, Segoe UI, sans-serif">${txt}</text></svg>`;
+// litera w pełnym kółku w kolorze typu — tak samo jak na wizce i w tabeli
+function ringBadge(color, txt, size = 28) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" style="flex:0 0 auto"><circle cx="20" cy="20" r="17" fill="${color}" stroke="#fff" stroke-width="3"/>
+    <text x="20" y="26.5" text-anchor="middle" font-size="${txt.length > 1 ? 14 : 19}" font-weight="700" fill="#fff" font-family="Bahnschrift, Segoe UI, Arial, sans-serif">${txt}</text></svg>`;
 }
 const cm = mm => (Math.round(mm) / 10).toFixed(1).replace('.', ',');
 function renderGraph() {
@@ -2667,7 +2670,7 @@ function renderElements() {
     + (noDim ? ` · <span class="tag-warn">${noDim} bez wymiaru</span>` : '')
     + (unknown ? ` · <span class="tag-warn">${unknown} typ do ustalenia</span>` : '');
   document.querySelectorAll('#el-view button').forEach(b => b.classList.toggle('on', b.dataset.v === S.elView));
-  if (S.elView === 'graph' && S.photos.length) return renderGraph();
+  if (S.elView === 'graph') return renderGraph();
   if (!list.length) {
     $('el-scroll').innerHTML = `<div class="empty-state" style="padding:30px 20px">${S.photos.length
       ? 'Brak elementów. <b>Kliknij w dane miejsce na wizce</b>, aby dodać pierwszy element (albo obrysuj go narzędziem <b>Wielokąt</b>).'
