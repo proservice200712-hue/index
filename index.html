@@ -170,7 +170,8 @@
   .gc.abs { position: absolute; }
   .gc.dragging { z-index: 5; opacity: .92; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
   .gc-h { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: nowrap; user-select: none; }
-  .gidx.moving .gc-h { cursor: grab; touch-action: none; }
+  .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: grab; touch-action: none; }
+  .gidx.moving .gc-frame:hover { background: #fff; color: var(--mid); }
   .gidx.moving .gc { animation: gcWiggle .3s ease-in-out infinite alternate; transform-origin: 50% 40%; }
   .gidx.moving .gc:nth-child(2n) { animation-delay: -.15s; animation-duration: .34s; }
   .gidx.moving .gc:nth-child(3n) { animation-delay: -.08s; animation-duration: .27s; }
@@ -2987,10 +2988,11 @@ function renderGraph() {
     const card = h.closest('.gc'), eid = h.dataset.eid;
     h.ondblclick = () => openElementDialog({ id: eid });
     h.onclick = () => { if (!S.graphMove) selectElement(eid); };
-    h.onpointerdown = e => {
-      if (e.button !== 0 || !S.graphMove) return; // bez trybu „Przesuń" nagłówek tylko zaznacza
+    // w trybie „Przesuń" okienko łapie się w dowolnym miejscu: nazwa, prostokąt, wymiary, miniatura
+    card.onpointerdown = e => {
+      if (e.button !== 0 || !S.graphMove || e.target.closest('.gc-ed')) return;
       e.preventDefault();
-      h.setPointerCapture(e.pointerId);
+      card.setPointerCapture(e.pointerId);
       const x0 = e.clientX, y0 = e.clientY, l0 = card.offsetLeft, t0 = card.offsetTop;
       let moved = false;
       const mv = ev => {
@@ -3001,7 +3003,7 @@ function renderGraph() {
         fitWrap();
       };
       const up = () => {
-        h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+        card.removeEventListener('pointermove', mv); card.removeEventListener('pointerup', up); card.removeEventListener('pointercancel', up);
         card.classList.remove('dragging');
         if (!moved) { selectElement(eid); return; }
         const el = S.elements.find(x => x.id === eid);
@@ -3009,12 +3011,13 @@ function renderGraph() {
         if (el) el.gpos = gpos;
         DB.update(pElements(S.project.id), eid, { gpos }).catch(err => toast('Błąd zapisu: ' + err.message, 'error'));
       };
-      h.addEventListener('pointermove', mv); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+      card.addEventListener('pointermove', mv); card.addEventListener('pointerup', up); card.addEventListener('pointercancel', up);
     };
   });
   box.querySelectorAll('.gc-frame').forEach(f => {
     const eid = f.dataset.eid;
     f.onclick = e => {
+      if (S.graphMove) return; // w trybie przesuwania klik nie wkleja grafiki
       const rm = e.target.closest('[data-rm]');
       if (rm) { e.stopPropagation(); removeThumb(eid); return; }
       e.stopPropagation(); pasteThumb(eid);
