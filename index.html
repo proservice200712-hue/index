@@ -176,6 +176,7 @@
   .gidx.moving .gc:nth-child(2n) { animation-delay: -.15s; animation-duration: .34s; }
   .gidx.moving .gc:nth-child(3n) { animation-delay: -.08s; animation-duration: .27s; }
   .gidx.moving .gc.dragging { animation: none; }
+  .gidx.sorting .gc:not(.dragging) { transition: left .22s ease, top .22s ease; }
   @keyframes gcWiggle { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
   .gc.dragging .gc-h { cursor: grabbing; }
   .gc-ed { background: none; border: 1.5px solid var(--line); color: var(--gray); cursor: pointer; width: 24px; height: 24px; font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; }
@@ -2994,22 +2995,57 @@ function renderGraph() {
       e.preventDefault();
       card.setPointerCapture(e.pointerId);
       const x0 = e.clientX, y0 = e.clientY, l0 = card.offsetLeft, t0 = card.offsetTop;
-      let moved = false;
+      let moved = false, items = [];
+      // pozostałe okienka: pozycje z chwili chwycenia (do nich wracają, gdy zrobi się miejsce)
+      const others = [...card.parentElement.querySelectorAll('.gc')].filter(c => c !== card)
+        .map(c => ({ c, id: c.dataset.eid, hx: c.offsetLeft, hy: c.offsetTop, w: c.offsetWidth, h: c.offsetHeight }));
+      const GAP = 24, mw = card.offsetWidth, mh = card.offsetHeight;
+      const hit = (a, b) => a.x < b.x + b.w + GAP && b.x < a.x + a.w + GAP && a.y < b.y + b.h + GAP && b.y < a.y + a.h + GAP;
+      // odsuwa okienko m od przeszkody o — najkrótszą drogą, ale wolimy na bok niż w górę / w dół
+      const push = (m, o) => {
+        const opts = [[o.x + o.w + GAP - m.x, 0, 1], [-(m.x + m.w + GAP - o.x), 0, 1], [0, o.y + o.h + GAP - m.y, 1.8], [0, -(m.y + m.h + GAP - o.y), 1.8]]
+          .filter(([dx, dy]) => m.x + dx >= 0 && m.y + dy >= 0)
+          .sort((a, b) => (Math.abs(a[0]) + Math.abs(a[1])) * a[2] - (Math.abs(b[0]) + Math.abs(b[1])) * b[2]);
+        const [dx, dy] = opts[0] || [o.x + o.w + GAP - m.x, 0];
+        m.x += dx; m.y += dy; m.pushed = true;
+      };
+      const makeRoom = (dx0, dy0) => {
+        const drag = { x: dx0, y: dy0, w: mw, h: mh };
+        const list = others.map(o => ({ ...o, x: o.hx, y: o.hy, pushed: false }));
+        for (let pass = 0; pass < 40; pass++) {
+          let any = false;
+          for (const m of list) if (hit(m, drag)) { push(m, drag); any = true; }
+          for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+            const a = list[i], b = list[j];
+            if (!hit(a, b)) continue;
+            const m = a.pushed && !b.pushed ? b : !a.pushed && b.pushed ? a : b;
+            push(m, m === a ? b : a); any = true;
+          }
+          if (!any) break;
+        }
+        list.forEach(it => { it.c.style.left = it.x + 'px'; it.c.style.top = it.y + 'px'; });
+        return list;
+      };
       const mv = ev => {
         const dx = ev.clientX - x0, dy = ev.clientY - y0;
         if (!moved && Math.hypot(dx, dy) < 4) return;
-        moved = true; card.classList.add('dragging');
-        card.style.left = Math.max(0, l0 + dx) + 'px'; card.style.top = Math.max(0, t0 + dy) + 'px';
+        moved = true; card.classList.add('dragging'); card.parentElement.classList.add('sorting');
+        const nx = Math.max(0, l0 + dx), ny = Math.max(0, t0 + dy);
+        card.style.left = nx + 'px'; card.style.top = ny + 'px';
+        items = makeRoom(nx, ny);
         fitWrap();
       };
-      const up = () => {
+      const up = async () => {
         card.removeEventListener('pointermove', mv); card.removeEventListener('pointerup', up); card.removeEventListener('pointercancel', up);
         card.classList.remove('dragging');
         if (!moved) { selectElement(eid); return; }
-        const el = S.elements.find(x => x.id === eid);
-        const gpos = { x: Math.round(card.offsetLeft), y: Math.round(card.offsetTop) };
-        if (el) el.gpos = gpos;
-        DB.update(pElements(S.project.id), eid, { gpos }).catch(err => toast('Błąd zapisu: ' + err.message, 'error'));
+        // zapis: przeciągnięte okienko i wszystkie, które się rozjechały
+        const changes = [{ id: eid, gpos: { x: Math.round(parseFloat(card.style.left)), y: Math.round(parseFloat(card.style.top)) } }]
+          .concat(items.filter(it => it.x !== it.hx || it.y !== it.hy).map(it => ({ id: it.id, gpos: { x: Math.round(it.x), y: Math.round(it.y) } })));
+        for (const ch of changes) { const el = S.elements.find(x => x.id === ch.id); if (el) el.gpos = ch.gpos; }
+        setTimeout(() => card.parentElement && card.parentElement.classList.remove('sorting'), 300);
+        try { for (const ch of changes) await DB.update(pElements(S.project.id), ch.id, { gpos: ch.gpos }); }
+        catch (err) { toast('Błąd zapisu: ' + err.message, 'error'); }
       };
       card.addEventListener('pointermove', mv); card.addEventListener('pointerup', up); card.addEventListener('pointercancel', up);
     };
