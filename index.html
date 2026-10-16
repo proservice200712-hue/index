@@ -169,7 +169,13 @@
   .gidx.free { display: block; }
   .gc.abs { position: absolute; }
   .gc.dragging { z-index: 5; opacity: .92; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
-  .gc-h { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; cursor: grab; white-space: nowrap; user-select: none; touch-action: none; }
+  .gc-h { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: nowrap; user-select: none; }
+  .gidx.moving .gc-h { cursor: grab; touch-action: none; }
+  .gidx.moving .gc { animation: gcWiggle .3s ease-in-out infinite alternate; transform-origin: 50% 40%; }
+  .gidx.moving .gc:nth-child(2n) { animation-delay: -.15s; animation-duration: .34s; }
+  .gidx.moving .gc:nth-child(3n) { animation-delay: -.08s; animation-duration: .27s; }
+  .gidx.moving .gc.dragging { animation: none; }
+  @keyframes gcWiggle { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
   .gc.dragging .gc-h { cursor: grabbing; }
   .gc-ed { background: none; border: 1.5px solid var(--line); color: var(--gray); cursor: pointer; width: 24px; height: 24px; font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; }
   .gc-ed:hover { border-color: var(--dark); color: var(--dark); background: var(--bg); }
@@ -574,6 +580,7 @@
         </div>
         <button class="btn btn-sm" onclick="newElementWithoutShape()" title="Element, którego nie da się zaznaczyć na wizce">+ Element bez zaznaczenia</button>
         <span id="gc-tools" class="hidden" style="display:inline-flex;gap:8px">
+          <button class="btn btn-sm" id="gc-move" onclick="toggleGraphMove()" title="Włącz przesuwanie okienek">✥ Przesuń</button>
           <button class="btn btn-sm" onclick="graphAutoLayout()" title="Ułóż okienka automatycznie">↺ Ułóż automatycznie</button>
           <button class="btn btn-sm" onclick="graphAlign()" title="Rozsuń nachodzące na siebie okienka na równy odstęp">⇔ Wyrównaj</button>
         </span>
@@ -950,7 +957,8 @@ const I18N_PAIRS = [
   ['Brak dostępu do tego projektu', 'Немає доступу до цього проєкту', 'No access to this project'], ['Nie znaleziono projektu', 'Проєкт не знайдено', 'Project not found'],
   ['Polski', 'Polski', 'Polski'],
   ['Przeciągnij, aby przesunąć okienko', 'Перетягніть, щоб перемістити віконце', 'Drag to move the box'], ['Ułóż automatycznie', 'Розташувати автоматично', 'Auto layout'],
-  ['Wyrównaj', 'Вирівняти', 'Align'],
+  ['Wyrównaj', 'Вирівняти', 'Align'], ['Przesuń', 'Перемістити', 'Move'], ['Zakończ przesuwanie', 'Завершити переміщення', 'Finish moving'],
+  ['Włącz przesuwanie okienek', 'Увімкнути переміщення віконець', 'Turn on moving boxes'], ['Zakończ przesuwanie okienek', 'Завершити переміщення віконець', 'Finish moving boxes'], ['Kliknij, aby zaznaczyć', 'Натисніть, щоб виділити', 'Click to select'],
   ['Co?', 'Що?', 'What?'], ['Druk czy eksport?', 'Друк чи експорт?', 'Print or export?'], ['Druk', 'Друк', 'Print'], ['Eksport (zapis pliku)', 'Експорт (збереження файлу)', 'Export (save file)'],
   ['Drukuj', 'Друкувати', 'Print'], ['Numer wersji indexu', 'Номер версії індексу', 'Index version number'], ['ostatnio', 'останній раз', 'last'], ['Plik', 'Файл', 'File'],
   ['Index A3', 'Індекс A3', 'Index A3'], ['Tabela A4', 'Таблиця A4', 'Table A4'],
@@ -1925,6 +1933,7 @@ function closeProject() {
   S.unsubProject = [];
   S.project = null;
   $('logside').classList.add('hidden');
+  if ($('gc-move')) toggleGraphMove(false);
   cancelDraft(); cancelAssign();
 }
 const logState = { open: (() => { try { return localStorage.getItem('INDEX_LOG_OPEN') === '1'; } catch (e) { return false; } })() };
@@ -2879,7 +2888,18 @@ function setElFilter(v) {
 }
 // widok listy: tabela albo grafika (wizki z ramkami opisów i strzałkami jak w indexie z Corela)
 S.elView = (() => { try { return localStorage.getItem('INDEX_ELVIEW') === 'graph' ? 'graph' : 'table'; } catch (e) { return 'table'; } })();
+// tryb przesuwania okienek w widoku Grafika: okienka delikatnie drgają i dają się chwycić
+S.graphMove = false;
+function toggleGraphMove(force) {
+  S.graphMove = force === undefined ? !S.graphMove : !!force;
+  const b = $('gc-move');
+  b.textContent = S.graphMove ? '✔ Zakończ przesuwanie' : '✥ Przesuń';
+  b.classList.toggle('btn-solid', S.graphMove);
+  b.title = S.graphMove ? 'Zakończ przesuwanie okienek' : 'Włącz przesuwanie okienek';
+  const w = document.querySelector('#el-scroll .gidx'); if (w) w.classList.toggle('moving', S.graphMove);
+}
 function setElView(v) {
+  if (v !== 'graph') toggleGraphMove(false);
   S.elView = v;
   try { localStorage.setItem('INDEX_ELVIEW', v); } catch (e) {}
   renderElements();
@@ -2939,7 +2959,7 @@ function renderGraph() {
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : dimsMode(e) !== 'flat' ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · pas do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''}" data-eid="${e.id}" style="--c:${t.color};${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
-      <div class="gc-h" data-eid="${e.id}" title="Przeciągnij, aby przesunąć okienko">${ringBadge(t.color, lab)}<span class="gc-t">${esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
+      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
@@ -2954,7 +2974,7 @@ function renderGraph() {
     wrap.querySelectorAll('.gc').forEach(c => { w = Math.max(w, c.offsetLeft + c.offsetWidth); h = Math.max(h, c.offsetTop + c.offsetHeight); });
     wrap.style.width = (w + 24) + 'px'; wrap.style.height = (h + 24) + 'px';
   };
-  wrap.classList.add('free'); fitWrap();
+  wrap.classList.add('free'); wrap.classList.toggle('moving', S.graphMove); fitWrap();
   box.querySelectorAll('.gc').forEach(c => {
     c.onmouseenter = () => setHover(c.dataset.eid);
     c.onmouseleave = () => setHover(null);
@@ -2966,8 +2986,9 @@ function renderGraph() {
   box.querySelectorAll('.gc-h').forEach(h => {
     const card = h.closest('.gc'), eid = h.dataset.eid;
     h.ondblclick = () => openElementDialog({ id: eid });
+    h.onclick = () => { if (!S.graphMove) selectElement(eid); };
     h.onpointerdown = e => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || !S.graphMove) return; // bez trybu „Przesuń" nagłówek tylko zaznacza
       e.preventDefault();
       h.setPointerCapture(e.pointerId);
       const x0 = e.clientX, y0 = e.clientY, l0 = card.offsetLeft, t0 = card.offsetTop;
@@ -3327,7 +3348,7 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
   if (sub) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#cbd5e0'; g.fillText(sub, rx, 70 * sc); }
   g.textAlign = 'left';
   g.fillStyle = '#718096'; g.font = `400 ${22 * sc}px ${PDF_FONT}`;
-  const foot = [gfxOf(p) ? 'Deadline graficzny: ' + fmtDateTime(gfxOf(p)) : '', packOf(p) ? 'Pakowanie: ' + fmtDateTime(packOf(p)) : '', p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
+  const foot = [p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
     'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
   g.fillText(foot, 40 * sc, PH - 28 * sc);
 }
