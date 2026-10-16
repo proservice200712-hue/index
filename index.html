@@ -158,23 +158,26 @@
   #pane-bottom { flex: 1 1 auto; min-height: 100px; display: flex; background: #fff; }
   #el-pane { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
   /* zegar-butla: pierścień jak w Butli, łuk = ile czasu zostało z bieżącego odcinka */
-  /* widok graficzny listy elementów */
-  .graph { display: flex; gap: 28px; padding: 14px 16px; align-items: flex-start; width: max-content; }
-  .gsheet { position: relative; flex: 0 0 auto; }
-  .gsheet img { position: absolute; top: 0; object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
-  .gsheet svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
-  .gsheet .gnum { position: absolute; top: -12px; left: 0; font-size: .68rem; font-weight: 800; color: var(--gray); }
-  .gbox { position: absolute; display: flex; gap: 7px; align-items: flex-start; padding: 5px 7px; background: #fff; border: 1.5px solid var(--c); border-left-width: 5px; font-size: .7rem; line-height: 1.3; cursor: pointer; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
-  .gbox:hover { box-shadow: 0 3px 12px rgba(0,0,0,.2); }
-  .gbox.sel { background: #fffbea; box-shadow: 0 0 0 2px var(--c); }
-  .gbox .badge { flex: 0 0 auto; min-width: 20px; height: 20px; font-size: .68rem; }
-  .gbox .gt { min-width: 0; display: flex; flex-direction: column; }
-  .gbox .gt b, .gbox .gt span, .gbox .gt i { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gbox .gt span { color: var(--dark); font-variant-numeric: tabular-nums; }
-  .gbox .gt .w { color: var(--orange); font-weight: 700; }
-  .gbox .gt i { color: var(--gray); }
-  .gloose { border-left: 1px dashed var(--mid); }
-  .gloose .gl-h { position: absolute; top: 0; left: 10px; font-size: .68rem; font-weight: 800; color: var(--gray); text-transform: uppercase; }
+  /* widok graficzny listy elementów — jak index z Corela: litera w kółku + typ, okienko w skali, linie wymiarowe w cm */
+  .gidx { display: flex; flex-wrap: wrap; gap: 18px 34px; padding: 12px 16px 16px; align-items: flex-start; }
+  .gc { position: relative; flex: 0 0 auto; }
+  .gc-h { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: nowrap; }
+  .gc-h .gc-t { font-family: 'Segoe Print', 'Comic Sans MS', 'Segoe UI', sans-serif; font-size: .95rem; font-weight: 700; color: var(--dark); }
+  .gc-h .gc-q { font-size: .72rem; color: var(--gray); font-weight: 700; }
+  .gc.sel .gc-t { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 3px; }
+  .gc-body { position: relative; }
+  .gc-body svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .gc-body svg text { font: 600 11px 'Segoe UI', Arial, sans-serif; fill: #38a169; }
+  .gc-frame { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; background: #fff; cursor: pointer; overflow: hidden; color: var(--mid); font-size: .66rem; line-height: 1.3; padding: 4px; }
+  .gc-frame:hover { background: #f7fafc; color: var(--gray); }
+  .gc-frame.armed { outline: 3px solid var(--accent); outline-offset: 2px; background: #f1f8ec; color: #2f855a; font-weight: 700; }
+  .gc-frame.drag { outline: 3px dashed var(--accent); outline-offset: 2px; }
+  .gc-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .gc-frame .x { position: absolute; right: 0; top: 0; width: 18px; height: 18px; background: rgba(229,62,62,.9); color: #fff; font-size: .7rem; display: none; align-items: center; justify-content: center; z-index: 2; }
+  .gc-frame:hover .x { display: flex; }
+  .gc-frame.nodim { border: 1.5px dashed var(--orange); }
+  .gc-note { font-size: .7rem; color: var(--gray); max-width: 260px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gc-note.w { color: var(--orange); font-weight: 700; }
   #clock-pane { flex: 0 0 210px; border-left: 1px solid var(--line); background: linear-gradient(180deg, #fff, var(--bg)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 10px; min-height: 0; overflow: hidden; }
   #clock-svg { width: 100%; max-width: 170px; max-height: 170px; flex: 1 1 0; min-height: 0; overflow: visible; }
   .cl-lab, .cl-sub { flex: 0 0 auto; }
@@ -299,6 +302,14 @@
   #arc.closing { animation: arcOut .18s ease-in forwards; }
   @keyframes arcOut { to { opacity: 0; transform: scale(.94); } }
   #arc .arc-svg { position: absolute; overflow: visible; pointer-events: none; }
+  /* rozmyte pole za przyciskami — tło nie rozprasza, napisy czytelne */
+  #arc .arc-field { position: absolute; pointer-events: none; background: rgba(14,18,26,.32); backdrop-filter: blur(9px) saturate(.7); -webkit-backdrop-filter: blur(9px) saturate(.7);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 18px), transparent 100%), linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+    -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent 0, #000 36px, #000 calc(100% - 18px), transparent 100%), linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+    mask-composite: intersect; opacity: 0; animation: fadeIn .25s .12s forwards; }
+  #arc.dir-l .arc-field { -webkit-mask-image: linear-gradient(to left, transparent 0, #000 36px, #000 calc(100% - 18px), transparent 100%), linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(to left, transparent 0, #000 36px, #000 calc(100% - 18px), transparent 100%), linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); }
+  #arc .arc-panel { backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); }
   #arc .a-out { fill: none; stroke: #fff; stroke-width: 9; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; filter: drop-shadow(0 1px 3px rgba(0,0,0,.45)); }
   #arc .a-main { fill: none; stroke: url(#arcGreen); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; }
   #arc .a-in { fill: none; stroke: #fff; stroke-opacity: .9; stroke-width: 1.5; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .4s .08s ease-out forwards; }
@@ -544,7 +555,7 @@
           <circle id="cl-s1" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clYellow)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-s2" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-s3" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clRed)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
-          <circle id="cl-past" cx="60" cy="60" r="47" fill="none" stroke="#0E0E0D" stroke-opacity=".5" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <circle id="cl-past" cx="60" cy="60" r="47" fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <!-- połysk rury -->
           <circle cx="60" cy="60" r="51" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="2"/>
           <circle cx="60" cy="60" r="43.5" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="1.5"/>
@@ -1609,7 +1620,7 @@ function renderProjectHeader() {
   $('hdr-pname').title = 'Kliknij, aby zmienić nazwę, terminy lub zespół';
   $('hdr-pname').onclick = () => openProjectForm(p.id);
   $('hdr-pfair').textContent = [p.fair, p.city].filter(Boolean).join(' · ');
-  $('hdr-cd').innerHTML = countdownHtml(p, false);
+  $('hdr-cd').innerHTML = ''; // w projekcie odlicza zegar-butla obok tabeli
   updateClock();
   $('hdr-actions').innerHTML = `
     <button class="btn" onclick="toggleExportMenu(event)">⇩ Eksport ▾</button>
@@ -1721,7 +1732,10 @@ document.addEventListener('paste', e => {
   const tag = (document.activeElement || {}).tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
   const files = [...(e.clipboardData || {}).items || []].filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile());
-  if (files.length) { e.preventDefault(); addPhotoFiles(files); }
+  if (!files.length) return;
+  e.preventDefault();
+  // okienko elementu „uzbrojone" kliknięciem → miniatura grafiki zamiast nowej wizki
+  if (S.thumbTarget) setThumb(S.thumbTarget, files[0]); else addPhotoFiles(files);
 });
 let dragDepth = 0;
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
@@ -2149,6 +2163,7 @@ function openArcMenu(shape, photoId) {
       <g class="a-ticks">${ticks}</g>
       <g class="a-core" transform="translate(0 ${dy})"><circle class="a-ring" r="16"/><path d="M0 -7 L7 0 L0 7 L-7 0 Z" class="a-gem"/></g>
     </svg>
+    <div class="arc-field" style="left:${dir > 0 ? R * 0.55 : -(R + 16 + ARC_BTN_W + 22)}px;top:${ys[0] - 15 - 22}px;width:${R * 0.45 + 16 + ARC_BTN_W + 22}px;height:${ys[n - 1] - ys[0] + 30 + 44}px"></div>
     <div class="arc-btns">${types.map((t, i) => {
       const y = ys[i], x = (Math.sqrt(R * R - y * y) + 16) * dir;
       return `<button type="button" class="arc-btn" data-t="${t.id}" style="left:${x}px;top:${y - 15}px;--d:${(260 + i * 40)}ms">
@@ -2298,8 +2313,8 @@ function selectElement(id, focus = true) {
     centerOn(el.photoId, cx, cy);
   }
   renderOverlay();
-  document.querySelectorAll('#el-scroll tr[data-eid], #el-scroll .gbox').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
-  const row = document.querySelector(`#el-scroll tr[data-eid="${id}"], #el-scroll .gbox[data-eid="${id}"]`);
+  document.querySelectorAll('#el-scroll tr[data-eid], #el-scroll .gc').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
+  const row = document.querySelector(`#el-scroll tr[data-eid="${id}"], #el-scroll .gc[data-eid="${id}"]`);
   if (row) row.scrollIntoView({ block: 'nearest' });
 }
 
@@ -2318,6 +2333,7 @@ document.addEventListener('keydown', e => {
   else if (k === '+' || k === '=') zoomBy(1.25);
   else if (k === '-') zoomBy(1 / 1.25);
   else if (k === 'enter' && draft && draft.kind === 'poly') finishPoly();
+  else if (k === 'escape' && S.thumbTarget) disarmThumb();
   else if (k === 'escape') { if (draft) cancelDraft(); else if (assignTo) cancelAssign(); else if (tool === 'poly') setTool('point'); else selectElement(null); }
   else if (k === 'backspace' && draft && draft.kind === 'poly') { draft.pts.pop(); if (!draft.pts.length) draft = null; renderOverlay(); updateHint(); }
   else if ((k === 'delete' || k === 'backspace') && S.selId) deleteElement(S.selId);
@@ -2509,68 +2525,126 @@ function bigUrl(url) {
   if (url && url.includes('res.cloudinary.com') && url.includes('/upload/')) return url.replace('/upload/', '/upload/c_limit,h_900,q_auto/');
   return url;
 }
+// litera w kółku z przerwą u dołu — jak w indexie z Corela
+function ringBadge(color, txt, size = 30) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 40 40" style="flex:0 0 auto"><circle cx="20" cy="20" r="16" fill="#fff" stroke="${color}" stroke-width="4.5" pathLength="100" stroke-dasharray="84 16" stroke-dashoffset="-33"/>
+    <text x="20" y="26.5" text-anchor="middle" font-size="${txt.length > 1 ? 13 : 19}" font-weight="700" fill="#1a202c" font-family="Segoe Print, Comic Sans MS, Segoe UI, sans-serif">${txt}</text></svg>`;
+}
+const cm = mm => (Math.round(mm) / 10).toFixed(1).replace('.', ',');
 function renderGraph() {
   const box = $('el-scroll');
-  const H = clamp(box.clientHeight - 44, 220, 900);
-  const BW = 214, GAPX = 46, BH = 58, VG = 8;
-  let html = '';
-  const card = (e, x, y, w) => {
-    const t = typeById(e.typeId), dims = hasDims(e), g = grossOf(e);
-    return `<div class="gbox ${e.id === S.selId ? 'sel' : ''}" data-eid="${e.id}" style="left:${x}px;top:${y}px;width:${w}px;--c:${t.color}">
-      <span class="badge" style="background:${t.color}">${letterOf(e.num)}</span>
-      <div class="gt"><b>${esc(typeLabel(e))}</b>
-        <span class="${dims ? '' : 'w'}">${dims ? netTxt(e) + ' → druk ' + grossTxt(e) + ' mm' : 'wymiar do ustalenia'}${g.b && dims ? ' · spad ' + g.b : ''}${(e.qty || 1) > 1 ? ' · ' + e.qty + ' szt.' : ''}</span>
-        ${e.notes ? `<i>${esc(e.notes)}</i>` : ''}</div></div>`;
-  };
-  S.photos.forEach((ph, idx) => {
-    const IW = Math.round(H * ((Number(ph.w) || 4) / (Number(ph.h) || 3)));
-    const els = S.elements.filter(e => e.photoId === ph.id && e.shape);
-    const pts = els.map(e => ({ e, c: shapeCenter(e.shape) }));
-    const left = pts.filter(o => o.c[0] < 0.5), right = pts.filter(o => o.c[0] >= 0.5);
-    const hasL = left.length > 0, hasR = right.length > 0;
-    const ix = hasL ? BW + GAPX : 0, W = ix + IW + (hasR ? GAPX + BW : 0);
-    // ramki przy wysokości swojego znacznika, bez nachodzenia na siebie
-    const place = list => {
-      list.sort((a, b) => a.c[1] - b.c[1]);
-      const bh = Math.min(BH, (H - VG * (list.length - 1)) / Math.max(1, list.length));
-      let y = 0;
-      list.forEach(o => { o.y = Math.max(y, o.c[1] * H - bh / 2); o.h = bh; y = o.y + bh + VG; });
-      let over = list.length ? list[list.length - 1].y + bh - H : 0;
-      for (let i = list.length - 1; i >= 0 && over > 0; i--) {
-        const lim = i === list.length - 1 ? H - bh : list[i + 1].y - bh - VG;
-        if (list[i].y > lim) { list[i].y = Math.max(0, lim); }
+  if (!S.elements.length) {
+    box.innerHTML = `<div class="empty-state" style="padding:30px 20px">Brak elementów. <b>Kliknij w dane miejsce na wizce</b>, aby dodać pierwszy element.</div>`;
+    return;
+  }
+  // wspólna skala dla wszystkich okienek (jak w Corelu), ale każde co najmniej 36 px
+  const avail = clamp(box.clientHeight - 110, 60, 520);
+  const withD = S.elements.filter(hasDims);
+  const maxH = Math.max(1, ...withD.map(e => grossOf(e).h)), maxW = Math.max(1, ...withD.map(e => grossOf(e).w));
+  const k = Math.min(avail / maxH, 320 / maxW);
+  const cards = S.elements.map(e => {
+    const t = typeById(e.typeId), lab = letterOf(e.num), dims = hasDims(e), g = grossOf(e);
+    const FW = dims ? Math.max(36, g.w * k) : 120, FH = dims ? Math.max(36, g.h * k) : 80;
+    const bw = dims && g.b ? Math.min(FW / 4, Math.max(3, g.b * k)) : 0, bh = dims && g.b ? Math.min(FH / 4, Math.max(3, g.b * k)) : 0;
+    const LM = !dims ? 0 : g.b ? 56 : 32, BM = !dims ? 0 : g.b ? 44 : 24;
+    const W = LM + FW + 4, H = FH + BM;
+    let svg = '';
+    if (dims) {
+      const L = (x1, y1, x2, y2, txt, vert) => {
+        let o = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#4a5568" stroke-width="1" marker-start="url(#gArrow)" marker-end="url(#gArrow)"/>`;
+        if (vert) { const cx = x1 - 4, cy = (y1 + y2) / 2; o += `<text x="${cx}" y="${cy}" text-anchor="middle" transform="rotate(-90 ${cx} ${cy})">${txt}</text>`; }
+        else o += `<text x="${(x1 + x2) / 2}" y="${y1 - 4}" text-anchor="middle">${txt}</text>`;
+        return o;
+      };
+      const ext = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a0aec0" stroke-width=".8"/>`;
+      svg += `<rect x="${LM}" y="0" width="${FW}" height="${FH}" fill="none" stroke="#a0aec0"/>`;
+      if (g.b) {
+        svg += `<rect x="${LM + bw}" y="${bh}" width="${FW - 2 * bw}" height="${FH - 2 * bh}" fill="none" stroke="#f4a6b4" stroke-dasharray="4 3"/>`;
+        // netto (wewnątrz spadu) i do druku (całość)
+        svg += ext(LM + bw, FH, LM + bw, FH + 18) + ext(LM + FW - bw, FH, LM + FW - bw, FH + 18) + L(LM + bw, FH + 16, LM + FW - bw, FH + 16, cm(g.w - 2 * g.b));
+        svg += ext(LM, FH, LM, FH + 40) + ext(LM + FW, FH, LM + FW, FH + 40) + L(LM, FH + 38, LM + FW, FH + 38, cm(g.w));
+        svg += ext(LM, bh, LM - 22, bh) + ext(LM, FH - bh, LM - 22, FH - bh) + L(LM - 20, bh, LM - 20, FH - bh, cm(g.h - 2 * g.b), true);
+        svg += ext(LM, 0, LM - 46, 0) + ext(LM, FH, LM - 46, FH) + L(LM - 44, 0, LM - 44, FH, cm(g.h), true);
+      } else {
+        svg += ext(LM, FH, LM, FH + 20) + ext(LM + FW, FH, LM + FW, FH + 20) + L(LM, FH + 18, LM + FW, FH + 18, cm(g.w));
+        svg += ext(LM, 0, LM - 24, 0) + ext(LM, FH, LM - 24, FH) + L(LM - 22, 0, LM - 22, FH, cm(g.h), true);
       }
-    };
-    place(left); place(right);
-    let arrows = '', boxes = '';
-    const mk = (o, x0, y0) => {
-      const t = typeById(o.e.typeId), cx = ix + o.c[0] * IW, cy = o.c[1] * H;
-      // grot kończy się na brzegu kółka z literą, nie pod nim
-      const L0 = Math.hypot(cx - x0, cy - y0) || 1, mx = cx - (cx - x0) / L0 * 14, my = cy - (cy - y0) / L0 * 14;
-      arrows += `<line x1="${x0}" y1="${y0}" x2="${mx}" y2="${my}" stroke="${t.color}" stroke-width="2" marker-end="url(#gArr${idx}_${o.e.id})"/>
-        <marker id="gArr${idx}_${o.e.id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${t.color}"/></marker>`;
-    };
-    left.forEach(o => { mk(o, BW, o.y + o.h / 2); boxes += card(o.e, 0, o.y, BW); });
-    right.forEach(o => { mk(o, ix + IW + GAPX, o.y + o.h / 2); boxes += card(o.e, ix + IW + GAPX, o.y, BW); });
-    // znaczniki z literami na wizce
-    const marks = pts.map(o => { const t = typeById(o.e.typeId), x = ix + o.c[0] * IW, y = o.c[1] * H;
-      const poly = o.e.shape.kind !== 'point' ? `<polygon points="${shapePolyPts(o.e.shape).map(q => (ix + q[0] * IW).toFixed(1) + ',' + (q[1] * H).toFixed(1)).join(' ')}" fill="${t.color}" fill-opacity=".18" stroke="${t.color}" stroke-width="2"/>` : '';
-      return `${poly}<circle cx="${x}" cy="${y}" r="11" fill="${t.color}" stroke="#fff" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">${letterOf(o.e.num)}</text>`; }).join('');
-    html += `<div class="gsheet" style="width:${W}px;height:${H}px">
-      <div class="gnum">#${idx + 1}</div>
-      <img src="${esc(bigUrl(ph.url))}" alt="" draggable="false" style="left:${ix}px;width:${IW}px;height:${H}px">
-      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${arrows}${marks}</svg>${boxes}</div>`;
+    }
+    const armed = S.thumbTarget === e.id;
+    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'} ${armed ? 'armed' : ''}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
+        title="Kliknij i wklej grafikę (Ctrl+V), upuść plik albo kliknij dwukrotnie, aby wybrać z dysku">
+      ${e.thumb ? `<img src="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : (armed ? 'Wklej teraz<br>Ctrl+V' : '+ grafika')}</div>`;
+    const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : dimsMode(e) !== 'flat' ? `<div class="gc-note">konstrukcja ${netTxt(e)} mm · pas do druku</div>` : '';
+    return `<div class="gc ${e.id === S.selId ? 'sel' : ''}" data-eid="${e.id}" style="--c:${t.color}">
+      <div class="gc-h" data-eid="${e.id}">${ringBadge(t.color, lab)}<span class="gc-t">${esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}</div>
+      <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}</div>
+      ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
+  }).join('');
+  box.innerHTML = `<svg width="0" height="0" style="position:absolute"><defs><marker id="gArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4a5568"/></marker></defs></svg>
+    <div class="gidx">${cards}</div>`;
+  box.querySelectorAll('.gc').forEach(c => {
+    c.onmouseenter = () => setHover(c.dataset.eid);
+    c.onmouseleave = () => setHover(null);
   });
-  const loose = S.elements.filter(e => !e.shape || !S.photos.some(p => p.id === e.photoId));
-  if (loose.length) html += `<div class="gsheet gloose" style="width:${BW + 20}px;height:${H}px"><div class="gl-h">Bez zaznaczenia</div>
-    ${loose.map((e, i) => card(e, 10, 30 + i * (BH + VG), BW)).join('')}</div>`;
-  box.innerHTML = `<div class="graph">${html || '<div class="empty-state">Brak wizek.</div>'}</div>`;
-  box.querySelectorAll('.gbox').forEach(b => {
-    b.onclick = () => selectElement(b.dataset.eid);
-    b.ondblclick = () => openElementDialog({ id: b.dataset.eid });
-    b.onmouseenter = () => setHover(b.dataset.eid);
-    b.onmouseleave = () => setHover(null);
+  box.querySelectorAll('.gc-h').forEach(h => {
+    h.onclick = () => selectElement(h.dataset.eid);
+    h.ondblclick = () => openElementDialog({ id: h.dataset.eid });
   });
+  box.querySelectorAll('.gc-frame').forEach(f => {
+    const eid = f.dataset.eid;
+    f.onclick = e => {
+      const rm = e.target.closest('[data-rm]');
+      if (rm) { e.stopPropagation(); removeThumb(eid); return; }
+      e.stopPropagation(); armThumb(eid);
+    };
+    f.ondblclick = () => {
+      const fi = $('file-generic');
+      fi.onchange = () => { const file = fi.files[0]; fi.value = ''; if (file) setThumb(eid, file); };
+      fi.click();
+    };
+    f.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); f.classList.add('drag'); } });
+    f.addEventListener('dragleave', () => f.classList.remove('drag'));
+    f.addEventListener('drop', e => {
+      f.classList.remove('drag');
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      const file = [...e.dataTransfer.files].find(x => x.type.startsWith('image/'));
+      if (file) setThumb(eid, file);
+    });
+  });
+}
+// miniatura grafiki w okienku elementu: kliknij okienko → Ctrl+V, upuść plik albo dwuklik = wybór z dysku
+function armThumb(eid) {
+  S.thumbTarget = eid;
+  selectElement(eid, false);
+  document.querySelectorAll('#el-scroll .gc-frame').forEach(f => {
+    const on = f.dataset.eid === eid;
+    f.classList.toggle('armed', on);
+    if (!f.querySelector('img')) f.innerHTML = on ? 'Wklej teraz<br>Ctrl+V' : '+ grafika';
+  });
+}
+function disarmThumb() {
+  if (!S.thumbTarget) return;
+  S.thumbTarget = null;
+  document.querySelectorAll('#el-scroll .gc-frame').forEach(f => { f.classList.remove('armed'); if (!f.querySelector('img')) f.innerHTML = '+ grafika'; });
+}
+document.addEventListener('click', e => { if (S.thumbTarget && !e.target.closest('.gc-frame')) disarmThumb(); });
+async function setThumb(eid, file) {
+  const el = S.elements.find(x => x.id === eid); if (!el || !S.project) return;
+  disarmThumb();
+  const t = toast('Wgrywanie miniatury…', '', 60000);
+  try {
+    const { url } = await storeImage(file, 900);
+    await DB.update(pElements(S.project.id), eid, { thumb: url, updatedAt: nowIso(), updatedBy: S.me.id });
+    addLog(S.project.id, `Dodano grafikę (miniaturę) do elementu ${letterOf(el.num)}`, eid);
+  } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
+  t.remove();
+}
+async function removeThumb(eid) {
+  const el = S.elements.find(x => x.id === eid); if (!el) return;
+  if (!await confirmBox(`Usunąć miniaturę grafiki z elementu <b>${letterOf(el.num)}</b>?`, 'Usuń')) return;
+  await DB.update(pElements(S.project.id), eid, { thumb: '', updatedAt: nowIso(), updatedBy: S.me.id });
+  addLog(S.project.id, `Usunięto miniaturę grafiki z elementu ${letterOf(el.num)}`, eid);
 }
 let graphRO = null;
 if (window.ResizeObserver) {
