@@ -157,6 +157,47 @@
 
   #pane-bottom { flex: 1 1 auto; min-height: 100px; display: flex; background: #fff; }
   #el-pane { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  /* zegar-butla: pierścień jak w Butli, łuk = ile czasu zostało z bieżącego odcinka */
+  /* widok graficzny listy elementów */
+  .graph { display: flex; gap: 28px; padding: 14px 16px; align-items: flex-start; width: max-content; }
+  .gsheet { position: relative; flex: 0 0 auto; }
+  .gsheet img { position: absolute; top: 0; object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
+  .gsheet svg { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .gsheet .gnum { position: absolute; top: -12px; left: 0; font-size: .68rem; font-weight: 800; color: var(--gray); }
+  .gbox { position: absolute; display: flex; gap: 7px; align-items: flex-start; padding: 5px 7px; background: #fff; border: 1.5px solid var(--c); border-left-width: 5px; font-size: .7rem; line-height: 1.3; cursor: pointer; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+  .gbox:hover { box-shadow: 0 3px 12px rgba(0,0,0,.2); }
+  .gbox.sel { background: #fffbea; box-shadow: 0 0 0 2px var(--c); }
+  .gbox .badge { flex: 0 0 auto; min-width: 20px; height: 20px; font-size: .68rem; }
+  .gbox .gt { min-width: 0; display: flex; flex-direction: column; }
+  .gbox .gt b, .gbox .gt span, .gbox .gt i { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gbox .gt span { color: var(--dark); font-variant-numeric: tabular-nums; }
+  .gbox .gt .w { color: var(--orange); font-weight: 700; }
+  .gbox .gt i { color: var(--gray); }
+  .gloose { border-left: 1px dashed var(--mid); }
+  .gloose .gl-h { position: absolute; top: 0; left: 10px; font-size: .68rem; font-weight: 800; color: var(--gray); text-transform: uppercase; }
+  #clock-pane { flex: 0 0 210px; border-left: 1px solid var(--line); background: linear-gradient(180deg, #fff, var(--bg)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 10px; min-height: 0; overflow: hidden; }
+  #clock-svg { width: 100%; max-width: 170px; max-height: 170px; flex: 1 1 0; min-height: 0; overflow: visible; }
+  .cl-lab, .cl-sub { flex: 0 0 auto; }
+  #cl-arc { transition: stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1); }
+  #cl-big { font: 600 22px 'Segoe UI', Arial, sans-serif; fill: var(--dark); letter-spacing: -.02em; }
+  #cl-big.long { font-size: 15px; }
+  #cl-small { font: 600 10px 'Segoe UI', Arial, sans-serif; fill: var(--gray); font-variant-numeric: tabular-nums; }
+  .cl-lab { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--dark); text-align: center; margin-top: 4px; }
+  .cl-sub { font-size: 0.7rem; color: var(--gray); text-align: center; }
+  #clock-pane.c-red #cl-big { fill: #c53030; }
+  #clock-pane.c-red #clock-svg { animation: clGlow 2.4s ease-in-out infinite; }
+  @keyframes clGlow { 0%, 100% { filter: drop-shadow(0 0 0 rgba(229,62,62,0)); } 50% { filter: drop-shadow(0 0 7px rgba(229,62,62,.55)); } }
+  #clock-pane.c-off #clock-svg { opacity: .45; }
+
+  /* znaczniki na wizce: łagodne pulsowanie; najechanie na wiersz = duży, mocniej pulsujący */
+  #overlay .mk { transform-box: fill-box; transform-origin: center; animation: mkPulse 2s ease-in-out infinite; }
+  #overlay .mk .halo { opacity: 0; transform-box: fill-box; transform-origin: center; }
+  #overlay .shp.hov .mk { animation: mkHover .9s ease-in-out infinite; }
+  #overlay .shp.hov .halo { animation: mkHalo 1.1s ease-out infinite; }
+  #overlay .shp.hov polygon { fill-opacity: .35; }
+  @keyframes mkPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+  @keyframes mkHover { 0%, 100% { transform: scale(1.75); } 50% { transform: scale(2.05); } }
+  @keyframes mkHalo { from { transform: scale(1); opacity: .8; } to { transform: scale(2.3); opacity: 0; } }
   .el-bar { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; flex: 0 0 auto; }
   .el-bar h3 { font-size: 0.9rem; margin-right: 4px; }
   .el-bar .stats { margin-left: auto; font-size: 0.78rem; color: var(--gray); }
@@ -229,11 +270,93 @@
   .stand-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 30px; cursor: pointer; font-size: 0.82rem; border-left: 4px solid transparent; }
   .stand-row::before { content: ''; width: 7px; height: 7px; flex: 0 0 auto; background: var(--accent); }
   .stand-row.open .sn { font-weight: 800; }
-  .stand-row .sm { margin-left: auto; font-size: 0.7rem; color: var(--gray); white-space: nowrap; }
+  .stand-row .st { margin-left: auto; display: flex; gap: 1px; }
+  .stand-row .st .avatar-sm { width: 18px; height: 18px; font-size: .5rem; }
+  .stand-row .ed { background: none; border: none; cursor: pointer; color: var(--gray); padding: 2px 4px; visibility: hidden; }
+  .stand-row:hover .ed, .stand-row.sel .ed, .fair-row.sel .ed { visibility: visible; }
+  .hdr-project .pname { cursor: pointer; }
+  .hdr-project .pname:hover { text-decoration: underline dotted; }
+  .hdr-team { display: inline-flex; gap: 2px; vertical-align: -4px; margin-left: 6px; }
+  .team-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .tchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 3px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-size: .8rem; }
+  .tchip:hover { border-color: var(--gray); }
+  .tchip.on { border-color: var(--accent); background: #f1f8ec; font-weight: 700; }
+  .tchip:not(.on) .avatar-sm { filter: grayscale(1); opacity: .6; }
+  .tchip.ext b { cursor: pointer; color: var(--gray); margin-left: 2px; }
+  .team-add { display: flex; gap: 6px; }
+  .team-add input { flex: 1; padding: 6px 9px; border: 1.5px solid var(--line); font-size: .85rem; }
+  .stand-row .sm { margin-left: 6px; font-size: 0.7rem; color: var(--gray); white-space: nowrap; }
   .stand-empty { padding: 5px 10px 8px 34px; font-size: 0.74rem; color: var(--mid); font-style: italic; }
   .arch { opacity: .5; }
   .arch-tag { font-size: 0.6rem; font-weight: 700; border: 1px solid currentColor; padding: 0 4px; color: var(--gray); text-transform: uppercase; margin-left: 6px; }
   .side-foot { padding: 8px 10px; border-top: 1px solid var(--line); font-size: 0.78rem; margin: 0; }
+
+  /* ---------- menu łukowe (styl gry strategicznej) ---------- */
+  #arc-back { position: fixed; inset: 0; z-index: 140; background: radial-gradient(circle at center, rgba(10,14,22,0) 0, rgba(10,14,22,.12) 100%); }
+  #arc { position: fixed; z-index: 150; width: 0; height: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+  #arc.closing { animation: arcOut .18s ease-in forwards; }
+  @keyframes arcOut { to { opacity: 0; transform: scale(.94); } }
+  #arc .arc-svg { position: absolute; overflow: visible; pointer-events: none; }
+  #arc .a-main { fill: none; stroke: url(#arcGold); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; }
+  #arc .a-glow { fill: none; stroke: #f6d365; stroke-opacity: .35; stroke-width: 14; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; filter: blur(3px); }
+  #arc .a-in { fill: none; stroke: #1a202c; stroke-opacity: .85; stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .4s .08s ease-out forwards; }
+  #arc .a-ticks line { stroke: #c9a646; stroke-width: 2; opacity: 0; animation: fadeIn .2s .25s forwards; }
+  #arc .a-ring { fill: rgba(26,32,44,.55); stroke: #c9a646; stroke-width: 2; animation: coreRing 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  #arc .a-gem { fill: #67b437; stroke: #fff; stroke-width: 1.2; }
+  @keyframes arcDraw { to { stroke-dashoffset: 0; } }
+  @keyframes fadeIn { to { opacity: 1; } }
+  @keyframes coreRing { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+  #arc .arc-btn { position: absolute; width: 270px; height: 30px; padding: 1.5px; border: none; cursor: pointer; background: linear-gradient(180deg, #ffe9a3, #c9a646 45%, #7a5b1c);
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); opacity: 0; animation: btnIn .26s cubic-bezier(.2,.9,.3,1.2) forwards; animation-delay: var(--d); }
+  #arc.dir-l .arc-btn, #arc.dir-l .arc-panel { transform: translateX(-100%); }
+  #arc .arc-btn .in { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 14px 0 12px; color: #f0e6c8; font-size: .72rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap;
+    background: linear-gradient(180deg, #364157, #1b2130 55%, #121621); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); transition: background .15s, color .15s; }
+  #arc .arc-btn .nm { overflow: hidden; text-overflow: ellipsis; }
+  #arc .k { flex: 0 0 auto; min-width: 17px; height: 17px; display: inline-flex; align-items: center; justify-content: center; font-size: .64rem; font-weight: 800; color: #1a202c; background: linear-gradient(180deg, #ffe9a3, #c9a646); }
+  #arc .gem { flex: 0 0 auto; width: 10px; height: 10px; transform: rotate(45deg); box-shadow: 0 0 0 1.5px rgba(255,255,255,.7), 0 0 8px currentColor; }
+  #arc .arc-btn:hover { background: linear-gradient(180deg, #fff6d0, #f0c75a 45%, #a07a26); }
+  #arc .arc-btn:hover .in { background: linear-gradient(180deg, #4a5878, #263048 55%, #182033); color: #fff; text-shadow: 0 0 6px rgba(255,233,163,.7); }
+  #arc .arc-btn.on { background: linear-gradient(180deg, #d9f7c0, #67b437 45%, #2f6114); }
+  #arc .arc-btn.on .in { background: linear-gradient(180deg, #3d5a2e, #22361a 55%, #172612); color: #fff; }
+  #arc .arc-btn.dim { filter: saturate(.4) brightness(.7); }
+  #arc .arc-btn.dim:hover { filter: none; }
+  @keyframes btnIn { from { opacity: 0; translate: calc(var(--dir) * -28px) 0; } to { opacity: 1; translate: 0 0; } }
+  #arc .arc-panel { position: absolute; padding: 1.5px; background: linear-gradient(180deg, #ffe9a3, #c9a646 30%, #7a5b1c); clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.45); animation: panelIn .24s cubic-bezier(.2,.9,.3,1.1); }
+  #arc .arc-panel > * { position: relative; }
+  #arc .arc-panel::before { content: ''; position: absolute; inset: 1.5px; background: linear-gradient(180deg, #232b3b, #141924 70%); clip-path: polygon(13px 0, 100% 0, 100% calc(100% - 13px), calc(100% - 13px) 100%, 0 100%, 0 13px); }
+  @keyframes panelIn { from { opacity: 0; translate: calc(var(--dir) * -24px) 0; clip-path: polygon(0 0, 30% 0, 30% 100%, 0 100%); } }
+  #arc .ap-h { display: flex; align-items: center; gap: 9px; padding: 10px 14px 8px; color: #ffe9a3; font-size: .78rem; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; border-bottom: 1px solid rgba(201,166,70,.35); }
+  #arc .ap-img { margin: 10px 14px 6px; height: 130px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(201,166,70,.5); }
+  #arc .ap-img img, #arc .ap-img svg { max-width: 100%; max-height: 100%; display: block; }
+  #arc .ap-desc { padding: 0 14px 8px; color: #cbd5e0; font-size: .74rem; line-height: 1.45; }
+  #arc .ap-hint { padding: 0 14px 12px; color: #c9a646; font-size: .7rem; font-style: italic; }
+  #arc .ap-sec { padding: 8px 14px 10px; border-top: 1px solid rgba(201,166,70,.25); }
+  #arc .ap-lab { color: #c9a646; font-size: .64rem; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 6px; }
+  #arc .ap-opt { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 4px; padding: 6px 10px; border: 1px solid rgba(201,166,70,.45); background: linear-gradient(180deg, #2e3850, #1a2030);
+    color: #f0e6c8; font-size: .76rem; font-weight: 700; text-align: left; cursor: pointer; clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); transition: background .15s; }
+  #arc .ap-opt:hover { background: linear-gradient(180deg, #44527a, #263048); color: #fff; }
+  #arc .ap-opt.on { background: linear-gradient(180deg, #4f7a38, #22361a); border-color: #9be36d; color: #fff; }
+  #arc .ap-in { animation: secIn .28s cubic-bezier(.2,.9,.3,1.1) both; }
+  #arc .ap-sec.ap-in { animation-delay: .06s; }
+  @keyframes secIn { from { opacity: 0; translate: calc(var(--dir) * -18px) 0; } }
+  #arc .ap-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+  #arc .ap-row.r3 { grid-template-columns: 1fr 1fr 1fr; }
+  #arc .ap-row.r2 { grid-template-columns: 64px 1fr; }
+  #arc .ap-row:first-of-type:only-child { grid-template-columns: 1fr; }
+  #arc .ap-form input { width: 100%; padding: 6px 8px; background: #0e121a; border: 1px solid rgba(201,166,70,.5); color: #fff; font-size: .82rem; }
+  #arc .ap-form input:focus { outline: none; border-color: #ffe9a3; box-shadow: 0 0 0 2px rgba(255,233,163,.2); }
+  #arc .ap-form input::placeholder { color: #718096; }
+  #arc .ap-calc { color: #cbd5e0; font-size: .72rem; margin: 2px 0 8px; }
+  #arc .ap-calc b { color: #ffe9a3; }
+  #arc .ap-calc .w { color: #f6ad55; font-weight: 700; }
+  #arc .ap-acts { display: flex; gap: 6px; }
+  #arc .ap-go { flex: 1; padding: 8px; border: none; cursor: pointer; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; font-size: .78rem; color: #10200a;
+    background: linear-gradient(180deg, #d9f7c0, #67b437 50%, #3e7a1c); clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+  #arc .ap-go:hover { filter: brightness(1.12); }
+  #arc .ap-go small { font-size: .6rem; opacity: .7; margin-left: 4px; }
+  #arc .ap-x { width: 38px; border: 1px solid rgba(201,166,70,.5); background: #1a2030; color: #f0e6c8; cursor: pointer; }
+  #arc .ap-x:hover { background: #742a2a; }
 
   /* ---------- okna ---------- */
   .modal-back { position: fixed; inset: 0; background: rgba(10,14,22,0.6); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -400,14 +523,36 @@
     <div id="el-pane">
       <div class="el-bar">
         <h3>Elementy</h3>
-        <div class="seg" id="el-seg">
-          <button class="on" data-v="all" onclick="setElFilter('all')">Wszystkie</button>
-          <button data-v="photo" onclick="setElFilter('photo')">Bieżąca wizka</button>
+        <div class="seg" id="el-view">
+          <button data-v="table" onclick="setElView('table')" title="Lista elementów w tabeli">▦ Tabela</button>
+          <button data-v="graph" onclick="setElView('graph')" title="Wizki z opisami i strzałkami — jak index z Corela">➚ Grafika</button>
         </div>
         <button class="btn btn-sm" onclick="newElementWithoutShape()" title="Element, którego nie da się zaznaczyć na wizce">+ Element bez zaznaczenia</button>
         <div class="stats" id="el-stats"></div>
       </div>
       <div class="el-scroll" id="el-scroll"></div>
+    </div>
+    <div id="clock-pane">
+      <svg id="clock-svg" viewBox="0 0 120 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="clTrack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4846"/><stop offset=".5" stop-color="#1F1E1D"/><stop offset="1" stop-color="#0E0E0D"/></linearGradient>
+          <linearGradient id="clGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6E05E"/><stop offset=".5" stop-color="#9ACD4A"/><stop offset="1" stop-color="#3E7A1C"/></linearGradient>
+          <linearGradient id="clYellow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF3B0"/><stop offset=".5" stop-color="#F6C744"/><stop offset="1" stop-color="#B7791F"/></linearGradient>
+          <linearGradient id="clRed" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FEB2B2"/><stop offset=".5" stop-color="#E53E3E"/><stop offset="1" stop-color="#822727"/></linearGradient>
+          <filter id="clShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".35"/></filter>
+        </defs>
+        <g filter="url(#clShadow)">
+          <circle cx="60" cy="60" r="47" fill="none" stroke="url(#clTrack)" stroke-width="13"/>
+          <circle id="cl-arc" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <!-- połysk rury -->
+          <circle cx="60" cy="60" r="51" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="2"/>
+          <circle cx="60" cy="60" r="43.5" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="1.5"/>
+        </g>
+        <text id="cl-big" x="60" y="62" text-anchor="middle">–</text>
+        <text id="cl-small" x="60" y="78" text-anchor="middle"></text>
+      </svg>
+      <div class="cl-lab" id="cl-lab"></div>
+      <div class="cl-sub" id="cl-sub"></div>
     </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
@@ -498,6 +643,7 @@ const DEFAULT_TYPES = [
       { id: 'plexi', name: '3D z pleksi', thick: true, icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
       { id: 'halo', name: 'Efekt halo', icon: 'l3d-halo', desc: 'Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.' },
       { id: 'blok', name: 'Blokowa', thick: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe. Podaj grubość (głębokość) liter.' },
+      { id: 'neon', name: 'Neon', icon: 'l3d-neon', desc: 'Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.' },
     ] },
   { id: 'nie-wiem', order: 99, name: 'Nie wiem — do ustalenia', color: '#7f8c8d', bleed: 0, icon: 'other',
     desc: 'Wybierz, gdy nie wiesz, z czego ma być element. Opisz go w uwagach — ustalimy to z Tobą.' },
@@ -881,6 +1027,7 @@ function exampleSvg(t) {
     'l3d-plexi': `<text x="127" y="99" text-anchor="middle" font-size="46" font-weight="900" fill="${c}" opacity=".25" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="46" font-weight="900" fill="${c}" fill-opacity=".45" stroke="${c}" stroke-width="1.5" font-family="Arial">LOGO</text>`,
     'l3d-halo': `<rect x="20" y="18" width="200" height="118" fill="#2d3748"/><text x="120" y="92" text-anchor="middle" font-size="46" font-weight="900" fill="none" stroke="#fff6c2" stroke-width="12" stroke-opacity=".35" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="46" font-weight="900" fill="${c}" font-family="Arial">LOGO</text>`,
     'l3d-blok': `<g font-size="46" font-weight="900" font-family="Arial" text-anchor="middle">${[10, 8, 6, 4, 2].map(o => `<text x="${120 + o}" y="${92 + o}" fill="#555">LOGO</text>`).join('')}<text x="120" y="92" fill="${c}">LOGO</text></g>`,
+    'l3d-neon': `<rect x="20" y="18" width="200" height="118" fill="#1a202c"/><rect x="44" y="44" width="152" height="66" fill="none" stroke="#fff" stroke-opacity=".18"/><text x="120" y="92" text-anchor="middle" font-size="44" font-weight="400" fill="none" stroke="${c}" stroke-width="9" stroke-opacity=".3" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="44" font-weight="400" fill="none" stroke="#fff" stroke-width="2.2" font-family="Arial">LOGO</text>`,
     'hang-ring': `<line x1="80" y1="0" x2="86" y2="52" stroke="#555"/><line x1="160" y1="0" x2="154" y2="52" stroke="#555"/><ellipse cx="120" cy="88" rx="80" ry="16" fill="#cbd5e0"/><rect x="40" y="56" width="160" height="32" fill="${c}"/><ellipse cx="120" cy="56" rx="80" ry="16" fill="${c}" stroke="#fff" stroke-width="1.5"/><ellipse cx="120" cy="56" rx="74" ry="12" fill="#e2e8f0"/>`,
     'hang-box': `<line x1="70" y1="0" x2="70" y2="44" stroke="#555"/><line x1="170" y1="0" x2="170" y2="44" stroke="#555"/><polygon points="50,52 150,52 190,40 90,40" fill="#e2e8f0" stroke="${c}"/><rect x="50" y="52" width="100" height="40" fill="${c}"/><polygon points="150,52 190,40 190,80 150,92" fill="${c}" opacity=".7"/>`,
   }[t.icon || 'other'] || '';
@@ -906,7 +1053,15 @@ function startProjectsSub() {
     renderSide();
   });
 }
-const canSee = p => isAdmin() || (p.users || []).includes(S.me.id);
+const canSee = p => isAdmin() || (p.users || []).includes(S.me.id) || (p.team || []).some(m => m.uid === S.me.id);
+// zespół projektu: konta INDEX ({uid}) i osoby spoza systemu ({name})
+const initialsOf = n => String(n || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
+function teamAvatar(m) {
+  if (m.uid) return avatarSm(m.uid);
+  return `<span class="avatar-sm" style="background:#718096" title="${esc(m.name)}">${esc(initialsOf(m.name))}</span>`;
+}
+const teamHtml = p => (p.team || []).map(teamAvatar).join('');
+const teamNames = team => (team || []).map(m => m.uid ? userLabel(m.uid) : m.name).join(', ') || '—';
 
 function showScreen(id) {
   ['screen-login', 'screen-home', 'screen-project'].forEach(s => $(s).classList.toggle('hidden', s !== id));
@@ -1039,7 +1194,9 @@ function renderSide() {
       </div>` + (!open ? '' : list.length ? list.map(p => `
       <div class="stand-row ${sel && sel.kind === 'stand' && sel.id === p.id ? 'sel' : ''} ${p.id === openPid ? 'open' : ''} ${p.archived ? 'arch' : ''}" onclick="sideClickStand('${p.id}')">
         <span class="sn">${esc(p.name)}</span>${p.archived ? '<span class="arch-tag">archiwum</span>' : ''}
+        <span class="st">${teamHtml(p)}</span>
         <span class="sm">▦ ${p.elementsCount || 0}</span>
+        <button class="ed" title="Zmień nazwę, terminy, zespół" onclick="event.stopPropagation(); openProjectForm('${p.id}')">✎</button>
       </div>`).join('') : `<div class="stand-empty">brak stoisk — „+ New stand"</div>`);
   }).join('') : `<div class="empty-state" style="padding:30px 14px">Nie ma jeszcze targów.<br>Dodaj pierwsze przyciskiem <b>+ New fairs</b>.</div>`;
 
@@ -1079,9 +1236,9 @@ function autoDeadline(start) {
   const d = new Date(t); d.setDate(d.getDate() - DEADLINE_DAYS);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-const deadlineField = (id, value) => `<div class="fld"><label>Deadline graficzny</label>
+const deadlineField = (id, value, hint = true) => `<div class="fld"><label>Deadline graficzny</label>
   <input type="datetime-local" id="${id}" value="${esc(value || '')}" ${isAdmin() ? '' : 'disabled'}>
-  <div class="hint">Ustawia się sam: ${DEADLINE_DAYS} dni przed startem targów.${isAdmin() ? ' Jako administrator możesz go przesunąć.' : ' Zmienić może tylko administrator.'}</div></div>`;
+  <div class="hint ${hint ? '' : 'hidden'}">Ustawia się sam: ${DEADLINE_DAYS} dni przed startem targów.${isAdmin() ? ' Jako administrator możesz go przesunąć.' : ' Zmienić może tylko administrator.'}</div></div>`;
 // podpina przeliczanie: zmiana startu przestawia deadline, dopóki admin nie ustawił go ręcznie
 function wireAutoDeadline(startId, dlId) {
   const st = $(startId), dl = $(dlId);
@@ -1201,7 +1358,43 @@ function countdownHtml(p, compact) {
     ${c.next && !compact ? `<span class="cd-next">${c.next}</span>` : ''}
     ${c.next && compact && !c.target ? `<span class="cd-next">${c.next}</span>` : ''}</span>`;
 }
+// zegar-butla w dolnym panelu projektu
+function clockInfo(p, now = Date.now()) {
+  const c = countdownInfo(p, now);
+  if (!c.target) return { ...c, frac: c.phase === 'live' ? 0 : 0 };
+  let start;
+  if (c.phase === 'deadline') start = tsOf(p.createdAt) || c.target - DEADLINE_DAYS * 864e5;
+  else start = tsOf(p.deadlineGfx) || tsOf(p.createdAt) || c.target - 30 * 864e5;
+  if (!start || start >= c.target) start = c.target - 864e5;
+  return { ...c, frac: clamp((c.target - now) / (c.target - start), 0, 1) };
+}
+function updateClock() {
+  const p = S.project, pane = $('clock-pane');
+  if (!p || !pane) return;
+  const c = clockInfo(p), left = c.target ? c.target - Date.now() : 0;
+  const urgentH = c.phase === 'deadline' ? 72 : 48;
+  const color = !c.target ? 'off' : (c.frac < 0.2 || left < urgentH * 3600e3) ? 'red' : c.frac < 0.5 ? 'yellow' : 'green';
+  pane.className = 'c-' + color;
+  const arc = $('cl-arc');
+  arc.setAttribute('stroke', `url(#cl${{ green: 'Green', yellow: 'Yellow', red: 'Red', off: 'Green' }[color]})`);
+  const pct = c.target ? Math.max(0.6, c.frac * 100) : (c.phase === 'live' ? 100 : 0);
+  arc.setAttribute('stroke-dasharray', `${pct.toFixed(2)} ${(100 - pct).toFixed(2)}`);
+  const big = $('cl-big'), small = $('cl-small');
+  if (c.target) {
+    const sec = Math.floor(left / 1000), d = Math.floor(sec / 86400);
+    const hms = pad(Math.floor(sec % 86400 / 3600)) + ':' + pad(Math.floor(sec % 3600 / 60)) + ':' + pad(sec % 60);
+    if (d > 0) { big.textContent = d + (d === 1 ? ' dzień' : ' dni'); small.textContent = hms; big.classList.toggle('long', d >= 100); }
+    else { big.textContent = hms; small.textContent = 'dziś'; big.classList.add('long'); }
+  } else {
+    big.textContent = c.phase === 'live' ? 'Trwa' : c.phase === 'done' ? 'Koniec' : '—'; big.classList.remove('long');
+    small.textContent = '';
+  }
+  $('cl-lab').textContent = c.phase === 'deadline' ? 'do deadline’u graficznego' : c.phase === 'event' ? 'do imprezy' : c.label;
+  $('cl-sub').textContent = c.phase === 'deadline' ? fmtDateTime(p.deadlineGfx) + (p.eventStart ? ' · impreza ' + fmtDate(p.eventStart) : '')
+    : c.phase === 'event' ? fmtDateTime(p.eventStart) : c.next || 'ustaw terminy w ⚙ Projekt';
+}
 setInterval(() => {
+  if (S.project) updateClock();
   document.querySelectorAll('[data-cd]').forEach(el => {
     const p = S.projects.find(x => x.id === el.dataset.cd) || (S.project && S.project.id === el.dataset.cd ? S.project : null);
     if (!p) return;
@@ -1222,7 +1415,6 @@ function openProjectForm(pid, fairId) {
     const f = fairById(fairId);
     p = { fairId, deadlineGfx: f.deadlineGfx || autoDeadline(f.eventStart), eventStart: f.eventStart || '', eventEnd: f.eventEnd || '' };
   }
-  const others = S.users.filter(u => !u.admin);
   const fairOpts = S.fairs.filter(f => !f.archived || f.id === p.fairId).sort(fairSort)
     .map(f => `<option value="${f.id}" ${f.id === p.fairId ? 'selected' : ''}>${esc(f.name)}${f.city ? ' · ' + esc(f.city) : ''}</option>`).join('');
   const m = openModal({
@@ -1235,17 +1427,38 @@ function openProjectForm(pid, fairId) {
         <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="pf-ev" value="${esc(p.eventStart || '')}"></div>
         <div class="fld"><label>Koniec imprezy (opcjonalnie)</label><input type="datetime-local" id="pf-evend" value="${esc(p.eventEnd || '')}"></div>
       </div>
-      ${deadlineField('pf-dl', p.deadlineGfx)}
-      <div class="fld ${isAdmin() ? '' : 'hidden'}"><label>Dostęp dla (agencja / współpracownicy)</label>
-        <div class="users-chk">${others.length ? others.map(u => `<label class="chk"><input type="checkbox" value="${u.id}" ${(p.users || []).includes(u.id) ? 'checked' : ''}> ${esc(u.login)} <span style="color:var(--gray);font-size:.75rem">${esc(u.company || u.name || '')}</span></label>`).join('')
-          : '<div class="hint" style="padding:6px 0">Brak kont zewnętrznych — dodaj je w menu awatara → Użytkownicy.</div>'}</div>
-        <div class="hint">Administratorzy (KG, DM) widzą wszystkie projekty.</div>
+      ${deadlineField('pf-dl', p.deadlineGfx, false)}
+      <div class="fld"><label>Zespół — kto zajmuje się projektem</label>
+        <div class="team-pick" id="pf-team"></div>
+        <div class="team-add"><input type="text" id="pf-team-new" placeholder="dopisz osobę spoza systemu (np. Marek — drukarnia) i Enter"><button type="button" class="btn btn-sm" id="pf-team-btn">+ Dodaj</button></div>
+        <div class="hint">Kliknij osobę, aby dodać ją do zespołu — konto dodane do zespołu widzi to stoisko.</div>
       </div>
       <div class="fld"><label>Uwagi</label><textarea id="pf-notes">${esc(p.notes || '')}</textarea></div>`,
     footer: `${pid && isAdmin() ? '<button class="btn btn-red" id="pf-del" style="margin-right:auto">Usuń stoisko</button>' : ''}
       <button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="pf-ok">${pid ? 'Zapisz' : 'Utwórz'}</button>`,
   });
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  const team = clone(p.team || []);
+  const renderTeam = () => {
+    $('pf-team').innerHTML = S.users.map(u => {
+      const on = team.some(x => x.uid === u.id);
+      return `<button type="button" class="tchip ${on ? 'on' : ''}" data-uid="${u.id}">${avatarSm(u.id)} ${esc(u.name || u.login)}</button>`;
+    }).join('') + team.filter(x => !x.uid).map((x, i) => `<span class="tchip on ext">${teamAvatar(x)} ${esc(x.name)} <b data-rm="${esc(x.name)}" title="Usuń">✕</b></span>`).join('');
+    $('pf-team').querySelectorAll('[data-uid]').forEach(b => b.onclick = () => {
+      const i = team.findIndex(x => x.uid === b.dataset.uid);
+      if (i >= 0) team.splice(i, 1); else team.push({ uid: b.dataset.uid });
+      renderTeam();
+    });
+    $('pf-team').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const i = team.findIndex(x => !x.uid && x.name === b.dataset.rm); if (i >= 0) team.splice(i, 1); renderTeam(); });
+  };
+  const addExt = () => {
+    const n = $('pf-team-new').value.trim(); if (!n) return;
+    if (!team.some(x => !x.uid && x.name.toLowerCase() === n.toLowerCase())) team.push({ name: n });
+    $('pf-team-new').value = ''; renderTeam();
+  };
+  $('pf-team-btn').onclick = addExt;
+  $('pf-team-new').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addExt(); } });
+  renderTeam();
   const autoDl = wireAutoDeadline('pf-ev', 'pf-dl');
   // wybór targów podpowiada ich terminy (deadline też z targów — mógł go tam przesunąć administrator)
   $('pf-fairid').onchange = () => {
@@ -1263,7 +1476,8 @@ function openProjectForm(pid, fairId) {
       fair: fo ? fo.name : (p.fairId ? '' : p.fair || ''), city: fo ? fo.city || '' : (p.fairId ? '' : p.city || ''),
       deadlineGfx: $('pf-dl').value, eventStart: $('pf-ev').value, eventEnd: $('pf-evend').value,
       notes: $('pf-notes').value.trim(),
-      users: isAdmin() ? [...m.el.querySelectorAll('.users-chk input:checked')].map(i => i.value) : (p.users || [S.me.id]),
+      users: p.users || (isAdmin() ? [] : [S.me.id]),
+      team: clone(team),
       updatedAt: nowIso(),
     };
     if (!d.name) return toast('Podaj nazwę stoiska', 'error');
@@ -1275,6 +1489,7 @@ function openProjectForm(pid, fairId) {
         if (p.deadlineGfx !== d.deadlineGfx) changes.push('deadline graficzny → ' + fmtDateTime(d.deadlineGfx));
         if (p.eventStart !== d.eventStart) changes.push('start imprezy → ' + fmtDateTime(d.eventStart));
         if (p.name !== d.name) changes.push('nazwa → ' + d.name);
+        if (teamNames(p.team) !== teamNames(d.team)) changes.push('zespół → ' + teamNames(d.team));
         await DB.update(C_PROJECTS, pid, d);
         addLog(pid, 'Zmieniono ustawienia projektu' + (changes.length ? ': ' + changes.join(', ') : ''));
         m.close(); toast('Zapisano', 'success');
@@ -1361,9 +1576,12 @@ function renderLogBadge() {
 function renderProjectHeader() {
   const p = S.project; if (!p) return;
   $('hdr-project').classList.remove('hidden');
-  $('hdr-pname').textContent = p.name;
+  $('hdr-pname').innerHTML = `${esc(p.name)} <span class="hdr-team">${teamHtml(p)}</span>`;
+  $('hdr-pname').title = 'Kliknij, aby zmienić nazwę, terminy lub zespół';
+  $('hdr-pname').onclick = () => openProjectForm(p.id);
   $('hdr-pfair').textContent = [p.fair, p.city].filter(Boolean).join(' · ');
   $('hdr-cd').innerHTML = countdownHtml(p, false);
+  updateClock();
   $('hdr-actions').innerHTML = `
     <button class="btn" onclick="toggleExportMenu(event)">⇩ Eksport ▾</button>
     ${isAdmin() ? `<button class="btn" onclick="openProjectForm('${p.id}')">⚙ Projekt</button>` : ''}`;
@@ -1651,17 +1869,20 @@ function renderOverlay() {
     const t = typeById(el.typeId), sel = el.id === S.selId, hov = el.id === S.hoverId;
     const [cx, cy] = shapeCenter(sh);
     const r = (sh.kind === 'point' ? 15 : 13) * s;
-    out += `<g class="shp" data-eid="${el.id}">`;
+    out += `<g class="shp${hov ? ' hov' : ''}" data-eid="${el.id}">`;
     if (sh.kind !== 'point') {
       const pts = shapePolyPts(sh);
       out += `<polygon points="${P(b, pts)}" fill="${t.color}" fill-opacity="${sel || hov ? 0.35 : 0.2}" stroke="${t.color}" stroke-width="${(sel ? 3.5 : 2.2) * s}" stroke-linejoin="round"/>
         ${sel ? `<polygon points="${P(b, pts)}" fill="none" stroke="#fff" stroke-width="${1.2 * s}" stroke-dasharray="${6 * s} ${5 * s}"/>` : ''}`;
-    } else if (sel || hov) {
+    } else if (sel) {
       out += `<circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r + 7 * s}" fill="${t.color}" fill-opacity=".25" stroke="${t.color}" stroke-width="${2 * s}"/>`;
     }
-    out += `<circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
+    // znacznik z literą: pulsuje (faza liczona od zegara, żeby przerysowanie nie szarpało animacją)
+    out += `<g class="mk" style="animation-delay:-${(performance.now() % 2000 / 1000).toFixed(3)}s">
+      <circle class="halo" cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="none" stroke="${t.color}" stroke-width="${3 * s}"/>
+      <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
       <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s}" text-anchor="middle" font-size="${(el.num > 26 ? 10.5 : 13) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${letterOf(el.num)}</text>
-    </g>`;
+    </g></g>`;
     if (sel && tool === 'point' && sh.kind !== 'point') {
       shapePolyPts(sh).forEach((q, i) => {
         out += `<rect class="hdl" data-h="${i}" data-eid="${el.id}" x="${+X(b, q) - 5 * s}" y="${+Y(q) - 5 * s}" width="${10 * s}" height="${10 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"/>`;
@@ -1854,8 +2075,189 @@ async function onShapeDrawn(shape, photoId) {
     }
     return;
   }
-  openElementDialog({ shape, photoId });
+  openArcMenu(shape, photoId);
 }
+
+// =====================================================================
+//  MENU ŁUKOWE — nowy element po kliknięciu w wizkę (styl gry strategicznej)
+//  Z punktu wysuwa się łuk, z łuku w prawo typy, a obok typu jego opcje
+//  (wykonanie / SEG) i na końcu wymiar. Klawisze: 1–9 wybór, Enter zapis, Esc.
+// =====================================================================
+let ARC = null;
+const ARC_STEP = 38, ARC_BTN_W = 270, ARC_PANEL_W = 280;
+function stageToClient(pid, q) {
+  const b = L.map[pid], r = viewer.getBoundingClientRect();
+  return [r.left + V.tx + (b.x + q[0] * b.w) * V.scale, r.top + V.ty + q[1] * H0 * V.scale];
+}
+function openArcMenu(shape, photoId) {
+  closeArcMenu(true);
+  pendingShape = { shape, photoId }; renderOverlay();
+  const [px, py] = stageToClient(photoId, shapeCenter(shape));
+  const types = S.types, n = types.length;
+  const R = Math.max(110, (n - 1) * ARC_STEP / 2 + 34);
+  const need = R + 16 + ARC_BTN_W + 20 + ARC_PANEL_W + 12;
+  const dir = px + need <= innerWidth - 8 || innerWidth - px >= px ? 1 : -1;
+  const ox = clamp(px, 8, innerWidth - 8), oy = clamp(py, R + 14, innerHeight - R - 14);
+  const back = document.createElement('div');
+  back.id = 'arc-back';
+  back.addEventListener('pointerdown', e => { e.preventDefault(); closeArcMenu(); });
+  back.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+  back.addEventListener('contextmenu', e => e.preventDefault());
+  const root = document.createElement('div');
+  root.id = 'arc'; root.className = dir > 0 ? 'dir-r' : 'dir-l';
+  root.style.left = ox + 'px'; root.style.top = oy + 'px';
+  root.style.setProperty('--dir', dir);
+  const pad = 14, ys = types.map((t, i) => (i - (n - 1) / 2) * ARC_STEP);
+  const arcPath = rr => `M 0 ${-rr} A ${rr} ${rr} 0 0 ${dir > 0 ? 1 : 0} 0 ${rr}`;
+  const ticks = ys.map(y => { const x = Math.sqrt(R * R - y * y) * dir; return `<line x1="${x}" y1="${y}" x2="${x + 10 * dir}" y2="${y}"/>`; }).join('');
+  const dy = py - oy;
+  root.innerHTML = `
+    <svg class="arc-svg" style="left:${-R - pad}px;top:${-R - pad}px" width="${2 * R + 2 * pad}" height="${2 * R + 2 * pad}" viewBox="${-R - pad} ${-R - pad} ${2 * R + 2 * pad} ${2 * R + 2 * pad}">
+      <defs><linearGradient id="arcGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset=".5" stop-color="#c9a646"/><stop offset="1" stop-color="#7a5b1c"/></linearGradient></defs>
+      <path class="a-glow" d="${arcPath(R)}" pathLength="100"/>
+      <path class="a-main" d="${arcPath(R)}" pathLength="100"/>
+      <path class="a-in" d="${arcPath(R - 9)}" pathLength="100"/>
+      <g class="a-ticks">${ticks}</g>
+      <g class="a-core" transform="translate(0 ${dy})"><circle class="a-ring" r="16"/><path d="M0 -7 L7 0 L0 7 L-7 0 Z" class="a-gem"/></g>
+    </svg>
+    <div class="arc-btns">${types.map((t, i) => {
+      const y = ys[i], x = (Math.sqrt(R * R - y * y) + 16) * dir;
+      return `<button type="button" class="arc-btn" data-t="${t.id}" style="left:${x}px;top:${y - 15}px;--d:${(260 + i * 40)}ms">
+        <span class="in"><span class="k">${i + 1}</span><span class="gem" style="background:${t.color}"></span><span class="nm">${esc(t.name)}</span></span></button>`;
+    }).join('')}</div>
+    <div class="arc-panel hidden" style="left:${(R + 16 + ARC_BTN_W + 20) * dir}px;width:${ARC_PANEL_W}px"></div>`;
+  document.body.appendChild(back);
+  document.body.appendChild(root);
+  ARC = { root, back, dir, panelLeft: (R + 16 + ARC_BTN_W + 20) * dir, shape, photoId, typeId: '', variant: '', seg: null, thick: '', w: '', h: '', d: '', qty: 1, notes: '', shown: new Set(), hoverT: null };
+  root.querySelectorAll('.arc-btn').forEach(b => {
+    b.onclick = () => arcPickType(b.dataset.t);
+    b.onmouseenter = () => { if (!ARC.typeId) { ARC.hoverT = b.dataset.t; renderArcPanel(); } };
+    b.onmouseleave = () => { if (!ARC.typeId && ARC.hoverT === b.dataset.t) { ARC.hoverT = null; root.querySelector('.arc-panel').classList.add('hidden'); } };
+  });
+  root.addEventListener('pointerdown', e => e.stopPropagation());
+}
+function closeArcMenu(instant) {
+  if (!ARC) return;
+  const { root, back } = ARC;
+  ARC = null;
+  pendingShape = null; renderOverlay();
+  back.remove();
+  if (instant) { root.remove(); return; }
+  root.classList.add('closing');
+  setTimeout(() => root.remove(), 180);
+}
+function arcPickType(id) {
+  if (!ARC) return;
+  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', shown: new Set() });
+  ARC.root.querySelectorAll('.arc-btn').forEach(b => { b.classList.toggle('on', b.dataset.t === id); b.classList.toggle('dim', b.dataset.t !== id); });
+  renderArcPanel();
+}
+// sekcje panelu: najpierw opcje, które trzeba wybrać, potem wymiar
+function arcSteps() {
+  const t = typeById(ARC.typeId), v = variantOf(ARC);
+  const steps = [];
+  if (t.variants && t.variants.length) steps.push({ key: 'v', label: t.id === 'podwieszana' ? 'Kształt' : 'Wykonanie',
+    opts: t.variants.map(x => ({ id: x.id, name: x.name, on: x.id === ARC.variant })), done: !!v });
+  if (t.seg) steps.push({ key: 's', label: 'Mocowanie', done: ARC.seg !== null,
+    opts: [{ id: '0', name: `Standard — spad ${Number(t.bleed) || 0} mm`, on: ARC.seg === false }, { id: '1', name: 'SEG — bez spadu', on: ARC.seg === true }] });
+  return steps;
+}
+function renderArcPanel() {
+  if (!ARC) return;
+  const panel = ARC.root.querySelector('.arc-panel');
+  const tid = ARC.typeId || ARC.hoverT; if (!tid) { panel.classList.add('hidden'); return; }
+  const t = typeById(tid), v = ARC.typeId ? variantOf(ARC) : null;
+  const preview = !ARC.typeId;
+  const fresh = k => { const f = !ARC.shown.has(k); if (!preview) ARC.shown.add(k); return f ? ' ap-in' : ''; };
+  let h = `<div class="ap-h${fresh('h' + tid + (v ? v.id : ''))}"><span class="gem" style="background:${t.color}"></span>${esc(v ? t.name + ' — ' + v.name : t.name)}</div>
+    <div class="ap-img">${exampleHtml(t, v)}</div>
+    <div class="ap-desc">${esc(v && v.desc ? v.desc : t.desc || '')}</div>`;
+  if (preview) h += `<div class="ap-hint">Kliknij albo naciśnij ${S.types.findIndex(x => x.id === tid) + 1}, aby wybrać</div>`;
+  else {
+    const steps = arcSteps();
+    let k = 1, ready = true;
+    for (const st of steps) {
+      h += `<div class="ap-sec${fresh('s' + st.key)}"><div class="ap-lab">${st.label}</div>${st.opts.map(o =>
+        `<button type="button" class="ap-opt${o.on ? ' on' : ''}" data-step="${st.key}" data-o="${o.id}"><span class="k">${ready && !st.done ? k++ : '·'}</span>${esc(o.name)}</button>`).join('')}</div>`;
+      if (!st.done) { ready = false; break; }
+    }
+    if (ready) {
+      const m = dimsMode(ARC), vv = variantOf(ARC);
+      const f = (id, ph, val) => `<input type="number" min="0" step="1" data-f="${id}" value="${esc(val)}" placeholder="${ph}">`;
+      h += `<div class="ap-sec ap-form${fresh('form' + m + (vv && vv.thick ? 't' : ''))}">
+        <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny [mm]' : 'Wymiar konstrukcji [mm]'}</div>
+        ${vv && vv.thick ? `<div class="ap-row">${f('thick', 'grubość', ARC.thick)}</div>` : ''}
+        <div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>
+        <div class="ap-row r2"><input type="number" min="1" step="1" data-f="qty" value="${esc(ARC.qty)}" title="Ilość sztuk"><input type="text" data-f="notes" value="${esc(ARC.notes)}" placeholder="uwagi (opcjonalnie)"></div>
+        <div class="ap-calc" id="ap-calc"></div>
+        <div class="ap-acts"><button type="button" class="ap-go">✔ Dodaj <small>Enter</small></button><button type="button" class="ap-x" title="Anuluj (Esc)">✕</button></div>
+      </div>`;
+    }
+  }
+  panel.innerHTML = h;
+  panel.classList.remove('hidden');
+  // pionowo: przy wybranym (albo wskazanym) typie, ale w granicach okna
+  const btn = ARC.root.querySelector(`.arc-btn[data-t="${tid}"]`);
+  const oy = parseFloat(ARC.root.style.top), ph = panel.offsetHeight;
+  const want = parseFloat(btn.style.top) - 40;
+  panel.style.top = clamp(want, -oy + 8, innerHeight - oy - ph - 8) + 'px';
+  // wąskie okno: panel nie może wyjechać poza ekran (wtedy nachodzi na przyciski)
+  const baseLeft = ARC.panelLeft;
+  panel.style.left = baseLeft + 'px';
+  const pr = panel.getBoundingClientRect();
+  if (pr.right > innerWidth - 8) panel.style.left = (baseLeft - (pr.right - innerWidth + 8)) + 'px';
+  else if (pr.left < 8) panel.style.left = (baseLeft + (8 - pr.left)) + 'px';
+  panel.querySelectorAll('.ap-opt').forEach(b => b.onclick = () => arcPickOpt(b.dataset.step, b.dataset.o));
+  panel.querySelectorAll('[data-f]').forEach(i => i.addEventListener('input', () => { ARC[i.dataset.f] = i.value; arcCalc(); }));
+  const go = panel.querySelector('.ap-go'); if (go) go.onclick = arcSave;
+  const x = panel.querySelector('.ap-x'); if (x) x.onclick = () => closeArcMenu();
+  arcCalc();
+  const first = panel.querySelector('.ap-form input[data-f]');
+  if (first && !panel.contains(document.activeElement)) setTimeout(() => first.focus({ preventScroll: true }), 220);
+}
+function arcPickOpt(step, o) {
+  if (!ARC) return;
+  if (step === 'v') { ARC.variant = o; ARC.shown.delete('form'); }
+  if (step === 's') ARC.seg = o === '1';
+  renderArcPanel();
+}
+function arcEl() {
+  const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
+  const vv = variantOf(ARC), m = dimsMode(ARC);
+  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: vv && vv.thick ? num(ARC.thick) : '',
+    w: num(ARC.w), h: num(ARC.h), d: m === 'box' ? num(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: '' };
+}
+function arcCalc() {
+  const c = ARC && ARC.root.querySelector('#ap-calc'); if (!c) return;
+  const e = arcEl(), g = grossOf(e);
+  c.innerHTML = hasDims(e) ? `druk <b>${grossTxt(e)} mm</b> · spad ${g.b ? g.b + ' mm' : 'brak'} · <b>${numPL(areaOf(e))} m²</b>`
+    : `<span class="w">wymiar do ustalenia</span> · spad ${g.b ? g.b + ' mm' : 'brak'}`;
+}
+async function arcSave() {
+  if (!ARC || !ARC.typeId) return;
+  if (arcSteps().some(st => !st.done)) return;
+  const d = arcEl(), pid = S.project.id, num = nextNum(), lab = letterOf(num);
+  const rec = { num, ...d, photoId: ARC.photoId, shape: ARC.shape, createdAt: nowIso(), createdBy: S.me.id };
+  const go = ARC.root.querySelector('.ap-go'); if (go) go.disabled = true;
+  try {
+    const newId = await DB.add(pElements(pid), rec);
+    addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' mm' : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
+    closeArcMenu();
+    S.selId = newId; renderOverlay();
+  } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); if (go) go.disabled = false; }
+}
+function arcKey(e) {
+  const inInput = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+  if (e.key === 'Escape') { e.preventDefault(); closeArcMenu(); return; }
+  if (e.key === 'Enter') { e.preventDefault(); arcSave(); return; }
+  if (inInput || e.ctrlKey || e.metaKey || e.altKey || !/^[1-9]$/.test(e.key)) return;
+  e.preventDefault();
+  const k = +e.key;
+  if (!ARC.typeId) { const t = S.types[k - 1]; if (t) arcPickType(t.id); return; }
+  const st = arcSteps().find(x => !x.done);
+  if (st && st.opts[k - 1]) arcPickOpt(st.key, st.opts[k - 1].id);
+}
+window.addEventListener('resize', () => closeArcMenu(true));
 
 // --- zaznaczanie elementu (lista <-> wizka) ---
 function selectElement(id, focus = true) {
@@ -1867,13 +2269,14 @@ function selectElement(id, focus = true) {
     centerOn(el.photoId, cx, cy);
   }
   renderOverlay();
-  document.querySelectorAll('#el-scroll tr[data-eid]').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
-  const row = document.querySelector(`#el-scroll tr[data-eid="${id}"]`);
+  document.querySelectorAll('#el-scroll tr[data-eid], #el-scroll .gbox').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
+  const row = document.querySelector(`#el-scroll tr[data-eid="${id}"], #el-scroll .gbox[data-eid="${id}"]`);
   if (row) row.scrollIntoView({ block: 'nearest' });
 }
 
 // klawiatura
 document.addEventListener('keydown', e => {
+  if (ARC && !modalStack.length) { arcKey(e); return; }
   if (e.key === 'Escape' && modalStack.length) { modalStack[modalStack.length - 1].close(); return; }
   if (modalStack.length || !S.project) return;
   const tag = (document.activeElement || {}).tagName;
@@ -2066,6 +2469,91 @@ function setElFilter(v) {
   document.querySelectorAll('#el-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   renderElements();
 }
+// widok listy: tabela albo grafika (wizki z ramkami opisów i strzałkami jak w indexie z Corela)
+S.elView = (() => { try { return localStorage.getItem('INDEX_ELVIEW') === 'graph' ? 'graph' : 'table'; } catch (e) { return 'table'; } })();
+function setElView(v) {
+  S.elView = v;
+  try { localStorage.setItem('INDEX_ELVIEW', v); } catch (e) {}
+  renderElements();
+}
+function bigUrl(url) {
+  if (url && url.includes('res.cloudinary.com') && url.includes('/upload/')) return url.replace('/upload/', '/upload/c_limit,h_900,q_auto/');
+  return url;
+}
+function renderGraph() {
+  const box = $('el-scroll');
+  const H = clamp(box.clientHeight - 44, 220, 900);
+  const BW = 214, GAPX = 46, BH = 58, VG = 8;
+  let html = '';
+  const card = (e, x, y, w) => {
+    const t = typeById(e.typeId), dims = hasDims(e), g = grossOf(e);
+    return `<div class="gbox ${e.id === S.selId ? 'sel' : ''}" data-eid="${e.id}" style="left:${x}px;top:${y}px;width:${w}px;--c:${t.color}">
+      <span class="badge" style="background:${t.color}">${letterOf(e.num)}</span>
+      <div class="gt"><b>${esc(typeLabel(e))}</b>
+        <span class="${dims ? '' : 'w'}">${dims ? netTxt(e) + ' → druk ' + grossTxt(e) + ' mm' : 'wymiar do ustalenia'}${g.b && dims ? ' · spad ' + g.b : ''}${(e.qty || 1) > 1 ? ' · ' + e.qty + ' szt.' : ''}</span>
+        ${e.notes ? `<i>${esc(e.notes)}</i>` : ''}</div></div>`;
+  };
+  S.photos.forEach((ph, idx) => {
+    const IW = Math.round(H * ((Number(ph.w) || 4) / (Number(ph.h) || 3)));
+    const els = S.elements.filter(e => e.photoId === ph.id && e.shape);
+    const pts = els.map(e => ({ e, c: shapeCenter(e.shape) }));
+    const left = pts.filter(o => o.c[0] < 0.5), right = pts.filter(o => o.c[0] >= 0.5);
+    const hasL = left.length > 0, hasR = right.length > 0;
+    const ix = hasL ? BW + GAPX : 0, W = ix + IW + (hasR ? GAPX + BW : 0);
+    // ramki przy wysokości swojego znacznika, bez nachodzenia na siebie
+    const place = list => {
+      list.sort((a, b) => a.c[1] - b.c[1]);
+      const bh = Math.min(BH, (H - VG * (list.length - 1)) / Math.max(1, list.length));
+      let y = 0;
+      list.forEach(o => { o.y = Math.max(y, o.c[1] * H - bh / 2); o.h = bh; y = o.y + bh + VG; });
+      let over = list.length ? list[list.length - 1].y + bh - H : 0;
+      for (let i = list.length - 1; i >= 0 && over > 0; i--) {
+        const lim = i === list.length - 1 ? H - bh : list[i + 1].y - bh - VG;
+        if (list[i].y > lim) { list[i].y = Math.max(0, lim); }
+      }
+    };
+    place(left); place(right);
+    let arrows = '', boxes = '';
+    const mk = (o, x0, y0) => {
+      const t = typeById(o.e.typeId), cx = ix + o.c[0] * IW, cy = o.c[1] * H;
+      // grot kończy się na brzegu kółka z literą, nie pod nim
+      const L0 = Math.hypot(cx - x0, cy - y0) || 1, mx = cx - (cx - x0) / L0 * 14, my = cy - (cy - y0) / L0 * 14;
+      arrows += `<line x1="${x0}" y1="${y0}" x2="${mx}" y2="${my}" stroke="${t.color}" stroke-width="2" marker-end="url(#gArr${idx}_${o.e.id})"/>
+        <marker id="gArr${idx}_${o.e.id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${t.color}"/></marker>`;
+    };
+    left.forEach(o => { mk(o, BW, o.y + o.h / 2); boxes += card(o.e, 0, o.y, BW); });
+    right.forEach(o => { mk(o, ix + IW + GAPX, o.y + o.h / 2); boxes += card(o.e, ix + IW + GAPX, o.y, BW); });
+    // znaczniki z literami na wizce
+    const marks = pts.map(o => { const t = typeById(o.e.typeId), x = ix + o.c[0] * IW, y = o.c[1] * H;
+      const poly = o.e.shape.kind !== 'point' ? `<polygon points="${shapePolyPts(o.e.shape).map(q => (ix + q[0] * IW).toFixed(1) + ',' + (q[1] * H).toFixed(1)).join(' ')}" fill="${t.color}" fill-opacity=".18" stroke="${t.color}" stroke-width="2"/>` : '';
+      return `${poly}<circle cx="${x}" cy="${y}" r="11" fill="${t.color}" stroke="#fff" stroke-width="2"/><text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">${letterOf(o.e.num)}</text>`; }).join('');
+    html += `<div class="gsheet" style="width:${W}px;height:${H}px">
+      <div class="gnum">#${idx + 1}</div>
+      <img src="${esc(bigUrl(ph.url))}" alt="" draggable="false" style="left:${ix}px;width:${IW}px;height:${H}px">
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${arrows}${marks}</svg>${boxes}</div>`;
+  });
+  const loose = S.elements.filter(e => !e.shape || !S.photos.some(p => p.id === e.photoId));
+  if (loose.length) html += `<div class="gsheet gloose" style="width:${BW + 20}px;height:${H}px"><div class="gl-h">Bez zaznaczenia</div>
+    ${loose.map((e, i) => card(e, 10, 30 + i * (BH + VG), BW)).join('')}</div>`;
+  box.innerHTML = `<div class="graph">${html || '<div class="empty-state">Brak wizek.</div>'}</div>`;
+  box.querySelectorAll('.gbox').forEach(b => {
+    b.onclick = () => selectElement(b.dataset.eid);
+    b.ondblclick = () => openElementDialog({ id: b.dataset.eid });
+    b.onmouseenter = () => setHover(b.dataset.eid);
+    b.onmouseleave = () => setHover(null);
+  });
+}
+let graphRO = null;
+if (window.ResizeObserver) {
+  let tmr = null;
+  graphRO = new ResizeObserver(() => { if (S.project && S.elView === 'graph') { clearTimeout(tmr); tmr = setTimeout(renderElements, 120); } });
+  graphRO.observe($('el-scroll'));
+}
+// najechanie na wiersz: tylko przełączamy klasę, bez przerysowania (animacja nie zaczyna się od nowa)
+function setHover(id) {
+  S.hoverId = id;
+  overlay.querySelectorAll('.shp').forEach(g => g.classList.toggle('hov', g.dataset.eid === id));
+}
 function renderElements() {
   if (!S.project) return;
   const list = S.elFilter === 'photo' ? S.elements.filter(e => e.photoId === S.photoId) : S.elements;
@@ -2075,6 +2563,8 @@ function renderElements() {
   $('el-stats').innerHTML = `<b>${S.elements.length}</b> el. · <b>${numPL(totalA)} m²</b> do druku`
     + (noDim ? ` · <span class="tag-warn">${noDim} bez wymiaru</span>` : '')
     + (unknown ? ` · <span class="tag-warn">${unknown} typ do ustalenia</span>` : '');
+  document.querySelectorAll('#el-view button').forEach(b => b.classList.toggle('on', b.dataset.v === S.elView));
+  if (S.elView === 'graph' && S.photos.length) return renderGraph();
   if (!list.length) {
     $('el-scroll').innerHTML = `<div class="empty-state" style="padding:30px 20px">${S.photos.length
       ? 'Brak elementów. <b>Kliknij w dane miejsce na wizce</b>, aby dodać pierwszy element (albo obrysuj go narzędziem <b>Wielokąt</b>).'
@@ -2102,12 +2592,12 @@ function renderElements() {
           <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
       </tr>`;
     }).join('')}</tbody>
-    <tfoot><tr><td colspan="7">Razem${S.elFilter === 'photo' ? ' (ta wizka)' : ''}</td><td class="num">${list.reduce((s, e) => s + (Number(e.qty) || 1), 0)}</td><td class="num">${numPL(list.reduce((s, e) => s + areaOf(e), 0))}</td><td colspan="3"></td></tr></tfoot></table>`;
+    </table>`;
   $('el-scroll').querySelectorAll('tr[data-eid]').forEach(tr => {
     tr.onclick = () => selectElement(tr.dataset.eid);
     tr.ondblclick = () => openElementDialog({ id: tr.dataset.eid });
-    tr.onmouseenter = () => { S.hoverId = tr.dataset.eid; renderOverlay(); };
-    tr.onmouseleave = () => { S.hoverId = null; renderOverlay(); };
+    tr.onmouseenter = () => setHover(tr.dataset.eid);
+    tr.onmouseleave = () => setHover(null);
   });
 }
 
