@@ -2515,6 +2515,7 @@ function renderOverlay() {
 
 // --- obsługa myszy / dotyku ---
 const pointers = new Map();
+let lastMarkTap = null; // do wykrycia dwukliku na znaku
 let act = null; // bieżąca operacja
 viewer.addEventListener('wheel', e => {
   if (!hasPhotos()) return;
@@ -2571,6 +2572,12 @@ viewer.addEventListener('pointerdown', e => {
   }
   if (g) {
     const el = S.elements.find(x => x.id === g.dataset.eid), loc = locOfNode(g), pid = locPhoto(el, loc);
+    // dwuklik na znaku = edycja (liczony ręcznie: pierwsze kliknięcie przerysowuje nakładkę, więc przeglądarka nie wykrywa dwukliku)
+    const now = performance.now();
+    if (lastMarkTap && lastMarkTap.eid === el.id && now - lastMarkTap.t < 400 && Math.hypot(e.clientX - lastMarkTap.x, e.clientY - lastMarkTap.y) < 8) {
+      lastMarkTap = null; act = null; openElementDialog({ id: el.id }); return;
+    }
+    lastMarkTap = { eid: el.id, t: now, x: e.clientX, y: e.clientY };
     selectElement(el.id, false, loc);
     setCurrentPhoto(pid);
     const onLab = !!e.target.closest('[data-part="lab"]');
