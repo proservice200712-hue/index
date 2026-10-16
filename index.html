@@ -664,6 +664,7 @@
 </div><!-- #app-row -->
 
 <div id="toasts"></div>
+<datalist id="dl-wys"></datalist>
 <!-- komiksowa alpaka: co 5 minut dobiega do połowy ekranu i wraca -->
 <div id="alpaca" aria-hidden="true">
   <svg viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
@@ -794,6 +795,12 @@ const toMM = v => v === '' || v == null ? '' : Math.max(0, Math.round(Number(Str
 const fromMM = mm => mm === '' || mm == null ? '' : (UNIT() === 'cm' ? Math.round(Number(mm)) / 10 : Number(mm));
 const bleedTxt = b => b ? lenPL(b) + ' ' + UNIT() : 'brak';
 const unitStep = () => UNIT() === 'cm' ? '0.1' : '1';
+// wysłona: typowe wymiary = wielokrotności 49,6 cm (do 496 cm) — lista do wyboru, ręczne wpisanie dalej działa
+const WYS_STEP_MM = 496;
+function fillWysList() {
+  $('dl-wys').innerHTML = Array.from({ length: 10 }, (_, i) => (i + 1) * WYS_STEP_MM)
+    .map(mm => `<option value="${UNIT() === 'cm' ? (mm / 10).toFixed(1) : mm}">`).join('');
+}
 const unitHint = t => UNIT() === 'cm' ? t.replace('milimetrach', 'centymetrach') : t;
 async function sha256(s) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -2706,7 +2713,9 @@ function renderArcPanel() {
     }
     if (ready) {
       const m = dimsMode(ARC), vv = variantOf(ARC);
-      const f = (id, ph, val) => `<input type="number" min="0" step="${id === 'thick' ? '1' : unitStep()}" data-f="${id}" value="${esc(val)}" placeholder="${ph}">`;
+      const wysList = typeById(ARC.typeId).wyslona && ARC.wyslona;
+      if (wysList) fillWysList();
+      const f = (id, ph, val) => `<input type="number" min="0" step="${id === 'thick' ? '1' : unitStep()}" data-f="${id}" value="${esc(val)}" placeholder="${ph}${wysList && (id === 'w' || id === 'h') ? ' ▾' : ''}"${wysList && (id === 'w' || id === 'h') ? ' list="dl-wys"' : ''}>`;
       h += `<div class="ap-sec ap-form${fresh('form' + m + (vv && vv.thick ? 't' : ''))}">
         <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny' : 'Wymiar konstrukcji'} [${UNIT()}]</div>
         <div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>
@@ -2912,6 +2921,10 @@ function openElementDialog({ id, shape, photoId }) {
     $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
     $('ed-dims').classList.toggle('four', m === 'box');
     $('ed-w').placeholder = (m === 'ring' ? 'średnica' : 'szerokość') + ` [${UNIT()}]`;
+    // wysłona: lista typowych wymiarów (wielokrotności 49,6 cm) przy szerokości i wysokości
+    const wysList = t && t.wyslona && el.wyslona;
+    if (wysList) fillWysList();
+    ['ed-w', 'ed-h'].forEach(id => { if (wysList) $(id).setAttribute('list', 'dl-wys'); else $(id).removeAttribute('list'); });
     $('ed-dims-lab').textContent = m === 'flat' ? '2. Wymiar widoczny (netto)' : '2. Wymiar konstrukcji';
     $('ed-dims-hint').textContent = unitHint(m === 'ring' ? 'Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).'
       : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
