@@ -747,7 +747,7 @@ const USER_COLORS = ['#38a169','#3182ce','#e53e3e','#d69e2e','#805ad5','#dd6b20'
 // Typy elementów — startowe, admin edytuje je w panelu „Typy elementów".
 // Kolory i reguła spadu przeniesione z Index graficzny (CorelDRAW). Spady do potwierdzenia.
 const DEFAULT_TYPES = [
-  { id: 'folia-kontur', order: 1, name: 'Folia cięta po konturze', color: '#45b731', bleed: 0, icon: 'cut',
+  { id: 'folia-kontur', order: 1, name: 'Folia cięta po konturze', color: '#45b731', bleed: 0, icon: 'cut', finish: true, transfer: true,
     desc: 'Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.' },
   { id: 'folia-laminat', order: 2, name: 'Folia', color: '#00a0e3', bleed: 10, icon: 'print', laminate: true,
     desc: 'Zadrukowana folia oklejająca całą powierzchnię (ściana, lada, słup). W opcjach zaznacz, czy z laminatem.' },
@@ -964,7 +964,7 @@ const I18N_PAIRS = [
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
-  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Kolejna sztuka…', 'Ще одна штука…', 'Another piece…'], ['Kolejna sztuka', 'Ще одна штука', 'Another piece'], ['Element', 'Елемент', 'Element'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Mat', 'Мат', 'Matte'], ['Połysk', 'Глянець', 'Gloss'], ['mat', 'мат', 'matte'], ['połysk', 'глянець', 'gloss'], ['Wykończenie', 'Оздоблення', 'Finish'], ['Kolejna sztuka…', 'Ще одна штука…', 'Another piece…'], ['Kolejna sztuka', 'Ще одна штука', 'Another piece'], ['Element', 'Елемент', 'Element'],
   ['To miejsce to kolejna sztuka elementu, który już jest na liście. Wybierz go — dostanie tu drugi znacznik, a liczba sztuk wzrośnie.', 'Це місце — ще одна штука елемента, який вже є у списку. Виберіть його — він отримає тут другу мітку, а кількість штук зросте.', 'This spot is another piece of an element already on the list. Pick it — it gets a second marker here and the quantity goes up.'], ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
   ['Nazwa elementu (opcjonalnie)', 'Назва елемента (необов’язково)', 'Element name (optional)'], ['nazwa (opcjonalnie)', 'назва (необов’язково)', 'name (optional)'],
   ['np. ściana tylna, lada, kaseton nad wejściem', 'напр. задня стіна, стійка, короб над входом', 'e.g. back wall, counter, sign above the entrance'], ['Zlecenie', 'Замовлення', 'Order'],
@@ -1413,8 +1413,11 @@ function normalizeEl(e) {
 // przełączniki opcji typu: [pole, napis w opcjach, dopisek w nazwie]
 const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze']];
 // wartości przełączników do zapisu: tylko te, które dany typ ma
-const togValues = (src, typeId) => Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, typeById(typeId)[k] ? !!src[k] : false]));
-const togReset = () => Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, false]));
+// wykończenie folii: mat albo połysk (można nie wybierać)
+const FINISHES = [['mat', 'Mat', 'mat'], ['polysk', 'Połysk', 'połysk']];
+const togValues = (src, typeId) => ({ ...Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, typeById(typeId)[k] ? !!src[k] : false])),
+  finish: typeById(typeId).finish && FINISHES.some(([k]) => k === src.finish) ? src.finish : '' });
+const togReset = () => ({ ...Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, false])), finish: '' });
 const variantOf = el => (typeById(el.typeId).variants || []).find(v => v.id === el.variant) || null;
 const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 'flat'; }; // flat | ring | box
 // Pełna nazwa typu z wykonaniem, grubością i SEG — do tabeli, PDF, CSV i historii
@@ -1482,6 +1485,7 @@ function typeLabel(el) {
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
   if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
   TYPE_TOGGLES.forEach(([k, , lab]) => { if (t[k] && el[k]) s += ' · ' + lab; });
+  if (t.finish) { const f = FINISHES.find(([k]) => k === el.finish); if (f) s += ' · ' + f[2]; }
   if (t.seg && el.seg) s += ' · SEG';
   if (t.wyslona && el.wyslona) s += ' · wysłona';
   return s;
@@ -2820,10 +2824,11 @@ function renderArcPanel() {
         (o.on && vv0 && vv0.thick ? `<div class="ap-thick"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 30"></div>` : '')).join('')}</div>`;
       if (!st.done) { ready = false; break; }
     }
-    if (ready && !t.variants && (t.thick || TYPE_TOGGLES.some(([k]) => t[k]))) {
+    if (ready && !t.variants && (t.thick || t.finish || TYPE_TOGGLES.some(([k]) => t[k]))) {
       h += `<div class="ap-sec${fresh('opts' + t.id)}"><div class="ap-lab">Opcje</div>
         ${t.thick ? `<div class="ap-thick" style="margin-left:0"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 5"></div>` : ''}
-        ${TYPE_TOGGLES.filter(([k]) => t[k]).map(([k, name]) => `<button type="button" class="ap-opt ap-tog${ARC[k] ? ' on' : ''}" data-tog="${k}"><span class="k">${ARC[k] ? '✓' : ''}</span>${name}</button>`).join('')}</div>`;
+        ${TYPE_TOGGLES.filter(([k]) => t[k]).map(([k, name]) => `<button type="button" class="ap-opt ap-tog${ARC[k] ? ' on' : ''}" data-tog="${k}"><span class="k">${ARC[k] ? '✓' : ''}</span>${name}</button>`).join('')}
+        ${t.finish ? FINISHES.map(([k, name]) => `<button type="button" class="ap-opt ap-fin${ARC.finish === k ? ' on' : ''}" data-fin="${k}"><span class="k">${ARC.finish === k ? '✓' : ''}</span>${name}</button>`).join('') : ''}</div>`;
     }
     if (ready) {
       const m = dimsMode(ARC), vv = variantOf(ARC);
@@ -2856,6 +2861,7 @@ function renderArcPanel() {
   panel.querySelectorAll('.sz-wrap > input').forEach(i => sizeButton(i, true));
   panel.querySelectorAll('.ap-opt[data-step]').forEach(b => b.onclick = () => arcPickOpt(b.dataset.step, b.dataset.o));
   panel.querySelectorAll('.ap-tog').forEach(b => b.onclick = () => { ARC[b.dataset.tog] = !ARC[b.dataset.tog]; renderArcPanel(); });
+  panel.querySelectorAll('.ap-fin').forEach(b => b.onclick = () => { ARC.finish = ARC.finish === b.dataset.fin ? '' : b.dataset.fin; renderArcPanel(); });
   panel.querySelectorAll('[data-f]').forEach(i => i.addEventListener('input', () => { ARC[i.dataset.f] = i.value; arcCalc(); }));
   const go = panel.querySelector('.ap-go'); if (go) go.onclick = arcSave;
   const x = panel.querySelector('.ap-x'); if (x) x.onclick = () => closeArcMenu();
@@ -3049,6 +3055,8 @@ function openElementDialog({ id, shape, photoId }) {
     }
     if (t && hasThick(el)) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
     if (t) TYPE_TOGGLES.filter(([k]) => t[k]).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
+    if (t && t.finish) h += `<div class="fld"><label>Wykończenie</label><div class="var-list">${FINISHES.map(([k, name]) =>
+      `<button type="button" class="type-btn var-btn ${el.finish === k ? 'on' : ''}" data-fin="${k}">${name}</button>`).join('')}</div></div>`;
     if (t && t.seg) {
       const mount = el.seg ? 'seg' : el.wyslona ? 'wys' : 'std';
       h += `<div class="fld"><label>Mocowanie</label><div class="var-list">
@@ -3065,6 +3073,7 @@ function openElementDialog({ id, shape, photoId }) {
       renderOpts(); refresh();
     });
     $('ed-opts').querySelectorAll('input[data-tog]').forEach(i => i.addEventListener('change', () => { el[i.dataset.tog] = i.checked; refresh(); }));
+    $('ed-opts').querySelectorAll('[data-fin]').forEach(b => b.onclick = () => { el.finish = el.finish === b.dataset.fin ? '' : b.dataset.fin; renderOpts(); refresh(); });
     // pola wymiaru zależne od kształtu
     const m = dimsMode(el);
     $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
@@ -3613,7 +3622,7 @@ const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
 function orderText() {
   const line = e => {
     const t = typeById(e.typeId), wys = t.wyslona && e.wyslona;
-    const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e)];
+    const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
     if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
     if (e.notes) parts.push(e.notes);
     return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
