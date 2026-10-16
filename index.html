@@ -66,12 +66,12 @@
   .cd .cd-lab { padding: 4px 8px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; font-size: 0.68rem; display: flex; align-items: center; background: rgba(255,255,255,0.08); }
   .cd .cd-val { padding: 4px 10px; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 0.95rem; display: flex; align-items: center; }
   .cd .cd-next { padding: 4px 8px; color: var(--mid); font-size: 0.7rem; display: flex; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); }
-  .cd.ph-deadline { border-color: var(--accent); }
-  .cd.ph-deadline .cd-lab { background: var(--accent); color: var(--dark); }
-  .cd.ph-event { border-color: #63b3ed; }
-  .cd.ph-event .cd-lab { background: #63b3ed; color: var(--dark); }
-  .cd.urgent { border-color: var(--red); }
-  .cd.urgent .cd-lab { background: var(--red); color: #fff; }
+  .cd.ph-deadline { border-color: #ecc94b; }
+  .cd.ph-deadline .cd-lab { background: #ecc94b; color: var(--dark); }
+  .cd.ph-pack { border-color: var(--accent); }
+  .cd.ph-pack .cd-lab { background: var(--accent); color: #fff; }
+  .cd.ph-event { border-color: var(--red); }
+  .cd.ph-event .cd-lab { background: var(--red); color: #fff; }
   .cd.ph-live .cd-lab { background: var(--green); color: #fff; }
   .cd.ph-done, .cd.ph-none { opacity: .7; }
 
@@ -178,16 +178,18 @@
   #clock-pane { flex: 0 0 210px; border-left: 1px solid var(--line); background: linear-gradient(180deg, #fff, var(--bg)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 10px; min-height: 0; overflow: hidden; }
   #clock-svg { width: 100%; max-width: 170px; max-height: 170px; flex: 1 1 0; min-height: 0; overflow: visible; }
   .cl-lab, .cl-sub { flex: 0 0 auto; }
-  #cl-arc { transition: stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1); }
+  #clock-svg .cl-seg, #cl-past { transition: stroke-dasharray .8s ease, stroke-dashoffset .8s ease; }
   #cl-big { font: 600 22px 'Segoe UI', Arial, sans-serif; fill: var(--dark); letter-spacing: -.02em; }
   #cl-big.long { font-size: 15px; }
   #cl-small { font: 600 10px 'Segoe UI', Arial, sans-serif; fill: var(--gray); font-variant-numeric: tabular-nums; }
   .cl-lab { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--dark); text-align: center; margin-top: 4px; }
   .cl-sub { font-size: 0.7rem; color: var(--gray); text-align: center; }
-  #clock-pane.c-red #cl-big { fill: #c53030; }
-  #clock-pane.c-red #clock-svg { animation: clGlow 2.4s ease-in-out infinite; }
-  @keyframes clGlow { 0%, 100% { filter: drop-shadow(0 0 0 rgba(229,62,62,0)); } 50% { filter: drop-shadow(0 0 7px rgba(229,62,62,.55)); } }
-  #clock-pane.c-off #clock-svg { opacity: .45; }
+  #clock-pane.ph-deadline .cl-lab { color: #b7791f; }
+  #clock-pane.ph-pack .cl-lab { color: #2f855a; }
+  #clock-pane.ph-event .cl-lab, #clock-pane.ph-event #cl-big { color: #c53030; fill: #c53030; }
+  #clock-pane.ph-none #clock-svg { opacity: .45; }
+  .cl-legend { display: flex; gap: 8px; font-size: .62rem; color: var(--gray); margin-top: 3px; flex: 0 0 auto; }
+  .cl-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 3px; vertical-align: 0; }
 
   /* znaczniki na wizce: łagodne pulsowanie; najechanie na wiersz = duży, mocniej pulsujący */
   #overlay .mk { transform-box: fill-box; transform-origin: center; animation: mkPulse 2s ease-in-out infinite; }
@@ -291,52 +293,48 @@
   .arch-tag { font-size: 0.6rem; font-weight: 700; border: 1px solid currentColor; padding: 0 4px; color: var(--gray); text-transform: uppercase; margin-left: 6px; }
   .side-foot { padding: 8px 10px; border-top: 1px solid var(--line); font-size: 0.78rem; margin: 0; }
 
-  /* ---------- menu łukowe (styl gry strategicznej) ---------- */
+  /* ---------- menu łukowe (styl gry strategicznej): zielone z białą obwódką, prostokąty ---------- */
   #arc-back { position: fixed; inset: 0; z-index: 140; background: radial-gradient(circle at center, rgba(10,14,22,0) 0, rgba(10,14,22,.12) 100%); }
   #arc { position: fixed; z-index: 150; width: 0; height: 0; font-family: 'Segoe UI', Arial, sans-serif; }
   #arc.closing { animation: arcOut .18s ease-in forwards; }
   @keyframes arcOut { to { opacity: 0; transform: scale(.94); } }
   #arc .arc-svg { position: absolute; overflow: visible; pointer-events: none; }
-  #arc .a-main { fill: none; stroke: url(#arcGold); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; }
-  #arc .a-glow { fill: none; stroke: #f6d365; stroke-opacity: .35; stroke-width: 14; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; filter: blur(3px); }
-  #arc .a-in { fill: none; stroke: #1a202c; stroke-opacity: .85; stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .4s .08s ease-out forwards; }
-  #arc .a-ticks line { stroke: #c9a646; stroke-width: 2; opacity: 0; animation: fadeIn .2s .25s forwards; }
-  #arc .a-ring { fill: rgba(26,32,44,.55); stroke: #c9a646; stroke-width: 2; animation: coreRing 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  #arc .a-out { fill: none; stroke: #fff; stroke-width: 9; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; filter: drop-shadow(0 1px 3px rgba(0,0,0,.45)); }
+  #arc .a-main { fill: none; stroke: url(#arcGreen); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .32s ease-out forwards; }
+  #arc .a-in { fill: none; stroke: #fff; stroke-opacity: .9; stroke-width: 1.5; stroke-dasharray: 100; stroke-dashoffset: 100; animation: arcDraw .4s .08s ease-out forwards; }
+  #arc .a-ticks line { stroke: #fff; stroke-width: 2; opacity: 0; animation: fadeIn .2s .25s forwards; }
+  #arc .a-ring { fill: rgba(26,32,44,.55); stroke: #fff; stroke-width: 2; animation: coreRing 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
   #arc .a-gem { fill: #67b437; stroke: #fff; stroke-width: 1.2; }
   @keyframes arcDraw { to { stroke-dashoffset: 0; } }
   @keyframes fadeIn { to { opacity: 1; } }
   @keyframes coreRing { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
-  #arc .arc-btn { position: absolute; width: 270px; height: 30px; padding: 1.5px; border: none; cursor: pointer; background: linear-gradient(180deg, #ffe9a3, #c9a646 45%, #7a5b1c);
-    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); opacity: 0; animation: btnIn .26s cubic-bezier(.2,.9,.3,1.2) forwards; animation-delay: var(--d); }
+  #arc .arc-btn { position: absolute; width: 270px; height: 30px; padding: 2px; border: none; cursor: pointer; background: #67b437; box-shadow: 0 0 0 1.5px #fff, 0 3px 8px rgba(0,0,0,.35);
+    opacity: 0; animation: btnIn .26s cubic-bezier(.2,.9,.3,1.2) forwards; animation-delay: var(--d); }
   #arc.dir-l .arc-btn, #arc.dir-l .arc-panel { transform: translateX(-100%); }
-  #arc .arc-btn .in { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 14px 0 12px; color: #f0e6c8; font-size: .72rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap;
-    background: linear-gradient(180deg, #364157, #1b2130 55%, #121621); clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); transition: background .15s, color .15s; }
+  #arc .arc-btn .in { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 12px 0 6px; color: #fff; font-size: .72rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap;
+    background: linear-gradient(180deg, #2f3a4f, #1b2130 55%, #121621); transition: background .15s, color .15s; }
   #arc .arc-btn .nm { overflow: hidden; text-overflow: ellipsis; }
-  #arc .k { flex: 0 0 auto; min-width: 17px; height: 17px; display: inline-flex; align-items: center; justify-content: center; font-size: .64rem; font-weight: 800; color: #1a202c; background: linear-gradient(180deg, #ffe9a3, #c9a646); }
-  #arc .gem { flex: 0 0 auto; width: 10px; height: 10px; transform: rotate(45deg); box-shadow: 0 0 0 1.5px rgba(255,255,255,.7), 0 0 8px currentColor; }
-  #arc .arc-btn:hover { background: linear-gradient(180deg, #fff6d0, #f0c75a 45%, #a07a26); }
-  #arc .arc-btn:hover .in { background: linear-gradient(180deg, #4a5878, #263048 55%, #182033); color: #fff; text-shadow: 0 0 6px rgba(255,233,163,.7); }
-  #arc .arc-btn.on { background: linear-gradient(180deg, #d9f7c0, #67b437 45%, #2f6114); }
-  #arc .arc-btn.on .in { background: linear-gradient(180deg, #3d5a2e, #22361a 55%, #172612); color: #fff; }
-  #arc .arc-btn.dim { filter: saturate(.4) brightness(.7); }
+  #arc .k { flex: 0 0 auto; min-width: 17px; height: 17px; display: inline-flex; align-items: center; justify-content: center; font-size: .64rem; font-weight: 800; color: #fff; background: #67b437; box-shadow: 0 0 0 1px #fff; }
+  #arc .gem { flex: 0 0 auto; width: 10px; height: 10px; transform: rotate(45deg); box-shadow: 0 0 0 1.5px #fff; }
+  #arc .arc-btn:hover { background: #8fd65e; }
+  #arc .arc-btn:hover .in { background: linear-gradient(180deg, #3b4a66, #263048 55%, #182033); }
+  #arc .arc-btn.on .in { background: linear-gradient(180deg, #5a9a33, #3e7a1c); }
+  #arc .arc-btn.dim { filter: saturate(.35) brightness(.75); }
   #arc .arc-btn.dim:hover { filter: none; }
   @keyframes btnIn { from { opacity: 0; translate: calc(var(--dir) * -28px) 0; } to { opacity: 1; translate: 0 0; } }
-  #arc .arc-panel { position: absolute; padding: 1.5px; background: linear-gradient(180deg, #ffe9a3, #c9a646 30%, #7a5b1c); clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
-    box-shadow: 0 10px 30px rgba(0,0,0,.45); animation: panelIn .24s cubic-bezier(.2,.9,.3,1.1); }
-  #arc .arc-panel > * { position: relative; }
-  #arc .arc-panel::before { content: ''; position: absolute; inset: 1.5px; background: linear-gradient(180deg, #232b3b, #141924 70%); clip-path: polygon(13px 0, 100% 0, 100% calc(100% - 13px), calc(100% - 13px) 100%, 0 100%, 0 13px); }
-  @keyframes panelIn { from { opacity: 0; translate: calc(var(--dir) * -24px) 0; clip-path: polygon(0 0, 30% 0, 30% 100%, 0 100%); } }
-  #arc .ap-h { display: flex; align-items: center; gap: 9px; padding: 10px 14px 8px; color: #ffe9a3; font-size: .78rem; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; border-bottom: 1px solid rgba(201,166,70,.35); }
-  #arc .ap-img { margin: 10px 14px 6px; height: 130px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(201,166,70,.5); }
+  #arc .arc-panel { position: absolute; border: 2px solid #67b437; background: linear-gradient(180deg, #232b3b, #141924 70%); box-shadow: 0 0 0 1.5px #fff, 0 10px 30px rgba(0,0,0,.45); animation: panelIn .24s cubic-bezier(.2,.9,.3,1.1); }
+  @keyframes panelIn { from { opacity: 0; translate: calc(var(--dir) * -24px) 0; } }
+  #arc .ap-h { display: flex; align-items: center; gap: 9px; padding: 10px 14px 8px; color: #fff; font-size: .78rem; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; border-bottom: 1px solid rgba(103,180,55,.5); }
+  #arc .ap-img { margin: 10px 14px 6px; height: 130px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 0 0 1px #67b437; }
   #arc .ap-img img, #arc .ap-img svg { max-width: 100%; max-height: 100%; display: block; }
   #arc .ap-desc { padding: 0 14px 8px; color: #cbd5e0; font-size: .74rem; line-height: 1.45; }
-  #arc .ap-hint { padding: 0 14px 12px; color: #c9a646; font-size: .7rem; font-style: italic; }
-  #arc .ap-sec { padding: 8px 14px 10px; border-top: 1px solid rgba(201,166,70,.25); }
-  #arc .ap-lab { color: #c9a646; font-size: .64rem; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 6px; }
-  #arc .ap-opt { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 4px; padding: 6px 10px; border: 1px solid rgba(201,166,70,.45); background: linear-gradient(180deg, #2e3850, #1a2030);
-    color: #f0e6c8; font-size: .76rem; font-weight: 700; text-align: left; cursor: pointer; clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); transition: background .15s; }
-  #arc .ap-opt:hover { background: linear-gradient(180deg, #44527a, #263048); color: #fff; }
-  #arc .ap-opt.on { background: linear-gradient(180deg, #4f7a38, #22361a); border-color: #9be36d; color: #fff; }
+  #arc .ap-hint { padding: 0 14px 12px; color: #9be36d; font-size: .7rem; font-style: italic; }
+  #arc .ap-sec { padding: 8px 14px 10px; border-top: 1px solid rgba(103,180,55,.35); }
+  #arc .ap-lab { color: #9be36d; font-size: .64rem; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 6px; }
+  #arc .ap-opt { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 5px; padding: 6px 10px 6px 6px; border: 2px solid #67b437; outline: 1px solid rgba(255,255,255,.85); background: linear-gradient(180deg, #2f3a4f, #1a2030);
+    color: #fff; font-size: .76rem; font-weight: 700; text-align: left; cursor: pointer; transition: background .15s; }
+  #arc .ap-opt:hover { background: linear-gradient(180deg, #3b4a66, #263048); }
+  #arc .ap-opt.on { background: linear-gradient(180deg, #5a9a33, #3e7a1c); }
   #arc .ap-in { animation: secIn .28s cubic-bezier(.2,.9,.3,1.1) both; }
   #arc .ap-sec.ap-in { animation-delay: .06s; }
   @keyframes secIn { from { opacity: 0; translate: calc(var(--dir) * -18px) 0; } }
@@ -344,18 +342,17 @@
   #arc .ap-row.r3 { grid-template-columns: 1fr 1fr 1fr; }
   #arc .ap-row.r2 { grid-template-columns: 64px 1fr; }
   #arc .ap-row:first-of-type:only-child { grid-template-columns: 1fr; }
-  #arc .ap-form input { width: 100%; padding: 6px 8px; background: #0e121a; border: 1px solid rgba(201,166,70,.5); color: #fff; font-size: .82rem; }
-  #arc .ap-form input:focus { outline: none; border-color: #ffe9a3; box-shadow: 0 0 0 2px rgba(255,233,163,.2); }
+  #arc .ap-form input { width: 100%; padding: 6px 8px; background: #0e121a; border: 1.5px solid #67b437; color: #fff; font-size: .82rem; }
+  #arc .ap-form input:focus { outline: none; border-color: #fff; box-shadow: 0 0 0 2px rgba(103,180,55,.45); }
   #arc .ap-form input::placeholder { color: #718096; }
   #arc .ap-calc { color: #cbd5e0; font-size: .72rem; margin: 2px 0 8px; }
-  #arc .ap-calc b { color: #ffe9a3; }
+  #arc .ap-calc b { color: #c6f6a0; }
   #arc .ap-calc .w { color: #f6ad55; font-weight: 700; }
   #arc .ap-acts { display: flex; gap: 6px; }
-  #arc .ap-go { flex: 1; padding: 8px; border: none; cursor: pointer; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; font-size: .78rem; color: #10200a;
-    background: linear-gradient(180deg, #d9f7c0, #67b437 50%, #3e7a1c); clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+  #arc .ap-go { flex: 1; padding: 8px; border: 2px solid #fff; cursor: pointer; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; font-size: .78rem; color: #fff; background: linear-gradient(180deg, #7cc94a, #67b437 50%, #3e7a1c); }
   #arc .ap-go:hover { filter: brightness(1.12); }
-  #arc .ap-go small { font-size: .6rem; opacity: .7; margin-left: 4px; }
-  #arc .ap-x { width: 38px; border: 1px solid rgba(201,166,70,.5); background: #1a2030; color: #f0e6c8; cursor: pointer; }
+  #arc .ap-go small { font-size: .6rem; opacity: .8; margin-left: 4px; }
+  #arc .ap-x { width: 38px; border: 2px solid #fff; background: #1a2030; color: #fff; cursor: pointer; }
   #arc .ap-x:hover { background: #742a2a; }
 
   /* ---------- okna ---------- */
@@ -536,23 +533,29 @@
       <svg id="clock-svg" viewBox="0 0 120 120" aria-hidden="true">
         <defs>
           <linearGradient id="clTrack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4846"/><stop offset=".5" stop-color="#1F1E1D"/><stop offset="1" stop-color="#0E0E0D"/></linearGradient>
-          <linearGradient id="clGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6E05E"/><stop offset=".5" stop-color="#9ACD4A"/><stop offset="1" stop-color="#3E7A1C"/></linearGradient>
+          <linearGradient id="clGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B6E88F"/><stop offset=".5" stop-color="#67B437"/><stop offset="1" stop-color="#3E7A1C"/></linearGradient>
           <linearGradient id="clYellow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF3B0"/><stop offset=".5" stop-color="#F6C744"/><stop offset="1" stop-color="#B7791F"/></linearGradient>
           <linearGradient id="clRed" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FEB2B2"/><stop offset=".5" stop-color="#E53E3E"/><stop offset="1" stop-color="#822727"/></linearGradient>
           <filter id="clShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".35"/></filter>
         </defs>
         <g filter="url(#clShadow)">
           <circle cx="60" cy="60" r="47" fill="none" stroke="url(#clTrack)" stroke-width="13"/>
-          <circle id="cl-arc" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <!-- trzy odcinki po kolei: graficzny (żółty), pakowanie (zielony), impreza (czerwony); upływ = przyciemnienie -->
+          <circle id="cl-s1" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clYellow)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <circle id="cl-s2" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <circle id="cl-s3" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clRed)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <circle id="cl-past" cx="60" cy="60" r="47" fill="none" stroke="#0E0E0D" stroke-opacity=".5" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <!-- połysk rury -->
           <circle cx="60" cy="60" r="51" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="2"/>
           <circle cx="60" cy="60" r="43.5" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="1.5"/>
         </g>
+        <circle id="cl-knob" cx="60" cy="13" r="6" fill="#fff" stroke="#1a202c" stroke-width="2"/>
         <text id="cl-big" x="60" y="62" text-anchor="middle">–</text>
         <text id="cl-small" x="60" y="78" text-anchor="middle"></text>
       </svg>
       <div class="cl-lab" id="cl-lab"></div>
       <div class="cl-sub" id="cl-sub"></div>
+      <div class="cl-legend"><span><i style="background:#ecc94b"></i>grafika</span><span><i style="background:#67b437"></i>pakowanie</span><span><i style="background:#e53e3e"></i>impreza</span></div>
     </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
@@ -1230,22 +1233,34 @@ function newStandFromSide() {
 
 // Deadline graficzny: domyślnie DEADLINE_DAYS dni przed startem targów (ta sama godzina).
 // Zmieniać go ręcznie może tylko administrator; pozostali widzą pole zablokowane.
-const DEADLINE_DAYS = 25;
-function autoDeadline(start) {
+const DEADLINE_DAYS = 25, PACK_DAYS = 7;
+function daysBefore(start, days) {
   const t = tsOf(start); if (!t) return '';
-  const d = new Date(t); d.setDate(d.getDate() - DEADLINE_DAYS);
+  const d = new Date(t); d.setDate(d.getDate() - days);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+const autoDeadline = start => daysBefore(start, DEADLINE_DAYS);
+// Deadline pakowania: tydzień przed startem imprezy (admin może przesunąć)
+const autoPack = start => daysBefore(start, PACK_DAYS);
+// skuteczny deadline pakowania stoiska: zapisany albo wyliczony, nigdy przed graficznym
+function packOf(p) {
+  let pk = p.deadlinePack || autoPack(p.eventStart);
+  if (pk && p.deadlineGfx && pk < p.deadlineGfx) pk = p.deadlineGfx;
+  return pk;
+}
+const packField = (id, value, hint = true) => `<div class="fld"><label>Deadline pakowania</label>
+  <input type="datetime-local" id="${id}" value="${esc(value || '')}" ${isAdmin() ? '' : 'disabled'}>
+  <div class="hint ${hint ? '' : 'hidden'}">Ustawia się sam: ${PACK_DAYS} dni przed startem targów.</div></div>`;
 const deadlineField = (id, value, hint = true) => `<div class="fld"><label>Deadline graficzny</label>
   <input type="datetime-local" id="${id}" value="${esc(value || '')}" ${isAdmin() ? '' : 'disabled'}>
   <div class="hint ${hint ? '' : 'hidden'}">Ustawia się sam: ${DEADLINE_DAYS} dni przed startem targów.${isAdmin() ? ' Jako administrator możesz go przesunąć.' : ' Zmienić może tylko administrator.'}</div></div>`;
 // podpina przeliczanie: zmiana startu przestawia deadline, dopóki admin nie ustawił go ręcznie
-function wireAutoDeadline(startId, dlId) {
+function wireAutoDeadline(startId, dlId, auto = autoDeadline) {
   const st = $(startId), dl = $(dlId);
-  let manual = !!dl.value && dl.value !== autoDeadline(st.value);
-  if (!dl.value && st.value) dl.value = autoDeadline(st.value);
+  let manual = !!dl.value && dl.value !== auto(st.value);
+  if (!dl.value && st.value) dl.value = auto(st.value);
   dl.addEventListener('input', () => { manual = !!dl.value; });
-  const sync = () => { if (!manual || !isAdmin()) dl.value = autoDeadline(st.value); };
+  const sync = () => { if (!manual || !isAdmin()) dl.value = auto(st.value); };
   st.addEventListener('input', sync); st.addEventListener('change', sync);
   return { setManual: v => { manual = v; } };
 }
@@ -1262,16 +1277,19 @@ function openFairForm(fid) {
         <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="ff-ev" value="${esc(f.eventStart || '')}"></div>
         <div class="fld"><label>Koniec imprezy</label><input type="datetime-local" id="ff-evend" value="${esc(f.eventEnd || '')}"></div>
       </div>
-      ${deadlineField('ff-dl', f.deadlineGfx)}`,
+      <div class="row2">${deadlineField('ff-dl', f.deadlineGfx)}${packField('ff-pk', f.deadlinePack)}</div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ff-ok">${fid ? 'Zapisz' : 'Utwórz'}</button>`,
   });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   wireAutoDeadline('ff-ev', 'ff-dl');
+  wireAutoDeadline('ff-ev', 'ff-pk', autoPack);
   $('ff-ok').onclick = async () => {
     const d = { name: $('ff-name').value.trim(), city: $('ff-city').value.trim(), eventStart: $('ff-ev').value,
-      eventEnd: $('ff-evend').value, deadlineGfx: $('ff-dl').value, updatedAt: nowIso() };
+      eventEnd: $('ff-evend').value, deadlineGfx: $('ff-dl').value, deadlinePack: $('ff-pk').value, updatedAt: nowIso() };
     if (!d.name) return toast('Podaj nazwę targów', 'error');
     if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed imprezą', 'error');
+    if (d.deadlinePack && d.eventStart && d.deadlinePack > d.eventStart) return toast('Deadline pakowania musi być przed imprezą', 'error');
+    if (d.deadlinePack && d.deadlineGfx && d.deadlinePack < d.deadlineGfx) return toast('Deadline pakowania musi być po graficznym', 'error');
     if (d.eventEnd && d.eventStart && d.eventEnd < d.eventStart) return toast('Koniec imprezy jest przed startem', 'error');
     $('ff-ok').disabled = true;
     try {
@@ -1282,7 +1300,7 @@ function openFairForm(fid) {
           const u = {};
           if (p.fair !== d.name) u.fair = d.name;
           if (p.city !== d.city) u.city = d.city;
-          for (const k of ['eventStart', 'eventEnd', 'deadlineGfx']) if ((p[k] || '') === (f[k] || '') && (p[k] || '') !== d[k]) u[k] = d[k];
+          for (const k of ['eventStart', 'eventEnd', 'deadlineGfx', 'deadlinePack']) if ((p[k] || '') === (f[k] || '') && (p[k] || '') !== d[k]) u[k] = d[k];
           if (Object.keys(u).length) await DB.update(C_PROJECTS, p.id, u);
         }
       } else {
@@ -1333,13 +1351,14 @@ async function sideArchive() {
 }
 
 // =====================================================================
-//  LICZNIKI: najpierw deadline graficzny, potem czas do imprezy
+//  LICZNIKI: deadline graficzny (żółty) → deadline pakowania (zielony) → impreza (czerwony)
 // =====================================================================
 const tsOf = v => { if (!v) return null; const t = new Date(v).getTime(); return isNaN(t) ? null : t; };
 function countdownInfo(p, now = Date.now()) {
-  const dl = tsOf(p.deadlineGfx), ev = tsOf(p.eventStart), evEnd = tsOf(p.eventEnd) || (ev ? ev + 864e5 : null);
-  if (dl && now < dl) return { phase: 'deadline', label: 'Deadline graficzny', target: dl, next: ev ? 'impreza ' + fmtDate(ev) : '' };
-  if (ev && now < ev) return { phase: 'event', label: 'Do imprezy', target: ev, next: dl ? 'deadline graf. minął ' + fmtDate(dl) : '' };
+  const dl = tsOf(p.deadlineGfx), pk = tsOf(packOf(p)), ev = tsOf(p.eventStart), evEnd = tsOf(p.eventEnd) || (ev ? ev + 864e5 : null);
+  if (dl && now < dl) return { phase: 'deadline', label: 'Deadline graficzny', target: dl, next: pk ? 'pakowanie ' + fmtDate(pk) : ev ? 'impreza ' + fmtDate(ev) : '' };
+  if (pk && now < pk) return { phase: 'pack', label: 'Deadline pakowania', target: pk, next: ev ? 'impreza ' + fmtDate(ev) : '' };
+  if (ev && now < ev) return { phase: 'event', label: 'Do imprezy', target: ev, next: 'start ' + fmtDateTime(ev) };
   if (ev && now < evEnd) return { phase: 'live', label: 'Impreza trwa', target: null, next: 'do ' + fmtDate(evEnd) };
   if (ev) return { phase: 'done', label: 'Po imprezie', target: null, next: fmtDate(ev) };
   return { phase: 'none', label: 'Brak terminów', target: null, next: '' };
@@ -1351,34 +1370,40 @@ function fmtLeft(ms) {
 }
 function countdownHtml(p, compact) {
   const c = countdownInfo(p);
-  const urgent = c.target && c.target - Date.now() < (c.phase === 'deadline' ? 72 : 48) * 3600e3;
-  return `<span class="cd ph-${c.phase} ${urgent ? 'urgent' : ''}" data-cd="${p.id}">
+  return `<span class="cd ph-${c.phase}" data-cd="${p.id}">
     <span class="cd-lab">${c.label}</span>
     ${c.target ? `<span class="cd-val">${fmtLeft(c.target - Date.now())}</span>` : ''}
     ${c.next && !compact ? `<span class="cd-next">${c.next}</span>` : ''}
     ${c.next && compact && !c.target ? `<span class="cd-next">${c.next}</span>` : ''}</span>`;
 }
-// zegar-butla w dolnym panelu projektu
+// zegar-butla w dolnym panelu projektu: całe kółko = od założenia stoiska do startu imprezy,
+// podzielone na trzy odcinki; biała gałka = teraz, część za nią przyciemniona
 function clockInfo(p, now = Date.now()) {
-  const c = countdownInfo(p, now);
-  if (!c.target) return { ...c, frac: c.phase === 'live' ? 0 : 0 };
-  let start;
-  if (c.phase === 'deadline') start = tsOf(p.createdAt) || c.target - DEADLINE_DAYS * 864e5;
-  else start = tsOf(p.deadlineGfx) || tsOf(p.createdAt) || c.target - 30 * 864e5;
-  if (!start || start >= c.target) start = c.target - 864e5;
-  return { ...c, frac: clamp((c.target - now) / (c.target - start), 0, 1) };
+  const c = countdownInfo(p, now), ev = tsOf(p.eventStart);
+  if (!ev) return { ...c, segs: null };
+  const pk = tsOf(packOf(p)) || ev, dl = Math.min(tsOf(p.deadlineGfx) || pk, pk);
+  let t0 = tsOf(p.createdAt) || dl - 14 * 864e5;
+  if (t0 > dl - 864e5) t0 = dl - 7 * 864e5;
+  const pct = t => clamp((t - t0) / (ev - t0) * 100, 0, 100);
+  return { ...c, segs: [pct(dl), pct(pk), 100], now: pct(now) };
 }
 function updateClock() {
   const p = S.project, pane = $('clock-pane');
   if (!p || !pane) return;
   const c = clockInfo(p), left = c.target ? c.target - Date.now() : 0;
-  const urgentH = c.phase === 'deadline' ? 72 : 48;
-  const color = !c.target ? 'off' : (c.frac < 0.2 || left < urgentH * 3600e3) ? 'red' : c.frac < 0.5 ? 'yellow' : 'green';
-  pane.className = 'c-' + color;
-  const arc = $('cl-arc');
-  arc.setAttribute('stroke', `url(#cl${{ green: 'Green', yellow: 'Yellow', red: 'Red', off: 'Green' }[color]})`);
-  const pct = c.target ? Math.max(0.6, c.frac * 100) : (c.phase === 'live' ? 100 : 0);
-  arc.setAttribute('stroke-dasharray', `${pct.toFixed(2)} ${(100 - pct).toFixed(2)}`);
+  pane.className = 'ph-' + (c.segs ? c.phase : 'none');
+  const seg = (id, a, b) => {
+    const el = $(id), gap = b - a > 1.5 ? 0.6 : 0, len = Math.max(0, b - a - gap);
+    el.setAttribute('stroke-dasharray', `${len.toFixed(2)} ${(100 - len).toFixed(2)}`);
+    el.setAttribute('stroke-dashoffset', (-a).toFixed(2));
+  };
+  const [a, b] = c.segs || [0, 0];
+  seg('cl-s1', 0, c.segs ? a : 0); seg('cl-s2', a, c.segs ? b : 0); seg('cl-s3', b, c.segs ? 100 : 0);
+  const now = c.segs ? c.now : 0;
+  $('cl-past').setAttribute('stroke-dasharray', `${now.toFixed(2)} ${(100 - now).toFixed(2)}`);
+  const ang = (now * 3.6 - 90) * Math.PI / 180, knob = $('cl-knob');
+  knob.setAttribute('cx', (60 + 47 * Math.cos(ang)).toFixed(2)); knob.setAttribute('cy', (60 + 47 * Math.sin(ang)).toFixed(2));
+  knob.style.display = c.segs ? '' : 'none';
   const big = $('cl-big'), small = $('cl-small');
   if (c.target) {
     const sec = Math.floor(left / 1000), d = Math.floor(sec / 86400);
@@ -1389,9 +1414,8 @@ function updateClock() {
     big.textContent = c.phase === 'live' ? 'Trwa' : c.phase === 'done' ? 'Koniec' : '—'; big.classList.remove('long');
     small.textContent = '';
   }
-  $('cl-lab').textContent = c.phase === 'deadline' ? 'do deadline’u graficznego' : c.phase === 'event' ? 'do imprezy' : c.label;
-  $('cl-sub').textContent = c.phase === 'deadline' ? fmtDateTime(p.deadlineGfx) + (p.eventStart ? ' · impreza ' + fmtDate(p.eventStart) : '')
-    : c.phase === 'event' ? fmtDateTime(p.eventStart) : c.next || 'ustaw terminy w ⚙ Projekt';
+  $('cl-lab').textContent = { deadline: 'do deadline’u graficznego', pack: 'do deadline’u pakowania', event: 'do imprezy' }[c.phase] || c.label;
+  $('cl-sub').textContent = c.target ? fmtDateTime(c.target) + (c.next && c.phase !== 'event' ? ' · ' + c.next : '') : c.next || 'ustaw terminy w ⚙ Projekt';
 }
 setInterval(() => {
   if (S.project) updateClock();
@@ -1402,7 +1426,6 @@ setInterval(() => {
     if (!el.classList.contains('ph-' + c.phase)) { el.outerHTML = countdownHtml(p, !!el.closest('.proj-card')); return; }
     const v = el.querySelector('.cd-val');
     if (v && c.target) v.textContent = fmtLeft(c.target - Date.now());
-    el.classList.toggle('urgent', !!(c.target && c.target - Date.now() < (c.phase === 'deadline' ? 72 : 48) * 3600e3));
   });
 }, 1000);
 
@@ -1413,7 +1436,7 @@ function openProjectForm(pid, fairId) {
   let p = pid ? S.projects.find(x => x.id === pid) : {};
   if (!pid && fairId && fairById(fairId)) {
     const f = fairById(fairId);
-    p = { fairId, deadlineGfx: f.deadlineGfx || autoDeadline(f.eventStart), eventStart: f.eventStart || '', eventEnd: f.eventEnd || '' };
+    p = { fairId, deadlineGfx: f.deadlineGfx || autoDeadline(f.eventStart), deadlinePack: f.deadlinePack || autoPack(f.eventStart), eventStart: f.eventStart || '', eventEnd: f.eventEnd || '' };
   }
   const fairOpts = S.fairs.filter(f => !f.archived || f.id === p.fairId).sort(fairSort)
     .map(f => `<option value="${f.id}" ${f.id === p.fairId ? 'selected' : ''}>${esc(f.name)}${f.city ? ' · ' + esc(f.city) : ''}</option>`).join('');
@@ -1427,7 +1450,7 @@ function openProjectForm(pid, fairId) {
         <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="pf-ev" value="${esc(p.eventStart || '')}"></div>
         <div class="fld"><label>Koniec imprezy (opcjonalnie)</label><input type="datetime-local" id="pf-evend" value="${esc(p.eventEnd || '')}"></div>
       </div>
-      ${deadlineField('pf-dl', p.deadlineGfx, false)}
+      <div class="row2">${deadlineField('pf-dl', p.deadlineGfx, false)}${packField('pf-pk', p.deadlinePack || (pid ? autoPack(p.eventStart) : ''), false)}</div>
       <div class="fld"><label>Zespół — kto zajmuje się projektem</label>
         <div class="team-pick" id="pf-team"></div>
         <div class="team-add"><input type="text" id="pf-team-new" placeholder="dopisz osobę spoza systemu (np. Marek — drukarnia) i Enter"><button type="button" class="btn btn-sm" id="pf-team-btn">+ Dodaj</button></div>
@@ -1460,12 +1483,15 @@ function openProjectForm(pid, fairId) {
   $('pf-team-new').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addExt(); } });
   renderTeam();
   const autoDl = wireAutoDeadline('pf-ev', 'pf-dl');
+  const autoPk = wireAutoDeadline('pf-ev', 'pf-pk', autoPack);
   // wybór targów podpowiada ich terminy (deadline też z targów — mógł go tam przesunąć administrator)
   $('pf-fairid').onchange = () => {
     const f = fairById($('pf-fairid').value); if (!f) return;
     [['pf-ev', 'eventStart'], ['pf-evend', 'eventEnd']].forEach(([i, k]) => { if (f[k]) $(i).value = f[k]; });
     $('pf-dl').value = f.deadlineGfx || autoDeadline($('pf-ev').value);
     autoDl.setManual($('pf-dl').value !== autoDeadline($('pf-ev').value));
+    $('pf-pk').value = f.deadlinePack || autoPack($('pf-ev').value);
+    autoPk.setManual($('pf-pk').value !== autoPack($('pf-ev').value));
   };
   $('pf-ok').onclick = async () => {
     const fo = fairById($('pf-fairid').value);
@@ -1474,7 +1500,7 @@ function openProjectForm(pid, fairId) {
       fairId: fo ? fo.id : '',
       // nazwa i miasto targów kopiowane do stoiska (nagłówek, kafelki, PDF); stare stoiska bez targów zachowują swój opis
       fair: fo ? fo.name : (p.fairId ? '' : p.fair || ''), city: fo ? fo.city || '' : (p.fairId ? '' : p.city || ''),
-      deadlineGfx: $('pf-dl').value, eventStart: $('pf-ev').value, eventEnd: $('pf-evend').value,
+      deadlineGfx: $('pf-dl').value, deadlinePack: $('pf-pk').value, eventStart: $('pf-ev').value, eventEnd: $('pf-evend').value,
       notes: $('pf-notes').value.trim(),
       users: p.users || (isAdmin() ? [] : [S.me.id]),
       team: clone(team),
@@ -1482,11 +1508,14 @@ function openProjectForm(pid, fairId) {
     };
     if (!d.name) return toast('Podaj nazwę stoiska', 'error');
     if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed imprezą', 'error');
+    if (d.deadlinePack && d.eventStart && d.deadlinePack > d.eventStart) return toast('Deadline pakowania musi być przed imprezą', 'error');
+    if (d.deadlinePack && d.deadlineGfx && d.deadlinePack < d.deadlineGfx) return toast('Deadline pakowania musi być po graficznym', 'error');
     $('pf-ok').disabled = true;
     try {
       if (pid) {
         const changes = [];
         if (p.deadlineGfx !== d.deadlineGfx) changes.push('deadline graficzny → ' + fmtDateTime(d.deadlineGfx));
+        if ((p.deadlinePack || '') !== d.deadlinePack) changes.push('deadline pakowania → ' + fmtDateTime(d.deadlinePack));
         if (p.eventStart !== d.eventStart) changes.push('start imprezy → ' + fmtDateTime(d.eventStart));
         if (p.name !== d.name) changes.push('nazwa → ' + d.name);
         if (teamNames(p.team) !== teamNames(d.team)) changes.push('zespół → ' + teamNames(d.team));
@@ -2113,8 +2142,8 @@ function openArcMenu(shape, photoId) {
   const dy = py - oy;
   root.innerHTML = `
     <svg class="arc-svg" style="left:${-R - pad}px;top:${-R - pad}px" width="${2 * R + 2 * pad}" height="${2 * R + 2 * pad}" viewBox="${-R - pad} ${-R - pad} ${2 * R + 2 * pad} ${2 * R + 2 * pad}">
-      <defs><linearGradient id="arcGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a3"/><stop offset=".5" stop-color="#c9a646"/><stop offset="1" stop-color="#7a5b1c"/></linearGradient></defs>
-      <path class="a-glow" d="${arcPath(R)}" pathLength="100"/>
+      <defs><linearGradient id="arcGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9be36d"/><stop offset=".5" stop-color="#67b437"/><stop offset="1" stop-color="#3e7a1c"/></linearGradient></defs>
+      <path class="a-out" d="${arcPath(R)}" pathLength="100"/>
       <path class="a-main" d="${arcPath(R)}" pathLength="100"/>
       <path class="a-in" d="${arcPath(R - 9)}" pathLength="100"/>
       <g class="a-ticks">${ticks}</g>
@@ -2739,7 +2768,7 @@ async function exportPdf() {
       g.fillText(sub, PW - 40, 70);
       g.textAlign = 'left';
       g.fillStyle = '#718096'; g.font = '400 22px Segoe UI, Arial';
-      const foot = [p.deadlineGfx ? 'Deadline graficzny: ' + fmtDateTime(p.deadlineGfx) : '', p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
+      const foot = [p.deadlineGfx ? 'Deadline graficzny: ' + fmtDateTime(p.deadlineGfx) : '', packOf(p) ? 'Pakowanie: ' + fmtDateTime(packOf(p)) : '', p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
         'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
       g.fillText(foot, 40, PH - 28);
     };
