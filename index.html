@@ -293,6 +293,10 @@
   #side-tree { flex: 1 1 auto; overflow-y: auto; padding: 4px 0; }
   .fair-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 6px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid #edf2f7; }
   .fair-row:hover, .stand-row:hover { background: var(--bg); }
+  .fair-row[draggable="true"], .stand-row[draggable="true"] { cursor: grab; }
+  .dragging-row { opacity: .4; }
+  .drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+  .drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
   .fair-row.sel, .stand-row.sel { background: #f1f8ec; border-left-color: var(--accent); }
   .fair-row .car { width: 14px; flex: 0 0 auto; color: var(--gray); font-size: 0.7rem; text-align: center; }
   .fair-row .fn { font-weight: 800; font-size: 0.88rem; }
@@ -733,8 +737,8 @@ const USER_COLORS = ['#38a169','#3182ce','#e53e3e','#d69e2e','#805ad5','#dd6b20'
 const DEFAULT_TYPES = [
   { id: 'folia-kontur', order: 1, name: 'Folia cięta po konturze', color: '#45b731', bleed: 0, icon: 'cut',
     desc: 'Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.' },
-  { id: 'folia-laminat', order: 2, name: 'Folia + laminat', color: '#00a0e3', bleed: 10, icon: 'print',
-    desc: 'Zadrukowana folia z laminatem, oklejająca całą powierzchnię (ściana, lada, słup).' },
+  { id: 'folia-laminat', order: 2, name: 'Folia', color: '#00a0e3', bleed: 10, icon: 'print', laminate: true,
+    desc: 'Zadrukowana folia oklejająca całą powierzchnię (ściana, lada, słup). W opcjach zaznacz, czy z laminatem.' },
   { id: 'pcw', order: 3, name: 'Płyta PCW', color: '#e31e24', bleed: 10, icon: 'board', thick: true, contour: true,
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
   { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 100, icon: 'banner', seg: true,
@@ -906,7 +910,8 @@ const I18N_PAIRS = [
   ['W schowku nie ma obrazka — wybierz plik z dysku', 'У буфері немає зображення — виберіть файл з диска', 'No image in the clipboard — choose a file from disk'], ['Wgrywanie miniatury…', 'Завантаження мініатюри…', 'Uploading thumbnail…'],
   ['pas do druku', 'смуга до друку', 'print band'], ['konstrukcja', 'конструкція', 'structure'],
   // typy elementów
-  ['Folia cięta po konturze', 'Плівка, вирізана по контуру', 'Contour-cut vinyl'], ['Folia + laminat', 'Плівка + ламінат', 'Vinyl + laminate'],
+  ['Folia cięta po konturze', 'Плівка, вирізана по контуру', 'Contour-cut vinyl'], ['Folia', 'Плівка', 'Vinyl'], ['Laminat', 'Ламінат', 'Laminate'], ['laminat', 'ламінат', 'laminate'],
+  ['Zadrukowana folia oklejająca całą powierzchnię (ściana, lada, słup). W opcjach zaznacz, czy z laminatem.', 'Плівка з друком, що вкриває всю поверхню (стіна, стійка, колона). В опціях позначте, чи з ламінатом.', 'Printed vinyl covering the whole surface (wall, counter, column). Tick laminate in the options if needed.'],
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
@@ -1340,8 +1345,13 @@ async function ensureTypesSeeded() {
 const LEGACY_TYPES = { tkanina: { typeId: 'blackback', seg: true }, dibond: {} };
 function normalizeEl(e) {
   const L = LEGACY_TYPES[e.typeId];
-  return L && L.typeId ? { ...e, ...L } : e;
+  if (L && L.typeId) return { ...e, ...L };
+  // folia sprzed 2026-10-16 była zawsze „z nadrukiem + laminat"
+  if (e.typeId === 'folia-laminat' && e.laminate === undefined) return { ...e, laminate: true };
+  return e;
 }
+// przełączniki opcji typu: [pole, napis w opcjach, dopisek w nazwie]
+const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze']];
 const variantOf = el => (typeById(el.typeId).variants || []).find(v => v.id === el.variant) || null;
 const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 'flat'; }; // flat | ring | box
 // Pełna nazwa typu z wykonaniem, grubością i SEG — do tabeli, PDF, CSV i historii
@@ -1352,7 +1362,7 @@ function typeLabel(el) {
   let s = t.name;
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
   if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
-  if (t.contour && el.contour) s += ' · cięcie po konturze';
+  TYPE_TOGGLES.forEach(([k, , lab]) => { if (t[k] && el[k]) s += ' · ' + lab; });
   if (t.seg && el.seg) s += ' · SEG';
   return s;
 }
@@ -1557,7 +1567,8 @@ function renderSide() {
   if (!S.me || !sideState.open) return;
   const adm = isAdmin(), showArch = adm && S.showArch;
   const stands = S.projects.filter(canSee).filter(p => showArch || !standArchived(p));
-  const fairs = S.fairs.filter(f => showArch || !f.archived).sort(fairSort);
+  // ręczna kolejność (sideOrder) ma pierwszeństwo, reszta jak dotąd
+  const fairs = S.fairs.filter(f => showArch || !f.archived).sort((a, b) => ((a.sideOrder ?? Infinity) - (b.sideOrder ?? Infinity)) || fairSort(a, b));
   const byFair = {};
   stands.forEach(p => { const k = p.fairId && fairById(p.fairId) ? p.fairId : '_none'; (byFair[k] = byFair[k] || []).push(p); });
   const groups = fairs.map(f => ({ f, list: byFair[f.id] || [] }));
@@ -1566,8 +1577,8 @@ function renderSide() {
 
   $('side-tree').innerHTML = groups.length ? groups.map(({ f, list }) => {
     const open = sideState.fairs.has(f.id), real = f.id !== '_none';
-    list.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
-    return `<div class="fair-row ${sel && sel.kind === 'fair' && sel.id === f.id ? 'sel' : ''} ${f.archived ? 'arch' : ''}"
+    list.sort((a, b) => ((a.sideOrder ?? Infinity) - (b.sideOrder ?? Infinity)) || a.name.localeCompare(b.name, 'pl'));
+    return `<div class="fair-row ${sel && sel.kind === 'fair' && sel.id === f.id ? 'sel' : ''} ${f.archived ? 'arch' : ''}" ${adm && real ? `draggable="true" data-kind="fair" data-id="${f.id}" data-group="fairs"` : ''}
         onclick="sideClickFair('${f.id}')" ${adm && real ? `ondblclick="openFairForm('${f.id}')"` : ''}>
         <span class="car">${open ? '▾' : '▸'}</span>
         <div style="min-width:0"><div class="fn">${esc(f.name)}${f.archived ? '<span class="arch-tag">archiwum</span>' : ''}</div>
@@ -1576,7 +1587,7 @@ function renderSide() {
         ${real ? `<button class="add" title="Nowe stoisko na tych targach" onclick="event.stopPropagation(); openProjectForm(null, '${f.id}')">+</button>` : ''}
         ${adm && real ? `<button class="ed" title="Edytuj targi" onclick="event.stopPropagation(); openFairForm('${f.id}')">✎</button>` : ''}
       </div>` + (!open ? '' : list.length ? list.map(p => `
-      <div class="stand-row ${sel && sel.kind === 'stand' && sel.id === p.id ? 'sel' : ''} ${p.id === openPid ? 'open' : ''} ${p.archived ? 'arch' : ''}" onclick="sideClickStand('${p.id}')">
+      <div class="stand-row ${sel && sel.kind === 'stand' && sel.id === p.id ? 'sel' : ''} ${p.id === openPid ? 'open' : ''} ${p.archived ? 'arch' : ''}" onclick="sideClickStand('${p.id}')" ${adm ? `draggable="true" data-kind="stand" data-id="${p.id}" data-group="${f.id}"` : ''}>
         <span class="sn">${esc(p.name)}</span>${p.archived ? '<span class="arch-tag">archiwum</span>' : ''}
         <span class="st">${teamHtml(p)}</span>
         <span class="sm">▦ ${p.elementsCount || 0}</span>
@@ -1595,6 +1606,43 @@ function renderSide() {
     : (adm ? 'Kliknij targi lub stoisko, aby je zaznaczyć' : '');
   $('side-foot').classList.toggle('hidden', !adm);
 }
+// przeciąganie targów (między targami) i stoisk (w obrębie swoich targów) — zapis kolejności sideOrder
+(function sideDrag() {
+  const tree = $('side-tree');
+  let drag = null;
+  const clearMarks = () => tree.querySelectorAll('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+  const rowOf = e => { const r = e.target.closest && e.target.closest('[data-kind]'); return r && drag && r.dataset.kind === drag.kind && r.dataset.group === drag.group ? r : null; };
+  tree.addEventListener('dragstart', e => {
+    const r = e.target.closest && e.target.closest('[data-kind]'); if (!r) return;
+    drag = { kind: r.dataset.kind, id: r.dataset.id, group: r.dataset.group };
+    r.classList.add('dragging-row');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', r.dataset.id); } catch (x) {}
+  });
+  tree.addEventListener('dragover', e => {
+    const r = rowOf(e); if (!r) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    const rc = r.getBoundingClientRect(), after = e.clientY > rc.top + rc.height / 2;
+    clearMarks(); if (r.dataset.id !== drag.id) r.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  tree.addEventListener('drop', async e => {
+    const r = rowOf(e); if (!r) return;
+    e.preventDefault();
+    const after = r.classList.contains('drop-after');
+    clearMarks();
+    if (r.dataset.id === drag.id) return;
+    const sel = `[data-kind="${drag.kind}"][data-group="${drag.group}"]`;
+    const ids = [...tree.querySelectorAll(sel)].map(x => x.dataset.id).filter(id => id !== drag.id);
+    ids.splice(ids.indexOf(r.dataset.id) + (after ? 1 : 0), 0, drag.id);
+    const coll = drag.kind === 'fair' ? C_FAIRS : C_PROJECTS, src = drag.kind === 'fair' ? S.fairs : S.projects;
+    const changes = ids.map((id, i) => ({ id, sideOrder: (i + 1) * 10 })).filter(c => { const o = src.find(x => x.id === c.id); return o && o.sideOrder !== c.sideOrder; });
+    changes.forEach(c => { const o = src.find(x => x.id === c.id); if (o) o.sideOrder = c.sideOrder; });
+    renderSide(); // od razu nowa kolejność, zapis w tle
+    try { for (const c of changes) await DB.update(coll, c.id, { sideOrder: c.sideOrder }); }
+    catch (err) { toast('Błąd zapisu: ' + err.message, 'error'); }
+  });
+  tree.addEventListener('dragend', () => { clearMarks(); tree.querySelectorAll('.dragging-row').forEach(x => x.classList.remove('dragging-row')); drag = null; });
+})();
 function sideClickFair(id) {
   const wasSel = S.sideSel && S.sideSel.kind === 'fair' && S.sideSel.id === id;
   // pierwsze kliknięcie zaznacza i rozwija, kolejne na zaznaczonych zwija / rozwija
@@ -2600,7 +2648,7 @@ function closeArcMenu(instant) {
 }
 function arcPickType(id) {
   if (!ARC) return;
-  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', contour: false, shown: new Set() });
+  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', contour: false, laminate: false, shown: new Set() });
   ARC.root.querySelectorAll('.arc-btn').forEach(b => { b.classList.toggle('on', b.dataset.t === id); b.classList.toggle('dim', b.dataset.t !== id); });
   renderArcPanel();
 }
@@ -2636,10 +2684,10 @@ function renderArcPanel() {
         (o.on && vv0 && vv0.thick ? `<div class="ap-thick"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 30"></div>` : '')).join('')}</div>`;
       if (!st.done) { ready = false; break; }
     }
-    if (ready && !t.variants && (t.thick || t.contour)) {
+    if (ready && !t.variants && (t.thick || TYPE_TOGGLES.some(([k]) => t[k]))) {
       h += `<div class="ap-sec${fresh('opts' + t.id)}"><div class="ap-lab">Opcje</div>
         ${t.thick ? `<div class="ap-thick" style="margin-left:0"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 5"></div>` : ''}
-        ${t.contour ? `<button type="button" class="ap-opt ap-tog${ARC.contour ? ' on' : ''}" data-tog="contour"><span class="k">${ARC.contour ? '✓' : ''}</span>Cięcie po konturze</button>` : ''}</div>`;
+        ${TYPE_TOGGLES.filter(([k]) => t[k]).map(([k, name]) => `<button type="button" class="ap-opt ap-tog${ARC[k] ? ' on' : ''}" data-tog="${k}"><span class="k">${ARC[k] ? '✓' : ''}</span>${name}</button>`).join('')}</div>`;
     }
     if (ready) {
       const m = dimsMode(ARC), vv = variantOf(ARC);
@@ -2684,7 +2732,7 @@ function arcPickOpt(step, o) {
 function arcEl() {
   const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
   const vv = variantOf(ARC), m = dimsMode(ARC);
-  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', contour: typeById(ARC.typeId).contour ? !!ARC.contour : false,
+  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', contour: typeById(ARC.typeId).contour ? !!ARC.contour : false, laminate: typeById(ARC.typeId).laminate ? !!ARC.laminate : false,
     w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: '' };
 }
 function arcCalc() {
@@ -2813,6 +2861,7 @@ function openElementDialog({ id, shape, photoId }) {
     variant: el.variant || '',
     thick: hasThick(el) && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
     contour: typeById(el.typeId).contour ? !!el.contour : false,
+    laminate: typeById(el.typeId).laminate ? !!el.laminate : false,
     seg: typeById(el.typeId).seg ? !!el.seg : false,
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
@@ -2827,13 +2876,13 @@ function openElementDialog({ id, shape, photoId }) {
         <div class="var-list">${t.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === el.variant ? 'on' : ''}" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>`;
     }
     if (t && hasThick(el)) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
-    if (t && t.contour) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-contour" ${el.contour ? 'checked' : ''}> <span>Cięcie po konturze</span></label>`;
+    if (t) TYPE_TOGGLES.filter(([k]) => t[k]).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
     if (t && t.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="ed-seg" ${el.seg ? 'checked' : ''}> <span><b>SEG</b> <span class="qtip" data-tip="${esc('SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami')}">?</span></span></label>`;
     $('ed-opts').innerHTML = h;
     $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
     const sg = $('ed-seg'); if (sg) sg.addEventListener('change', () => { el.seg = sg.checked; refresh(); });
-    const ct = $('ed-contour'); if (ct) ct.addEventListener('change', () => { el.contour = ct.checked; refresh(); });
+    $('ed-opts').querySelectorAll('input[data-tog]').forEach(i => i.addEventListener('change', () => { el[i.dataset.tog] = i.checked; refresh(); }));
     // pola wymiaru zależne od kształtu
     const m = dimsMode(el);
     $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
@@ -2858,7 +2907,7 @@ function openElementDialog({ id, shape, photoId }) {
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
-    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; el.contour = false; }
+    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; el.contour = false; el.laminate = false; }
     el.typeId = b.dataset.t;
     m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
     renderOpts(); refresh();
@@ -2875,14 +2924,14 @@ function openElementDialog({ id, shape, photoId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, laminate: d.laminate, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
         if (diff) addLog(pid, `Element ${lab}: ${diff}`, editing.id);
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, laminate: d.laminate, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
