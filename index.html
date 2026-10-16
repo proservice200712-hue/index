@@ -462,6 +462,15 @@
   .qtip { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; margin-left: 7px; border-radius: 50% !important; border: 1.5px solid currentColor; font-size: .66rem; font-weight: 800; cursor: help; opacity: .8; vertical-align: 1px; }
   .qtip:hover { opacity: 1; }
   #qtip-pop { position: fixed; z-index: 500; max-width: 260px; padding: 7px 10px; background: #1a202c; color: #fff; font-size: .76rem; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.35); border: 1px solid #67b437; pointer-events: none; }
+  /* lista wymiarów wysłony */
+  input.has-sz { padding-right: 30px !important; }
+  .sz-wrap { display: block; }
+  .sz-btn { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border: none; background: var(--accent); color: #fff; font-size: .8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; }
+  .sz-btn:hover { filter: brightness(1.1); }
+  #size-pop { position: fixed; z-index: 450; background: #fff; border: 1.5px solid var(--accent); box-shadow: 0 6px 20px rgba(0,0,0,.25); max-height: 260px; overflow-y: auto; }
+  #size-pop .sz-it { padding: 6px 12px; font-size: .85rem; cursor: pointer; font-variant-numeric: tabular-nums; color: var(--dark); }
+  #size-pop .sz-it:hover { background: #f1f8ec; }
+  #size-pop .sz-it.on { background: var(--accent); color: #fff; font-weight: 700; }
   /* okno eksportu */
   .exp-what { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .exp-opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px 12px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; }
@@ -664,7 +673,6 @@
 </div><!-- #app-row -->
 
 <div id="toasts"></div>
-<datalist id="dl-wys"></datalist>
 <!-- komiksowa alpaka: co 5 minut dobiega do połowy ekranu i wraca -->
 <div id="alpaca" aria-hidden="true">
   <svg viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
@@ -797,10 +805,41 @@ const bleedTxt = b => b ? lenPL(b) + ' ' + UNIT() : 'brak';
 const unitStep = () => UNIT() === 'cm' ? '0.1' : '1';
 // wysłona: typowe wymiary = wielokrotności 49,6 cm (do 496 cm) — lista do wyboru, ręczne wpisanie dalej działa
 const WYS_STEP_MM = 496;
-function fillWysList() {
-  $('dl-wys').innerHTML = Array.from({ length: 10 }, (_, i) => (i + 1) * WYS_STEP_MM)
-    .map(mm => `<option value="${UNIT() === 'cm' ? (mm / 10).toFixed(1) : mm}">`).join('');
+// Własna lista (nie <datalist>: przeglądarka filtruje ją po wpisanej wartości, więc przy edycji znikała).
+// Przycisk ▾ przy polu otwiera wszystkie wartości; kliknięcie wpisuje wymiar i odpala „input".
+const wysValues = () => Array.from({ length: 10 }, (_, i) => (i + 1) * WYS_STEP_MM).map(mm => UNIT() === 'cm' ? mm / 10 : mm);
+function closeSizePop() { const p = $('size-pop'); if (p) p.remove(); }
+function openSizePop(input) {
+  closeSizePop();
+  const pop = document.createElement('div');
+  pop.id = 'size-pop';
+  const cur = Number(String(input.value).replace(',', '.'));
+  pop.innerHTML = wysValues().map(v => `<div class="sz-it${Math.abs(v - cur) < 0.05 ? ' on' : ''}" data-v="${v}">${lenPL(UNIT() === 'cm' ? v * 10 : v)} ${UNIT()}</div>`).join('');
+  document.body.appendChild(pop);
+  const r = input.getBoundingClientRect(), ph = pop.offsetHeight;
+  pop.style.left = r.left + 'px'; pop.style.minWidth = r.width + 'px';
+  pop.style.top = (r.bottom + ph + 4 > innerHeight ? r.top - ph - 4 : r.bottom + 4) + 'px';
+  pop.addEventListener('pointerdown', e => e.stopPropagation());
+  pop.querySelectorAll('.sz-it').forEach(it => it.onclick = () => {
+    input.value = it.dataset.v; input.dispatchEvent(new Event('input', { bubbles: true })); closeSizePop(); input.focus();
+  });
+  const on = pop.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
 }
+// dodaje / zdejmuje przycisk ▾ przy polu wymiaru
+function sizeButton(input, on) {
+  const wrap = input.parentElement;
+  let b = wrap.querySelector(':scope > .sz-btn');
+  if (!on) { if (b) b.remove(); input.classList.remove('has-sz'); return; }
+  wrap.style.position = 'relative'; input.classList.add('has-sz');
+  if (!b) {
+    b = document.createElement('button'); b.type = 'button'; b.className = 'sz-btn'; b.textContent = '▾'; b.title = 'Wybierz z listy (wielokrotności 49,6 cm)';
+    b.addEventListener('pointerdown', e => e.stopPropagation());
+    b.onclick = e => { e.stopPropagation(); $('size-pop') ? closeSizePop() : openSizePop(input); };
+    wrap.appendChild(b);
+  }
+}
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#size-pop, .sz-btn')) closeSizePop(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('size-pop')) { closeSizePop(); e.stopPropagation(); } }, true);
 const unitHint = t => UNIT() === 'cm' ? t.replace('milimetrach', 'centymetrach') : t;
 async function sha256(s) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -924,7 +963,7 @@ const I18N_PAIRS = [
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
-  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
   ['Nazwa elementu (opcjonalnie)', 'Назва елемента (необов’язково)', 'Element name (optional)'], ['nazwa (opcjonalnie)', 'назва (необов’язково)', 'name (optional)'],
   ['np. ściana tylna, lada, kaseton nad wejściem', 'напр. задня стіна, стійка, короб над входом', 'e.g. back wall, counter, sign above the entrance'], ['Zlecenie', 'Замовлення', 'Order'],
   ['Skopiuj listę elementów do schowka — do wklejenia w mailu', 'Скопіювати список елементів у буфер — щоб вставити в лист', 'Copy the element list to the clipboard — to paste into an email'],
@@ -2729,8 +2768,8 @@ function renderArcPanel() {
     if (ready) {
       const m = dimsMode(ARC), vv = variantOf(ARC);
       const wysList = typeById(ARC.typeId).wyslona && ARC.wyslona;
-      if (wysList) fillWysList();
-      const f = (id, ph, val) => `<input type="number" min="0" step="${id === 'thick' ? '1' : unitStep()}" data-f="${id}" value="${esc(val)}" placeholder="${ph}${wysList && (id === 'w' || id === 'h') ? ' ▾' : ''}"${wysList && (id === 'w' || id === 'h') ? ' list="dl-wys"' : ''}>`;
+      const f = (id, ph, val) => { const inp = `<input type="number" min="0" step="${id === 'thick' ? '1' : unitStep()}" data-f="${id}" value="${esc(val)}" placeholder="${ph}">`;
+        return wysList && (id === 'w' || id === 'h') ? `<span class="sz-wrap">${inp}</span>` : inp; };
       h += `<div class="ap-sec ap-form${fresh('form' + m + (vv && vv.thick ? 't' : ''))}">
         <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny' : 'Wymiar konstrukcji'} [${UNIT()}]</div>
         <div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>
@@ -2754,6 +2793,7 @@ function renderArcPanel() {
   const pr = panel.getBoundingClientRect();
   if (pr.right > innerWidth - 8) panel.style.left = (baseLeft - (pr.right - innerWidth + 8)) + 'px';
   else if (pr.left < 8) panel.style.left = (baseLeft + (8 - pr.left)) + 'px';
+  panel.querySelectorAll('.sz-wrap > input').forEach(i => sizeButton(i, true));
   panel.querySelectorAll('.ap-opt[data-step]').forEach(b => b.onclick = () => arcPickOpt(b.dataset.step, b.dataset.o));
   panel.querySelectorAll('.ap-tog').forEach(b => b.onclick = () => { ARC[b.dataset.tog] = !ARC[b.dataset.tog]; renderArcPanel(); });
   panel.querySelectorAll('[data-f]').forEach(i => i.addEventListener('input', () => { ARC[i.dataset.f] = i.value; arcCalc(); }));
@@ -2944,8 +2984,7 @@ function openElementDialog({ id, shape, photoId }) {
     $('ed-w').placeholder = (m === 'ring' ? 'średnica' : 'szerokość') + ` [${UNIT()}]`;
     // wysłona: lista typowych wymiarów (wielokrotności 49,6 cm) przy szerokości i wysokości
     const wysList = t && t.wyslona && el.wyslona;
-    if (wysList) fillWysList();
-    ['ed-w', 'ed-h'].forEach(id => { if (wysList) $(id).setAttribute('list', 'dl-wys'); else $(id).removeAttribute('list'); });
+    ['ed-w', 'ed-h'].forEach(id => sizeButton($(id), !!wysList));
     $('ed-dims-lab').textContent = m === 'flat' ? '2. Wymiar widoczny (netto)' : '2. Wymiar konstrukcji';
     $('ed-dims-hint').textContent = unitHint(m === 'ring' ? 'Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).'
       : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
