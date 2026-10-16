@@ -3842,7 +3842,50 @@ async function renderIndexA3(stamp) {
   const asp = imgs.map(o => o.img ? o.img.width / o.img.height : (Number(o.ph.w) || 4) / (Number(o.ph.h) || 3));
   const sumA = asp.reduce((a, b) => a + b, 0);
   const hasCards = rows.length > 0;
-  let Hp = imgs.length ? Math.min(PH * (hasCards ? 0.44 : 0.8), (availW - GAP * (imgs.length - 1)) / sumA) : 0;
+  // --- rozpiska: wspólna skala dla wszystkich okienek, możliwie największa (proporcje między elementami zostają)
+  const thumbs = {};
+  for (const r of rows) if (r.el.thumb) { try { thumbs[r.el.id] = await loadImg(r.el.thumb); } catch (e) {} }
+  const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24;
+  const withD = rows.filter(r => r.w !== '');
+  const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
+  const cardOf = (r, k) => {
+    const d = r.w !== '', gb = r.spad;
+    const FW = d ? Math.max(MINF, r.bw * k) : 160, FH = d ? Math.max(MINF, r.bh * k) : 100;
+    const LM = !d ? 0 : gb ? 104 : 60, BM = !d ? 0 : gb ? 88 : 48;
+    const w = Math.max(LM + FW + 10, 230);
+    g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
+    const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), w - 56, 3);
+    g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
+    const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
+    const head = 20 + title.length * 34;
+    const notes = (!d ? 40 : dimsMode(r.el) !== 'flat' ? 36 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
+    return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes, title, nlines, head };
+  };
+  const layout = k => {
+    let cx = 0, cy = 0, rowH = 0; const out = [];
+    for (const r of rows) {
+      const cd = cardOf(r, k);
+      if (cx > 0 && cx + cd.w > areaW) { cx = 0; cy += rowH + GY; rowH = 0; }
+      out.push({ ...cd, x: cx, y: cy }); cx += cd.w + GX; rowH = Math.max(rowH, cd.h);
+    }
+    return { out, h: cy + rowH };
+  };
+  // największa skala, przy której rozpiska mieści się w wysokości areaH (wyszukiwanie połówkowe)
+  const fitCards = areaH => {
+    let lo = 0.0002, hi = Math.min(areaH / maxH, areaW / maxW);
+    if (layout(hi).h <= areaH) return hi;
+    for (let i = 0; i < 32; i++) { const mid = (lo + hi) / 2; if (layout(mid).h <= areaH) lo = mid; else hi = mid; }
+    return lo;
+  };
+  // wysokość pasa z wizkami: przy wielu elementach trochę niższy, żeby rozpiska nie skurczyła się do minimum
+  const maxHp = imgs.length ? Math.min(PH * (hasCards ? 0.44 : 0.8), (availW - GAP * (imgs.length - 1)) / sumA) : 0;
+  let Hp = maxHp, k = 0;
+  if (hasCards) {
+    const cands = imgs.length ? [1, 0.88, 0.76, 0.64].map(f => maxHp * f) : [0];
+    const ks = cands.map(h => fitCards(PH - 70 - (top + h + 50)));
+    const best = Math.max(...ks), pick = ks.findIndex(v => v >= best * 0.8);
+    Hp = cands[pick]; k = ks[pick];
+  }
   let x = M + (availW - (Hp * sumA + GAP * (imgs.length - 1))) / 2;
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
@@ -3852,43 +3895,13 @@ async function renderIndexA3(stamp) {
     if (imgs.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + (i + 1), x + 12, top + 29); }
     x += w + GAP;
   });
-  // --- rozpiska graficzna
   if (hasCards) {
-    const thumbs = {};
-    for (const r of rows) if (r.el.thumb) { try { thumbs[r.el.id] = await loadImg(r.el.thumb); } catch (e) {} }
-    const y0 = top + Hp + 60, y1 = PH - 70, areaH = y1 - y0, areaW = availW;
-    const FS = 26, HEAD = 62, GX = 70, GY = 40;
-    const withD = rows.filter(r => r.w !== '');
-    const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
-    const cardOf = (r, k) => {
-      const d = r.w !== '', gb = r.spad;
-      const FW = d ? Math.max(90, r.bw * k) : 220, FH = d ? Math.max(70, r.bh * k) : 140;
-      const LM = !d ? 0 : gb ? 112 : 64, BM = !d ? 0 : gb ? 92 : 50;
-      const w = Math.max(LM + FW + 10, 320);
-      g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
-      const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), w - 60, 3);
-      g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
-      const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
-      const head = 22 + title.length * 38;
-      const notes = (!d ? 40 : dimsMode(r.el) !== 'flat' ? 36 : 0) + nlines.length * 30 + (nlines.length ? 10 : 0);
-      return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes, title, nlines, head };
-    };
-    const layout = k => {
-      let cx = 0, cy = 0, rowH = 0; const out = [];
-      for (const r of rows) {
-        const cd = cardOf(r, k);
-        if (cx > 0 && cx + cd.w > areaW) { cx = 0; cy += rowH + GY; rowH = 0; }
-        out.push({ ...cd, x: cx, y: cy }); cx += cd.w + GX; rowH = Math.max(rowH, cd.h);
-      }
-      return { out, h: cy + rowH };
-    };
-    let k = Math.min((areaH - 60 - 92 - 40) / maxH, (areaW * 0.45) / maxW), L = layout(k);
-    for (let i = 0; i < 80 && L.h > areaH; i++) { k *= 0.93; L = layout(k); }
+    const y0 = top + Hp + 50, L = layout(k);
     for (const cd of L.out) {
       const { r, d, FW, FH, LM, BM } = cd, bx = M + cd.x, by = y0 + cd.y;
       drawBadge(g, bx + 24, by + 24, 22, r.color, r.znak);
       g.fillStyle = '#1a202c'; g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
-      cd.title.forEach((ln, i) => g.fillText(ln, bx + 58, by + 35 + i * 38));
+      cd.title.forEach((ln, i) => g.fillText(ln, bx + 54, by + 32 + i * 34));
       const fx = bx + LM, fy = by + cd.head;
       const th = thumbs[r.el.id];
       if (th) { // miniatura grafiki wypełnia okienko (przycięta jak w podglądzie)
