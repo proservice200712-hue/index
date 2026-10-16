@@ -427,6 +427,20 @@
   .ex-thumb { width: 64px; height: 44px; background: var(--bg) center/cover no-repeat; border: 1px solid var(--line); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: var(--gray); text-align: center; }
   .users-chk { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px 12px; max-height: 180px; overflow-y: auto; border: 1.5px solid var(--line); padding: 6px 10px; }
 
+  /* okno eksportu */
+  .exp-what { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .exp-opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px 12px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; }
+  .exp-opt .ic { font-size: 1.3rem; line-height: 1; }
+  .exp-opt b { display: block; font-size: .88rem; }
+  .exp-opt small { display: block; color: var(--gray); font-size: .72rem; line-height: 1.35; margin-top: 2px; }
+  .exp-opt:hover { border-color: var(--gray); }
+  .exp-opt.on { border-color: var(--accent); background: #f1f8ec; box-shadow: inset 4px 0 0 var(--accent); }
+  .exp-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .exp-m { padding: 12px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-weight: 700; font-size: .9rem; }
+  .exp-m.on { border-color: var(--dark); background: var(--dark); color: #fff; }
+  .exp-m:disabled { opacity: .35; cursor: default; }
+  .exp-file { margin-top: 8px; font-size: .8rem; color: var(--gray); word-break: break-all; }
+  .exp-file b { color: var(--dark); }
   /* toasty */
   /* alpaka: 2 cm wysokości, przebiega po dole ekranu */
   #alpaca { position: fixed; left: 0; bottom: 2px; height: 2cm; width: 2cm; z-index: 120; pointer-events: none; display: none; }
@@ -936,7 +950,14 @@ const I18N_PAIRS = [
   ['Brak dostępu do tego projektu', 'Немає доступу до цього проєкту', 'No access to this project'], ['Nie znaleziono projektu', 'Проєкт не знайдено', 'Project not found'],
   ['Polski', 'Polski', 'Polski'],
   ['Przeciągnij, aby przesunąć okienko', 'Перетягніть, щоб перемістити віконце', 'Drag to move the box'], ['Ułóż automatycznie', 'Розташувати автоматично', 'Auto layout'],
-  ['Wyrównaj', 'Вирівняти', 'Align'], ['Rozsuń nachodzące na siebie okienka na równy odstęp', 'Розсунути віконця, що накладаються, на рівну відстань', 'Spread overlapping boxes to an even gap'],
+  ['Wyrównaj', 'Вирівняти', 'Align'],
+  ['Co?', 'Що?', 'What?'], ['Druk czy eksport?', 'Друк чи експорт?', 'Print or export?'], ['Druk', 'Друк', 'Print'], ['Eksport (zapis pliku)', 'Експорт (збереження файлу)', 'Export (save file)'],
+  ['Drukuj', 'Друкувати', 'Print'], ['Numer wersji indexu', 'Номер версії індексу', 'Index version number'], ['ostatnio', 'останній раз', 'last'], ['Plik', 'Файл', 'File'],
+  ['Index A3', 'Індекс A3', 'Index A3'], ['Tabela A4', 'Таблиця A4', 'Table A4'],
+  ['wizki obok siebie + rozpiska graficzna, jedna strona A3', 'візуалізації поруч + графічна розбивка, одна сторінка A3', 'visuals side by side + graphic breakdown, one A3 page'],
+  ['lista elementów z wymiarami i podsumowaniem, osobna kartka A4', 'список елементів з розмірами і підсумком, окремий аркуш A4', 'element list with sizes and summary, separate A4 sheet'],
+  ['lista elementów do arkusza', 'список елементів для таблиці', 'element list for a spreadsheet'], ['pełna kopia danych projektu', 'повна копія даних проєкту', 'full project data backup'],
+  ['Tworzenie indexu A3…', 'Створення індексу A3…', 'Creating A3 index…'], ['Tworzenie tabeli A4…', 'Створення таблиці A4…', 'Creating A4 table…'], ['Rozsuń nachodzące na siebie okienka na równy odstęp', 'Розсунути віконця, що накладаються, на рівну відстань', 'Spread overlapping boxes to an even gap'],
   ['Ułóż okienka automatycznie', 'Розташувати віконця автоматично', 'Arrange boxes automatically'],
   ['Przeciągnij, aby zmienić miejsce, którego dotyczy znacznik', 'Перетягніть, щоб змінити місце, якого стосується мітка', 'Drag to change the spot this marker points to'],
 ];
@@ -1931,7 +1952,7 @@ function renderProjectHeader() {
   $('hdr-cd').innerHTML = ''; // w projekcie odlicza zegar-butla obok tabeli
   updateClock();
   $('hdr-actions').innerHTML = `
-    <button class="btn" onclick="toggleExportMenu(event)">⇩ Eksport ▾</button>
+    <button class="btn" onclick="openExportDialog()">⇩ Eksport</button>
     ${isAdmin() ? `<button class="btn" onclick="openProjectForm('${p.id}')">⚙ Projekt</button>` : ''}`;
 }
 let statsTimer = null;
@@ -3170,28 +3191,60 @@ function renderLog() {
 // =====================================================================
 //  EKSPORT: PDF (wizki z oznaczeniami + tabela), Excel (CSV), JSON
 // =====================================================================
-function toggleExportMenu(ev) {
-  ev.stopPropagation();
-  const old = document.querySelector('.menu.exp-menu'); if (old) { old.remove(); return; }
-  const btn = ev.currentTarget, r = btn.getBoundingClientRect();
-  const m = document.createElement('div');
-  m.className = 'menu exp-menu';
-  m.style.left = Math.min(r.left, window.innerWidth - 270) + 'px'; m.style.top = (r.bottom + 6) + 'px';
-  m.innerHTML = `
-    <div class="mi" data-a="pdf">📄 PDF — wizki z oznaczeniami + tabela</div>
-    <div class="mi" data-a="csv">📊 Excel (CSV) — lista elementów</div>
-    <div class="mi" data-a="json">💾 JSON — pełna kopia danych</div>
-    <div class="sep"></div>
-    <div class="mi" data-a="all">⇩ Wszystko naraz</div>`;
-  m.onclick = async e => {
-    const a = e.target.closest('[data-a]'); if (!a) return;
-    m.remove();
-    if (a.dataset.a === 'pdf') await exportPdf();
-    if (a.dataset.a === 'csv') exportCsv();
-    if (a.dataset.a === 'json') exportJson();
-    if (a.dataset.a === 'all') { exportCsv(); exportJson(); await exportPdf(); }
+// Eksport: najpierw pytamy CO (Index A3 / Tabela A4 / Excel / JSON) i JAK (druk czy zapis pliku).
+// Zapis pliku: nazwa FIRMA_Index_v{wersja}_{data}, o wersję pytamy przed zapisem (podpowiadamy kolejną).
+const dateStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
+function openExportDialog() {
+  if (!S.project) return;
+  const p = S.project, nextV = (Number(p.indexVersion) || 0) + 1;
+  const what = [
+    ['a3', '🗺', 'Index A3', 'wizki obok siebie + rozpiska graficzna, jedna strona A3', true],
+    ['a4', '📋', 'Tabela A4', 'lista elementów z wymiarami i podsumowaniem, osobna kartka A4', true],
+    ['csv', '📊', 'Excel (CSV)', 'lista elementów do arkusza', false],
+    ['json', '💾', 'JSON', 'pełna kopia danych projektu', false],
+  ];
+  const m = openModal({
+    title: '⇩ Eksport', wide: false,
+    body: `
+      <div class="fld"><label>Co?</label>
+        <div class="exp-what">${what.map(([id, ic, n, d], i) => `<button type="button" class="exp-opt ${i === 0 ? 'on' : ''}" data-w="${id}"><span class="ic">${ic}</span><span><b>${n}</b><small>${d}</small></span></button>`).join('')}</div></div>
+      <div class="fld"><label>Druk czy eksport?</label>
+        <div class="exp-mode">
+          <button type="button" class="exp-m on" data-m="print">🖨 Druk</button>
+          <button type="button" class="exp-m" data-m="save">💾 Eksport (zapis pliku)</button>
+        </div></div>
+      <div class="fld exp-ver hidden"><label>Numer wersji indexu</label>
+        <div style="display:flex;gap:10px;align-items:center"><span style="font-weight:700">v</span><input type="number" id="exp-v" min="1" step="1" value="${nextV}" style="max-width:110px">
+          <span class="hint" style="margin:0">ostatnio: ${p.indexVersion ? 'v' + p.indexVersion : '—'}</span></div>
+        <div class="exp-file" id="exp-file"></div></div>`,
+    footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="exp-go">Drukuj</button>`,
+  });
+  let w = 'a3', mode = 'print';
+  const ext = () => ({ a3: '.pdf', a4: '_tabela.pdf', csv: '.csv', json: '.json' })[w];
+  const sync = () => {
+    const printable = what.find(x => x[0] === w)[4];
+    if (!printable) mode = 'save';
+    m.el.querySelectorAll('.exp-opt').forEach(x => x.classList.toggle('on', x.dataset.w === w));
+    m.el.querySelectorAll('.exp-m').forEach(x => { x.classList.toggle('on', x.dataset.m === mode); x.disabled = x.dataset.m === 'print' && !printable; });
+    m.el.querySelector('.exp-ver').classList.toggle('hidden', mode !== 'save');
+    const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
+    $('exp-file').innerHTML = `Plik: <b>${esc(fileBase(v) + ext())}</b>`;
+    $('exp-go').textContent = mode === 'print' ? '🖨 Drukuj' : '💾 Zapisz';
   };
-  document.body.appendChild(m);
+  m.el.querySelectorAll('.exp-opt').forEach(x => x.onclick = () => { w = x.dataset.w; sync(); });
+  m.el.querySelectorAll('.exp-m').forEach(x => x.onclick = () => { if (!x.disabled) { mode = x.dataset.m; sync(); } });
+  $('exp-v').addEventListener('input', sync);
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('exp-go').onclick = async () => {
+    const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
+    $('exp-go').disabled = true;
+    m.close();
+    if (w === 'csv') return exportCsv(fileBase(v) + '.csv');
+    if (w === 'json') return exportJson(fileBase(v) + '.json');
+    await exportDoc(w, mode, v);
+  };
+  sync();
 }
 function exportRows() {
   return S.elements.map(e => {
@@ -3202,21 +3255,20 @@ function exportRows() {
       qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: e.notes || '', kto: userLabel(e.updatedBy || e.createdBy), color: t.color, el: e };
   });
 }
-const baseName = () => 'INDEX_' + safeName(S.project.name) + (S.project.fair ? '_' + safeName(S.project.fair) : '');
-function exportCsv() {
+function exportCsv(name) {
   const u = UNIT();
   const head = ['Znak', 'Wizka', 'Typ', 'Opis', `Wymiar netto [${u}]`, `Szer. / średnica [${u}]`, `Głęb. [${u}]`, `Wys. netto [${u}]`, `Spad [${u}/str.]`, `Szer. do druku [${u}]`, `Wys. do druku [${u}]`, 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
   const q = v => { const s = String(v == null ? '' : v); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const num = v => v === '' ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
   const lines = [head.join(';')].concat(exportRows().map(r => [r.znak, r.wizka, r.typ, r.opis, r.net, num(fromMM(r.w)), num(fromMM(r.d)), num(fromMM(r.h)), num(fromMM(r.spad)), num(fromMM(r.bw)), num(fromMM(r.bh)), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
-  download(baseName() + '.csv', new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  download(name, new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   addLog(S.project.id, 'Wyeksportowano listę elementów (Excel/CSV)');
 }
-function exportJson() {
+function exportJson(name) {
   const data = { app: 'INDEX', version: 1, exportedAt: nowIso(), exportedBy: S.me.id, project: S.project,
     photos: S.photos, elements: S.elements.map(e => ({ ...e, label: letterOf(e.num), bleed: bleedOf(e), gross: grossOf(e), area: areaOf(e) })),
     types: S.types, log: S.log };
-  download(baseName() + '.json', new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  download(name, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   addLog(S.project.id, 'Wyeksportowano pełną kopię danych (JSON)');
 }
 async function exportAllProjects() {
@@ -3239,154 +3291,260 @@ function fitText(g, s, maxW) {
   while (s.length && g.measureText(s + '…').width > maxW) s = s.slice(0, -1);
   return s + '…';
 }
-async function exportPdf() {
-  if (!window.jspdf) return toast('Brak biblioteki PDF (sprawdź internet)', 'error');
-  const t = toast('Tworzenie PDF…', '', 120000);
-  try {
-    const PW = 2339, PH = 1654; // A4 poziomo, ~200 dpi
-    const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
-    let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
-    const p = S.project, rows = exportRows();
-    const pages = [];
-    const header = (g, sub) => {
-      g.fillStyle = '#1a202c'; g.fillRect(0, 0, PW, 110);
-      if (logo) { const lh = 58, lw = logo.width * lh / logo.height; g.drawImage(logo, 40, 26, lw, lh); }
-      g.fillStyle = '#fff'; g.font = '900 44px Segoe UI, Arial'; g.textAlign = 'left';
-      g.fillText('INDEX', logo ? 400 : 40, 72);
-      g.font = '700 34px Segoe UI, Arial';
-      g.fillText(fitText(g, p.name + (p.fair ? '  ·  ' + p.fair : '') + (p.city ? ', ' + p.city : ''), 1150), logo ? 580 : 220, 70);
-      g.textAlign = 'right'; g.font = '400 26px Segoe UI, Arial'; g.fillStyle = '#cbd5e0';
-      g.fillText(sub, PW - 40, 70);
-      g.textAlign = 'left';
-      g.fillStyle = '#718096'; g.font = '400 22px Segoe UI, Arial';
-      const foot = [p.deadlineGfx ? 'Deadline graficzny: ' + fmtDateTime(p.deadlineGfx) : '', packOf(p) ? 'Pakowanie: ' + fmtDateTime(packOf(p)) : '', p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
-        'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
-      g.fillText(foot, 40, PH - 28);
-    };
-    const newPage = () => { const c = document.createElement('canvas'); c.width = PW; c.height = PH; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); pages.push(c); return g; };
-    const badge = (g, x, y, r, color, txt) => {
-      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = color; g.fill(); g.lineWidth = r * 0.16; g.strokeStyle = '#fff'; g.stroke();
-      g.fillStyle = '#fff'; g.font = `800 ${Math.round(r * (txt.length > 1 ? 0.8 : 1.05))}px Segoe UI, Arial`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(txt, x, y + 1); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-    };
-
-    // 1) strony z wizkami
-    for (let i = 0; i < S.photos.length; i++) {
-      const ph = S.photos[i];
-      const els = rows.filter(r => r.el.photoId === ph.id);
-      const g = newPage();
-      header(g, `Wizka ${i + 1} / ${S.photos.length}`);
-      let img;
-      try { img = await loadImg(ph.url); } catch (e) { g.fillStyle = '#e53e3e'; g.font = '30px Arial'; g.fillText('Nie udało się wczytać wizki #' + (i + 1), 60, 200); continue; }
-      const AX = 40, AY = 140, AW = els.length ? 1640 : PW - 80, AH = PH - 140 - 70;
-      const k = Math.min(AW / img.width, AH / img.height);
-      const iw = img.width * k, ih = img.height * k, ix = AX + (AW - iw) / 2, iy = AY + (AH - ih) / 2;
-      g.drawImage(img, ix, iy, iw, ih);
-      g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.strokeRect(ix, iy, iw, ih);
-      for (const r of els) {
-        if (!r.el.shape || r.el.shape.kind === 'point') continue; // punkt = sam znacznik z literą
-        const pts = shapePolyPts(r.el.shape);
-        g.beginPath(); pts.forEach((q, j) => { const x = ix + q[0] * iw, y = iy + q[1] * ih; j ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
-        g.globalAlpha = 0.22; g.fillStyle = r.color; g.fill(); g.globalAlpha = 1;
-        g.lineWidth = 5; g.strokeStyle = r.color; g.lineJoin = 'round'; g.stroke();
-      }
-      for (const r of els) {
-        if (!r.el.shape) continue;
-        const [cx, cy] = labPos(r.el.shape);
-        if (r.el.shape.lab) {
-          const [ax, ay] = shapeCenter(r.el.shape);
-          const x1 = ix + cx * iw, y1 = iy + cy * ih, x2 = ix + ax * iw, y2 = iy + ay * ih;
-          const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len, bx = x2 - ux * 18, by = y2 - uy * 18;
-          g.lineCap = 'round';
-          g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 6; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
-          g.strokeStyle = r.color; g.lineWidth = 2.8; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
-          g.beginPath(); g.moveTo(x2, y2); g.lineTo(bx - uy * 7, by + ux * 7); g.lineTo(bx + uy * 7, by - ux * 7); g.closePath();
-          g.fillStyle = r.color; g.fill(); g.lineWidth = 1.5; g.strokeStyle = '#fff'; g.stroke();
-        }
-        badge(g, ix + cx * iw, iy + cy * ih, 24, r.color, r.znak);
-      }
-      // legenda po prawej
-      if (els.length) {
-        const LX = 1710, LW = PW - LX - 40;
-        g.fillStyle = '#1a202c'; g.font = '800 30px Segoe UI, Arial'; g.fillText('Elementy na tej wizce', LX, 175);
-        const rowH = Math.min(118, (PH - 290) / els.length);
-        const fs = rowH < 80 ? 0.75 : 1;
-        els.forEach((r, j) => {
-          const y = 210 + j * rowH;
-          badge(g, LX + 24 * fs, y + 24 * fs, 22 * fs, r.color, r.znak);
-          g.fillStyle = '#1a202c'; g.font = `700 ${Math.round(25 * fs)}px Segoe UI, Arial`;
-          g.fillText(fitText(g, r.typ, LW - 64 * fs), LX + 60 * fs, y + 22 * fs);
-          g.fillStyle = '#4a5568'; g.font = `400 ${Math.round(22 * fs)}px Segoe UI, Arial`;
-          if (r.opis) g.fillText(fitText(g, r.opis, LW - 64 * fs), LX + 60 * fs, y + 50 * fs);
-          g.fillStyle = r.w === '' ? '#dd6b20' : '#1a202c'; g.font = `600 ${Math.round(22 * fs)}px Segoe UI, Arial`;
-          const dimTxt = r.w === '' ? 'wymiar do ustalenia' : `${r.net} → druk ${r.gross} ${UNIT()}` + (r.qty > 1 ? ` · ${r.qty} szt.` : '');
-          g.fillText(fitText(g, dimTxt, LW - 64 * fs), LX + 60 * fs, y + (r.opis ? 78 : 50) * fs);
-        });
-      }
+// wspólne kawałki rysowania stron (canvas → PDF albo druk)
+const PDF_FONT = 'Bahnschrift, Segoe UI, Arial, sans-serif';
+function drawBadge(g, x, y, r, color, txt) {
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = color; g.fill(); g.lineWidth = r * 0.16; g.strokeStyle = '#fff'; g.stroke();
+  g.fillStyle = '#fff'; g.font = `700 ${Math.round(r * (txt.length > 1 ? 0.8 : 1.05))}px ${PDF_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(txt, x, y + 1); g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+}
+function drawArrowLine(g, x1, y1, x2, y2, head, color, lw) {
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+  g.strokeStyle = color; g.fillStyle = color; g.lineWidth = lw;
+  g.beginPath(); g.moveTo(x1 + ux * head * .9, y1 + uy * head * .9); g.lineTo(x2 - ux * head * .9, y2 - uy * head * .9); g.stroke();
+  for (const [px, py, dx, dy] of [[x1, y1, ux, uy], [x2, y2, -ux, -uy]]) {
+    g.beginPath(); g.moveTo(px, py); g.lineTo(px + dx * head - dy * head * .38, py + dy * head + dx * head * .38); g.lineTo(px + dx * head + dy * head * .38, py + dy * head - dx * head * .38); g.closePath(); g.fill();
+  }
+}
+function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
+  const p = S.project, hh = 110 * sc;
+  g.fillStyle = '#1a202c'; g.fillRect(0, 0, PW, hh);
+  let x = 40 * sc;
+  if (logo) { const lh = 58 * sc, lw = logo.width * lh / logo.height; g.drawImage(logo, x, 26 * sc, lw, lh); x += lw + 40 * sc; }
+  g.fillStyle = '#fff'; g.font = `700 ${44 * sc}px ${PDF_FONT}`; g.fillText('INDEX', x, 72 * sc); x += g.measureText('INDEX').width + 30 * sc;
+  g.font = `600 ${34 * sc}px ${PDF_FONT}`;
+  g.fillText(fitText(g, p.name + (p.fair ? '  ·  ' + p.fair : '') + (p.city ? ', ' + p.city : ''), PW * 0.5), x, 70 * sc);
+  g.textAlign = 'right';
+  let rx = PW - 40 * sc;
+  if (stamp) { // pieczątka wersji jak w indeksach z Corela
+    g.font = `600 ${30 * sc}px ${PDF_FONT}`;
+    const tw = g.measureText(stamp).width, bw = tw + 44 * sc, bh = 54 * sc, by = (hh - bh) / 2;
+    g.fillStyle = '#fff'; g.fillRect(rx - bw, by, bw, bh);
+    g.strokeStyle = '#67b437'; g.lineWidth = 5 * sc; g.strokeRect(rx - bw, by, bw, bh);
+    g.fillStyle = '#1a202c'; g.fillText(stamp, rx - 22 * sc, by + bh / 2 + 11 * sc);
+    rx -= bw + 30 * sc;
+  }
+  if (sub) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#cbd5e0'; g.fillText(sub, rx, 70 * sc); }
+  g.textAlign = 'left';
+  g.fillStyle = '#718096'; g.font = `400 ${22 * sc}px ${PDF_FONT}`;
+  const foot = [gfxOf(p) ? 'Deadline graficzny: ' + fmtDateTime(gfxOf(p)) : '', packOf(p) ? 'Pakowanie: ' + fmtDateTime(packOf(p)) : '', p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
+    'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
+  g.fillText(foot, 40 * sc, PH - 28 * sc);
+}
+function newCanvas(PW, PH) { const c = document.createElement('canvas'); c.width = PW; c.height = PH; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); return [c, g]; }
+// wizka z kształtami, strzałkami i literami
+function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
+  g.drawImage(img, ix, iy, iw, ih);
+  g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.strokeRect(ix, iy, iw, ih);
+  for (const r of rows) {
+    if (!r.el.shape || r.el.shape.kind === 'point') continue;
+    const pts = shapePolyPts(r.el.shape);
+    g.beginPath(); pts.forEach((q, j) => { const x = ix + q[0] * iw, y = iy + q[1] * ih; j ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+    g.globalAlpha = 0.22; g.fillStyle = r.color; g.fill(); g.globalAlpha = 1;
+    g.lineWidth = br * 0.2; g.strokeStyle = r.color; g.lineJoin = 'round'; g.stroke();
+  }
+  for (const r of rows) {
+    if (!r.el.shape) continue;
+    const [cx, cy] = labPos(r.el.shape);
+    if (r.el.shape.lab) {
+      const [ax, ay] = shapeCenter(r.el.shape);
+      const x1 = ix + cx * iw, y1 = iy + cy * ih, x2 = ix + ax * iw, y2 = iy + ay * ih;
+      const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len, hl = br * .75, bx = x2 - ux * hl, by = y2 - uy * hl;
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = br * .25; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
+      g.strokeStyle = r.color; g.lineWidth = br * .12; g.beginPath(); g.moveTo(x1, y1); g.lineTo(bx, by); g.stroke();
+      g.beginPath(); g.moveTo(x2, y2); g.lineTo(bx - uy * hl * .4, by + ux * hl * .4); g.lineTo(bx + uy * hl * .4, by - ux * hl * .4); g.closePath();
+      g.fillStyle = r.color; g.fill(); g.lineWidth = br * .06; g.strokeStyle = '#fff'; g.stroke();
     }
-
-    // 2) tabela zbiorcza
-    const cols = [['Znak', 80], ['Wizka', 85], ['Typ', 520], ['Opis', 210], [`Netto [${UNIT()}]`, 260], ['Spad', 95], [`Do druku [${UNIT()}]`, 210], ['Szt.', 70], ['m²', 120], ['Uwagi', 0]];
-    cols[cols.length - 1][1] = PW - 80 - cols.reduce((s, c) => s + c[1], 0);
-    const RH = 50, TOP = 210, perPage = Math.floor((PH - TOP - 100) / RH);
-    const tablePages = Math.max(1, Math.ceil((rows.length + 6) / perPage));
-    let idx = 0, pageNo = 0;
-    const summary = {};
-    rows.forEach(r => { const s = summary[r.typ] = summary[r.typ] || { color: r.color, n: 0, m2: 0 }; s.n += r.qty; s.m2 += r.m2 || 0; });
-    let summaryDone = false;
-    while (!summaryDone) {
-      pageNo++;
-      const g = newPage();
-      header(g, `Lista elementów ${pageNo} / ${tablePages}`);
-      g.fillStyle = '#1a202c'; g.font = '800 32px Segoe UI, Arial';
-      g.fillText(`Lista elementów (${rows.length})`, 40, 175);
-      let x = 40;
-      g.fillStyle = '#edf2f7'; g.fillRect(40, TOP, PW - 80, RH);
-      g.fillStyle = '#4a5568'; g.font = '700 21px Segoe UI, Arial';
-      cols.forEach(([n, w]) => { g.fillText(n.toUpperCase(), x + 10, TOP + 32); x += w; });
-      let y = TOP + RH;
-      while (idx < rows.length && y + RH <= PH - 90) {
-        const r = rows[idx++];
-        if (idx % 2 === 0) { g.fillStyle = '#f7fafc'; g.fillRect(40, y, PW - 80, RH); }
-        x = 40;
-        const cells = [null, r.wizka ? '#' + r.wizka : '—', r.typ, r.opis, r.w === '' ? 'do ustalenia' : r.net,
-          r.spad ? bleedTxt(r.spad) : '—', r.w === '' ? '' : r.gross, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
-        cols.forEach(([n, w], j) => {
-          if (j === 0) badge(g, x + 30, y + RH / 2, 18, r.color, r.znak);
-          else if (j === 2) {
-            g.fillStyle = r.color; g.fillRect(x + 10, y + 17, 16, 16);
-            g.fillStyle = '#1a202c'; g.font = '400 22px Segoe UI, Arial'; g.fillText(fitText(g, cells[j], w - 46), x + 34, y + 33);
-          } else {
-            g.fillStyle = (j === 4 && r.w === '') ? '#dd6b20' : (j === 9 ? '#4a5568' : '#1a202c');
-            g.font = (j === 6 ? '700 ' : '400 ') + '22px Segoe UI, Arial';
-            g.fillText(fitText(g, cells[j], w - 20), x + 10, y + 33);
-          }
-          x += w;
-        });
-        g.strokeStyle = '#e2e8f0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(40, y + RH); g.lineTo(PW - 40, y + RH); g.stroke();
-        y += RH;
+    drawBadge(g, ix + cx * iw, iy + cy * ih, br, r.color, r.znak);
+  }
+}
+// INDEX A3 (poziomo): u góry wizki obok siebie, pod nimi rozpiska graficzna jak w widoku „Grafika"
+async function renderIndexA3(stamp) {
+  const PW = 2976, PH = 2104, sc = 1.25, M = 50; // A3 ~180 dpi
+  const [c, g] = newCanvas(PW, PH);
+  let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
+  pageHeader(g, PW, PH, logo, '', stamp, sc);
+  const rows = exportRows();
+  // --- wizki obok siebie
+  const imgs = [];
+  for (const ph of S.photos) { try { imgs.push({ ph, img: await loadImg(ph.url) }); } catch (e) { imgs.push({ ph, img: null }); } }
+  const top = 110 * sc + 34, GAP = 34, availW = PW - 2 * M;
+  const asp = imgs.map(o => o.img ? o.img.width / o.img.height : (Number(o.ph.w) || 4) / (Number(o.ph.h) || 3));
+  const sumA = asp.reduce((a, b) => a + b, 0);
+  const hasCards = rows.length > 0;
+  let Hp = imgs.length ? Math.min(PH * (hasCards ? 0.44 : 0.8), (availW - GAP * (imgs.length - 1)) / sumA) : 0;
+  let x = M + (availW - (Hp * sumA + GAP * (imgs.length - 1))) / 2;
+  imgs.forEach((o, i) => {
+    const w = Hp * asp[i];
+    if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, rows.filter(r => r.el.photoId === o.ph.id), Math.max(18, Math.min(30, Hp / 26)));
+    else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
+    if (imgs.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + (i + 1), x + 12, top + 29); }
+    x += w + GAP;
+  });
+  // --- rozpiska graficzna
+  if (hasCards) {
+    const thumbs = {};
+    for (const r of rows) if (r.el.thumb) { try { thumbs[r.el.id] = await loadImg(r.el.thumb); } catch (e) {} }
+    const y0 = top + Hp + 60, y1 = PH - 70, areaH = y1 - y0, areaW = availW;
+    const FS = 26, HEAD = 62, GX = 70, GY = 40;
+    const withD = rows.filter(r => r.w !== '');
+    const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
+    const cardOf = (r, k) => {
+      const d = r.w !== '', gb = r.spad;
+      const FW = d ? Math.max(90, r.bw * k) : 220, FH = d ? Math.max(70, r.bh * k) : 140;
+      const LM = !d ? 0 : gb ? 112 : 64, BM = !d ? 0 : gb ? 92 : 50;
+      const notes = (!d && r.uwagi) ? 80 : (r.uwagi || !d || dimsMode(r.el) !== 'flat') ? 40 : 0;
+      const tw = (g.font = `600 ${FS * 1.2}px ${PDF_FONT}`, g.measureText(r.typ).width + 70);
+      return { r, d, FW, FH, LM, BM, w: Math.max(LM + FW + 10, Math.min(tw, 700)), h: HEAD + FH + BM + notes };
+    };
+    const layout = k => {
+      let cx = 0, cy = 0, rowH = 0; const out = [];
+      for (const r of rows) {
+        const cd = cardOf(r, k);
+        if (cx > 0 && cx + cd.w > areaW) { cx = 0; cy += rowH + GY; rowH = 0; }
+        out.push({ ...cd, x: cx, y: cy }); cx += cd.w + GX; rowH = Math.max(rowH, cd.h);
       }
-      if (idx >= rows.length) {
-        const need = (Object.keys(summary).length + 2) * 42 + 40;
-        if (y + need <= PH - 90 || !rows.length) {
+      return { out, h: cy + rowH };
+    };
+    let k = Math.min((areaH - HEAD - 92 - 40) / maxH, (areaW * 0.45) / maxW), L = layout(k);
+    for (let i = 0; i < 80 && L.h > areaH; i++) { k *= 0.93; L = layout(k); }
+    for (const cd of L.out) {
+      const { r, d, FW, FH, LM, BM } = cd, bx = M + cd.x, by = y0 + cd.y;
+      drawBadge(g, bx + 24, by + 24, 22, r.color, r.znak);
+      g.fillStyle = '#1a202c'; g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
+      g.fillText(fitText(g, r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), cd.w - 60), bx + 58, by + 35);
+      const fx = bx + LM, fy = by + HEAD;
+      const th = thumbs[r.el.id];
+      if (th) { // miniatura grafiki wypełnia okienko (przycięta jak w podglądzie)
+        const s2 = Math.max(FW / th.width, FH / th.height), sw = FW / s2, sh = FH / s2;
+        g.drawImage(th, (th.width - sw) / 2, (th.height - sh) / 2, sw, sh, fx, fy, FW, FH);
+      }
+      if (!d) {
+        g.setLineDash([12, 8]); g.strokeStyle = '#dd6b20'; g.lineWidth = 3; g.strokeRect(fx, fy, FW, FH); g.setLineDash([]);
+        g.fillStyle = '#dd6b20'; g.font = `700 ${FS}px ${PDF_FONT}`; g.fillText('wymiar do ustalenia', fx, fy + FH + 34);
+      } else {
+        g.strokeStyle = '#a0aec0'; g.lineWidth = 2; g.strokeRect(fx, fy, FW, FH);
+        const gb = r.spad, bw = gb ? Math.min(FW / 4, Math.max(6, gb * k)) : 0, bh = gb ? Math.min(FH / 4, Math.max(6, gb * k)) : 0;
+        if (gb) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; g.strokeRect(fx + bw, fy + bh, FW - 2 * bw, FH - 2 * bh); g.setLineDash([]); }
+        const AC = '#4a5568', TXT = '#38a169';
+        const ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+        const hDim = (xa, xb, y, mm) => { drawArrowLine(g, xa, y, xb, y, 14, AC, 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 8); g.textAlign = 'left'; };
+        const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 14, AC, 2); g.save(); g.translate(x - 8, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
+        if (gb) {
+          ext(fx + bw, fy + FH, fx + bw, fy + FH + 40); ext(fx + FW - bw, fy + FH, fx + FW - bw, fy + FH + 40); hDim(fx + bw, fx + FW - bw, fy + FH + 36, r.bw - 2 * gb);
+          ext(fx, fy + FH, fx, fy + FH + 86); ext(fx + FW, fy + FH, fx + FW, fy + FH + 86); hDim(fx, fx + FW, fy + FH + 82, r.bw);
+          ext(fx, fy + bh, fx - 50, fy + bh); ext(fx, fy + FH - bh, fx - 50, fy + FH - bh); vDim(fy + bh, fy + FH - bh, fx - 46, r.bh - 2 * gb);
+          ext(fx, fy, fx - 104, fy); ext(fx, fy + FH, fx - 104, fy + FH); vDim(fy, fy + FH, fx - 100, r.bh);
+        } else {
+          ext(fx, fy + FH, fx, fy + FH + 44); ext(fx + FW, fy + FH, fx + FW, fy + FH + 44); hDim(fx, fx + FW, fy + FH + 40, r.bw);
+          ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh);
+        }
+        if (dimsMode(r.el) !== 'flat') { g.fillStyle = '#4a5568'; g.font = `400 ${FS * .9}px ${PDF_FONT}`; g.fillText(`konstrukcja ${r.net} ${UNIT()} · pas do druku`, bx, fy + FH + BM + 30); }
+      }
+      if (r.uwagi) { g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`; g.fillText(fitText(g, r.uwagi, cd.w - 10), bx, fy + FH + BM + (!d ? 72 : dimsMode(r.el) !== 'flat' ? 62 : 30)); }
+    }
+  }
+  return c;
+}
+// TABELA A4 (poziomo): lista elementów + podsumowanie wg typu, ile trzeba stron
+async function renderTableA4(stamp) {
+  const PW = 2339, PH = 1654; // A4 ~200 dpi
+  let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
+  const rows = exportRows(), pages = [];
+  const cols = [['Znak', 80], ['Wizka', 85], ['Typ', 700], [`Netto [${UNIT()}]`, 280], ['Spad', 110], [`Do druku [${UNIT()}]`, 260], ['Szt.', 70], ['m²', 120], ['Uwagi', 0]];
+  cols[cols.length - 1][1] = PW - 80 - cols.reduce((s, c) => s + c[1], 0);
+  const RH = 50, TOP = 210, perPage = Math.floor((PH - TOP - 100) / RH);
+  const total = Math.max(1, Math.ceil((rows.length + 6) / perPage));
+  const summary = {};
+  rows.forEach(r => { const s = summary[r.typ] = summary[r.typ] || { color: r.color, n: 0, m2: 0 }; s.n += r.qty; s.m2 += r.m2 || 0; });
+  let idx = 0, pageNo = 0, done = false;
+  while (!done) {
+    pageNo++;
+    const [c, g] = newCanvas(PW, PH); pages.push(c);
+    pageHeader(g, PW, PH, logo, `Tabela ${pageNo} / ${total}`, stamp, 1);
+    g.fillStyle = '#1a202c'; g.font = `700 32px ${PDF_FONT}`;
+    g.fillText(`Lista elementów (${rows.length})`, 40, 175);
+    let x = 40;
+    g.fillStyle = '#edf2f7'; g.fillRect(40, TOP, PW - 80, RH);
+    g.fillStyle = '#4a5568'; g.font = `700 21px ${PDF_FONT}`;
+    cols.forEach(([n, w]) => { g.fillText(n.toUpperCase(), x + 10, TOP + 32); x += w; });
+    let y = TOP + RH;
+    while (idx < rows.length && y + RH <= PH - 90) {
+      const r = rows[idx++];
+      if (idx % 2 === 0) { g.fillStyle = '#f7fafc'; g.fillRect(40, y, PW - 80, RH); }
+      x = 40;
+      const cells = [null, r.wizka ? '#' + r.wizka : '—', r.typ, r.w === '' ? 'do ustalenia' : r.net,
+        r.spad ? bleedTxt(r.spad) : '—', r.w === '' ? '' : r.gross, String(r.qty), r.m2 === '' ? '' : numPL(r.m2), r.uwagi];
+      cols.forEach(([n, w], j) => {
+        if (j === 0) drawBadge(g, x + 30, y + RH / 2, 18, r.color, r.znak);
+        else if (j === 2) {
+          g.fillStyle = r.color; g.fillRect(x + 10, y + 17, 16, 16);
+          g.fillStyle = '#1a202c'; g.font = `400 22px ${PDF_FONT}`; g.fillText(fitText(g, cells[j], w - 46), x + 34, y + 33);
+        } else {
+          g.fillStyle = (j === 3 && r.w === '') ? '#dd6b20' : (j === 8 ? '#4a5568' : '#1a202c');
+          g.font = (j === 5 ? '700 ' : '400 ') + `22px ${PDF_FONT}`;
+          g.fillText(fitText(g, cells[j], w - 20), x + 10, y + 33);
+        }
+        x += w;
+      });
+      g.strokeStyle = '#e2e8f0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(40, y + RH); g.lineTo(PW - 40, y + RH); g.stroke();
+      y += RH;
+    }
+    if (idx >= rows.length) {
+      const need = (Object.keys(summary).length + 2) * 42 + 40;
+      if (y + need <= PH - 90 || !rows.length) {
+        y += 40;
+        g.fillStyle = '#1a202c'; g.font = `700 26px ${PDF_FONT}`; g.fillText('Podsumowanie wg typu', 40, y); y += 14;
+        Object.entries(summary).forEach(([typ, s]) => {
           y += 40;
-          g.fillStyle = '#1a202c'; g.font = '800 26px Segoe UI, Arial'; g.fillText('Podsumowanie wg typu', 40, y); y += 14;
-          Object.entries(summary).forEach(([typ, s]) => {
-            y += 40;
-            g.fillStyle = s.color; g.fillRect(40, y - 20, 18, 18);
-            g.fillStyle = '#1a202c'; g.font = '400 23px Segoe UI, Arial';
-            g.fillText(`${typ}: ${s.n} szt. · ${numPL(s.m2)} m²`, 72, y - 3);
-          });
-          const tot = rows.reduce((s, r) => s + (r.m2 || 0), 0), nd = rows.filter(r => r.w === '').length;
-          y += 46; g.font = '800 24px Segoe UI, Arial';
-          g.fillText(`Razem: ${rows.reduce((s, r) => s + r.qty, 0)} szt. · ${numPL(tot)} m² do druku` + (nd ? `   (${nd} el. bez wymiaru — nie wliczone)` : ''), 40, y);
-          summaryDone = true;
-        }
+          g.fillStyle = s.color; g.fillRect(40, y - 20, 18, 18);
+          g.fillStyle = '#1a202c'; g.font = `400 23px ${PDF_FONT}`;
+          g.fillText(`${typ}: ${s.n} szt. · ${numPL(s.m2)} m²`, 72, y - 3);
+        });
+        const tot = rows.reduce((s, r) => s + (r.m2 || 0), 0), nd = rows.filter(r => r.w === '').length;
+        y += 46; g.font = `700 24px ${PDF_FONT}`;
+        g.fillText(`Razem: ${rows.reduce((s, r) => s + r.qty, 0)} szt. · ${numPL(tot)} m² do druku` + (nd ? `   (${nd} el. bez wymiaru — nie wliczone)` : ''), 40, y);
+        done = true;
       }
     }
-    pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, 297, 210); });
-    pdf.save(baseName() + '.pdf');
-    addLog(S.project.id, `Wyeksportowano PDF (wizki: ${S.photos.length}, elementy: ${rows.length})`);
+  }
+  return pages;
+}
+// druk przez okno drukowania przeglądarki: strony jako obrazki, format kartki z @page
+function printPages(canvases, size) {
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(fr);
+  const d = fr.contentDocument;
+  d.open();
+  d.write(`<!doctype html><html><head><title>${esc(S.project.name)} — INDEX</title><style>@page{size:${size} landscape;margin:0}html,body{margin:0;padding:0}
+    img{display:block;width:100%;height:100vh;object-fit:contain;page-break-after:always;break-after:page}img:last-child{page-break-after:auto;break-after:auto}</style></head><body>
+    ${canvases.map(c => `<img src="${c.toDataURL('image/jpeg', 0.92)}">`).join('')}</body></html>`);
+  d.close();
+  const go = () => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('Nie udało się otworzyć drukowania: ' + e.message, 'error'); } setTimeout(() => fr.remove(), 60000); };
+  const imgs = [...d.images];
+  Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))).then(go);
+}
+// Index A3 / Tabela A4: druk albo zapis PDF z nazwą FIRMA_Index_vN_data
+async function exportDoc(w, mode, v) {
+  if (mode === 'save' && !window.jspdf) return toast('Brak biblioteki PDF (sprawdź internet)', 'error');
+  const t = toast(w === 'a3' ? 'Tworzenie indexu A3…' : 'Tworzenie tabeli A4…', '', 120000);
+  try {
+    const p = S.project, ver = mode === 'save' ? v : (Number(p.indexVersion) || 0);
+    const stamp = (ver ? `Index_v${ver}  ` : 'Index  ') + dateStamp();
+    const pages = w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp);
+    if (mode === 'print') {
+      printPages(pages, w === 'a3' ? 'A3' : 'A4');
+      addLog(p.id, w === 'a3' ? 'Wydrukowano index (A3)' : 'Wydrukowano tabelę elementów (A4)');
+    } else {
+      const fmt = w === 'a3' ? [420, 297] : [297, 210];
+      const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: w === 'a3' ? 'a3' : 'a4', compress: true });
+      pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, fmt[0], fmt[1]); });
+      pdf.save(fileBase(v) + (w === 'a3' ? '.pdf' : '_tabela.pdf'));
+      if (v > (Number(p.indexVersion) || 0)) await DB.update(C_PROJECTS, p.id, { indexVersion: v });
+      addLog(p.id, w === 'a3' ? `Wyeksportowano index v${v} (A3, PDF)` : `Wyeksportowano tabelę elementów v${v} (A4, PDF)`);
+    }
   } catch (e) {
     console.error(e);
     toast('Błąd PDF: ' + e.message, 'error', 6000);
