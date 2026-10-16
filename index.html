@@ -275,6 +275,7 @@
   .log-item { padding: 6px 10px; display: flex; gap: 8px; font-size: 0.76rem; line-height: 1.35; border-bottom: 1px solid #edf2f7; }
   .log-item.click { cursor: pointer; }
   .log-item.click:hover { background: #fff; }
+  .log-src { display: inline-block; background: #fff; color: #1b5e20; border: 1px solid #67b437; font-size: 0.6rem; font-weight: 800; padding: 0 4px; margin-left: 4px; letter-spacing: .3px; }
   .log-item .lt { color: var(--gray); font-size: 0.68rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .log-item.fresh { animation: fresh 2.5s ease-out; }
   @keyframes fresh { from { background: #e3f3d6; } to { background: transparent; } }
@@ -720,17 +721,22 @@ const FIREBASE_CONFIG = {
 const CLOUDINARY_CLOUD = 'dahvxm9me';
 const CLOUDINARY_PRESET = 'ProService';
 
-// Kolekcje (osobne od Archiwum X, nic tam nie ruszamy)
-const C_USERS = 'index_users';
-const C_PROJECTS = 'index_projects';
-const C_TYPES = 'index_types';
-const C_FAIRS = 'index_fairs';
+// Kolekcje (osobne od Archiwum X, nic tam nie ruszamy).
+// Piaskownica (?test w adresie): ta sama baza, ale kolekcje zztest_index_* — tam testuje się też makro Corela.
+const TEST = new URLSearchParams(location.search).has('test');
+const PFX = TEST ? 'zztest_index_' : 'index_';
+const C_USERS = PFX + 'users';
+const C_PROJECTS = PFX + 'projects';
+const C_TYPES = PFX + 'types';
+const C_FAIRS = PFX + 'fairs';
 const pPhotos = pid => `${C_PROJECTS}/${pid}/photos`;
 const pElements = pid => `${C_PROJECTS}/${pid}/elements`;
 const pLog = pid => `${C_PROJECTS}/${pid}/log`;
 
 // Tryb demo (?demo w adresie): wszystko w localStorage, Firebase nietknięty
 const DEMO = new URLSearchParams(location.search).has('demo');
+// parametr trybu zachowywany przy przechodzeniu między ekranami
+const MODE_QS = DEMO ? 'demo' : TEST ? 'test' : '';
 
 // Administratorzy na sztywno (w kodzie tylko skrót SHA-256 hasła; każdy może je potem zmienić w menu awatara).
 const SEED_USERS = [
@@ -1301,7 +1307,7 @@ function enterApp(u) {
 }
 function logout() {
   try { localStorage.removeItem('INDEX_SESSION'); } catch (e) {}
-  location.href = location.pathname + (DEMO ? '?demo' : '');
+  location.href = location.pathname + (MODE_QS ? '?' + MODE_QS : '');
 }
 function toggleUserMenu(ev) {
   ev.stopPropagation();
@@ -1592,7 +1598,7 @@ function goHome() {
   $('hdr-project').classList.add('hidden');
   $('hdr-cd').innerHTML = '';
   $('hdr-actions').innerHTML = isAdmin() ? `<button class="btn" onclick="openProjectForm()">+ Nowy projekt</button>` : '';
-  history.replaceState(null, '', location.pathname + (DEMO ? '?demo' : ''));
+  history.replaceState(null, '', location.pathname + (MODE_QS ? '?' + MODE_QS : ''));
   renderHome();
   renderSide();
 }
@@ -2110,7 +2116,7 @@ async function openProject(pid) {
   S.project = p;
   S.photos = []; S.elements = []; S.log = []; S.photoId = null; S.selId = null; S.logSeen = null;
   showScreen('screen-project');
-  history.replaceState(null, '', location.pathname + '?' + (DEMO ? 'demo&' : '') + 'p=' + pid);
+  history.replaceState(null, '', location.pathname + '?' + (MODE_QS ? MODE_QS + '&' : '') + 'p=' + pid);
   renderProjectHeader();
   if (p.fairId) { sideState.fairs.add(p.fairId); saveSideState(); }
   if (!S.sideSel || S.sideSel.kind !== 'stand') S.sideSel = { kind: 'stand', id: pid };
@@ -3581,7 +3587,7 @@ function renderLog() {
   list.innerHTML = S.log.slice(0, 400).map(l => `
     <div class="log-item ${l.eid ? 'click' : ''} ${prevTop && l.at > prevTop ? 'fresh' : ''}" ${l.eid ? `data-eid="${l.eid}"` : ''}>
       ${avatarSm(l.user)}
-      <div><div class="lt">${fmtShort(l.at)}</div>${esc(l.text)}</div>
+      <div><div class="lt">${fmtShort(l.at)}${l.src === 'corel' ? ' <span class="log-src" title="Zmiana wysłana z CorelDRAW (makro INDEX_Wyslij)">Corel</span>' : ''}</div>${esc(l.text.replace(/^Corel: /, ''))}</div>
     </div>`).join('') || '<div class="empty-state" style="padding:20px;font-size:.8rem">Tu pojawi się każda zmiana w projekcie.</div>';
   S.logSeen = S.log[0] ? S.log[0].at : (prevTop || '0');
   if (!S.logReadAt || logState.open) S.logReadAt = S.log[0] ? S.log[0].at : '0';
@@ -4211,6 +4217,10 @@ window.addEventListener('load', async () => {
     const b = document.createElement('div'); b.className = 'demo-badge'; b.textContent = 'TRYB DEMO — dane tylko w tej przeglądarce';
     document.body.appendChild(b);
   } else {
+    if (TEST) {
+      const b = document.createElement('div'); b.className = 'demo-badge'; b.textContent = 'PIASKOWNICA — kolekcje testowe (zztest), prawdziwe dane nietknięte';
+      document.body.appendChild(b);
+    }
     try {
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       db = firebase.firestore();
