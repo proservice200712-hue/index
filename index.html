@@ -180,7 +180,6 @@
   .el-scroll.gnav { overflow: hidden; position: relative; cursor: grab; touch-action: none; }
   .el-scroll.gnav.panning { cursor: grabbing; }
   .gstage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
-  .ghint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); background: rgba(26,32,44,.85); color: #fff; padding: 5px 12px; font-size: .74rem; pointer-events: none; max-width: calc(100% - 20px); text-align: center; z-index: 3; }
   .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: grab; touch-action: none; }
   .gidx.moving .gc-frame:hover { background: #fff; color: var(--mid); }
   .gidx.moving .gc { animation: gcWiggle .3s ease-in-out infinite alternate; transform-origin: 50% 40%; }
@@ -2213,8 +2212,7 @@ function updateHint() {
   else if (assignTo) txt = 'Kliknij miejsce na wizce, w którym jest ten element (albo obrysuj go narzędziem Wielokąt)';
   else if (tool === 'poly') txt = draft ? 'Klikaj kolejne narożniki · zamknij klikając pierwszy punkt, Enterem lub podwójnym kliknięciem · Esc = anuluj'
                                         : 'Wielokąt: klikaj kolejne narożniki elementu (dla skośnych i nieregularnych kształtów)';
-  else txt = S.elements.some(e => e.shape) ? 'Kliknij w miejsce na wizce = nowy element · kliknij znacznik = zaznacz · dwuklik = edycja · przeciągnij tło = przesuwanie · kółko myszy = powiększenie'
-                                           : 'Kliknij w dane miejsce na wizce, aby dodać element · przeciągnij tło = przesuwanie · kółko myszy = powiększenie';
+  else txt = ''; // bez stałej podpowiedzi o nawigacji (życzenie usera) — tylko przy rysowaniu wielokąta i wskazywaniu miejsca
   h.textContent = txt;
   h.classList.toggle('hidden', !txt);
 }
@@ -2915,9 +2913,6 @@ function toggleGraphMove(force) {
   b.classList.toggle('btn-solid', S.graphMove);
   b.title = S.graphMove ? 'Zakończ przesuwanie okienek' : 'Włącz przesuwanie okienek';
   const w = document.querySelector('#el-scroll .gidx'); if (w) w.classList.toggle('moving', S.graphMove);
-  const hint = document.querySelector('#el-scroll .ghint');
-  if (hint) hint.textContent = S.graphMove ? 'Przeciągnij okienko w nowe miejsce — pozostałe zrobią miejsce · przeciągnij tło = przesuwanie · kółko myszy = powiększenie'
-    : 'Kliknij okienko = wklej grafikę · przeciągnij tło = przesuwanie · kółko myszy = powiększenie · ✥ Przesuń = układanie okienek';
 }
 function setElView(v) {
   if (v !== 'graph') toggleGraphMove(false);
@@ -2987,8 +2982,7 @@ function renderGraph() {
   box.classList.add('gnav');
   box.innerHTML = `<svg width="0" height="0" style="position:absolute"><defs><marker id="gArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#4a5568"/></marker></defs></svg>
     <div class="gstage" id="gstage"><div class="gidx">${cards}</div></div>
-    <div class="ghint">${S.graphMove ? 'Przeciągnij okienko w nowe miejsce — pozostałe zrobią miejsce · przeciągnij tło = przesuwanie · kółko myszy = powiększenie'
-      : 'Kliknij okienko = wklej grafikę · przeciągnij tło = przesuwanie · kółko myszy = powiększenie · ✥ Przesuń = układanie okienek'}</div>`;
+`;
   if (G.key !== S.project.id) { G.key = S.project.id; G.s = 1; G.tx = 0; G.ty = 0; }
   applyGraphView();
   // okienka bez zapisanej pozycji układają się same; potem wszystkie dostają pozycję absolutną (da się je przesuwać)
