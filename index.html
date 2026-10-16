@@ -741,7 +741,7 @@ const DEFAULT_TYPES = [
     desc: 'Zadrukowana folia oklejająca całą powierzchnię (ściana, lada, słup). W opcjach zaznacz, czy z laminatem.' },
   { id: 'pcw', order: 3, name: 'Płyta PCW', color: '#e31e24', bleed: 10, icon: 'board', thick: true, contour: true,
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
-  { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 100, icon: 'banner', seg: true,
+  { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 100, icon: 'banner', seg: true, wyslona: true,
     desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).' },
   { id: 'lightbox', order: 5, name: 'Lightbox (podświetlany)', color: '#f5c400', bleed: 100, icon: 'light', seg: true,
     desc: 'Grafika na tkaninie podświetlana od tyłu — rama aluminiowa ze światłem LED.' },
@@ -915,7 +915,9 @@ const I18N_PAIRS = [
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
-  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Inny kształt', 'Інша форма', 'Other shape'], ['Cięcie po konturze', 'Різання по контуру', 'Contour cut'], ['cięcie po konturze', 'різання по контуру', 'contour cut'], ['Opcje', 'Опції', 'Options'], ['np. 5', 'напр. 5', 'e.g. 5'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Zlecenie', 'Замовлення', 'Order'],
+  ['Skopiuj listę elementów do schowka — do wklejenia w mailu', 'Скопіювати список елементів у буфер — щоб вставити в лист', 'Copy the element list to the clipboard — to paste into an email'],
+  ['Brak elementów do zlecenia', 'Немає елементів для замовлення', 'No elements to order'], ['Inny kształt', 'Інша форма', 'Other shape'], ['Cięcie po konturze', 'Різання по контуру', 'Contour cut'], ['cięcie po konturze', 'різання по контуру', 'contour cut'], ['Opcje', 'Опції', 'Options'], ['np. 5', 'напр. 5', 'e.g. 5'],
   ['Nietypowy kształt konstrukcji. Podaj wymiar i opisz kształt w uwagach.', 'Нетипова форма конструкції. Вкажіть розмір і опишіть форму в примітках.', 'Unusual structure shape. Enter the size and describe the shape in the notes.'], ['Grubość', 'Товщина', 'Thickness'], ['np. 30', 'напр. 30', 'e.g. 30'], ['CNC + podświetlenie', 'CNC + підсвічування', 'CNC + backlight'],
   ['Litery frezowane CNC z podświetleniem LED (świecące lico).', 'Літери, фрезеровані на CNC, з LED-підсвічуванням (світиться лицьова частина).', 'CNC-milled letters with LED lighting (glowing face).'], ['Blokowa / 3D print', 'Блокова / 3D-друк', 'Block / 3D print'], ['Neon', 'Неон', 'Neon'], ['wykonanie do ustalenia', 'виконання не визначено', 'finish to be decided'], ['Nieznany typ', 'Невідомий тип', 'Unknown type'],
   ['Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.', 'Напис або логотип, вирізаний з плівки, наклеєний прямо на стіну чи скло. Без фону.', 'Lettering or logo cut from vinyl, applied directly to a wall or glass. No background.'],
@@ -1351,12 +1353,17 @@ function normalizeEl(e) {
   return e;
 }
 // przełączniki opcji typu: [pole, napis w opcjach, dopisek w nazwie]
-const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze']];
+const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze'], ['wyslona', 'Wysłona', 'wysłona']];
+// wartości przełączników do zapisu: tylko te, które dany typ ma
+const togValues = (src, typeId) => Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, typeById(typeId)[k] ? !!src[k] : false]));
+const togReset = () => Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, false]));
 const variantOf = el => (typeById(el.typeId).variants || []).find(v => v.id === el.variant) || null;
 const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 'flat'; }; // flat | ring | box
 // Pełna nazwa typu z wykonaniem, grubością i SEG — do tabeli, PDF, CSV i historii
 // czy typ / wykonanie pyta o grubość materiału (Logo 3D z PCW, pleksi, blokowa; płyta PCW)
 const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || typeById(el.typeId).thick); };
+// uwagi do tabel: SEG z opcji + to, co wpisano
+const notesOf = el => [typeById(el.typeId).seg && el.seg ? 'SEG' : '', el.notes || ''].filter(Boolean).join(' · ');
 function typeLabel(el) {
   const t = typeById(el.typeId), v = variantOf(el);
   let s = t.name;
@@ -2045,6 +2052,7 @@ function renderProjectHeader() {
   $('hdr-cd').innerHTML = ''; // w projekcie odlicza zegar-butla obok tabeli
   updateClock();
   $('hdr-actions').innerHTML = `
+    <button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>
     <button class="btn" onclick="openExportDialog()">⇩ Eksport</button>
     ${isAdmin() ? `<button class="btn" onclick="openProjectForm('${p.id}')">⚙ Projekt</button>` : ''}`;
 }
@@ -2648,7 +2656,7 @@ function closeArcMenu(instant) {
 }
 function arcPickType(id) {
   if (!ARC) return;
-  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', contour: false, laminate: false, shown: new Set() });
+  if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', ...togReset(), shown: new Set() });
   ARC.root.querySelectorAll('.arc-btn').forEach(b => { b.classList.toggle('on', b.dataset.t === id); b.classList.toggle('dim', b.dataset.t !== id); });
   renderArcPanel();
 }
@@ -2732,7 +2740,7 @@ function arcPickOpt(step, o) {
 function arcEl() {
   const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
   const vv = variantOf(ARC), m = dimsMode(ARC);
-  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', contour: typeById(ARC.typeId).contour ? !!ARC.contour : false, laminate: typeById(ARC.typeId).laminate ? !!ARC.laminate : false,
+  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', ...togValues(ARC, ARC.typeId),
     w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: '' };
 }
 function arcCalc() {
@@ -2860,8 +2868,7 @@ function openElementDialog({ id, shape, photoId }) {
     d: dimsMode(el) === 'box' ? toMM($('ed-d').value) : '',
     variant: el.variant || '',
     thick: hasThick(el) && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
-    contour: typeById(el.typeId).contour ? !!el.contour : false,
-    laminate: typeById(el.typeId).laminate ? !!el.laminate : false,
+    ...togValues(el, el.typeId),
     seg: typeById(el.typeId).seg ? !!el.seg : false,
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
@@ -2907,7 +2914,7 @@ function openElementDialog({ id, shape, photoId }) {
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
-    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; el.contour = false; el.laminate = false; }
+    if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; Object.assign(el, togReset()); }
     el.typeId = b.dataset.t;
     m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
     renderOpts(); refresh();
@@ -2924,14 +2931,14 @@ function openElementDialog({ id, shape, photoId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, laminate: d.laminate, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
         if (diff) addLog(pid, `Element ${lab}: ${diff}`, editing.id);
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, contour: d.contour, laminate: d.laminate, seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
@@ -3351,7 +3358,7 @@ function renderElements() {
         <td class="dims">${dims ? grossTxt(e) : ''}</td>
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
-        <td class="notes" title="${esc(e.notes || '')}">${esc(e.notes || '')}</td>
+        <td class="notes" title="${esc(notesOf(e))}">${esc(notesOf(e))}</td>
         <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
           ${e.shape ? '' : `<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
@@ -3422,6 +3429,28 @@ function renderLog() {
 // Zapis pliku: nazwa FIRMA_Index_v{wersja}_{data}, o wersję pytamy przed zapisem (podpowiadamy kolejną).
 const dateStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
+// Zlecenie: każdy element w osobnej linii — znak: wymiar do druku, sztuki, typ (+ dopisek przy SEG)
+function orderText() {
+  return S.elements.map(e => {
+    const t = typeById(e.typeId);
+    const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e)];
+    if (t.seg && e.seg) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
+    if (e.notes) parts.push(e.notes);
+    return `${letterOf(e.num)}: ${parts.join(', ')}`;
+  }).join('\n');
+}
+async function copyOrder() {
+  if (!S.project) return;
+  if (!S.elements.length) return toast('Brak elementów do zlecenia', 'error');
+  const txt = orderText();
+  try { await navigator.clipboard.writeText(txt); }
+  catch (e) { // starsze przeglądarki / brak zgody: kopiowanie przez ukryte pole
+    const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  toast(`Skopiowano zlecenie (${S.elements.length} el.) — wklej do maila (Ctrl+V)`, 'success', 4000);
+  addLog(S.project.id, 'Skopiowano zlecenie do schowka');
+}
 function openExportDialog() {
   if (!S.project) return;
   const p = S.project, nextV = (Number(p.indexVersion) || 0) + 1;
@@ -3479,7 +3508,7 @@ function exportRows() {
     return { znak: letterOf(e.num), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
       w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
       net: netTxt(e), gross: grossTxt(e), spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
-      qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: e.notes || '', kto: userLabel(e.updatedBy || e.createdBy), color: t.color, el: e };
+      qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: t.color, el: e };
   });
 }
 function exportCsv(name) {
