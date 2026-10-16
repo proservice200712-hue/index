@@ -362,6 +362,7 @@
     background: linear-gradient(180deg, #2f3a4f, #1b2130 55%, #121621); transition: background .15s, color .15s; }
   #arc .arc-btn .nm { overflow: hidden; text-overflow: ellipsis; }
   #arc .k { flex: 0 0 auto; min-width: 17px; height: 17px; display: inline-flex; align-items: center; justify-content: center; font-size: .64rem; font-weight: 800; color: #fff; background: #67b437; box-shadow: 0 0 0 1px #fff; }
+  #arc .arc-btn[data-t="__more"] .in { font-style: italic; }
   #arc .gem { flex: 0 0 auto; width: 10px; height: 10px; transform: rotate(45deg); box-shadow: 0 0 0 1.5px #fff; }
   #arc .arc-btn:hover { background: #8fd65e; }
   #arc .arc-btn:hover .in { background: linear-gradient(180deg, #3b4a66, #263048 55%, #182033); }
@@ -963,7 +964,8 @@ const I18N_PAIRS = [
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
-  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Kolejna sztuka…', 'Ще одна штука…', 'Another piece…'], ['Kolejna sztuka', 'Ще одна штука', 'Another piece'], ['Element', 'Елемент', 'Element'],
+  ['To miejsce to kolejna sztuka elementu, który już jest na liście. Wybierz go — dostanie tu drugi znacznik, a liczba sztuk wzrośnie.', 'Це місце — ще одна штука елемента, який вже є у списку. Виберіть його — він отримає тут другу мітку, а кількість штук зросте.', 'This spot is another piece of an element already on the list. Pick it — it gets a second marker here and the quantity goes up.'], ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
   ['Nazwa elementu (opcjonalnie)', 'Назва елемента (необов’язково)', 'Element name (optional)'], ['nazwa (opcjonalnie)', 'назва (необов’язково)', 'name (optional)'],
   ['np. ściana tylna, lada, kaseton nad wejściem', 'напр. задня стіна, стійка, короб над входом', 'e.g. back wall, counter, sign above the entrance'], ['Zlecenie', 'Замовлення', 'Order'],
   ['Skopiuj listę elementów do schowka — do wklejenia w mailu', 'Скопіювати список елементів у буфер — щоб вставити в лист', 'Copy the element list to the clipboard — to paste into an email'],
@@ -1146,14 +1148,18 @@ renderLangs();
 // =====================================================================
 const strip = o => JSON.parse(JSON.stringify(o)); // Firestore nie przyjmuje undefined
 // Firestore nie przyjmuje tablic w tablicach — punkty kształtu [[x,y],…] trzymamy w bazie jako [{x,y},…]
+const ptsToFire = sh => sh && Array.isArray(sh.pts) ? { ...sh, pts: sh.pts.map(q => Array.isArray(q) ? { x: q[0], y: q[1] } : q) } : sh;
+const ptsFromFire = sh => sh && Array.isArray(sh.pts) ? { ...sh, pts: sh.pts.map(q => Array.isArray(q) ? q : [q.x, q.y]) } : sh;
 function toFire(o) {
   o = strip(o);
-  if (o.shape && Array.isArray(o.shape.pts)) o.shape.pts = o.shape.pts.map(q => Array.isArray(q) ? { x: q[0], y: q[1] } : q);
+  if (o.shape) o.shape = ptsToFire(o.shape);
+  if (Array.isArray(o.extra)) o.extra = o.extra.map(x => ({ ...x, shape: ptsToFire(x.shape) }));
   return o;
 }
 function fromFire(d) {
   const o = { id: d.id, ...d.data() };
-  if (o.shape && Array.isArray(o.shape.pts)) o.shape = { ...o.shape, pts: o.shape.pts.map(q => Array.isArray(q) ? q : [q.x, q.y]) };
+  if (o.shape) o.shape = ptsFromFire(o.shape);
+  if (Array.isArray(o.extra)) o.extra = o.extra.map(x => ({ ...x, shape: ptsFromFire(x.shape) }));
   return o;
 }
 let db = null;
@@ -1417,6 +1423,47 @@ const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || ty
 // Znak elementu w kółku: litera (A, B, C…) albo dla wysłony W1, W2… (numer `wnum`, stały).
 const isWys = el => !!(typeById(el.typeId).wyslona && el.wyslona);
 const markOf = el => isWys(el) && el.wnum ? 'W' + el.wnum : letterOf(el.num);
+// Miejsca elementu na wizkach: pierwsze (shape / photoId) i kolejne sztuki w innych miejscach (extra).
+// loc = -1 to pierwsze miejsce, 0, 1, 2… to kolejne.
+const locsOf = el => [{ loc: -1, photoId: el.photoId, shape: el.shape }]
+  .concat((el.extra || []).map((x, i) => ({ loc: i, photoId: x.photoId, shape: x.shape })))
+  .filter(l => l.shape && l.photoId);
+const locShape = (el, loc) => loc == null || loc < 0 ? el.shape : ((el.extra || [])[loc] || {}).shape;
+const locPhoto = (el, loc) => loc == null || loc < 0 ? el.photoId : ((el.extra || [])[loc] || {}).photoId;
+// zapis zmienionego kształtu jednego miejsca
+function saveLocShape(el, loc, sh) {
+  let upd;
+  if (loc == null || loc < 0) { el.shape = sh; upd = { shape: sh }; }
+  else { const extra = clone(el.extra || []); if (!extra[loc]) return Promise.resolve(); extra[loc].shape = sh; el.extra = extra; upd = { extra }; }
+  return DB.update(pElements(S.project.id), el.id, { ...upd, updatedAt: nowIso(), updatedBy: S.me.id });
+}
+// kolejna sztuka w innym miejscu: drugi znacznik, ilość co najmniej tyle, ile miejsc
+async function addLocation(eid, photoId, shape) {
+  const el = S.elements.find(e => e.id === eid); if (!el || !S.project) return;
+  const pid = S.project.id;
+  if (!el.shape) { // element bez zaznaczenia — to jego pierwsze miejsce
+    await DB.update(pElements(pid), eid, { shape, photoId, updatedAt: nowIso(), updatedBy: S.me.id });
+    addLog(pid, `Zaznaczono element ${markOf(el)} na wizce #${photoNo(photoId)}`, eid);
+  } else {
+    const extra = clone(el.extra || []); extra.push({ photoId, shape });
+    const places = 1 + extra.length, qty = Math.max(Number(el.qty) || 1, places);
+    await DB.update(pElements(pid), eid, { extra, qty, updatedAt: nowIso(), updatedBy: S.me.id });
+    addLog(pid, `Element ${markOf(el)}: kolejne miejsce na wizce #${photoNo(photoId)} (miejsc: ${places})` + (qty !== (Number(el.qty) || 1) ? `, ilość → ${qty} szt.` : ''), eid);
+  }
+  selectElement(eid, false, el.shape ? (el.extra || []).length : -1);
+}
+// usunięcie jednego miejsca (element zostaje, gdy ma inne)
+async function removeLocation(eid, loc) {
+  const el = S.elements.find(e => e.id === eid); if (!el) return;
+  const locs = locsOf(el);
+  if (locs.length <= 1) return deleteElement(eid);
+  const rest = locs.filter(l => l.loc !== (loc == null ? -1 : loc));
+  const qty = (Number(el.qty) || 1) === locs.length ? Math.max(1, rest.length) : (Number(el.qty) || 1);
+  await DB.update(pElements(S.project.id), eid, { photoId: rest[0].photoId, shape: rest[0].shape,
+    extra: rest.slice(1).map(l => ({ photoId: l.photoId, shape: l.shape })), qty, updatedAt: nowIso(), updatedBy: S.me.id });
+  addLog(S.project.id, `Element ${markOf(el)}: usunięto jedno z miejsc (zostało: ${rest.length})`, eid);
+  S.selLoc = -1;
+}
 // numer wysłony: dotychczasowy albo kolejny wolny
 function wysNumFor(d, selfId) {
   if (!isWys(d)) return null;
@@ -2213,12 +2260,18 @@ async function pasteFromClipboard() {
   }
 }
 async function deletePhoto(id) {
-  const n = S.elements.filter(e => e.photoId === id).length;
+  const touched = S.elements.filter(e => locsOf(e).some(l => l.photoId === id));
+  const gone = touched.filter(e => locsOf(e).every(l => l.photoId === id)), n = gone.length;
   const no = photoNo(id);
-  const ok = await confirmBox(`Usunąć wizkę #${no}?` + (n ? `<br>Razem z nią znikną <b>${n}</b> zaznaczone na niej elementy.` : ''), 'Usuń');
+  const ok = await confirmBox(`Usunąć wizkę #${no}?` + (n ? `<br>Razem z nią znikną <b>${n}</b> zaznaczone na niej elementy.` : '')
+    + (touched.length > n ? `<br>${touched.length - n} el. ma też inne miejsca — zostaną, bez znaczników z tej wizki.` : ''), 'Usuń');
   if (!ok) return;
   const pid = S.project.id;
-  for (const e of S.elements.filter(e => e.photoId === id)) await DB.del(pElements(pid), e.id);
+  for (const e of touched) {
+    const rest = locsOf(e).filter(l => l.photoId !== id);
+    if (!rest.length) { await DB.del(pElements(pid), e.id); continue; }
+    await DB.update(pElements(pid), e.id, { photoId: rest[0].photoId, shape: rest[0].shape, extra: rest.slice(1).map(l => ({ photoId: l.photoId, shape: l.shape })) });
+  }
   await DB.del(pPhotos(pid), id);
   addLog(pid, `Usunięto wizkę #${no}` + (n ? ` (i ${n} el.)` : ''));
 }
@@ -2400,16 +2453,18 @@ function renderOverlay() {
       <g class="pdel" data-pid="${p.id}"><title>Usuń wizkę #${i + 1}</title><rect x="${b.x + b.w - 24 * s}" y="0" width="${24 * s}" height="${24 * s}" fill="rgba(229,62,62,.9)"/>
       <text x="${b.x + b.w - 12 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${14 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">✕</text></g>`;
   });
-  const els = S.elements.filter(e => e.shape && L.map[e.photoId]);
+  const marks = [];
+  S.elements.forEach(el => locsOf(el).forEach(l => { if (L.map[l.photoId]) marks.push({ el, ...l }); }));
   // zaznaczony na końcu (na wierzchu)
-  els.sort((a, b) => (a.id === S.selId) - (b.id === S.selId));
-  for (const el of els) {
-    const b = L.map[el.photoId];
-    const sh = liveShape && liveShape.eid === el.id ? liveShape.shape : el.shape;
+  marks.sort((a, b) => (a.el.id === S.selId) - (b.el.id === S.selId));
+  for (const mk of marks) {
+    const el = mk.el, b = L.map[mk.photoId], loc = mk.loc;
+    const sh = liveShape && liveShape.eid === el.id && (liveShape.loc ?? -1) === loc ? liveShape.shape : mk.shape;
     const t = typeById(el.typeId), sel = el.id === S.selId, hov = el.id === S.hoverId;
+    const selHere = sel && (S.selLoc ?? -1) === loc; // uchwyty tylko przy wskazanym miejscu
     const [ax, ay] = shapeCenter(sh), [cx, cy] = labPos(sh);
     const r = (sh.kind === 'point' ? 15 : 13) * s;
-    out += `<g class="shp${hov ? ' hov' : ''}" data-eid="${el.id}">`;
+    out += `<g class="shp${hov ? ' hov' : ''}" data-eid="${el.id}" data-loc="${loc}">`;
     // znacznik odsunięty od miejsca, którego dotyczy: kreska z grotem do tego miejsca
     if (sh.lab) {
       const x1 = +X(b, [cx]), y1 = +Y([0, cy]), x2 = +X(b, [ax]), y2 = +Y([0, ay]);
@@ -2418,7 +2473,7 @@ function renderOverlay() {
       out += `<line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="#fff" stroke-opacity=".85" stroke-width="${3 * s}" stroke-linecap="round"/>
         <line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${t.color}" stroke-width="${1.4 * s}" stroke-linecap="round"/>
         <polygon points="${x2},${y2} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}" fill="${t.color}" stroke="#fff" stroke-width="${.8 * s}" stroke-linejoin="round"/>`;
-      if (sel) out += `<circle class="hdl anc" data-eid="${el.id}" cx="${x2}" cy="${y2}" r="${6 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"><title>Przeciągnij, aby zmienić miejsce, którego dotyczy znacznik</title></circle>`;
+      if (selHere) out += `<circle class="hdl anc" data-eid="${el.id}" data-loc="${loc}" cx="${x2}" cy="${y2}" r="${6 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"><title>Przeciągnij, aby zmienić miejsce, którego dotyczy znacznik</title></circle>`;
     }
     if (sh.kind !== 'point') {
       const pts = shapePolyPts(sh);
@@ -2433,9 +2488,9 @@ function renderOverlay() {
       <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
       <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s}" text-anchor="middle" font-size="${(markOf(el).length > 1 ? 10.5 : 13) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${markOf(el)}</text>
     </g></g>`;
-    if (sel && tool === 'point' && sh.kind !== 'point') {
+    if (selHere && tool === 'point' && sh.kind !== 'point') {
       shapePolyPts(sh).forEach((q, i) => {
-        out += `<rect class="hdl" data-h="${i}" data-eid="${el.id}" x="${+X(b, q) - 5 * s}" y="${+Y(q) - 5 * s}" width="${10 * s}" height="${10 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"/>`;
+        out += `<rect class="hdl" data-h="${i}" data-eid="${el.id}" data-loc="${loc}" x="${+X(b, q) - 5 * s}" y="${+Y(q) - 5 * s}" width="${10 * s}" height="${10 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"/>`;
       });
     }
   }
@@ -2499,26 +2554,28 @@ viewer.addEventListener('pointerdown', e => {
   // narzędzie „Zaznacz kliknięciem"
   const h = e.target.closest('.hdl');
   const g = e.target.closest('.shp');
+  const locOfNode = n => n && n.dataset.loc != null ? +n.dataset.loc : -1;
   if (h && h.classList.contains('anc')) {
-    const el = S.elements.find(x => x.id === h.dataset.eid);
-    act = { mode: 'anchor', eid: el.id, pid: el.photoId, start: toNorm(e, el.photoId), orig: clone(el.shape), changed: false };
+    const el = S.elements.find(x => x.id === h.dataset.eid), loc = locOfNode(h), pid = locPhoto(el, loc);
+    act = { mode: 'anchor', eid: el.id, loc, pid, start: toNorm(e, pid), orig: clone(locShape(el, loc)), changed: false };
     return;
   }
   if (h) {
-    const el = S.elements.find(x => x.id === h.dataset.eid);
-    act = { mode: 'handle', eid: el.id, pid: el.photoId, idx: +h.dataset.h, orig: clone(el.shape), changed: false };
+    const el = S.elements.find(x => x.id === h.dataset.eid), loc = locOfNode(h), pid = locPhoto(el, loc);
+    act = { mode: 'handle', eid: el.id, loc, pid, idx: +h.dataset.h, orig: clone(locShape(el, loc)), changed: false };
     return;
   }
   if (g) {
-    const el = S.elements.find(x => x.id === g.dataset.eid);
-    selectElement(el.id, false);
-    setCurrentPhoto(el.photoId);
+    const el = S.elements.find(x => x.id === g.dataset.eid), loc = locOfNode(g), pid = locPhoto(el, loc);
+    selectElement(el.id, false, loc);
+    setCurrentPhoto(pid);
     const onLab = !!e.target.closest('[data-part="lab"]');
-    act = { mode: onLab ? 'label' : 'move', eid: el.id, pid: el.photoId, start: toNorm(e, el.photoId), orig: clone(el.shape), changed: false };
+    act = { mode: onLab ? 'label' : 'move', eid: el.id, loc, pid, start: toNorm(e, pid), orig: clone(locShape(el, loc)), changed: false };
     return;
   }
-  // tło: krótkie kliknięcie = nowy element w tym miejscu, przeciągnięcie = przesuwanie widoku
-  act = { mode: 'tap', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty, at: toStage(e) };
+  // tło: krótkie kliknięcie = nowy element w tym miejscu (Shift = kolejne miejsce zaznaczonego elementu),
+  // przeciągnięcie = przesuwanie widoku
+  act = { mode: 'tap', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty, at: toStage(e), shift: e.shiftKey };
 });
 viewer.addEventListener('pointermove', e => {
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -2552,7 +2609,7 @@ viewer.addEventListener('pointermove', e => {
     dy = clamp(dy, -Math.min(...pts.map(p => p[1])), 1 - Math.max(...pts.map(p => p[1])));
     const moved = { kind: act.orig.kind, pts: act.orig.pts.map(p => [p[0] + dx, p[1] + dy]) };
     if (act.orig.lab) moved.lab = [clamp(act.orig.lab[0] + dx, 0, 1), clamp(act.orig.lab[1] + dy, 0, 1)];
-    liveShape = { eid: act.eid, shape: moved };
+    liveShape = { eid: act.eid, loc: act.loc, shape: moved };
     act.changed = Math.abs(dx) + Math.abs(dy) > 0.0005;
     renderOverlay(); return;
   }
@@ -2562,7 +2619,7 @@ viewer.addEventListener('pointermove', e => {
     if (act.mode === 'label') { const [lx, ly] = labPos(act.orig); sh.lab = [clamp(lx + dx, 0, 1), clamp(ly + dy, 0, 1)]; }
     else if (sh.kind === 'point') sh.pts = [[clamp(sh.pts[0][0] + dx, 0, 1), clamp(sh.pts[0][1] + dy, 0, 1)]];
     else { sh.pts = sh.pts.map(p => [clamp(p[0] + dx, 0, 1), clamp(p[1] + dy, 0, 1)]); }
-    liveShape = { eid: act.eid, shape: sh };
+    liveShape = { eid: act.eid, loc: act.loc, shape: sh };
     act.changed = Math.abs(dx) + Math.abs(dy) > 0.0005;
     renderOverlay(); return;
   }
@@ -2577,7 +2634,7 @@ viewer.addEventListener('pointermove', e => {
     } else {
       sh = clone(act.orig); sh.pts[act.idx] = q;
     }
-    liveShape = { eid: act.eid, shape: sh };
+    liveShape = { eid: act.eid, loc: act.loc, shape: sh };
     act.changed = true;
     renderOverlay(); return;
   }
@@ -2593,6 +2650,7 @@ function endPointer(e) {
     const pid = photoAt(a.at[0], a.at[1]);
     if (!pid) { if (S.selId) selectElement(null); return; }
     setCurrentPhoto(pid);
+    if (a.shift && S.selId && !assignTo) { addLocation(S.selId, pid, { kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }); return; }
     if (S.selId && !assignTo) { selectElement(null); return; } // pierwsze kliknięcie obok tylko odznacza
     onShapeDrawn({ kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }, pid);
     return;
@@ -2607,9 +2665,9 @@ function endPointer(e) {
     }
     if (a.changed) {
       const el = S.elements.find(x => x.id === eid);
-      if (el) el.shape = sh; // od razu lokalnie, żeby nie mrugało przed odpowiedzią bazy
-      DB.update(pElements(S.project.id), eid, { shape: sh, updatedAt: nowIso(), updatedBy: S.me.id })
-        .then(() => addLog(S.project.id, `Poprawiono zaznaczenie elementu ${markOf(el)} na wizce #${photoNo(el.photoId)}`, eid))
+      // od razu lokalnie (żeby nie mrugało), potem baza
+      if (el) saveLocShape(el, a.loc, sh)
+        .then(() => addLog(S.project.id, `Poprawiono zaznaczenie elementu ${markOf(el)} na wizce #${photoNo(a.pid)}`, eid))
         .catch(err => toast('Błąd zapisu: ' + err.message, 'error'));
     }
     liveShape = null;
@@ -2666,7 +2724,8 @@ function openArcMenu(shape, photoId) {
   closeArcMenu(true);
   pendingShape = { shape, photoId }; renderOverlay();
   const [px, py] = stageToClient(photoId, shapeCenter(shape));
-  const types = S.types, n = types.length;
+  // ostatnia pozycja: to miejsce to kolejna sztuka elementu, który już jest na liście
+  const types = S.elements.length ? S.types.concat([{ id: '__more', name: 'Kolejna sztuka…', color: '#ffffff' }]) : S.types, n = types.length;
   const R = Math.max(110, (n - 1) * ARC_STEP / 2 + 34);
   const need = R + 16 + ARC_BTN_W + 20 + ARC_PANEL_W + 12;
   const dir = px + need <= innerWidth - 8 || innerWidth - px >= px ? 1 : -1;
@@ -2703,7 +2762,7 @@ function openArcMenu(shape, photoId) {
     <div class="arc-panel hidden" style="left:${(R + 16 + ARC_BTN_W + 20) * dir}px;width:${ARC_PANEL_W}px"></div>`;
   document.body.appendChild(back);
   document.body.appendChild(root);
-  ARC = { root, back, dir, panelLeft: (R + 16 + ARC_BTN_W + 20) * dir, shape, photoId, typeId: '', variant: '', seg: null, thick: '', w: '', h: '', d: '', qty: 1, notes: '', shown: new Set(), hoverT: null };
+  ARC = { root, back, dir, panelLeft: (R + 16 + ARC_BTN_W + 20) * dir, shape, photoId, items: types, typeId: '', variant: '', seg: null, thick: '', w: '', h: '', d: '', qty: 1, notes: '', shown: new Set(), hoverT: null };
   root.querySelectorAll('.arc-btn').forEach(b => {
     b.onclick = () => arcPickType(b.dataset.t);
     b.onmouseenter = () => { if (!ARC.typeId) { ARC.hoverT = b.dataset.t; renderArcPanel(); } };
@@ -2742,13 +2801,14 @@ function renderArcPanel() {
   if (!ARC) return;
   const panel = ARC.root.querySelector('.arc-panel');
   const tid = ARC.typeId || ARC.hoverT; if (!tid) { panel.classList.add('hidden'); return; }
+  if (tid === '__more') return renderArcMore(panel, !ARC.typeId);
   const t = typeById(tid), v = ARC.typeId ? variantOf(ARC) : null;
   const preview = !ARC.typeId;
   const fresh = k => { const f = !ARC.shown.has(k); if (!preview) ARC.shown.add(k); return f ? ' ap-in' : ''; };
   let h = `<div class="ap-h${fresh('h' + tid + (v ? v.id : ''))}"><span class="gem" style="background:${t.color}"></span>${esc(v ? t.name + ' — ' + v.name : t.name)}</div>
     <div class="ap-img">${exampleHtml(t, v)}</div>
     <div class="ap-desc">${esc(v && v.desc ? v.desc : t.desc || '')}</div>`;
-  if (preview) h += `<div class="ap-hint">Kliknij albo naciśnij ${S.types.findIndex(x => x.id === tid) + 1}, aby wybrać</div>`;
+  if (preview) h += `<div class="ap-hint">Kliknij albo naciśnij ${ARC.items.findIndex(x => x.id === tid) + 1}, aby wybrać</div>`;
   else {
     const steps = arcSteps();
     let k = 1, ready = true;
@@ -2803,6 +2863,30 @@ function renderArcPanel() {
   const first = panel.querySelector('.ap-thick input') || panel.querySelector('.ap-form input[data-f]');
   if (first && !panel.contains(document.activeElement)) setTimeout(() => first.focus({ preventScroll: true }), 220);
 }
+// panel „Kolejna sztuka": lista istniejących elementów
+function renderArcMore(panel, preview) {
+  let h = `<div class="ap-h"><span class="gem" style="background:#fff"></span>Kolejna sztuka</div>
+    <div class="ap-desc">To miejsce to kolejna sztuka elementu, który już jest na liście. Wybierz go — dostanie tu drugi znacznik, a liczba sztuk wzrośnie.</div>`;
+  if (preview) h += `<div class="ap-hint">Kliknij albo naciśnij ${ARC.items.length}, aby wybrać · skrót: Shift + klik przy zaznaczonym elemencie</div>`;
+  else h += `<div class="ap-sec ap-in"><div class="ap-lab">Element</div>${S.elements.map((e, i) =>
+    `<button type="button" class="ap-opt" data-more="${e.id}"><span class="k">${i < 9 ? i + 1 : '·'}</span><span class="gem" style="background:${typeById(e.typeId).color}"></span>${esc(markOf(e))} — ${esc(typeLabel(e))}${e.name ? ' (' + esc(e.name) + ')' : ''}</button>`).join('')}</div>`;
+  panel.innerHTML = h;
+  panel.classList.remove('hidden');
+  const btn = ARC.root.querySelector('.arc-btn[data-t="__more"]');
+  const oy = parseFloat(ARC.root.style.top), ph = panel.offsetHeight;
+  panel.style.top = clamp(parseFloat(btn.style.top) - 40, -oy + 8, innerHeight - oy - ph - 8) + 'px';
+  panel.style.left = ARC.panelLeft + 'px';
+  const pr = panel.getBoundingClientRect();
+  if (pr.right > innerWidth - 8) panel.style.left = (ARC.panelLeft - (pr.right - innerWidth + 8)) + 'px';
+  else if (pr.left < 8) panel.style.left = (ARC.panelLeft + (8 - pr.left)) + 'px';
+  panel.querySelectorAll('[data-more]').forEach(b => b.onclick = () => arcAddMore(b.dataset.more));
+}
+async function arcAddMore(eid) {
+  if (!ARC) return;
+  const { shape, photoId } = ARC;
+  closeArcMenu();
+  await addLocation(eid, photoId, shape);
+}
 function arcPickOpt(step, o) {
   if (!ARC) return;
   if (step === 'v') { ARC.variant = o; ARC.shown.delete('form'); }
@@ -2822,7 +2906,7 @@ function arcCalc() {
     : `<span class="w">wymiar do ustalenia</span> · spad ${bleedTxt(g.b)}`;
 }
 async function arcSave() {
-  if (!ARC || !ARC.typeId) return;
+  if (!ARC || !ARC.typeId || ARC.typeId === '__more') return;
   if (arcSteps().some(st => !st.done)) return;
   const d = arcEl(), pid = S.project.id, num = nextNum();
   d.wnum = wysNumFor(d);
@@ -2843,15 +2927,16 @@ function arcKey(e) {
   if (inInput || e.ctrlKey || e.metaKey || e.altKey || !/^[1-9]$/.test(e.key)) return;
   e.preventDefault();
   const k = +e.key;
-  if (!ARC.typeId) { const t = S.types[k - 1]; if (t) arcPickType(t.id); return; }
+  if (!ARC.typeId) { const t = ARC.items[k - 1]; if (t) arcPickType(t.id); return; }
+  if (ARC.typeId === '__more') { const el = S.elements[k - 1]; if (el) arcAddMore(el.id); return; }
   const st = arcSteps().find(x => !x.done);
   if (st && st.opts[k - 1]) arcPickOpt(st.key, st.opts[k - 1].id);
 }
 window.addEventListener('resize', () => closeArcMenu(true));
 
 // --- zaznaczanie elementu (lista <-> wizka) ---
-function selectElement(id, focus = true) {
-  S.selId = id;
+function selectElement(id, focus = true, loc = -1) {
+  S.selId = id; S.selLoc = loc;
   const el = S.elements.find(e => e.id === id);
   if (el && focus && el.photoId && el.shape && L.map[el.photoId]) {
     setCurrentPhoto(el.photoId);
@@ -2881,7 +2966,10 @@ document.addEventListener('keydown', e => {
   else if (k === 'enter' && draft && draft.kind === 'poly') finishPoly();
   else if (k === 'escape') { if (draft) cancelDraft(); else if (assignTo) cancelAssign(); else if (tool === 'poly') setTool('point'); else selectElement(null); }
   else if (k === 'backspace' && draft && draft.kind === 'poly') { draft.pts.pop(); if (!draft.pts.length) draft = null; renderOverlay(); updateHint(); }
-  else if ((k === 'delete' || k === 'backspace') && S.selId) deleteElement(S.selId);
+  else if ((k === 'delete' || k === 'backspace') && S.selId) {
+    const el = S.elements.find(x => x.id === S.selId);
+    if (el && locsOf(el).length > 1) removeLocation(S.selId, S.selLoc ?? -1); else deleteElement(S.selId); // przy kilku miejscach znika tylko wskazane
+  }
   else return;
   e.preventDefault();
 });
@@ -3742,7 +3830,8 @@ async function renderIndexA3(stamp) {
   let x = M + (availW - (Hp * sumA + GAP * (imgs.length - 1))) / 2;
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
-    if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, rows.filter(r => r.el.photoId === o.ph.id), Math.max(18, Math.min(30, Hp / 26)));
+    const here = rows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
+    if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, here, Math.max(18, Math.min(30, Hp / 26)));
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
     if (imgs.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + (i + 1), x + 12, top + 29); }
     x += w + GAP;
