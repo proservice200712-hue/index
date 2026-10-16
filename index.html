@@ -247,8 +247,10 @@
   table.el tbody tr:hover { background: #f1f8ec; }
   table.el tr.sel { background: #d9eecb !important; }
   table.el tr.nodim td.dims { color: var(--orange); font-weight: 700; }
-  table.el td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  table.el td.dims { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.el td.num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.el td.dims { text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.el th.c, table.el td.c { text-align: center; }
+  table.el td.c .avatar-sm { margin: 0 auto; }
   table.el td.notes { color: var(--gray); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.el tfoot td { font-weight: 700; background: var(--bg); position: sticky; bottom: 0; }
   .badge { display: inline-flex; min-width: 24px; height: 24px; padding: 0 5px; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.78rem; border-radius: 50% !important; }
@@ -3264,12 +3266,12 @@ function renderElements() {
     return;
   }
   $('el-scroll').innerHTML = `<table class="el"><thead><tr>
-      <th>Znak</th><th>Wizka</th><th>Typ</th><th>Netto [${UNIT()}]</th><th>Spad</th><th>Do druku [${UNIT()}]</th><th>Szt.</th><th>m²</th><th>Uwagi</th><th>Kto</th><th></th>
+      <th>Znak</th><th class="c">Wizka</th><th>Typ</th><th class="c">Netto [${UNIT()}]</th><th class="c">Spad</th><th class="c">Do druku [${UNIT()}]</th><th class="c">Szt.</th><th class="c">m²</th><th>Uwagi</th><th class="c">Kto</th><th></th>
     </tr></thead><tbody>${list.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
         <td><span class="badge" style="background:${t.color}">${letterOf(e.num)}</span></td>
-        <td>${e.photoId ? '#' + photoNo(e.photoId) : '<span class="tag-warn" title="Element nie jest zaznaczony na żadnej wizce">—</span>'}</td>
+        <td class="c">${e.photoId ? '#' + photoNo(e.photoId) : '<span class="tag-warn" title="Element nie jest zaznaczony na żadnej wizce">—</span>'}</td>
         <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
         <td class="num">${g.b ? bleedTxt(g.b) : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
@@ -3277,7 +3279,7 @@ function renderElements() {
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
         <td class="notes" title="${esc(e.notes || '')}">${esc(e.notes || '')}</td>
-        <td>${avatarSm(e.updatedBy || e.createdBy)}</td>
+        <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
           ${e.shape ? '' : `<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
           <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
