@@ -1361,6 +1361,8 @@ function normalizeEl(e) {
   if (L && L.typeId) return { ...e, ...L };
   // folia sprzed 2026-10-16 była zawsze „z nadrukiem + laminat"
   if (e.typeId === 'folia-laminat' && e.laminate === undefined) return { ...e, laminate: true };
+  // wysłona z nazwą „W1" (stara automatyczna nazwa) → znak W1, nazwa pusta
+  if (e.wyslona && !e.wnum && /^W\d+$/.test(String(e.name || '').trim())) return { ...e, wnum: +String(e.name).trim().slice(1), name: '' };
   return e;
 }
 // przełączniki opcji typu: [pole, napis w opcjach, dopisek w nazwie]
@@ -1373,19 +1375,17 @@ const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 
 // Pełna nazwa typu z wykonaniem, grubością i SEG — do tabeli, PDF, CSV i historii
 // czy typ / wykonanie pyta o grubość materiału (Logo 3D z PCW, pleksi, blokowa; płyta PCW)
 const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || typeById(el.typeId).thick); };
-// wysłony dostają same nazwy W1, W2… (kolejny wolny numer); własna nazwa zostaje,
-// a automatyczna W… znika, gdy element przestaje być wysłoną
-const isAutoWysName = n => /^W\d+$/.test(String(n || '').trim());
-function autoWysName(d, selfId) {
-  const name = String(d.name || '').trim();
-  if (typeById(d.typeId).wyslona && d.wyslona) {
-    if (name && !isAutoWysName(name)) return name;
-    const used = S.elements.filter(e => e.id !== selfId && isAutoWysName(e.name)).map(e => +String(e.name).trim().slice(1));
-    if (isAutoWysName(name) && !used.includes(+name.slice(1))) return name;
-    let n = 1; while (used.includes(n)) n++;
-    return 'W' + n;
-  }
-  return isAutoWysName(name) ? '' : name;
+// Znak elementu w kółku: litera (A, B, C…) albo dla wysłony W1, W2… (numer `wnum`, stały).
+const isWys = el => !!(typeById(el.typeId).wyslona && el.wyslona);
+const markOf = el => isWys(el) && el.wnum ? 'W' + el.wnum : letterOf(el.num);
+// numer wysłony: dotychczasowy albo kolejny wolny
+function wysNumFor(d, selfId) {
+  if (!isWys(d)) return null;
+  const self = selfId ? S.elements.find(e => e.id === selfId) : null;
+  if (self && isWys(self) && self.wnum) return self.wnum;
+  const used = S.elements.filter(e => e.id !== selfId && isWys(e) && e.wnum).map(e => e.wnum);
+  let n = 1; while (used.includes(n)) n++;
+  return n;
 }
 // uwagi do tabel: SEG z opcji + to, co wpisano
 const notesOf = el => { const t = typeById(el.typeId);
@@ -1409,6 +1409,7 @@ function bleedOf(el) {
   if (el.eltex) return 0;
   const t = typeById(el.typeId), v = variantOf(el);
   if (t.seg && el.seg) return 0;
+  if (t.wyslona && el.wyslona) return 0; // wysłona bez spadu
   if (v && v.bleed !== undefined) return Number(v.bleed) || 0;
   return Number(t.bleed) || 0;
 }
@@ -2037,7 +2038,7 @@ async function openProject(pid) {
     renderElements(); syncProjectStats(); updateHint();
   }));
   S.unsubProject.push(DB.sub(pElements(pid), rows => {
-    S.elements = rows.map(normalizeEl).sort((a, b) => (a.num || 0) - (b.num || 0));
+    S.elements = rows.map(normalizeEl).sort((a, b) => (isWys(a) - isWys(b)) || (isWys(a) ? (a.wnum || 0) - (b.wnum || 0) : (a.num || 0) - (b.num || 0)));
     if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
     renderOverlay(); renderElements(); syncProjectStats(); updateHint();
   }));
@@ -2391,7 +2392,7 @@ function renderOverlay() {
     out += `<g class="mk" data-part="lab" style="animation-delay:-${(performance.now() % 2000 / 1000).toFixed(3)}s">
       <circle class="halo" cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="none" stroke="${t.color}" stroke-width="${3 * s}"/>
       <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
-      <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s}" text-anchor="middle" font-size="${(el.num > 26 ? 10.5 : 13) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${letterOf(el.num)}</text>
+      <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s}" text-anchor="middle" font-size="${(markOf(el).length > 1 ? 10.5 : 13) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${markOf(el)}</text>
     </g></g>`;
     if (sel && tool === 'point' && sh.kind !== 'point') {
       shapePolyPts(sh).forEach((q, i) => {
@@ -2569,7 +2570,7 @@ function endPointer(e) {
       const el = S.elements.find(x => x.id === eid);
       if (el) el.shape = sh; // od razu lokalnie, żeby nie mrugało przed odpowiedzią bazy
       DB.update(pElements(S.project.id), eid, { shape: sh, updatedAt: nowIso(), updatedBy: S.me.id })
-        .then(() => addLog(S.project.id, `Poprawiono zaznaczenie elementu ${letterOf(el.num)} na wizce #${photoNo(el.photoId)}`, eid))
+        .then(() => addLog(S.project.id, `Poprawiono zaznaczenie elementu ${markOf(el)} na wizce #${photoNo(el.photoId)}`, eid))
         .catch(err => toast('Błąd zapisu: ' + err.message, 'error'));
     }
     liveShape = null;
@@ -2603,7 +2604,7 @@ async function onShapeDrawn(shape, photoId) {
     cancelAssign();
     if (el) {
       await DB.update(pElements(S.project.id), el.id, { shape, photoId, updatedAt: nowIso(), updatedBy: S.me.id });
-      addLog(S.project.id, `Zaznaczono element ${letterOf(el.num)} na wizce #${photoNo(photoId)}`, el.id);
+      addLog(S.project.id, `Zaznaczono element ${markOf(el)} na wizce #${photoNo(photoId)}`, el.id);
       selectElement(el.id, false);
     }
     return;
@@ -2783,8 +2784,9 @@ function arcCalc() {
 async function arcSave() {
   if (!ARC || !ARC.typeId) return;
   if (arcSteps().some(st => !st.done)) return;
-  const d = arcEl(), pid = S.project.id, num = nextNum(), lab = letterOf(num);
-  d.name = autoWysName(d);
+  const d = arcEl(), pid = S.project.id, num = nextNum();
+  d.wnum = wysNumFor(d);
+  const lab = markOf({ ...d, num });
   const rec = { num, ...d, photoId: ARC.photoId, shape: ARC.shape, createdAt: nowIso(), createdBy: S.me.id };
   const go = ARC.root.querySelector('.ap-go'); if (go) go.disabled = true;
   try {
@@ -2851,12 +2853,12 @@ if (window.ResizeObserver) new ResizeObserver(() => { if (S.project && hasPhotos
 // =====================================================================
 //  ELEMENTY: okno opisu, lista
 // =====================================================================
-function nextNum() { return S.elements.reduce((m, e) => Math.max(m, e.num || 0), 0) + 1; }
+function nextNum(exceptId) { return S.elements.filter(e => !isWys(e) && e.id !== exceptId).reduce((m, e) => Math.max(m, e.num || 0), 0) + 1; }
 function openElementDialog({ id, shape, photoId }) {
   const editing = id ? S.elements.find(e => e.id === id) : null;
   if (id && !editing) return;
   const el = editing ? clone(editing) : { typeId: '', name: '', w: '', h: '', qty: 1, notes: '', num: nextNum() };
-  const lab = letterOf(el.num);
+  const lab = editing ? markOf(editing) : markOf(el);
   const types = S.types;
   pendingShape = editing ? null : (shape ? { shape, photoId } : null);
   renderOverlay();
@@ -2931,7 +2933,7 @@ function openElementDialog({ id, shape, photoId }) {
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
       el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
-      $('ed-name').value = autoWysName({ ...el, name: $('ed-name').value }, editing ? editing.id : null); // od razu widać W1, W2…
+      $('ed-badge').textContent = isWys(el) ? 'W' + wysNumFor(el, editing ? editing.id : null) : letterOf(editing && !isWys(editing) ? el.num : nextNum(editing && editing.id)); // od razu widać W1 / literę
       renderOpts(); refresh();
     });
     $('ed-opts').querySelectorAll('input[data-tog]').forEach(i => i.addEventListener('change', () => { el[i.dataset.tog] = i.checked; refresh(); }));
@@ -2975,24 +2977,26 @@ function openElementDialog({ id, shape, photoId }) {
   m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
   $('ed-ok').onclick = async () => {
     const d = read();
-    d.name = autoWysName(d, editing ? editing.id : null);
+    d.wnum = wysNumFor(d, editing ? editing.id : null);
+    // wysłona zamieniona na zwykły element dostaje nową, wolną literę
+    if (editing && isWys(editing) && !isWys(d)) d.num = nextNum(editing.id);
     if (!d.typeId) return toast('Wybierz typ elementu', 'error');
     $('ed-ok').disabled = true;
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
-        if (diff) addLog(pid, `Element ${lab}: ${diff}`, editing.id);
+        if (diff) addLog(pid, `Element ${markOf({ ...editing, ...fields })}: ${diff}`, editing.id);
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
-        addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
+        addLog(pid, `Dodano element ${markOf({ ...d, num: el.num })} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
         m.close();
         S.selId = newId;
       }
@@ -3015,10 +3019,10 @@ function describeDiff(a, b) {
 }
 async function deleteElement(id) {
   const el = S.elements.find(e => e.id === id); if (!el) return;
-  const ok = await confirmBox(`Usunąć element <b>${letterOf(el.num)}</b> — ${esc(typeLabel(el))}${el.name ? ' (' + esc(el.name) + ')' : ''}?`, 'Usuń');
+  const ok = await confirmBox(`Usunąć element <b>${markOf(el)}</b> — ${esc(typeLabel(el))}${el.name ? ' (' + esc(el.name) + ')' : ''}?`, 'Usuń');
   if (!ok) return;
   await DB.del(pElements(S.project.id), id);
-  addLog(S.project.id, `Usunięto element ${letterOf(el.num)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`);
+  addLog(S.project.id, `Usunięto element ${markOf(el)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`);
   if (S.selId === id) S.selId = null;
 }
 function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
@@ -3028,7 +3032,7 @@ function startAssign(eid) {
   assignTo = eid;
   setTool('point'); updateHint();
   const b = $('assign-bar');
-  b.innerHTML = `Zaznacz na wizce element ${letterOf(el.num)} <button class="btn btn-sm" onclick="cancelAssign()">Anuluj</button>`;
+  b.innerHTML = `Zaznacz na wizce element ${markOf(el)} <button class="btn btn-sm" onclick="cancelAssign()">Anuluj</button>`;
   b.classList.remove('hidden');
 }
 function cancelAssign() { assignTo = null; $('assign-bar').classList.add('hidden'); updateHint(); }
@@ -3078,7 +3082,7 @@ function renderGraph() {
   const maxH = Math.max(1, ...withD.map(e => grossOf(e).h)), maxW = Math.max(1, ...withD.map(e => grossOf(e).w));
   const k = Math.min(avail / maxH, 320 / maxW);
   const cards = S.elements.map(e => {
-    const t = typeById(e.typeId), lab = letterOf(e.num), dims = hasDims(e), g = grossOf(e);
+    const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = grossOf(e);
     const FW = dims ? Math.max(36, g.w * k) : 120, FH = dims ? Math.max(36, g.h * k) : 80;
     const bw = dims && g.b ? Math.min(FW / 4, Math.max(3, g.b * k)) : 0, bh = dims && g.b ? Math.min(FH / 4, Math.max(3, g.b * k)) : 0;
     const LM = !dims ? 0 : g.b ? 56 : 32, BM = !dims ? 0 : g.b ? 44 : 24;
@@ -3255,15 +3259,15 @@ async function setThumb(eid, file) {
   try {
     const { url } = await storeImage(file, 900);
     await DB.update(pElements(S.project.id), eid, { thumb: url, updatedAt: nowIso(), updatedBy: S.me.id });
-    addLog(S.project.id, `Dodano grafikę (miniaturę) do elementu ${letterOf(el.num)}`, eid);
+    addLog(S.project.id, `Dodano grafikę (miniaturę) do elementu ${markOf(el)}`, eid);
   } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
   t.remove();
 }
 async function removeThumb(eid) {
   const el = S.elements.find(x => x.id === eid); if (!el) return;
-  if (!await confirmBox(`Usunąć miniaturę grafiki z elementu <b>${letterOf(el.num)}</b>?`, 'Usuń')) return;
+  if (!await confirmBox(`Usunąć miniaturę grafiki z elementu <b>${markOf(el)}</b>?`, 'Usuń')) return;
   await DB.update(pElements(S.project.id), eid, { thumb: '', updatedAt: nowIso(), updatedBy: S.me.id });
-  addLog(S.project.id, `Usunięto miniaturę grafiki z elementu ${letterOf(el.num)}`, eid);
+  addLog(S.project.id, `Usunięto miniaturę grafiki z elementu ${markOf(el)}`, eid);
 }
 // okienka znów w automatycznym układzie
 async function graphAutoLayout() {
@@ -3396,12 +3400,11 @@ function renderElements() {
     return;
   }
   $('el-scroll').innerHTML = `<table class="el"><thead><tr>
-      <th>Znak</th><th>Nazwa</th><th>Typ</th><th class="c">Netto [${UNIT()}]</th><th class="c">Spad</th><th class="c">Do druku [${UNIT()}]</th><th class="c">Szt.</th><th class="c">m²</th><th>Uwagi</th><th class="c">Kto</th><th></th>
+      <th>Znak</th><th>Typ</th><th class="c">Netto [${UNIT()}]</th><th class="c">Spad</th><th class="c">Do druku [${UNIT()}]</th><th class="c">Szt.</th><th class="c">m²</th><th>Uwagi</th><th class="c">Kto</th><th></th>
     </tr></thead><tbody>${list.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
-        <td><span class="badge" style="background:${t.color}">${letterOf(e.num)}</span></td>
-        <td class="ename">${esc(e.name || '')}</td>
+        <td><span class="badge" style="background:${t.color}">${markOf(e)}</span></td>
         <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
         <td class="num">${g.b ? bleedTxt(g.b) : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
@@ -3486,7 +3489,7 @@ function orderText() {
     const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e)];
     if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
     if (e.notes) parts.push(e.notes);
-    return `${letterOf(e.num)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
+    return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
   };
   // alfabetycznie (A, B, C…), wysłony osobno na końcu
   const all = [...S.elements].sort((a, b) => (a.num || 0) - (b.num || 0));
@@ -3560,7 +3563,7 @@ function openExportDialog() {
 function exportRows() {
   return S.elements.map(e => {
     const t = typeById(e.typeId), g = grossOf(e);
-    return { znak: letterOf(e.num), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
+    return { znak: markOf(e), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
       w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
       net: netTxt(e), gross: grossTxt(e), spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
       qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: t.color, el: e };
@@ -3577,7 +3580,7 @@ function exportCsv(name) {
 }
 function exportJson(name) {
   const data = { app: 'INDEX', version: 1, exportedAt: nowIso(), exportedBy: S.me.id, project: S.project,
-    photos: S.photos, elements: S.elements.map(e => ({ ...e, label: letterOf(e.num), bleed: bleedOf(e), gross: grossOf(e), area: areaOf(e) })),
+    photos: S.photos, elements: S.elements.map(e => ({ ...e, label: markOf(e), bleed: bleedOf(e), gross: grossOf(e), area: areaOf(e) })),
     types: S.types, log: S.log };
   download(name, new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   addLog(S.project.id, 'Wyeksportowano pełną kopię danych (JSON)');
