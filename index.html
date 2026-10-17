@@ -50,8 +50,11 @@
   .hdr-title { font-weight: 900; letter-spacing: 3px; font-size: 1.15rem; cursor: pointer; }
   .hdr-title span { color: var(--accent); }
   .hdr-project { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .hdr-project .pname { font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32vw; }
-  .hdr-project .pfair { color: var(--mid); font-size: 0.8rem; white-space: nowrap; }
+  /* stoisko · targi · miejsce · zespół — wszystko w jednej linii */
+  .hdr-mid { display: flex; align-items: center; gap: 12px; min-width: 0; white-space: nowrap; }
+  .hdr-project .pname { font-weight: 800; font-size: 1.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+  .hdr-project .pfair { color: var(--mid); font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+  .hdr-project .pfair:not(:empty)::before { content: '·'; margin-right: 12px; color: var(--gray); }
   .hdr-spacer { flex: 1; }
   .avatar { width: 34px; height: 34px; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; color: #fff; cursor: pointer; user-select: none; flex: 0 0 auto; }
   .langs { display: flex; gap: 6px; align-items: center; }
@@ -324,11 +327,12 @@
   .stand-row:hover .ed, .stand-row.sel .ed, .fair-row.sel .ed { visibility: visible; }
   .hdr-project .pname { cursor: pointer; }
   @media (min-width: 1100px) {
-    .hdr-mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; max-width: 34vw; }
-    .hdr-mid .pname { max-width: 34vw; }
+    .hdr-mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: calc(100vw - 880px); }
   }
   .hdr-project .pname:hover { text-decoration: underline dotted; }
-  .hdr-team { display: inline-flex; gap: 2px; vertical-align: -4px; margin-left: 6px; }
+  .hdr-team { display: inline-flex; gap: 3px; flex: 0 0 auto; cursor: pointer; }
+  .hdr-team:empty { display: none; }
+  .hdr-team .avatar-sm { width: 28px; height: 28px; font-size: 0.7rem; }
   .team-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
   .tchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 3px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-size: .8rem; }
   .tchip:hover { border-color: var(--gray); }
@@ -477,15 +481,14 @@
   .row-act .thread { cursor: grab; touch-action: none; }
   #thread-svg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 500; pointer-events: none; }
   #thread-svg.ok path { stroke-dasharray: none; }
-  .ax-wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; }
-  .ax-chips { display: flex; gap: 14px; flex-wrap: wrap; }
-  .ax-side { display: flex; flex-direction: column; gap: 8px; }
-  .ax-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .ax-photos small { display: block; font-size: 0.7rem; color: var(--gray); margin-bottom: 3px; }
-  .ax-photos img { width: 100%; max-height: 150px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
+  #ax-frame { position: fixed; inset: 0; z-index: 2500; background: rgba(26, 32, 44, 0.55); display: flex; flex-direction: column; align-items: center; padding: 16px; }
+  #ax-frame > * { width: min(820px, 100%); }
+  #ax-frame .axf-bar { display: flex; align-items: center; gap: 12px; background: var(--dark); color: #fff; padding: 8px 12px; }
+  #ax-frame .axf-bar span { flex: 1; color: #cbd5e0; font-size: 0.85rem; }
+  #ax-frame .axf-bar .btn { padding: 4px 10px; }
+  #ax-frame iframe { flex: 1; border: 0; background: #f0f4f8; }
   .ax-badge { display: inline-block; font-size: 0.68rem; font-weight: 800; color: #fff; background: #2d3748; padding: 2px 6px; margin-right: 4px; text-decoration: none; white-space: nowrap; }
   .ax-badge:hover { background: var(--accent); color: var(--dark); }
-  @media (max-width: 760px) { .ax-wrap { grid-template-columns: 1fr; } }
   .ord-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
   .ord-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
   .ord-gh { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 2px 0 4px; }
@@ -569,7 +572,8 @@
 
   @media (max-width: 760px) {
     .hdr-logo { display: none; }
-    .hdr-project .pname { max-width: 46vw; }
+    .hdr-project .pname { font-size: 1.05rem; }
+    .hdr-project .pfair { font-size: 0.85rem; }
     .type-wrap { grid-template-columns: 1fr; }
     .type-list { grid-template-columns: 1fr; }
     .row3 { grid-template-columns: 1fr 1fr 80px; }
@@ -589,6 +593,7 @@
     <div class="hdr-mid" style="min-width:0">
       <div class="pname" id="hdr-pname"></div>
       <div class="pfair" id="hdr-pfair"></div>
+      <span class="hdr-team" id="hdr-pteam"></span>
     </div>
   </div>
   <div id="hdr-cd"></div>
@@ -2400,7 +2405,9 @@ function renderLogBadge() {
 function renderProjectHeader() {
   const p = S.project; if (!p) return;
   $('hdr-project').classList.remove('hidden');
-  $('hdr-pname').innerHTML = `${esc(p.name)} <span class="hdr-team">${teamHtml(p)}</span>`;
+  $('hdr-pname').textContent = p.name || '';
+  $('hdr-pteam').innerHTML = teamHtml(p);
+  $('hdr-pteam').onclick = () => openProjectForm(p.id);
   $('hdr-pname').title = 'Kliknij, aby zmienić nazwę, terminy lub zespół';
   $('hdr-pname').onclick = () => openProjectForm(p.id);
   $('hdr-pfair').textContent = [p.fair, p.city].filter(Boolean).join(' · ');
@@ -3271,18 +3278,16 @@ function nextNum(exceptId) { return S.elements.filter(e => !isWys(e) && e.id !==
 //  (ta sama baza Firebase, kolekcja „records” jak w Archiwum X; piaskownica ?test → zztest_records).
 //  Element pamięta archiwumId / archiwumNo, eksponat pamięta, z którego stoiska i elementu pochodzi.
 // =====================================================================
-const AX_PFX = TEST ? 'zztest_' : '';
-const AX_RECORDS = AX_PFX + 'records', AX_COMPANIES = AX_PFX + 'companies', AX_ACTIVITY = AX_PFX + 'activity';
-const AX_URL = 'https://proservice200712-hue.github.io/archiwum-x/';
-const AX_TYPES = [['3D blokowe', '3D blokowe'], ['3D blokowe — 3D druk', '3D blokowe — 3D druk'], ['3D blokowe — Taśma', '3D blokowe — taśma'],
-  ['3D blokowe — Profil', '3D blokowe — profil'], ['PCW', 'PCW + dystanse'], ['LEDON', 'LEDON'], ['LED2', 'LED second GEN']];
-const AX_STATUSES = [['gotowe', '🟢 Ready'], ['out', '🔵 OUT'], ['sprawdzone', '🟡 Storage'], ['naprawa', '🔨 Storage Repair'], ['wróciło', '🔴 To Find']];
-const AX_LIGHTS = ['Frontlit', 'HALO', 'Sidelit'];
-// podpowiedź typu i podświetlenia w Archiwum X z wykonania Logo 3D
+// Formularz jest ten sam co w Archiwum X: INDEX otwiera Archiwum X w nakładce (?embed=index, piaskownica &test),
+// przekazuje dane elementu i login przez postMessage, a po zapisie dostaje id i numer eksponatu.
+// Lokalnie Archiwum X stoi na osobnym serwerze (port 8532).
+const AX_URL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'http://localhost:8532/' : 'https://proservice200712-hue.github.io/archiwum-x/';
+const AX_ORIGIN = new URL(AX_URL).origin;
+// podpowiedź typu i podświetlenia z wykonania Logo 3D — zapisane tak, jak zapisuje je formularz Archiwum X
 function axGuess(el) {
   switch (el.variant) {
-    case 'pcw': return { type: 'PCW', light: [] };
-    case 'blok': return { type: '3D blokowe — 3D druk', light: [] };
+    case 'pcw': return { type: 'PCW + dystanse', light: [] };
+    case 'blok': return { type: '3D blokowe — 3d-druk', light: [] };
     case 'halo': return { type: '3D blokowe', light: ['HALO'] };
     case 'cnc-led': return { type: '3D blokowe', light: ['Frontlit'] };
     case 'plexi': return { type: 'Pleksi', light: [] };
@@ -3291,71 +3296,47 @@ function axGuess(el) {
   }
 }
 const axLink = el => el.archiwumId ? AX_URL + '?id=' + encodeURIComponent(el.archiwumId) : '';
-async function openArchiwumDialog(eid) {
+let axJob = null;
+function openArchiwumDialog(eid) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project || !isAdmin()) return;
   if (el.archiwumId) { window.open(axLink(el), '_blank'); return; }
   const p = S.project, g = axGuess(el), ph = S.photos.find(x => x.id === el.photoId);
-  let companies = [];
-  try { companies = (await DB.list(AX_COMPANIES)).map(c => c.name).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pl')); } catch (e) {}
-  const known = AX_TYPES.some(([v]) => v === g.type);
-  const m = openModal({ title: `🗄 Do Archiwum X — ${esc(markOf(el))} ${esc(typeLabel(el))}`, wide: true, body: `
-    <div class="ax-wrap">
-      <div>
-        <div class="fld"><label>Firma</label><input type="text" id="ax-company" list="ax-comp-list" value="${esc(p.name || '')}">
-          <datalist id="ax-comp-list">${companies.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
-          <div class="hint">${companies.includes(p.name) ? 'Firma jest już w Archiwum X.' : 'Nowa firma — dopiszę ją do listy w Archiwum X.'}</div></div>
-        <div class="fld"><label>Typ w Archiwum X</label><select id="ax-type">${AX_TYPES.map(([v, n]) => `<option value="${esc(v)}" ${v === g.type ? 'selected' : ''}>${esc(n)}</option>`).join('')}
-          <option value="__inne" ${known ? '' : 'selected'}>Inne…</option></select>
-          <input type="text" id="ax-type-other" class="${known ? 'hidden' : ''}" value="${esc(known ? '' : g.type)}" placeholder="wpisz typ" style="margin-top:6px"></div>
-        <div class="fld"><label>Podświetlenie</label><div class="ax-chips">${AX_LIGHTS.map(l => `<label class="chk"><input type="checkbox" value="${l}" ${g.light.includes(l) ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>
-        <div class="row2">
-          <div class="fld"><label>Status</label><select id="ax-status">${AX_STATUSES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select></div>
-          <div class="fld"><label>Producent</label><input type="text" id="ax-producer" list="ax-prod-list" placeholder="np. Dima"><datalist id="ax-prod-list"><option value="Dima"><option value="Marplex"><option value="Renata"></datalist></div>
-        </div>
-      </div>
-      <div class="ax-side">
-        <div class="hint">Wymiar: <b>${hasDims(el) ? esc(netTxt(el)) + ' ' + UNIT() : 'do ustalenia'}</b>${Number(el.thick) > 0 ? ' · grubość <b>' + esc(lenPL(el.thick)) + ' ' + UNIT() + '</b>' : ''}</div>
-        <div class="hint">Targi do historii: <b>${esc([p.fair, p.city].filter(Boolean).join(', ') || '—')}</b></div>
-        <div class="ax-photos">
-          <div><small>zdjęcie (miniatura grafiki)</small>${el.thumb ? `<img src="${esc(thumbUrl(el.thumb, 300, 200))}" alt="">` : '<span class="hint">brak — dodaj w widoku Grafika albo z Corela</span>'}</div>
-          <div><small>print screen (wizka stoiska)</small>${ph ? `<img src="${esc(thumbUrl(ph.url, 300, 200))}" alt="">` : '<span class="hint">brak</span>'}</div>
-        </div>
-      </div>
-    </div>`,
-    footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ax-ok">🗄 Wpisz do Archiwum X</button>` });
-  m.el.querySelector('[data-c]').onclick = () => m.close();
-  $('ax-type').onchange = () => $('ax-type-other').classList.toggle('hidden', $('ax-type').value !== '__inne');
-  $('ax-ok').onclick = async () => {
-    const company = $('ax-company').value.trim(); if (!company) return toast('Podaj firmę', 'error');
-    const type = $('ax-type').value === '__inne' ? $('ax-type-other').value.trim() : $('ax-type').value;
-    $('ax-ok').disabled = true;
-    try {
-      const all = await DB.list(AX_RECORDS);
-      const number = all.reduce((mx, r) => Math.max(mx, Number(r.number) || 0), 0) + 1;
-      const today = new Date().toLocaleDateString('pl-PL'), now = nowIso();
-      const rec = {
-        company, type,
-        photoCamera: el.thumb || null, photoScreen: ph ? ph.url : null, cover: el.thumb ? 'camera' : 'screen',
-        width: hasDims(el) ? Number(el.w) : null, height: hasDims(el) ? Number(el.h) : null,
-        thickness: Number(el.thick) > 0 ? Number(el.thick) : null, dimUnit: 'mm',
-        status: $('ax-status').value, lighting: [...m.el.querySelectorAll('.ax-chips input:checked')].map(i => i.value), lightColor: [], mount: [],
-        producer: $('ax-producer').value.trim(), voltage: '', cableLength: '',
-        notesList: [{ text: `Z INDEX: stoisko ${p.name}${p.fair ? ' (' + p.fair + ')' : ''}, element ${markOf(el)} — ${typeLabel(el)}${el.notes ? '. ' + el.notes : ''}`, date: today }],
-        fairHistory: [p.fair ? [p.fair, p.city].filter(Boolean).join(', ') : ''].filter(Boolean).map(text => ({ text, date: today })),
-        catalog: '', number, createdAt: now, updatedAt: now, updatedBy: S.me.login,
-        indexRef: { projectId: p.id, elementId: el.id, stand: p.name, mark: markOf(el) },
-      };
-      rec.notes = rec.notesList.map(n => n.text).join('\n');
-      const axId = await DB.add(AX_RECORDS, rec);
-      if (!companies.includes(company)) await DB.add(AX_COMPANIES, { name: company, created: now }).catch(() => {});
-      await DB.add(AX_ACTIVITY, { user: S.me.login, action: 'utworzył(a) z INDEX', company, number, recordId: axId, at: now }).catch(() => {});
-      await DB.update(pElements(p.id), el.id, { archiwumId: axId, archiwumNo: number, updatedAt: now, updatedBy: S.me.id });
-      addLog(p.id, `Element ${markOf(el)} wpisany do Archiwum X jako #${number} (${company})`, el.id);
-      m.close();
-      toast(`Wpisano do Archiwum X: ${company} #${number}`, 'success', 5000);
-    } catch (e) { toast('Nie udało się wpisać do Archiwum X: ' + e.message, 'error', 6000); $('ax-ok').disabled = false; }
+  // wymiary w jednostce, w której dany użytkownik pracuje w Archiwum X (DM w mm, reszta w cm)
+  const mm = S.me.login === 'DM', dim = v => Number(v) > 0 ? (mm ? Number(v) : Math.round(Number(v)) / 10) : '';
+  const today = new Date().toLocaleDateString('pl-PL');
+  const rec = {
+    company: p.name || '', type: g.type, lighting: g.light,
+    photoCamera: el.thumb || null, photoScreen: ph ? ph.url : null, cover: el.thumb ? 'camera' : 'screen',
+    width: hasDims(el) ? dim(el.w) : '', height: hasDims(el) ? dim(el.h) : '', thickness: dim(el.thick), dimUnit: mm ? 'mm' : 'cm',
+    notesList: [{ text: `Z INDEX: stoisko ${p.name}${p.fair ? ' (' + p.fair + ')' : ''}, element ${markOf(el)} — ${typeLabel(el)}${el.notes ? '. ' + el.notes : ''}`, date: today }],
+    fairHistory: p.fair ? [{ text: [p.fair, p.city].filter(Boolean).join(', '), date: today }] : [],
   };
+  const ref = { projectId: p.id, elementId: el.id, stand: p.name || '', mark: markOf(el) };
+  closeArchiwumFrame();
+  const wrap = document.createElement('div'); wrap.id = 'ax-frame';
+  wrap.innerHTML = `<div class="axf-bar"><b>🗄 Archiwum X</b><span>${esc(markOf(el))} ${esc(typeLabel(el))}${TEST ? ' · piaskownica' : ''}</span><button class="btn" title="Zamknij bez zapisu">✕</button></div>
+    <iframe src="${AX_URL}?embed=index${TEST ? '&test' : ''}" title="Archiwum X — nowy eksponat"></iframe>`;
+  document.body.appendChild(wrap);
+  wrap.querySelector('button').onclick = closeArchiwumFrame;
+  axJob = { eid, rec, ref, pid: p.id, win: wrap.querySelector('iframe').contentWindow };
 }
+function closeArchiwumFrame() { const w = $('ax-frame'); if (w) w.remove(); axJob = null; }
+window.addEventListener('message', async ev => {
+  const d = ev.data;
+  if (ev.origin !== AX_ORIGIN || !d || !d.ax || !axJob || ev.source !== axJob.win) return;
+  const job = axJob;
+  if (d.type === 'ready') job.win.postMessage({ ax: true, type: 'prefill', user: S.me.login, rec: job.rec, ref: job.ref }, AX_ORIGIN);
+  else if (d.type === 'close') closeArchiwumFrame();
+  else if (d.type === 'saved' && d.id) {
+    closeArchiwumFrame();
+    const el = S.elements.find(e => e.id === job.eid);
+    try {
+      await DB.update(pElements(job.pid), job.eid, { archiwumId: d.id, archiwumNo: d.number || '', updatedAt: nowIso(), updatedBy: S.me.id });
+      addLog(job.pid, `Element ${el ? markOf(el) : job.ref.mark} wpisany do Archiwum X jako #${d.number || '?'}`, job.eid);
+      toast(`Wpisano do Archiwum X: #${d.number || '?'}`, 'success', 5000);
+    } catch (e) { toast('Eksponat zapisany w Archiwum X, ale nie udało się połączyć go z elementem: ' + e.message, 'error', 7000); }
+  }
+});
 
 function startTurbo() {
   if (!isAdmin() || !S.project) return;
