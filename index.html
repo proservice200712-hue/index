@@ -117,6 +117,8 @@
   .proj-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
   .proj-name { font-weight: 800; font-size: 1rem; }
   .proj-fair { color: var(--gray); font-size: 0.8rem; }
+  .proj-team { display: flex; align-items: center; gap: 3px; font-size: 0.74rem; color: var(--gray); border-top: 1px solid var(--line); padding-top: 6px; flex-wrap: wrap; }
+  .proj-team span:last-child { margin-left: 5px; }
   .proj-meta { display: flex; gap: 6px; align-items: center; font-size: 0.75rem; color: var(--gray); flex-wrap: wrap; }
   .proj-card .cd { border-color: var(--line); color: var(--dark); }
   .proj-card .cd .cd-lab { background: var(--bg); }
@@ -262,7 +264,10 @@
   .tag-warn { color: var(--orange); font-weight: 700; font-size: 0.72rem; }
 
   #logside { flex: 0 0 auto; display: flex; background: var(--bg); border-left: 1px solid var(--line); position: relative; z-index: 15; }
-  #logside.closed #log-pane, #logside.closed .split-v { display: none; }
+  #logside.closed .split-v { display: none; }
+  #log-pane { overflow: hidden; transition: width .3s ease, opacity .25s ease; }
+  #log-pane > * { min-width: min(var(--log-w), calc(100vw - 60px)); }
+  #logside.closed #log-pane { width: 0 !important; opacity: 0; }
   #log-pane { width: var(--log-w); max-width: calc(100vw - 60px); display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
   #log-handle { flex: 0 0 24px; background: var(--dark2); color: #e2e8f0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; user-select: none; }
   #log-handle:hover { background: var(--accent); color: var(--dark); }
@@ -285,8 +290,9 @@
   #screens { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; position: relative; }
   #side { flex: 0 0 auto; display: flex; background: #fff; border-right: 1px solid var(--line); position: relative; z-index: 15; }
   body:not(.logged) #side { display: none; }
-  #side-panel { width: 10cm; max-width: calc(100vw - 24px); display: flex; flex-direction: column; min-height: 0; }
-  #side.closed #side-panel { display: none; }
+  #side-panel { width: 10cm; max-width: calc(100vw - 24px); display: flex; flex-direction: column; min-height: 0; overflow: hidden; transition: width .3s ease, opacity .25s ease; }
+  #side-panel > * { min-width: min(10cm, calc(100vw - 24px)); }
+  #side.closed #side-panel { width: 0; opacity: 0; }
   #side-handle { flex: 0 0 24px; background: var(--dark2); color: #e2e8f0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; user-select: none; }
   #side-handle:hover { background: var(--accent); color: var(--dark); }
   #side-handle .vt { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
@@ -317,6 +323,10 @@
   .stand-row .ed { background: none; border: none; cursor: pointer; color: var(--gray); padding: 2px 4px; visibility: hidden; }
   .stand-row:hover .ed, .stand-row.sel .ed, .fair-row.sel .ed { visibility: visible; }
   .hdr-project .pname { cursor: pointer; }
+  @media (min-width: 1100px) {
+    .hdr-mid { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; max-width: 34vw; }
+    .hdr-mid .pname { max-width: 34vw; }
+  }
   .hdr-project .pname:hover { text-decoration: underline dotted; }
   .hdr-team { display: inline-flex; gap: 2px; vertical-align: -4px; margin-left: 6px; }
   .team-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
@@ -445,6 +455,43 @@
   .var-btn { flex: 0 0 auto; }
   .seg-chk { margin: 0 0 12px; padding: 8px 10px; border: 1.5px dashed var(--line); font-size: 0.82rem; }
   .row-dims { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 12px; }
+  .gc-dsvg { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2; overflow: visible; }
+  .door-fld { border-left: 3px solid #3182ce; padding-left: 10px; margin-bottom: 12px; }
+  .door-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .door-pos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; }
+  .door-pos input { width: 110px; padding: 6px 8px; border: 1.5px solid var(--line); }
+  .door-svg { display: block; }
+  .door-svg text { font-family: inherit; }
+  @keyframes alertBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  @keyframes alertBg { 0%, 100% { background: #fed7d7; } 50% { background: #fff5f5; } }
+  #overlay .shp.alert circle, #overlay .shp.alert polygon { stroke: #e53e3e !important; stroke-width: 6px; animation: alertBlink 1s infinite; }
+  table.el tr.alert td { animation: alertBg 1s infinite; }
+  table.el tr.alert td:first-child { box-shadow: inset 4px 0 0 #e53e3e; }
+  .gc.alert { outline: 3px solid #e53e3e; outline-offset: 2px; animation: alertBlink 1s infinite; }
+  #turbo-bar { display: flex; align-items: center; gap: 10px; padding: 7px 12px; background: #fffbea; border-bottom: 2px solid #f6c90e; font-size: 0.82rem; flex-wrap: wrap; }
+  #turbo-bar span { color: var(--gray); }
+  .turbo-tag { font-size: 0.78rem; font-weight: 700; color: #b7791f; }
+  .row-act .thread { cursor: grab; touch-action: none; }
+  #thread-svg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 500; pointer-events: none; }
+  #thread-svg.ok path { stroke-dasharray: none; }
+  .ord-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .ord-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .ord-gh { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 2px 0 4px; }
+  .ord-it { display: flex; align-items: center; gap: 8px; padding: 5px 6px; cursor: pointer; font-size: 0.84rem; border-bottom: 1px solid #edf2f7; }
+  .ord-it small { display: block; color: var(--gray); font-size: 0.74rem; }
+  .ord-it.off { opacity: .45; }
+  .ord-it input { width: 16px; height: 16px; flex: 0 0 auto; }
+  .ord-prev label { font-size: 0.72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; }
+  .ord-prev pre { white-space: pre-wrap; font-family: inherit; font-size: 0.8rem; background: var(--bg); border: 1px solid var(--line); padding: 10px; max-height: 56vh; overflow-y: auto; margin-top: 4px; }
+  @media (max-width: 760px) { .ord-wrap { grid-template-columns: 1fr; } }
+  .exp-prev { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; min-height: 40px; }
+  .exp-prev img { max-width: 100%; max-height: 220px; border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,.12); background: #fff; }
+  .exp-txt { font-size: 0.72rem; background: var(--bg); border: 1px solid var(--line); padding: 8px; max-width: 100%; overflow-x: auto; margin: 0; }
+  #ed-planes { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  #ed-planes .pl-lab { font-size: 0.72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; }
+  .pl-row { display: flex; align-items: center; gap: 8px; }
+  .pl-row b { min-width: 34px; }
+  .pl-row input { width: 150px; padding: 7px 9px; border: 1.5px solid var(--line); }
   .row-dims.four { grid-template-columns: 1fr 1fr 1fr 90px; }
   .calc { background: var(--bg); border-left: 4px solid var(--accent); padding: 9px 12px; font-size: 0.82rem; margin-top: 4px; line-height: 1.5; }
   .calc b { font-variant-numeric: tabular-nums; }
@@ -499,6 +546,9 @@
   @keyframes alpBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
   @keyframes alpLeg { 0%, 100% { transform: rotate(-24deg); } 50% { transform: rotate(24deg); } }
   @keyframes alpBlink { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.1); } }
+  #alpaca #alp-para { position: absolute; left: -38%; bottom: 74%; width: 176%; height: auto; display: none; }
+  #alpaca.para #alp-para { display: block; }
+  #alpaca.para .lg { transform: rotate(8deg); }
   @media (prefers-reduced-motion: reduce) { #alpaca { display: none !important; } }
   #toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
   .toast { background: var(--dark); color: #fff; padding: 9px 16px; font-size: 0.85rem; box-shadow: 0 4px 16px rgba(0,0,0,0.3); border-left: 4px solid var(--accent); max-width: 90vw; }
@@ -524,7 +574,7 @@
   <div class="hdr-title" onclick="goHome()">IN<span>DEX</span></div>
   <div class="hdr-project hidden" id="hdr-project">
     <button class="btn btn-sm" onclick="goHome()">‹ Projekty</button>
-    <div style="min-width:0">
+    <div class="hdr-mid" style="min-width:0">
       <div class="pname" id="hdr-pname"></div>
       <div class="pfair" id="hdr-pfair"></div>
     </div>
@@ -619,6 +669,7 @@
           <button data-v="graph" onclick="setElView('graph')" title="Wizki z opisami i strzałkami — jak index z Corela">➚ Grafika</button>
         </div>
         <button class="btn btn-sm" onclick="newElementWithoutShape()" title="Element, którego nie da się zaznaczyć na wizce">+ Element bez zaznaczenia</button>
+        <button class="btn btn-sm hidden" id="btn-turbo" onclick="startTurbo()" title="Turbo: najpierw wpisujesz wszystkie elementy (typ, wymiar, następny…), potem przeciągasz nitkę z listy na wizkę">⚡ Turbo</button>
         <span id="gc-tools" class="hidden" style="display:inline-flex;gap:8px">
           <button class="btn btn-sm" id="gc-move" onclick="toggleGraphMove()" title="Włącz przesuwanie okienek">✥ Przesuń</button>
           <button class="btn btn-sm" onclick="graphFit()" title="Pokaż wszystkie okienka">⤢ Dopasuj</button>
@@ -626,6 +677,8 @@
           <button class="btn btn-sm" onclick="graphAlign()" title="Rozsuń nachodzące na siebie okienka na równy odstęp">⇔ Wyrównaj</button>
         </span>
         <div class="stats" id="el-stats"></div>
+      </div>
+      <div id="turbo-bar" class="hidden">
       </div>
       <div class="el-scroll" id="el-scroll"></div>
     </div>
@@ -677,6 +730,14 @@
 <div id="toasts"></div>
 <!-- komiksowa alpaka: co 5 minut dobiega do połowy ekranu i wraca -->
 <div id="alpaca" aria-hidden="true">
+  <!-- spadochron (widoczny tylko przy skoku ze środkowej belki) -->
+  <svg id="alp-para" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="#3b2f2f" stroke-width="3" stroke-linejoin="round">
+      <path d="M10 70 Q100 -20 190 70 Q172 58 154 70 Q136 58 118 70 Q100 58 82 70 Q64 58 46 70 Q28 58 10 70z" fill="#67b437"/>
+      <path d="M64 66 Q72 18 100 12 Q128 18 136 66" fill="none" stroke="#fff" stroke-width="5" opacity=".7"/>
+      <g stroke-width="1.6" fill="none"><path d="M12 70 L88 146"/><path d="M64 68 L94 146"/><path d="M136 68 L106 146"/><path d="M188 70 L112 146"/></g>
+    </g>
+  </svg>
   <svg viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
     <g stroke="#3b2f2f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
       <rect class="lg lb" x="25" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
@@ -1431,7 +1492,9 @@ const dimsMode = el => { const v = variantOf(el); return v && v.dims ? v.dims : 
 const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || typeById(el.typeId).thick); };
 // Znak elementu w kółku: litera (A, B, C…) albo dla wysłony W1, W2… (numer `wnum`, stały).
 const isWys = el => !!(typeById(el.typeId).wyslona && el.wyslona);
-const markOf = el => isWys(el) && el.wnum ? 'W' + el.wnum : letterOf(el.num);
+// numeracja elementów stoiska: A, B, C… (domyślnie) albo 1, 2, 3… (ustawienie „Oznaczenia” w stoisku)
+const numMark = n => S.project && S.project.numbering === '123' ? String(n | 0 || '?') : letterOf(n);
+const markOf = el => isWys(el) && el.wnum ? 'W' + el.wnum : numMark(el.num);
 // Miejsca elementu na wizkach: pierwsze (shape / photoId) i kolejne sztuki w innych miejscach (extra).
 // loc = -1 to pierwsze miejsce, 0, 1, 2… to kolejne.
 const locsOf = el => [{ loc: -1, photoId: el.photoId, shape: el.shape }]
@@ -1510,29 +1573,125 @@ function bleedOf(el) {
   return Number(t.bleed) || 0;
 }
 const depthOf = el => Number(el.d) > 0 ? Number(el.d) : Number(el.w); // kwadratowa: głębokość = szerokość
-const hasDims = el => Number(el.w) > 0 && Number(el.h) > 0;
+// Konstrukcja podwieszana — płaszczyzny do druku:
+//  kwadratowa W×D×H → 4 boki obok siebie: W×H, D×H, W×H, D×H
+//  okrągła Ø×H      → jeden pas 3,14·Ø × H (π z dwoma miejscami po przecinku)
+//  inny kształt     → płaszczyzny wpisane ręcznie (el.planes = [{w, h}] w mm)
+//  zadruk wewnątrz  → te same płaszczyzny jeszcze raz, bez spadu
+//  znaki: A1, A2…; przy zadruku wewnątrz dopisek outside / inside
+const PI_DRUK = 3.14;
+const isHang = el => el.typeId === 'podwieszana';
+function planeBase(el) {
+  const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
+  if (m === 'box') return W > 0 && H > 0 ? [[W, H], [depthOf(el), H], [W, H], [depthOf(el), H]] : [];
+  if (m === 'ring') return W > 0 && H > 0 ? [[Math.round(PI_DRUK * W), H]] : [];
+  const pl = (el.planes || []).map(p => [Number(p.w), Number(p.h)]).filter(([w, h]) => w > 0 && h > 0);
+  return pl.length ? pl : (W > 0 && H > 0 ? [[W, H]] : []);
+}
+function planesOf(el) {
+  if (!isHang(el)) return null;
+  const b = bleedOf(el), mark = markOf(el), base = planeBase(el);
+  const out = base.map(([w, h], i) => ({ label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b, gw: w + 2 * b, gh: h + 2 * b }));
+  if (el.inside) base.forEach(([w, h], i) => out.push({ label: mark + (base.length + i + 1), side: 'inside', w, h, b: 0, gw: w, gh: h }));
+  return out;
+}
+const planeName = p => p.label + (p.side ? ' ' + p.side : '');
+const planesTxt = (el, sep = ' · ') => (planesOf(el) || []).map(p => `${planeName(p)} ${lenPL(p.gw)} × ${lenPL(p.gh)}`).join(sep);
+const hasDims = el => isHang(el) ? planeBase(el).length > 0 : Number(el.w) > 0 && Number(el.h) > 0;
+// =====================================================================
+//  DRZWI w ścianie Blackback: na podglądzie półprzezroczysty prostokąt z wymiarem
+//  od bliższej krawędzi + osobny, powiązany element „Drzwi — A” (grafika na drzwi).
+//  Standard: drzwi 80×200, spad dół 10, góra 20, boki po 30 (razem 140×230); gdy drzwi
+//  są za blisko krawędzi ściany, brakujący spad boczny przechodzi na drugą stronę.
+//  SEG / wysłona: drzwi 99,2 × 248 albo 99,2 × 198,4, bez spadu.
+// =====================================================================
+const DOOR_STD = { w: 800, h: 2000, side: 300, top: 200, bottom: 100 };
+const hasDoor = el => el.typeId === 'blackback' && !!(el.door && el.door.on);
+function doorPos(el) {
+  const d = el.door || {}, W = Number(el.w) || 0, H = Number(el.h) || 0;
+  const std = !(el.seg || el.wyslona);
+  const dw = std ? DOOR_STD.w : 992, dh = std ? DOOR_STD.h : (d.size === 'h1984' ? 1984 : 2480);
+  const dist = Number(d.dist) || 0;
+  const x = d.from === 'right' ? W - dist - dw : dist;
+  return { std, w: dw, h: dh, x, left: x, right: W - x - dw, fits: W > 0 && x >= 0 && x + dw <= W && dh <= H };
+}
+// spady grafiki na drzwi (standard): razem zawsze 2 × 30 na boki — brakujące po jednej stronie idzie na drugą
+function doorBleed(el) {
+  const p = doorPos(el);
+  if (!p.std) return null;
+  const all = 2 * DOOR_STD.side;
+  let l = Math.min(DOOR_STD.side, Math.max(0, p.left)), r = all - l;
+  if (r > Math.max(0, p.right)) { r = Math.max(0, p.right); l = Math.min(Math.max(0, p.left), all - r); }
+  return { l, r, t: DOOR_STD.top, b: DOOR_STD.bottom };
+}
+// prostokąt drzwi + wymiar od bliższej krawędzi, w układzie netto ściany (x0, y0, szer., wys. w px)
+function doorSvg(el, x0, y0, nw, nh) {
+  if (!hasDoor(el) || !hasDims(el)) return '';
+  const p = doorPos(el), W = Number(el.w), H = Number(el.h), sx = nw / W, sy = nh / H;
+  const x = x0 + p.x * sx, w = p.w * sx, h = p.h * sy, y = y0 + nh - h;
+  let o = `<defs><marker id="dArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2b6cb0"/></marker></defs>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(49,130,206,.28)" stroke="${p.fits ? '#3182ce' : '#e53e3e'}" stroke-width="1.2" stroke-dasharray="4 2"/>`;
+  const yy = y + Math.min(h / 2, 14), left = p.left <= p.right;
+  const ax = left ? x0 : x + w, bx = left ? x : x0 + nw, val = left ? p.left : p.right;
+  // wąska szczelina: liczba obok, na zewnątrz drzwi
+  const narrow = Math.abs(bx - ax) < 34, tx = narrow ? (left ? x + w + 3 : x - 3) : (ax + bx) / 2, anchor = narrow ? (left ? 'start' : 'end') : 'middle';
+  if (val > 0) o += `<line x1="${ax}" y1="${yy}" x2="${bx}" y2="${yy}" stroke="#2b6cb0" stroke-width="1" marker-start="url(#dArrow)" marker-end="url(#dArrow)"/>
+    <text x="${tx}" y="${yy - 3}" text-anchor="${anchor}" fill="#2b6cb0" font-size="10" font-weight="700">${lenPL(val)}</text>`;
+  o += `<text x="${x + w / 2}" y="${y + h - 4}" text-anchor="middle" fill="#2b6cb0" font-size="9">drzwi</text>`;
+  return o;
+}
+// powiązany element „Drzwi — A”: tworzony / zmieniany / usuwany razem ze ścianą
+async function syncDoorElement(mainId, main) {
+  const pid = S.project.id;
+  const ex = S.elements.find(e => e.doorFor === mainId);
+  if (!hasDoor(main)) {
+    if (ex) { await DB.del(pElements(pid), ex.id); addLog(pid, `Usunięto drzwi ściany ${markOf(main)}`, mainId); }
+    return;
+  }
+  const p = doorPos(main), bb = doorBleed(main), side = main.door.from === 'right' ? 'od prawej' : 'od lewej';
+  const fields = { typeId: 'blackback', variant: '', seg: !!main.seg, wyslona: !!main.wyslona, w: p.w, h: p.h, qty: 1,
+    bleedBox: bb, doorFor: mainId, name: 'Drzwi — ' + markOf(main),
+    notes: `drzwi w ścianie ${markOf(main)}, ${side} ${lenPL(main.door.dist || 0)} ${UNIT()}` + (bb && (bb.l !== DOOR_STD.side || bb.r !== DOOR_STD.side) ? ` · spad boczny ${lenPL(bb.l)} / ${lenPL(bb.r)} (za blisko krawędzi)` : ''),
+    updatedAt: nowIso(), updatedBy: S.me.id };
+  if (ex) { await DB.update(pElements(pid), ex.id, fields); return; }
+  const rec = { ...fields, num: Math.max(nextNum(), (Number(main.num) || 0) + 1), createdAt: nowIso(), createdBy: S.me.id, photoId: main.photoId || '', shape: null };
+  if (rec.wyslona) rec.wnum = Math.max(wysNumFor(rec, null), (Number(main.wnum) || 0) + 1);
+  if (main.shape && main.photoId) { const [cx, cy] = shapeCenter(main.shape); rec.shape = { kind: 'point', pts: [[clamp(cx + 0.05, 0, 1), clamp(cy + 0.05, 0, 1)]] }; }
+  const id = await DB.add(pElements(pid), rec);
+  addLog(pid, `Dodano drzwi do ściany ${markOf(main)} — grafika na drzwi ${grossTxt(rec)} ${UNIT()}`, id);
+}
+const bleedCell = (el, g) => el.bleedBox ? `${lenPL(el.bleedBox.l)}/${lenPL(el.bleedBox.r)}/${lenPL(el.bleedBox.t)}/${lenPL(el.bleedBox.b)}` : (g.b ? bleedTxt(g.b) : '—');
+
 // Wymiar do druku. Konstrukcja podwieszana: grafika dookoła → pas o długości obwodu.
 function grossOf(el) {
   const b = bleedOf(el);
   if (!hasDims(el)) return { w: 0, h: 0, b };
   const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
-  if (m === 'ring') return { w: Math.round(Math.PI * W) + 2 * b, h: H + 2 * b, b };
+  // grafika na drzwi: spady różne z każdej strony (lewy / prawy / góra / dół)
+  if (el.bleedBox) { const k = el.bleedBox; return { w: W + k.l + k.r, h: H + k.t + k.b, b: Math.max(k.l, k.r, k.t, k.b), box: k }; }
+  if (isHang(el) && m === 'flat') { const [w, h] = planeBase(el)[0]; return { w: w + 2 * b, h: h + 2 * b, b }; }
+  if (m === 'ring') return { w: Math.round(PI_DRUK * W) + 2 * b, h: H + 2 * b, b };
   if (m === 'box') return { w: 2 * (W + depthOf(el)) + 2 * b, h: H + 2 * b, b };
   return { w: W + 2 * b, h: H + 2 * b, b };
 }
 function netTxt(el) {
   if (!hasDims(el)) return '';
   const m = dimsMode(el);
+  if (isHang(el) && m === 'flat') return planeBase(el).map(([w, h]) => `${lenPL(w)} × ${lenPL(h)}`).join(' + ');
   if (m === 'ring') return `Ø ${lenPL(el.w)} × ${lenPL(el.h)}`;
   if (m === 'box') return `${lenPL(el.w)} × ${lenPL(depthOf(el))} × ${lenPL(el.h)}`;
   return `${lenPL(el.w)} × ${lenPL(el.h)}`;
 }
 function grossTxt(el) {
   if (!hasDims(el)) return '';
+  if (isHang(el)) return planesTxt(el);
   const g = grossOf(el);
   return `${lenPL(g.w)} × ${lenPL(g.h)}` + (dimsMode(el) === 'flat' ? '' : ' (pas)');
 }
-const areaOf = el => { const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1); };
+const areaOf = el => {
+  if (isHang(el)) return (planesOf(el) || []).reduce((s, p) => s + p.gw * p.gh, 0) / 1e6 * (Number(el.qty) || 1);
+  const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1);
+};
 
 // Rysunek poglądowy typu (gdy admin nie wgrał jeszcze prawdziwego zdjęcia)
 function exampleSvg(t) {
@@ -1572,7 +1731,11 @@ function startProjectsSub() {
     S.projects = rows;
     if (S.project) {
       const p = rows.find(r => r.id === S.project.id);
-      if (p) { S.project = p; renderProjectHeader(); }
+      if (p) {
+        const zmianaNumeracji = (S.project.numbering || 'abc') !== (p.numbering || 'abc');
+        S.project = p; renderProjectHeader();
+        if (zmianaNumeracji) { renderElements(); renderOverlay(); }
+      }
     }
     if (!$('screen-home').classList.contains('hidden')) renderHome();
     renderSide();
@@ -1636,6 +1799,7 @@ function renderHome() {
           <span>🖼 ${p.photosCount || 0}</span><span>▦ ${p.elementsCount || 0} el.</span>
           <span style="margin-left:auto;display:flex;gap:2px">${(p.users || []).map(avatarSm).join('')}</span>
         </div>
+        ${(p.team || []).length ? `<div class="proj-team" title="Zespół stoiska">${teamHtml(p)}<span>${esc(teamNames(p.team))}</span></div>` : ''}
       </div></div>`;
   }).join('');
 }
@@ -1731,6 +1895,7 @@ function renderSide() {
     <button class="btn btn-sm" onclick="openFairForm()">+ New fairs</button>
     <button class="btn btn-sm" onclick="newStandFromSide()">+ New stand</button>
     ${adm ? `<span style="flex:1"></span>
+    ${t && t.kind === 'stand' ? `<button class="btn btn-sm" onclick="openCopyStand('${t.id}')" title="Kopiuj stoisko (np. na kolejną edycję targów)">Copy</button>` : ''}
     <button class="btn btn-sm" onclick="sideArchive()" ${t ? '' : 'disabled'}>${t && t.obj.archived ? 'Unarchive' : 'Archive'}</button>
     <button class="btn btn-sm btn-red" onclick="sideDelete()" ${t ? '' : 'disabled'}>Delete</button>` : ''}`;
   $('side-sel').innerHTML = t ? `Zaznaczone: <b>${t.kind === 'fair' ? 'targi' : 'stoisko'} „${esc(t.obj.name)}"</b>`
@@ -1873,6 +2038,48 @@ function openFairForm(fid) {
       }
       m.close(); toast(fid ? 'Zapisano' : 'Dodano targi „' + d.name + '"', 'success'); renderSide();
     } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('ff-ok').disabled = false; }
+  };
+}
+
+// kopia stoiska: wizki (te same pliki), elementy z miejscami i miniaturami, zespół — bez historii
+function openCopyStand(pid) {
+  const p = S.projects.find(x => x.id === pid); if (!p) return;
+  const fairOpts = S.fairs.filter(f => !f.archived).sort(fairSort)
+    .map(f => `<option value="${f.id}" ${f.id === p.fairId ? 'selected' : ''}>${esc(f.name)}${f.city ? ' · ' + esc(f.city) : ''}</option>`).join('');
+  const m = openModal({ title: 'Kopiuj stoisko', body: `
+    <div class="fld"><label>Nazwa nowego stoiska</label><input type="text" id="cs-name" value="${esc(p.name)}"></div>
+    <div class="fld"><label>Targi</label><select id="cs-fair"><option value="">— bez targów —</option>${fairOpts}</select>
+      <div class="hint">Na kolejną edycję najpierw dodaj nowe targi (+ New fairs) — terminy stoiska wezmą się z targów.</div></div>
+    <div class="hint" style="line-height:1.5">Skopiuję: wizki, wszystkie elementy (typy, wymiary, zaznaczenia, miniatury grafik), zespół i oznaczenia.<br>Nie kopiuję historii zmian.</div>`,
+    footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="cs-ok">⧉ Kopiuj</button>` });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('cs-ok').onclick = async () => {
+    const name = $('cs-name').value.trim(); if (!name) return toast('Podaj nazwę', 'error');
+    $('cs-ok').disabled = true;
+    const t = toast('Kopiowanie stoiska…', '', 120000);
+    try {
+      const fo = fairById($('cs-fair').value);
+      const d = clone(p); delete d.id;
+      Object.assign(d, { name, fairId: fo ? fo.id : '', fair: fo ? fo.name : '', city: fo ? fo.city || '' : '',
+        archived: false, createdAt: nowIso(), createdBy: S.me.id, updatedAt: nowIso(), copiedFrom: pid });
+      if (fo) Object.assign(d, { eventStart: fo.eventStart || '', eventEnd: fo.eventEnd || '',
+        deadlineGfx: fo.deadlineGfx || autoDeadline(fo.eventStart), deadlinePack: fo.deadlinePack || autoPack(fo.eventStart) });
+      const nid = await DB.add(C_PROJECTS, d);
+      const map = {};
+      for (const ph of await DB.list(pPhotos(pid))) { const x = clone(ph); delete x.id; map[ph.id] = await DB.add(pPhotos(nid), x); }
+      for (const el of await DB.list(pElements(pid))) {
+        const x = clone(el); delete x.id;
+        if (x.photoId) x.photoId = map[x.photoId] || '';
+        if (Array.isArray(x.extra)) x.extra = x.extra.map(l => ({ ...l, photoId: map[l.photoId] || '' })).filter(l => l.photoId);
+        x.createdAt = nowIso(); x.createdBy = S.me.id; x.updatedAt = nowIso(); x.updatedBy = S.me.id; delete x.src;
+        await DB.add(pElements(nid), x);
+      }
+      addLog(nid, `Stoisko skopiowane z „${p.name}"${p.fair ? ' (' + p.fair + ')' : ''}`);
+      t.remove(); m.close(); toast('Stoisko skopiowane', 'success');
+      S.sideSel = { kind: 'stand', id: nid };
+      if (fo) { sideState.fairs.add(fo.id); saveSideState(); }
+      openProject(nid);
+    } catch (e) { t.remove(); toast('Błąd kopiowania: ' + e.message, 'error', 6000); $('cs-ok').disabled = false; }
   };
 }
 
@@ -2019,11 +2226,17 @@ function openProjectForm(pid, fairId) {
         <div class="team-add"><input type="text" id="pf-team-new" placeholder="dopisz osobę spoza systemu (np. Marek — drukarnia) i Enter"><button type="button" class="btn btn-sm" id="pf-team-btn">+ Dodaj</button></div>
         <div class="hint">Kliknij osobę, aby dodać ją do zespołu — konto dodane do zespołu widzi to stoisko.</div>
       </div>
+      <div class="fld"><label>Oznaczenia elementów</label>
+        <div class="seg" id="pf-num"><button type="button" data-v="abc" class="${p.numbering === '123' ? '' : 'on'}">A, B, C…</button><button type="button" data-v="123" class="${p.numbering === '123' ? 'on' : ''}">1, 2, 3…</button></div>
+        <div class="hint">Dla niektórych klientów elementy numeruje się cyframi. Wysłony zostają jako W1, W2…</div></div>
       <div class="fld"><label>Uwagi</label><textarea id="pf-notes">${esc(p.notes || '')}</textarea></div>`,
-    footer: `${pid && isAdmin() ? '<button class="btn btn-red" id="pf-del" style="margin-right:auto">Usuń stoisko</button>' : ''}
+    footer: `${pid && isAdmin() ? '<button class="btn btn-red" id="pf-del">Usuń stoisko</button><button class="btn" id="pf-copy" style="margin-right:auto" title="Nowe stoisko z tymi samymi wizkami i elementami — np. na kolejną edycję targów">⧉ Kopiuj stoisko</button>' : ''}
       <button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="pf-ok">${pid ? 'Zapisz' : 'Utwórz'}</button>`,
   });
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  let numbering = p.numbering === '123' ? '123' : 'abc';
+  m.el.querySelectorAll('#pf-num button').forEach(b => b.onclick = () => { numbering = b.dataset.v; m.el.querySelectorAll('#pf-num button').forEach(x => x.classList.toggle('on', x === b)); });
+  if (pid && isAdmin()) $('pf-copy').onclick = () => { m.close(); openCopyStand(pid); };
   const team = clone(p.team || []);
   const renderTeam = () => {
     $('pf-team').innerHTML = S.users.map(u => {
@@ -2067,6 +2280,7 @@ function openProjectForm(pid, fairId) {
       notes: $('pf-notes').value.trim(),
       users: p.users || (isAdmin() ? [] : [S.me.id]),
       team: clone(team),
+      numbering,
       updatedAt: nowIso(),
     };
     if (!d.name) return toast('Podaj nazwę stoiska', 'error');
@@ -2115,6 +2329,7 @@ async function openProject(pid) {
   closeProject();
   S.project = p;
   S.photos = []; S.elements = []; S.log = []; S.photoId = null; S.selId = null; S.logSeen = null;
+  seenInit(); // alarm zmian: co administrator już widział na tym stoisku
   showScreen('screen-project');
   history.replaceState(null, '', location.pathname + '?' + (MODE_QS ? MODE_QS + '&' : '') + 'p=' + pid);
   renderProjectHeader();
@@ -2177,8 +2392,7 @@ function renderProjectHeader() {
   updateClock();
   $('hdr-actions').innerHTML = `
     <button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>
-    <button class="btn" onclick="openExportDialog()">⇩ Eksport</button>
-    ${isAdmin() ? `<button class="btn" onclick="openProjectForm('${p.id}')">⚙ Projekt</button>` : ''}`;
+    <button class="btn" onclick="openExportDialog()">⇩ Eksport</button>`;
 }
 let statsTimer = null;
 function syncProjectStats() {
@@ -2474,7 +2688,7 @@ function renderOverlay() {
     const selHere = sel && (S.selLoc ?? -1) === loc; // uchwyty tylko przy wskazanym miejscu
     const [ax, ay] = shapeCenter(sh), [cx, cy] = labPos(sh);
     const r = (sh.kind === 'point' ? 15 : 13) * s;
-    out += `<g class="shp${hov ? ' hov' : ''}" data-eid="${el.id}" data-loc="${loc}">`;
+    out += `<g class="shp${hov ? ' hov' : ''}${isAlert(el) ? ' alert' : ''}" data-eid="${el.id}" data-loc="${loc}">`;
     // znacznik odsunięty od miejsca, którego dotyczy: kreska z grotem do tego miejsca
     if (sh.lab) {
       const x1 = +X(b, [cx]), y1 = +Y([0, cy]), x2 = +X(b, [ax]), y2 = +Y([0, ay]);
@@ -2954,7 +3168,38 @@ function arcKey(e) {
 window.addEventListener('resize', () => closeArcMenu(true));
 
 // --- zaznaczanie elementu (lista <-> wizka) ---
+// =====================================================================
+//  ALARM ZMIAN (administrator): element zmieniony przez innego członka zespołu
+//  mruga na czerwono — na wizce, w tabeli i w widoku Grafika — aż administrator go kliknie.
+//  Pamięć „widziałem” w przeglądarce administratora (na stoisko); przy pierwszym wejściu
+//  na stoisko wszystko, co już jest, liczy się jako widziane.
+// =====================================================================
+const SEEN = {
+  key: () => `INDEX_SEEN_${S.me ? S.me.id : ''}_${S.project ? S.project.id : ''}`,
+  load() { try { return JSON.parse(localStorage.getItem(this.key()) || 'null'); } catch (e) { return null; } },
+  save(o) { try { localStorage.setItem(this.key(), JSON.stringify(o)); } catch (e) {} },
+};
+let seenState = null;
+function seenInit() {
+  seenState = SEEN.load();
+  if (!seenState) { seenState = { since: nowIso(), el: {} }; SEEN.save(seenState); }
+}
+// czy element świeci: admin, zmiana po ostatnim „widziałem” i zrobił ją ktoś inny
+function isAlert(e) {
+  if (!isAdmin() || !seenState || !e) return false;
+  const at = e.updatedAt || e.createdAt || '', who = e.updatedBy || e.createdBy;
+  if (!at || !who || who === S.me.id) return false;
+  return at > (seenState.el[e.id] || seenState.since);
+}
+function markSeen(id) {
+  const e = S.elements.find(x => x.id === id);
+  if (!seenState || !e || !isAlert(e)) return false;
+  seenState.el[id] = e.updatedAt || e.createdAt || nowIso();
+  SEEN.save(seenState);
+  return true;
+}
 function selectElement(id, focus = true, loc = -1) {
+  if (id && markSeen(id)) setTimeout(() => { renderOverlay(); renderElements(); }, 0);
   S.selId = id; S.selLoc = loc;
   const el = S.elements.find(e => e.id === id);
   if (el && focus && el.photoId && el.shape && L.map[el.photoId]) {
@@ -3001,7 +3246,59 @@ if (window.ResizeObserver) new ResizeObserver(() => { if (S.project && hasPhotos
 //  ELEMENTY: okno opisu, lista
 // =====================================================================
 function nextNum(exceptId) { return S.elements.filter(e => !isWys(e) && e.id !== exceptId).reduce((m, e) => Math.max(m, e.num || 0), 0) + 1; }
-function openElementDialog({ id, shape, photoId }) {
+// =====================================================================
+//  TURBO (administrator): 1) elementy wpisywane jeden po drugim bez klikania w wizkę
+//  (typ, wymiar, Enter = następny), 2) potem nitka 🧵 z listy przeciągana na wizkę.
+// =====================================================================
+function startTurbo() {
+  if (!isAdmin() || !S.project) return;
+  S.turbo = true;
+  renderElements();
+  openElementDialog({ shape: null, photoId: '', turbo: true });
+}
+function endTurbo() { S.turbo = false; renderElements(); }
+function renderTurboBar() {
+  const bar = $('turbo-bar'); if (!bar) return;
+  const n = S.elements.filter(e => !e.shape).length;
+  bar.classList.toggle('hidden', !S.turbo);
+  if (!S.turbo) return;
+  bar.innerHTML = `<b>⚡ Turbo</b> <span>${n ? `${n} el. bez zaznaczenia — złap <b>🧵</b> przy elemencie i przeciągnij nitkę na miejsce na wizce` : 'wszystkie elementy są zaznaczone na wizkach'}</span>
+    <button class="btn btn-sm" onclick="openElementDialog({ shape: null, photoId: '', turbo: true })">+ kolejne elementy</button>
+    <button class="btn btn-sm" onclick="endTurbo()">Zakończ Turbo</button>`;
+}
+// nitka: od przycisku 🧵 do kursora; puszczona na wizce = pierwsze miejsce elementu
+document.addEventListener('pointerdown', ev => {
+  const b = ev.target.closest && ev.target.closest('[data-thread]');
+  if (!b || ev.button !== 0) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const eid = b.dataset.thread, r0 = b.getBoundingClientRect(), x0 = r0.left + r0.width / 2, y0 = r0.top + r0.height / 2;
+  const el = S.elements.find(e => e.id === eid); if (!el) return;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'thread-svg';
+  svg.innerHTML = `<path id="thr-p" fill="none" stroke="${typeById(el.typeId).color}" stroke-width="3" stroke-dasharray="7 4"/><circle id="thr-c" r="9" fill="${typeById(el.typeId).color}" stroke="#fff" stroke-width="2"/><text id="thr-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle" dy="4">${esc(markOf(el))}</text>`;
+  document.body.appendChild(svg);
+  const move = e => {
+    const x = e.clientX, y = e.clientY, sag = Math.min(120, Math.hypot(x - x0, y - y0) * 0.25);
+    svg.querySelector('#thr-p').setAttribute('d', `M${x0} ${y0} Q${(x0 + x) / 2} ${(y0 + y) / 2 + sag} ${x} ${y}`);
+    ['thr-c', 'thr-t'].forEach(i => { const n = svg.querySelector('#' + i); n.setAttribute(i === 'thr-c' ? 'cx' : 'x', x); n.setAttribute(i === 'thr-c' ? 'cy' : 'y', y); });
+    const vr = viewer.getBoundingClientRect(), on = x >= vr.left && x <= vr.right && y >= vr.top && y <= vr.bottom && !!photoAt(...toStage(e));
+    svg.classList.toggle('ok', on);
+  };
+  const up = async e => {
+    document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up);
+    svg.remove();
+    const vr = viewer.getBoundingClientRect();
+    if (e.clientX < vr.left || e.clientX > vr.right || e.clientY < vr.top || e.clientY > vr.bottom) return;
+    const [sx, sy] = toStage(e), pid = photoAt(sx, sy);
+    if (!pid) return toast('Upuść nitkę na wizce', 'error');
+    await addLocation(eid, pid, { kind: 'point', pts: [normIn(pid, sx, sy)] });
+    toast(`${markOf(el)} zaznaczony na wizce #${photoNo(pid)}`, 'success');
+  };
+  move(ev);
+  document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+}, true);
+
+function openElementDialog({ id, shape, photoId, turbo }) {
   const editing = id ? S.elements.find(e => e.id === id) : null;
   if (id && !editing) return;
   const el = editing ? clone(editing) : { typeId: '', name: '', w: '', h: '', qty: 1, notes: '', num: nextNum() };
@@ -3030,6 +3327,7 @@ function openElementDialog({ id, shape, photoId }) {
           <div class="fld" style="margin:0"><input type="number" id="ed-q" min="1" step="1" value="${esc(el.qty || 1)}" title="Ilość sztuk"></div>
         </div>
         <div class="hint" id="ed-dims-hint"></div>
+        <div id="ed-planes" class="hidden"></div>
       </div>
       <div class="calc" id="ed-calc"></div>
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>
@@ -3040,7 +3338,8 @@ function openElementDialog({ id, shape, photoId }) {
         </div></details>` : ''}`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
       ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}` : ''}
-      <button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : 'Dodaj element'}</button>`,
+      ${turbo && !editing ? '<span class="turbo-tag" style="margin-right:auto">⚡ Turbo — Enter = dodaj i następny</span>' : ''}
+      <button class="btn" data-c>${turbo && !editing ? 'Zakończ wpisywanie' : 'Anuluj'}</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : turbo ? 'Dodaj i następny ↵' : 'Dodaj element'}</button>`,
   });
   const read = () => ({
     ...el,
@@ -3049,6 +3348,8 @@ function openElementDialog({ id, shape, photoId }) {
     h: toMM($('ed-h').value),
     d: dimsMode(el) === 'box' ? toMM($('ed-d').value) : '',
     variant: el.variant || '',
+    inside: isHang(el) ? !!el.inside : false,
+    planes: isHang(el) && dimsMode(el) === 'flat' ? (el.planes || []).filter(p => Number(p.w) > 0 || Number(p.h) > 0).map(p => ({ w: Number(p.w) || '', h: Number(p.h) || '' })) : [],
     thick: hasThick(el) && el.thick !== '' && el.thick != null ? Math.max(0, Number(el.thick)) : '',
     ...togValues(el, el.typeId),
     seg: typeById(el.typeId).seg ? !!el.seg : false,
@@ -3077,18 +3378,45 @@ function openElementDialog({ id, shape, photoId }) {
         <button type="button" class="type-btn var-btn ${mount === 'seg' ? 'on' : ''}" data-mount="seg">SEG <span class="qtip" data-tip="${esc('SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami')}">?</span></button>
         ${t.wyslona ? `<button type="button" class="type-btn var-btn ${mount === 'wys' ? 'on' : ''}" data-mount="wys">Wysłona</button>` : ''}</div></div>`;
     }
+    if (t && t.id === 'blackback' && !el.doorFor) {
+      const dr = el.door || (el.door = { on: false, from: 'left', dist: '', size: 'h2480' });
+      const sys = el.seg || el.wyslona;
+      h += `<div class="door-fld"><label class="chk seg-chk"><input type="checkbox" id="ed-door" ${dr.on ? 'checked' : ''}> <span>Drzwi w ścianie</span></label>
+        ${dr.on ? `<div class="door-opts">
+          ${sys ? `<div class="var-list"><button type="button" class="type-btn var-btn ${dr.size !== 'h1984' ? 'on' : ''}" data-dsize="h2480">drzwi ${lenPL(992)} × ${lenPL(2480)}</button><button type="button" class="type-btn var-btn ${dr.size === 'h1984' ? 'on' : ''}" data-dsize="h1984">drzwi ${lenPL(992)} × ${lenPL(1984)}</button></div>
+            <div class="hint">SEG / wysłona: grafika na drzwi bez spadu.</div>`
+            : `<div class="hint">Drzwi ${lenPL(800)} × ${lenPL(2000)} ${UNIT()} · grafika na drzwi ${lenPL(1400)} × ${lenPL(2300)} (spad: dół ${lenPL(100)}, góra ${lenPL(200)}, boki po ${lenPL(300)}).</div>`}
+          <div class="door-pos">Odległość od <div class="seg" id="ed-door-from"><button type="button" data-dfrom="left" class="${dr.from !== 'right' ? 'on' : ''}">lewej</button><button type="button" data-dfrom="right" class="${dr.from === 'right' ? 'on' : ''}">prawej</button></div>
+            krawędzi ściany do drzwi <input type="number" id="ed-door-dist" min="0" step="${unitStep()}" value="${esc(fromMM(dr.dist))}"> ${UNIT()}</div>
+          <div id="ed-door-prev"></div>
+          <div class="hint">Drzwi dostaną osobny element „Drzwi — ${esc(lab)}” (grafika na drzwi) obok ściany.</div></div>` : ''}</div>`;
+    }
+    if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, bez spadu)</span></span></label>`;
     $('ed-opts').innerHTML = h;
+    const ins = $('ed-inside'); if (ins) ins.addEventListener('change', () => { el.inside = ins.checked; refresh(); });
+    const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
+    $('ed-opts').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
+    $('ed-opts').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
+    const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
       el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
-      $('ed-badge').textContent = isWys(el) ? 'W' + wysNumFor(el, editing ? editing.id : null) : letterOf(editing && !isWys(editing) ? el.num : nextNum(editing && editing.id)); // od razu widać W1 / literę
+      $('ed-badge').textContent = isWys(el) ? 'W' + wysNumFor(el, editing ? editing.id : null) : numMark(editing && !isWys(editing) ? el.num : nextNum(editing && editing.id)); // od razu widać W1 / literę
       renderOpts(); refresh();
     });
     $('ed-opts').querySelectorAll('input[data-tog]').forEach(i => i.addEventListener('change', () => { el[i.dataset.tog] = i.checked; refresh(); }));
     $('ed-opts').querySelectorAll('[data-fin]').forEach(b => b.onclick = () => { el.finish = el.finish === b.dataset.fin ? '' : b.dataset.fin; renderOpts(); refresh(); });
     // pola wymiaru zależne od kształtu
     const m = dimsMode(el);
+    // konstrukcja „inny kształt”: zamiast jednego wymiaru lista płaszczyzn
+    const recznie = t && t.id === 'podwieszana' && m === 'flat';
+    $('ed-planes').classList.toggle('hidden', !recznie);
+    ['ed-w', 'ed-h'].forEach(i => $(i).parentNode.classList.toggle('hidden', !!recznie));
+    if (recznie) {
+      if (!el.planes || !el.planes.length) el.planes = [{ w: Number(toMM($('ed-w').value)) || '', h: Number(toMM($('ed-h').value)) || '' }];
+      renderPlanes();
+    }
     $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
     $('ed-dims').classList.toggle('four', m === 'box');
     $('ed-w').placeholder = (m === 'ring' ? 'średnica' : 'szerokość') + ` [${UNIT()}]`;
@@ -3100,6 +3428,23 @@ function openElementDialog({ id, shape, photoId }) {
       : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
       : 'Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".');
   };
+  // płaszczyzny konstrukcji (inny kształt): wymiary w mm w el.planes, pola w bieżącej jednostce
+  function renderPlanes() {
+    const mk = markOf({ ...el, num: editing && !isWys(editing) ? el.num : nextNum(editing && editing.id) });
+    $('ed-planes').innerHTML = '<label class="pl-lab">Płaszczyzny do druku (szerokość × wysokość)</label>' + el.planes.map((p, i) => `
+      <div class="pl-row"><b>${mk}${i + 1}</b>
+        <input type="number" min="0" step="${unitStep()}" data-pw="${i}" value="${esc(fromMM(p.w))}" placeholder="szerokość [${UNIT()}]"> ×
+        <input type="number" min="0" step="${unitStep()}" data-ph="${i}" value="${esc(fromMM(p.h))}" placeholder="wysokość [${UNIT()}]">
+        ${el.planes.length > 1 ? `<button type="button" class="btn btn-sm" data-prm="${i}" title="Usuń płaszczyznę">✕</button>` : ''}</div>`).join('') +
+      '<button type="button" class="btn btn-sm" id="ed-pl-add">+ Dodaj płaszczyznę</button>';
+    $('ed-planes').querySelectorAll('[data-pw]').forEach(i => i.addEventListener('input', () => { el.planes[+i.dataset.pw].w = toMM(i.value); refresh(); }));
+    $('ed-planes').querySelectorAll('[data-ph]').forEach(i => i.addEventListener('input', () => { el.planes[+i.dataset.ph].h = toMM(i.value); refresh(); }));
+    $('ed-planes').querySelectorAll('[data-prm]').forEach(b => b.onclick = () => { el.planes.splice(+b.dataset.prm, 1); renderPlanes(); refresh(); });
+    $('ed-pl-add').onclick = () => {
+      el.planes.push({ w: '', h: '' }); renderPlanes(); refresh();
+      const all = $('ed-planes').querySelectorAll('[data-pw]'); if (all.length) all[all.length - 1].focus();
+    };
+  }
   const refresh = () => {
     const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
     $('ed-prev').innerHTML = t
@@ -3107,10 +3452,20 @@ function openElementDialog({ id, shape, photoId }) {
       : `<div class="pimg" style="color:var(--gray);font-size:.85rem;text-align:center;padding:20px">Wybierz typ po lewej —<br>tu pokaże się przykład, jak to wygląda.</div><div class="ptxt">Nie wiesz? Wybierz „Nie wiem — do ustalenia" i opisz element w uwagach.</div>`;
     $('ed-badge').style.background = t ? t.color : '#67b437';
     const cur = read();
+    // podgląd ściany z drzwiami
+    const dp = $('ed-door-prev');
+    if (dp) {
+      if (!hasDims(cur)) dp.innerHTML = '<div class="hint">Wpisz wymiar ściany, żeby zobaczyć drzwi na podglądzie.</div>';
+      else {
+        const W = Number(cur.w), H = Number(cur.h), sc = Math.min(420 / W, 170 / H), pw = W * sc, ph = H * sc, p = doorPos(cur);
+        dp.innerHTML = `<svg width="${pw + 20}" height="${ph + 14}" class="door-svg"><rect x="10" y="4" width="${pw}" height="${ph}" fill="#f7fafc" stroke="#2b2a29" stroke-width="1.4"/>${doorSvg(cur, 10, 4, pw, ph)}</svg>
+          ${p.fits ? '' : '<div class="tag-warn">Drzwi nie mieszczą się w ścianie — sprawdź odległość i wymiar.</div>'}`;
+      }
+    }
     const g = grossOf(cur);
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
       : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? bleedTxt(g.b) + '</b> / stronę' : 'brak</b>'}`
-      : `${dimsMode(cur) === 'flat' ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
+      : `${dimsMode(cur) === 'flat' && !isHang(cur) ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
@@ -3126,6 +3481,8 @@ function openElementDialog({ id, shape, photoId }) {
   m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
   $('ed-ok').onclick = async () => {
     const d = read();
+    // inny kształt: w / h = pierwsza płaszczyzna (zgodność ze starszymi widokami i eksportem)
+    if (isHang(d) && dimsMode(d) === 'flat') { const p0 = (d.planes || []).find(p => Number(p.w) > 0 && Number(p.h) > 0); d.w = p0 ? p0.w : ''; d.h = p0 ? p0.h : ''; }
     d.wnum = wysNumFor(d, editing ? editing.id : null);
     // wysłona zamieniona na zwykły element dostaje nową, wolną literę
     if (editing && isWys(editing) && !isWys(d)) d.num = nextNum(editing.id);
@@ -3134,20 +3491,23 @@ function openElementDialog({ id, shape, photoId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: d.typeId === 'blackback' && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
         if (diff) addLog(pid, `Element ${markOf({ ...editing, ...fields })}: ${diff}`, editing.id);
+        if (hasDoor({ ...editing, ...fields }) || S.elements.some(e => e.doorFor === editing.id)) await syncDoorElement(editing.id, { ...editing, ...fields });
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: d.typeId === 'blackback' && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
         const newId = await DB.add(pElements(pid), rec);
+        if (hasDoor(rec)) await syncDoorElement(newId, { ...rec, id: newId });
         addLog(pid, `Dodano element ${markOf({ ...d, num: el.num })} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
         m.close();
         S.selId = newId;
+        if (turbo) { setTimeout(() => openElementDialog({ shape: null, photoId: '', turbo: true }), 60); return; }
       }
     } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('ed-ok').disabled = false; }
   };
@@ -3172,6 +3532,8 @@ async function deleteElement(id) {
   if (!ok) return;
   await DB.del(pElements(S.project.id), id);
   addLog(S.project.id, `Usunięto element ${markOf(el)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`);
+  // razem ze ścianą znikają jej drzwi
+  for (const d of S.elements.filter(e => e.doorFor === id)) await DB.del(pElements(S.project.id), d.id);
   if (S.selId === id) S.selId = null;
 }
 function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
@@ -3258,14 +3620,15 @@ function renderGraph() {
         svg += ext(LM, 0, LM - 24, 0) + ext(LM, FH, LM - 24, FH) + L(LM - 22, 0, LM - 22, FH, cm(g.h), true);
       }
     }
+    const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - 2 * bw, FH - 2 * bh)}</svg>` : '';
     const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
         title="Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">
       ${e.thumb ? `<img src="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>`;
-    const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : dimsMode(e) !== 'flat' ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · pas do druku</div>` : '';
+    const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : isHang(e) ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · ${(planesOf(e) || []).length} pł. do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
-    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''}" data-eid="${e.id}" style="--c:${t.color};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
+    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${t.color};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
-      <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}</div>
+      <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
   box.classList.add('gnav');
@@ -3531,6 +3894,8 @@ function setHover(id) {
 }
 function renderElements() {
   if (!S.project) return;
+  $('btn-turbo').classList.toggle('hidden', !isAdmin());
+  renderTurboBar();
   const list = S.elFilter === 'photo' ? S.elements.filter(e => e.photoId === S.photoId) : S.elements;
   const totalA = S.elements.reduce((s, e) => s + areaOf(e), 0);
   const noDim = S.elements.filter(e => !hasDims(e)).length;
@@ -3552,18 +3917,18 @@ function renderElements() {
       <th>Znak</th><th>Typ</th><th class="c">Netto [${UNIT()}]</th><th class="c">Spad</th><th class="c">Do druku [${UNIT()}]</th><th class="c">Szt.</th><th class="c">m²</th><th>Uwagi</th><th class="c">Kto</th><th></th>
     </tr></thead><tbody>${list.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
-      return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'}">
+      return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'} ${isAlert(e) ? 'alert' : ''}" ${isAlert(e) ? `title="Zmienione przez ${esc(userLabel(e.updatedBy || e.createdBy))} — kliknij, aby oznaczyć jako widziane"` : ''}>
         <td><span class="badge" style="background:${t.color}">${markOf(e)}</span></td>
         <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
-        <td class="num">${g.b ? bleedTxt(g.b) : '—'}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
-        <td class="dims">${dims ? grossTxt(e) : ''}</td>
+        <td class="num" ${e.bleedBox ? 'title="spad: lewy / prawy / góra / dół"' : ''}>${bleedCell(e, g)}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
+        <td class="dims">${dims ? (isHang(e) ? planesTxt(e, '<br>') : grossTxt(e)) : ''}</td>
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
         <td class="notes" title="${esc(notesOf(e))}">${esc(notesOf(e))}</td>
         <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
-          ${e.shape ? '' : `<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
+          ${e.shape ? '' : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
           <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
           <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
       </tr>`;
@@ -3632,31 +3997,69 @@ function renderLog() {
 const dateStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
 // Zlecenie: każdy element w osobnej linii — znak: wymiar do druku, sztuki, typ (+ dopisek przy SEG)
-function orderText() {
-  const line = e => {
-    const t = typeById(e.typeId), wys = t.wyslona && e.wyslona;
-    const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
-    if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
-    if (e.notes) parts.push(e.notes);
-    return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
-  };
-  // alfabetycznie (A, B, C…), wysłony osobno na końcu
-  const all = [...S.elements].sort((a, b) => (a.num || 0) - (b.num || 0));
-  const isWys = e => typeById(e.typeId).wyslona && e.wyslona;
-  const main = all.filter(e => !isWys(e)), wys = all.filter(isWys);
-  return main.map(line).join('\n') + (wys.length ? (main.length ? '\n\n' : '') + 'Wysłony:\n' + wys.map(line).join('\n') : '');
+// grupy zlecenia: zwykłe elementy, wysłony (Blackback) i konstrukcje podwieszane osobno
+function orderGroups(list) {
+  const all = [...list].sort((a, b) => (a.num || 0) - (b.num || 0));
+  const wys = e => typeById(e.typeId).wyslona && e.wyslona;
+  return [
+    ['', all.filter(e => !wys(e) && !isHang(e))],
+    ['Blackback — wysłony', all.filter(wys).sort((a, b) => (a.wnum || 0) - (b.wnum || 0))],
+    ['Konstrukcje podwieszane', all.filter(isHang)],
+  ].filter(([, l]) => l.length);
 }
-async function copyOrder() {
-  if (!S.project) return;
-  if (!S.elements.length) return toast('Brak elementów do zlecenia', 'error');
-  const txt = orderText();
+function orderLine(e) {
+  const t = typeById(e.typeId), wys = t.wyslona && e.wyslona;
+  if (isHang(e)) {
+    const head = [`konstrukcja ${hasDims(e) ? netTxt(e) + ' ' + UNIT() : 'wymiar do ustalenia'}`, `${e.qty || 1} szt.`, typeLabel(e)];
+    if (e.inside) head.push('zadruk zewnątrz i wewnątrz');
+    if (e.notes) head.push(e.notes);
+    return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${head.join(', ')}` +
+      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${p.b ? '' : ' (bez spadu)'}`).join('');
+  }
+  const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
+  if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
+  if (hasDoor(e)) parts.push('z drzwiami (osobny element)');
+  if (e.notes) parts.push(e.notes);
+  return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
+}
+function orderText(list = S.elements) {
+  return orderGroups(list).map(([name, l]) => (name ? name + ':\n' : '') + l.map(orderLine).join('\n')).join('\n\n');
+}
+async function copyText(txt) {
   try { await navigator.clipboard.writeText(txt); }
   catch (e) { // starsze przeglądarki / brak zgody: kopiowanie przez ukryte pole
     const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;left:-9999px';
     document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
   }
-  toast(`Skopiowano zlecenie (${S.elements.length} el.) — wklej do maila (Ctrl+V)`, 'success', 4000);
-  addLog(S.project.id, 'Skopiowano zlecenie do schowka');
+}
+// okno zlecenia: cała lista, każdy element można odkliknąć; podgląd tekstu na żywo
+function copyOrder() {
+  if (!S.project) return;
+  if (!S.elements.length) return toast('Brak elementów do zlecenia', 'error');
+  const off = new Set();
+  const m = openModal({ title: '📋 Zlecenie', wide: true, body: `
+    <div class="ord-wrap"><div class="ord-list" id="ord-list"></div><div class="ord-prev"><label>Tekst do wklejenia</label><pre id="ord-txt"></pre></div></div>`,
+    footer: `<span class="hint" id="ord-cnt" style="margin-right:auto"></span><button class="btn" data-c>Zamknij</button><button class="btn btn-solid" id="ord-ok">📋 Kopiuj</button>` });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  const sel = () => S.elements.filter(e => !off.has(e.id));
+  const render = () => {
+    $('ord-list').innerHTML = orderGroups(S.elements).map(([name, l]) => `<div class="ord-g">${name ? `<div class="ord-gh">${esc(name)}</div>` : ''}
+      ${l.map(e => `<label class="ord-it ${off.has(e.id) ? 'off' : ''}"><input type="checkbox" data-oid="${e.id}" ${off.has(e.id) ? '' : 'checked'}>
+        <span class="badge" style="background:${typeById(e.typeId).color}">${markOf(e)}</span>
+        <span>${esc(typeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
+    $('ord-txt').textContent = orderText(sel()) || '(nic nie zaznaczono)';
+    $('ord-cnt').textContent = `${sel().length} z ${S.elements.length} el.`;
+    $('ord-list').querySelectorAll('[data-oid]').forEach(c => c.onchange = () => { if (c.checked) off.delete(c.dataset.oid); else off.add(c.dataset.oid); render(); });
+  };
+  render();
+  $('ord-ok').onclick = async () => {
+    const list = sel();
+    if (!list.length) return toast('Zaznacz co najmniej jeden element', 'error');
+    await copyText(orderText(list));
+    toast('Elementy w formacie tekstowym skopiowane do schowka', 'success', 4000);
+    addLog(S.project.id, `Skopiowano zlecenie do schowka (${list.length} el.)`);
+    m.close();
+  };
 }
 function openExportDialog() {
   if (!S.project) return;
@@ -3680,10 +4083,28 @@ function openExportDialog() {
       <div class="fld exp-ver hidden"><label>Numer wersji indexu</label>
         <div style="display:flex;gap:10px;align-items:center"><span style="font-weight:700">v</span><input type="number" id="exp-v" min="1" step="1" value="${nextV}" style="max-width:110px">
           <span class="hint" style="margin:0">ostatnio: ${p.indexVersion ? 'v' + p.indexVersion : '—'}</span></div>
-        <div class="exp-file" id="exp-file"></div></div>`,
+        <div class="exp-file" id="exp-file"></div></div>
+      <div class="fld"><label>Podgląd</label><div class="exp-prev" id="exp-prev"></div></div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="exp-go">Drukuj</button>`,
   });
-  let w = 'a3', mode = 'print';
+  let w = 'a3', mode = 'print', prevFor = '', prevNr = 0;
+  // mały podgląd strony (to samo, co pójdzie do druku / PDF); dla CSV i JSON — kilka pierwszych wierszy
+  const preview = async () => {
+    if (prevFor === w) return;
+    prevFor = w; const nr = ++prevNr, box = $('exp-prev');
+    if (w === 'csv' || w === 'json') {
+      const rows = exportRows().slice(0, 6);
+      box.innerHTML = `<pre class="exp-txt">${esc(w === 'csv' ? rows.map(r => [r.znak, r.typ, r.gross, r.qty].join(';')).join('\n') : JSON.stringify(rows.map(r => ({ znak: r.znak, typ: r.typ, wymiar: r.gross })), null, 1))}${exportRows().length > 6 ? '\n…' : ''}</pre>`;
+      return;
+    }
+    box.innerHTML = '<div class="hint">Tworzę podgląd…</div>';
+    try {
+      const stamp = 'Index  ' + dateStamp();
+      const pages = w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp);
+      if (nr !== prevNr || !document.body.contains(box)) return;
+      box.innerHTML = pages.slice(0, 3).map(c => `<img src="${c.toDataURL('image/jpeg', 0.7)}" alt="">`).join('') + (pages.length > 3 ? `<span class="hint">+ ${pages.length - 3} str.</span>` : '');
+    } catch (e) { box.innerHTML = '<div class="hint">Nie udało się zrobić podglądu: ' + esc(e.message) + '</div>'; }
+  };
   const ext = () => ({ a3: '.pdf', a4: '_tabela.pdf', csv: '.csv', json: '.json' })[w];
   const sync = () => {
     const printable = what.find(x => x[0] === w)[4];
@@ -3694,6 +4115,7 @@ function openExportDialog() {
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     $('exp-file').innerHTML = `Plik: <b>${esc(fileBase(v) + ext())}</b>`;
     $('exp-go').textContent = mode === 'print' ? '🖨 Drukuj' : '💾 Zapisz';
+    preview();
   };
   m.el.querySelectorAll('.exp-opt').forEach(x => x.onclick = () => { w = x.dataset.w; sync(); });
   m.el.querySelectorAll('.exp-m').forEach(x => x.onclick = () => { if (!x.disabled) { mode = x.dataset.m; sync(); } });
@@ -3934,7 +4356,7 @@ async function renderIndexA3(stamp) {
           ext(fx, fy + FH, fx, fy + FH + 44); ext(fx + FW, fy + FH, fx + FW, fy + FH + 44); hDim(fx, fx + FW, fy + FH + 40, r.bw);
           ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh);
         }
-        if (dimsMode(r.el) !== 'flat') { g.fillStyle = '#4a5568'; g.font = `400 ${FS * .9}px ${PDF_FONT}`; g.fillText(`konstrukcja ${r.net} ${UNIT()} · pas do druku`, bx, fy + FH + BM + 30); }
+        if (dimsMode(r.el) !== 'flat') { g.fillStyle = '#4a5568'; g.font = `400 ${FS * .9}px ${PDF_FONT}`; g.fillText(fitText(g, `konstrukcja ${r.net} ${UNIT()} · do druku: ${planesTxt(r.el)}`, Math.max(FW, 900)), bx, fy + FH + BM + 30); }
       }
       if (cd.nlines.length) {
         g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
@@ -4193,17 +4615,48 @@ document.addEventListener('mouseout', e => { if (e.target.closest && e.target.cl
 // =====================================================================
 //  ALPAKA — co 5 minut dobiega do 1/4 ekranu, mruga i wraca
 // =====================================================================
+// losowo: wybiega z lewej, z prawej albo (w stoisku) spada na spadochronie ze środkowej belki nad zegarem
 function runAlpaca() {
-  const a = $('alpaca'); if (!a || !a.animate || document.hidden) return;
-  const w = a.offsetWidth || 76, mid = innerWidth / 4 - w / 2; // dobiega do 1/4 szerokości ekranu
+  const a = $('alpaca'); if (!a || !a.animate || document.hidden || a.dataset.busy) return;
+  const bar = $('split-h'), clock = $('clock-pane'), r = Math.random();
+  const para = S.project && bar && clock && bar.offsetParent && clock.offsetParent && clock.getBoundingClientRect().width > 0;
+  a.dataset.busy = '1';
+  const done = () => { a.style.display = 'none'; a.className = ''; delete a.dataset.busy; };
+  (para && r < 0.34 ? alpacaParachute(a, bar, clock) : alpacaRun(a, r < 0.67 ? 'left' : 'right')).then(done, done);
+}
+const alpGo = (a, from, to, flip, ms, easing = 'ease-in-out') => a.animate(
+  [{ transform: `translate(${from[0]}px, ${from[1]}px) scaleX(${flip})` }, { transform: `translate(${to[0]}px, ${to[1]}px) scaleX(${flip})` }],
+  { duration: ms, easing, fill: 'forwards' }).finished;
+// dobiega do 1/4 (z lewej) albo 3/4 (z prawej) szerokości ekranu, mruga i wraca
+function alpacaRun(a, side) {
+  const w = a.offsetWidth || 76, W = innerWidth;
+  const off = side === 'left' ? -w - 10 : W + 10, mid = side === 'left' ? W / 4 - w / 2 : W * 3 / 4 - w / 2;
+  const dir = side === 'left' ? 1 : -1, ms = Math.max(1800, Math.abs(mid - off) * 4.5);
   a.style.display = 'block'; a.className = 'run';
-  const go = (from, to, flip, ms) => a.animate([{ transform: `translateX(${from}px) scaleX(${flip})` }, { transform: `translateX(${to}px) scaleX(${flip})` }], { duration: ms, easing: 'ease-in-out', fill: 'forwards' }).finished;
-  const ms = Math.max(1800, mid * 4.5);
-  go(-w - 10, mid, 1, ms)
+  return alpGo(a, [off, 0], [mid, 0], dir, ms)
     .then(() => { a.className = 'stop'; return new Promise(r => setTimeout(r, 1200)); })
-    .then(() => { a.className = 'run'; return go(mid, -w - 10, -1, ms); })
-    .then(() => { a.style.display = 'none'; a.className = ''; })
-    .catch(() => { a.style.display = 'none'; });
+    .then(() => { a.className = 'run'; return alpGo(a, [mid, 0], [off, 0], -dir, ms); });
+}
+// spadochron: start na belce nad zegarem, łagodne kołysanie w dół, po wylądowaniu ucieka w bok
+function alpacaParachute(a, bar, clock) {
+  const w = a.offsetWidth || 76, h = a.offsetHeight || 76, W = innerWidth;
+  const br = bar.getBoundingClientRect(), cr = clock.getBoundingClientRect();
+  const x = clamp(cr.left + cr.width / 2 - w / 2, 10, W - w - 10);
+  const ground = innerHeight - 2 - h, ty0 = br.top - h * 0.35 - ground; // przesunięcie w górę od dołu ekranu
+  a.style.display = 'block'; a.className = 'para';
+  const fall = a.animate([
+    { transform: `translate(${x}px, ${ty0}px) rotate(-7deg)` },
+    { transform: `translate(${x + 14}px, ${ty0 * 0.66}px) rotate(7deg)` },
+    { transform: `translate(${x - 10}px, ${ty0 * 0.33}px) rotate(-5deg)` },
+    { transform: `translate(${x}px, 0px) rotate(0deg)` },
+  ], { duration: Math.max(4200, -ty0 * 9), easing: 'ease-in-out', fill: 'forwards' }).finished;
+  return fall
+    .then(() => { a.className = 'stop'; return new Promise(r => setTimeout(r, 900)); })
+    .then(() => {
+      a.className = 'run';
+      const right = x < W / 2 ? -1 : 1, to = right > 0 ? W + 10 : -w - 10;
+      return alpGo(a, [x, 0], [to, 0], right, Math.max(1500, Math.abs(to - x) * 4));
+    });
 }
 setTimeout(runAlpaca, 30000);
 setInterval(runAlpaca, 5 * 60 * 1000);
