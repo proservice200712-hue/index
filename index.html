@@ -3300,13 +3300,14 @@ let axJob = null;
 function openArchiwumDialog(eid) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project || !isAdmin()) return;
   if (el.archiwumId) { window.open(axLink(el), '_blank'); return; }
-  const p = S.project, g = axGuess(el), ph = S.photos.find(x => x.id === el.photoId);
+  const p = S.project, g = axGuess(el);
   // wymiary w jednostce, w której dany użytkownik pracuje w Archiwum X (DM w mm, reszta w cm)
   const mm = S.me.login === 'DM', dim = v => Number(v) > 0 ? (mm ? Number(v) : Math.round(Number(v)) / 10) : '';
   const today = new Date().toLocaleDateString('pl-PL');
   const rec = {
     company: p.name || '', type: g.type, lighting: g.light,
-    photoCamera: el.thumb || null, photoScreen: ph ? ph.url : null, cover: el.thumb ? 'camera' : 'screen',
+    // tylko podgląd tego elementu (miniatura grafiki); drugie zdjęcie zostaje puste
+    photoCamera: el.thumb || null, photoScreen: null, cover: 'camera',
     width: hasDims(el) ? dim(el.w) : '', height: hasDims(el) ? dim(el.h) : '', thickness: dim(el.thick), dimUnit: mm ? 'mm' : 'cm',
     notesList: [{ text: `Z INDEX: stoisko ${p.name}${p.fair ? ' (' + p.fair + ')' : ''}, element ${markOf(el)} — ${typeLabel(el)}${el.notes ? '. ' + el.notes : ''}`, date: today }],
     fairHistory: p.fair ? [{ text: [p.fair, p.city].filter(Boolean).join(', '), date: today }] : [],
