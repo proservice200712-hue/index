@@ -456,6 +456,9 @@
   .seg-chk { margin: 0 0 12px; padding: 8px 10px; border: 1.5px dashed var(--line); font-size: 0.82rem; }
   .row-dims { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 12px; }
   .gc-dsvg { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2; overflow: visible; }
+  .bleed-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 0.85rem; }
+  .bleed-row .bl-i { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .fld .bleed-row input { width: 80px; padding: 6px 8px; border: 1.5px solid var(--line); }
   .door-fld { border-left: 3px solid #3182ce; padding-left: 10px; margin-bottom: 12px; }
   .door-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
   .door-pos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; }
@@ -474,6 +477,15 @@
   .row-act .thread { cursor: grab; touch-action: none; }
   #thread-svg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 500; pointer-events: none; }
   #thread-svg.ok path { stroke-dasharray: none; }
+  .ax-wrap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; }
+  .ax-chips { display: flex; gap: 14px; flex-wrap: wrap; }
+  .ax-side { display: flex; flex-direction: column; gap: 8px; }
+  .ax-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ax-photos small { display: block; font-size: 0.7rem; color: var(--gray); margin-bottom: 3px; }
+  .ax-photos img { width: 100%; max-height: 150px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
+  .ax-badge { display: inline-block; font-size: 0.68rem; font-weight: 800; color: #fff; background: #2d3748; padding: 2px 6px; margin-right: 4px; text-decoration: none; white-space: nowrap; }
+  .ax-badge:hover { background: var(--accent); color: var(--dark); }
+  @media (max-width: 760px) { .ax-wrap { grid-template-columns: 1fr; } }
   .ord-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
   .ord-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
   .ord-gh { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 2px 0 4px; }
@@ -1599,14 +1611,15 @@ const planeName = p => p.label + (p.side ? ' ' + p.side : '');
 const planesTxt = (el, sep = ' · ') => (planesOf(el) || []).map(p => `${planeName(p)} ${lenPL(p.gw)} × ${lenPL(p.gh)}`).join(sep);
 const hasDims = el => isHang(el) ? planeBase(el).length > 0 : Number(el.w) > 0 && Number(el.h) > 0;
 // =====================================================================
-//  DRZWI w ścianie Blackback: na podglądzie półprzezroczysty prostokąt z wymiarem
+//  DRZWI w ścianie Blackback albo oklejonej Folią: na podglądzie półprzezroczysty prostokąt z wymiarem
 //  od bliższej krawędzi + osobny, powiązany element „Drzwi — A” (grafika na drzwi).
 //  Standard: drzwi 80×200, spad dół 10, góra 20, boki po 30 (razem 140×230); gdy drzwi
 //  są za blisko krawędzi ściany, brakujący spad boczny przechodzi na drugą stronę.
 //  SEG / wysłona: drzwi 99,2 × 248 albo 99,2 × 198,4, bez spadu.
 // =====================================================================
 const DOOR_STD = { w: 800, h: 2000, side: 300, top: 200, bottom: 100 };
-const hasDoor = el => el.typeId === 'blackback' && !!(el.door && el.door.on);
+const DOOR_TYPES = ['blackback', 'folia-laminat'];
+const hasDoor = el => DOOR_TYPES.includes(el.typeId) && !!(el.door && el.door.on);
 function doorPos(el) {
   const d = el.door || {}, W = Number(el.w) || 0, H = Number(el.h) || 0;
   const std = !(el.seg || el.wyslona);
@@ -1649,7 +1662,7 @@ async function syncDoorElement(mainId, main) {
     return;
   }
   const p = doorPos(main), bb = doorBleed(main), side = main.door.from === 'right' ? 'od prawej' : 'od lewej';
-  const fields = { typeId: 'blackback', variant: '', seg: !!main.seg, wyslona: !!main.wyslona, w: p.w, h: p.h, qty: 1,
+  const fields = { typeId: main.typeId, variant: '', ...togValues(main, main.typeId), seg: !!main.seg, wyslona: !!main.wyslona, w: p.w, h: p.h, qty: 1,
     bleedBox: bb, doorFor: mainId, name: 'Drzwi — ' + markOf(main),
     notes: `drzwi w ścianie ${markOf(main)}, ${side} ${lenPL(main.door.dist || 0)} ${UNIT()}` + (bb && (bb.l !== DOOR_STD.side || bb.r !== DOOR_STD.side) ? ` · spad boczny ${lenPL(bb.l)} / ${lenPL(bb.r)} (za blisko krawędzi)` : ''),
     updatedAt: nowIso(), updatedBy: S.me.id };
@@ -1660,6 +1673,9 @@ async function syncDoorElement(mainId, main) {
   const id = await DB.add(pElements(pid), rec);
   addLog(pid, `Dodano drzwi do ściany ${markOf(main)} — grafika na drzwi ${grossTxt(rec)} ${UNIT()}`, id);
 }
+// spady do wyboru (Blackback standard i Folia): automatyczne z typu, jeden dla wszystkich stron albo różne z każdej strony
+const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat');
+const BLEED_SIDES = [['l', 'lewy'], ['r', 'prawy'], ['t', 'góra'], ['b', 'dół']];
 const bleedCell = (el, g) => el.bleedBox ? `${lenPL(el.bleedBox.l)}/${lenPL(el.bleedBox.r)}/${lenPL(el.bleedBox.t)}/${lenPL(el.bleedBox.b)}` : (g.b ? bleedTxt(g.b) : '—');
 
 // Wymiar do druku. Konstrukcja podwieszana: grafika dookoła → pas o długości obwodu.
@@ -3250,6 +3266,97 @@ function nextNum(exceptId) { return S.elements.filter(e => !isWys(e) && e.id !==
 //  TURBO (administrator): 1) elementy wpisywane jeden po drugim bez klikania w wizkę
 //  (typ, wymiar, Enter = następny), 2) potem nitka 🧵 z listy przeciągana na wizkę.
 // =====================================================================
+// =====================================================================
+//  ARCHIWUM X: element Logo 3D z INDEX od razu jako eksponat w Archiwum X
+//  (ta sama baza Firebase, kolekcja „records” jak w Archiwum X; piaskownica ?test → zztest_records).
+//  Element pamięta archiwumId / archiwumNo, eksponat pamięta, z którego stoiska i elementu pochodzi.
+// =====================================================================
+const AX_PFX = TEST ? 'zztest_' : '';
+const AX_RECORDS = AX_PFX + 'records', AX_COMPANIES = AX_PFX + 'companies', AX_ACTIVITY = AX_PFX + 'activity';
+const AX_URL = 'https://proservice200712-hue.github.io/archiwum-x/';
+const AX_TYPES = [['3D blokowe', '3D blokowe'], ['3D blokowe — 3D druk', '3D blokowe — 3D druk'], ['3D blokowe — Taśma', '3D blokowe — taśma'],
+  ['3D blokowe — Profil', '3D blokowe — profil'], ['PCW', 'PCW + dystanse'], ['LEDON', 'LEDON'], ['LED2', 'LED second GEN']];
+const AX_STATUSES = [['gotowe', '🟢 Ready'], ['out', '🔵 OUT'], ['sprawdzone', '🟡 Storage'], ['naprawa', '🔨 Storage Repair'], ['wróciło', '🔴 To Find']];
+const AX_LIGHTS = ['Frontlit', 'HALO', 'Sidelit'];
+// podpowiedź typu i podświetlenia w Archiwum X z wykonania Logo 3D
+function axGuess(el) {
+  switch (el.variant) {
+    case 'pcw': return { type: 'PCW', light: [] };
+    case 'blok': return { type: '3D blokowe — 3D druk', light: [] };
+    case 'halo': return { type: '3D blokowe', light: ['HALO'] };
+    case 'cnc-led': return { type: '3D blokowe', light: ['Frontlit'] };
+    case 'plexi': return { type: 'Pleksi', light: [] };
+    case 'neon': return { type: 'Neon', light: [] };
+    default: return { type: '3D blokowe', light: [] };
+  }
+}
+const axLink = el => el.archiwumId ? AX_URL + '?id=' + encodeURIComponent(el.archiwumId) : '';
+async function openArchiwumDialog(eid) {
+  const el = S.elements.find(e => e.id === eid); if (!el || !S.project || !isAdmin()) return;
+  if (el.archiwumId) { window.open(axLink(el), '_blank'); return; }
+  const p = S.project, g = axGuess(el), ph = S.photos.find(x => x.id === el.photoId);
+  let companies = [];
+  try { companies = (await DB.list(AX_COMPANIES)).map(c => c.name).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pl')); } catch (e) {}
+  const known = AX_TYPES.some(([v]) => v === g.type);
+  const m = openModal({ title: `🗄 Do Archiwum X — ${esc(markOf(el))} ${esc(typeLabel(el))}`, wide: true, body: `
+    <div class="ax-wrap">
+      <div>
+        <div class="fld"><label>Firma</label><input type="text" id="ax-company" list="ax-comp-list" value="${esc(p.name || '')}">
+          <datalist id="ax-comp-list">${companies.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+          <div class="hint">${companies.includes(p.name) ? 'Firma jest już w Archiwum X.' : 'Nowa firma — dopiszę ją do listy w Archiwum X.'}</div></div>
+        <div class="fld"><label>Typ w Archiwum X</label><select id="ax-type">${AX_TYPES.map(([v, n]) => `<option value="${esc(v)}" ${v === g.type ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+          <option value="__inne" ${known ? '' : 'selected'}>Inne…</option></select>
+          <input type="text" id="ax-type-other" class="${known ? 'hidden' : ''}" value="${esc(known ? '' : g.type)}" placeholder="wpisz typ" style="margin-top:6px"></div>
+        <div class="fld"><label>Podświetlenie</label><div class="ax-chips">${AX_LIGHTS.map(l => `<label class="chk"><input type="checkbox" value="${l}" ${g.light.includes(l) ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>
+        <div class="row2">
+          <div class="fld"><label>Status</label><select id="ax-status">${AX_STATUSES.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select></div>
+          <div class="fld"><label>Producent</label><input type="text" id="ax-producer" list="ax-prod-list" placeholder="np. Dima"><datalist id="ax-prod-list"><option value="Dima"><option value="Marplex"><option value="Renata"></datalist></div>
+        </div>
+      </div>
+      <div class="ax-side">
+        <div class="hint">Wymiar: <b>${hasDims(el) ? esc(netTxt(el)) + ' ' + UNIT() : 'do ustalenia'}</b>${Number(el.thick) > 0 ? ' · grubość <b>' + esc(lenPL(el.thick)) + ' ' + UNIT() + '</b>' : ''}</div>
+        <div class="hint">Targi do historii: <b>${esc([p.fair, p.city].filter(Boolean).join(', ') || '—')}</b></div>
+        <div class="ax-photos">
+          <div><small>zdjęcie (miniatura grafiki)</small>${el.thumb ? `<img src="${esc(thumbUrl(el.thumb, 300, 200))}" alt="">` : '<span class="hint">brak — dodaj w widoku Grafika albo z Corela</span>'}</div>
+          <div><small>print screen (wizka stoiska)</small>${ph ? `<img src="${esc(thumbUrl(ph.url, 300, 200))}" alt="">` : '<span class="hint">brak</span>'}</div>
+        </div>
+      </div>
+    </div>`,
+    footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ax-ok">🗄 Wpisz do Archiwum X</button>` });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('ax-type').onchange = () => $('ax-type-other').classList.toggle('hidden', $('ax-type').value !== '__inne');
+  $('ax-ok').onclick = async () => {
+    const company = $('ax-company').value.trim(); if (!company) return toast('Podaj firmę', 'error');
+    const type = $('ax-type').value === '__inne' ? $('ax-type-other').value.trim() : $('ax-type').value;
+    $('ax-ok').disabled = true;
+    try {
+      const all = await DB.list(AX_RECORDS);
+      const number = all.reduce((mx, r) => Math.max(mx, Number(r.number) || 0), 0) + 1;
+      const today = new Date().toLocaleDateString('pl-PL'), now = nowIso();
+      const rec = {
+        company, type,
+        photoCamera: el.thumb || null, photoScreen: ph ? ph.url : null, cover: el.thumb ? 'camera' : 'screen',
+        width: hasDims(el) ? Number(el.w) : null, height: hasDims(el) ? Number(el.h) : null,
+        thickness: Number(el.thick) > 0 ? Number(el.thick) : null, dimUnit: 'mm',
+        status: $('ax-status').value, lighting: [...m.el.querySelectorAll('.ax-chips input:checked')].map(i => i.value), lightColor: [], mount: [],
+        producer: $('ax-producer').value.trim(), voltage: '', cableLength: '',
+        notesList: [{ text: `Z INDEX: stoisko ${p.name}${p.fair ? ' (' + p.fair + ')' : ''}, element ${markOf(el)} — ${typeLabel(el)}${el.notes ? '. ' + el.notes : ''}`, date: today }],
+        fairHistory: [p.fair ? [p.fair, p.city].filter(Boolean).join(', ') : ''].filter(Boolean).map(text => ({ text, date: today })),
+        catalog: '', number, createdAt: now, updatedAt: now, updatedBy: S.me.login,
+        indexRef: { projectId: p.id, elementId: el.id, stand: p.name, mark: markOf(el) },
+      };
+      rec.notes = rec.notesList.map(n => n.text).join('\n');
+      const axId = await DB.add(AX_RECORDS, rec);
+      if (!companies.includes(company)) await DB.add(AX_COMPANIES, { name: company, created: now }).catch(() => {});
+      await DB.add(AX_ACTIVITY, { user: S.me.login, action: 'utworzył(a) z INDEX', company, number, recordId: axId, at: now }).catch(() => {});
+      await DB.update(pElements(p.id), el.id, { archiwumId: axId, archiwumNo: number, updatedAt: now, updatedBy: S.me.id });
+      addLog(p.id, `Element ${markOf(el)} wpisany do Archiwum X jako #${number} (${company})`, el.id);
+      m.close();
+      toast(`Wpisano do Archiwum X: ${company} #${number}`, 'success', 5000);
+    } catch (e) { toast('Nie udało się wpisać do Archiwum X: ' + e.message, 'error', 6000); $('ax-ok').disabled = false; }
+  };
+}
+
 function startTurbo() {
   if (!isAdmin() || !S.project) return;
   S.turbo = true;
@@ -3337,7 +3444,9 @@ function openElementDialog({ id, shape, photoId, turbo }) {
           <div class="fld"><label>&nbsp;</label><label class="chk" style="text-transform:none;font-weight:400;font-size:.85rem;color:var(--dark)"><input type="checkbox" id="ed-eltex" ${el.eltex ? 'checked' : ''}> ELTEX (bez spadu)</label></div>
         </div></details>` : ''}`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
-      ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}` : ''}
+      ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
+      ${editing.archiwumId ? `<a class="btn" href="${esc(axLink(editing))}" target="_blank" rel="noopener">🗄 Archiwum X #${esc(editing.archiwumNo || '?')}</a>`
+        : isAdmin() && editing.typeId === 'logo3d' ? '<button class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}` : ''}
       ${turbo && !editing ? '<span class="turbo-tag" style="margin-right:auto">⚡ Turbo — Enter = dodaj i następny</span>' : ''}
       <button class="btn" data-c>${turbo && !editing ? 'Zakończ wpisywanie' : 'Anuluj'}</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : turbo ? 'Dodaj i następny ↵' : 'Dodaj element'}</button>`,
   });
@@ -3358,6 +3467,10 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
     ...(isAdmin() ? { bleedOverride: toMM($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
+    ...(sideBleedOk(el) ? {
+      bleedOverride: el.bleedMode === 'all' ? Number(el.bleedAll) || 0 : '',
+      bleedBox: el.bleedMode === 'sides' ? Object.fromEntries(BLEED_SIDES.map(([k]) => [k, Number(el.bleedSides[k]) || 0])) : null,
+    } : el.doorFor ? {} : { bleedBox: null }),
   });
   // podział typu: wykonanie (Logo 3D) / kształt (konstrukcja), grubość, SEG
   const renderOpts = () => {
@@ -3378,7 +3491,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         <button type="button" class="type-btn var-btn ${mount === 'seg' ? 'on' : ''}" data-mount="seg">SEG <span class="qtip" data-tip="${esc('SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami')}">?</span></button>
         ${t.wyslona ? `<button type="button" class="type-btn var-btn ${mount === 'wys' ? 'on' : ''}" data-mount="wys">Wysłona</button>` : ''}</div></div>`;
     }
-    if (t && t.id === 'blackback' && !el.doorFor) {
+    if (t && DOOR_TYPES.includes(t.id) && !el.doorFor) {
       const dr = el.door || (el.door = { on: false, from: 'left', dist: '', size: 'h2480' });
       const sys = el.seg || el.wyslona;
       h += `<div class="door-fld"><label class="chk seg-chk"><input type="checkbox" id="ed-door" ${dr.on ? 'checked' : ''}> <span>Drzwi w ścianie</span></label>
@@ -3391,6 +3504,19 @@ function openElementDialog({ id, shape, photoId, turbo }) {
           <div id="ed-door-prev"></div>
           <div class="hint">Drzwi dostaną osobny element „Drzwi — ${esc(lab)}” (grafika na drzwi) obok ściany.</div></div>` : ''}</div>`;
     }
+    if (t && sideBleedOk(el)) {
+      const auto = bleedOf({ ...el, bleedOverride: '', bleedBox: null, eltex: false });
+      if (!el.bleedMode) el.bleedMode = el.bleedBox ? 'sides' : (el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '') ? 'all' : 'auto';
+      if (el.bleedAll == null) el.bleedAll = el.bleedMode === 'all' ? Number(el.bleedOverride) || 0 : auto;
+      if (!el.bleedSides) el.bleedSides = el.bleedBox ? { ...el.bleedBox } : { l: auto, r: auto, t: auto, b: auto };
+      const bm = el.bleedMode;
+      h += `<div class="fld bleed-fld"><label>Spady</label><div class="var-list">
+        <button type="button" class="type-btn var-btn ${bm === 'auto' ? 'on' : ''}" data-bmode="auto">Automatycznie · ${lenPL(auto)} ${UNIT()}</button>
+        <button type="button" class="type-btn var-btn ${bm === 'all' ? 'on' : ''}" data-bmode="all">Jeden dla wszystkich stron</button>
+        <button type="button" class="type-btn var-btn ${bm === 'sides' ? 'on' : ''}" data-bmode="sides">Różne dla każdej strony</button></div>
+        ${bm === 'all' ? `<div class="bleed-row"><span class="bl-i">spad <input type="number" id="ed-bl-all" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedAll))}"> ${UNIT()} / stronę</span></div>` : ''}
+        ${bm === 'sides' ? `<div class="bleed-row">${BLEED_SIDES.map(([k, n]) => `<span class="bl-i">${n} <input type="number" data-bl="${k}" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedSides[k]))}"></span>`).join('')} <span>${UNIT()}</span></div>` : ''}</div>`;
+    }
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, bez spadu)</span></span></label>`;
     $('ed-opts').innerHTML = h;
     const ins = $('ed-inside'); if (ins) ins.addEventListener('change', () => { el.inside = ins.checked; refresh(); });
@@ -3398,7 +3524,12 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-opts').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
-    $('ed-opts').querySelectorAll('.var-btn').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
+    $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
+    $('ed-opts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
+    const bla = $('ed-bl-all'); if (bla) bla.addEventListener('input', () => { el.bleedAll = toMM(bla.value); refresh(); });
+    $('ed-opts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
+    // ręczny spad administratora — przy Blackback standard / Folii zastępuje go wybór spadów wyżej
+    const admB = $('ed-bleed'); if (admB) admB.closest('.fld').classList.toggle('hidden', sideBleedOk(el));
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
       el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
@@ -3465,7 +3596,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const g = grossOf(cur);
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
       : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? bleedTxt(g.b) + '</b> / stronę' : 'brak</b>'}`
-      : `${dimsMode(cur) === 'flat' && !isHang(cur) ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
+      : `${dimsMode(cur) === 'flat' && !isHang(cur) ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${g.box ? bleedCell(cur, g) + ' ' + UNIT() + '</b> <span style="color:var(--gray)">(lewy/prawy/góra/dół)</span><b>' : bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
@@ -3491,17 +3622,19 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: d.typeId === 'blackback' && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
-        if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex });
+        const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex }); else if (sideBleedOk(d)) fields.bleedOverride = d.bleedOverride;
+        fields.bleedBox = d.bleedBox || null;
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
         if (diff) addLog(pid, `Element ${markOf({ ...editing, ...fields })}: ${diff}`, editing.id);
         if (hasDoor({ ...editing, ...fields }) || S.elements.some(e => e.doorFor === editing.id)) await syncDoorElement(editing.id, { ...editing, ...fields });
         m.close();
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: d.typeId === 'blackback' && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
-        if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex });
+        if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex }); else if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
+        if (d.bleedBox) rec.bleedBox = d.bleedBox;
         const newId = await DB.add(pElements(pid), rec);
         if (hasDoor(rec)) await syncDoorElement(newId, { ...rec, id: newId });
         addLog(pid, `Dodano element ${markOf({ ...d, num: el.num })} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
@@ -3514,6 +3647,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   if (editing) {
     $('ed-del').onclick = async () => { m.close(); deleteElement(editing.id); };
     const as = $('ed-assign'); if (as) as.onclick = () => { m.close(); startAssign(editing.id); };
+    const axb = $('ed-ax'); if (axb) axb.onclick = () => { m.close(); openArchiwumDialog(editing.id); };
   }
 }
 function describeDiff(a, b) {
@@ -3524,6 +3658,7 @@ function describeDiff(a, b) {
   if ((a.name || '') !== (b.name || '')) ch.push(`opis „${b.name || '—'}"`);
   if ((a.notes || '') !== (b.notes || '')) ch.push('uwagi zmienione');
   if (bleedOf(a) !== bleedOf(b)) ch.push(`spad → ${bleedTxt(bleedOf(b))}`);
+  if (JSON.stringify(a.bleedBox || null) !== JSON.stringify(b.bleedBox || null)) ch.push(b.bleedBox ? `spady lewy/prawy/góra/dół → ${bleedCell(b, {})} ${UNIT()}` : 'spady jednakowe ze wszystkich stron');
   return ch.join(', ');
 }
 async function deleteElement(id) {
@@ -3929,6 +4064,8 @@ function renderElements() {
         <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
           ${e.shape ? '' : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
+          ${e.archiwumId ? `<a class="ax-badge" href="${esc(axLink(e))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Eksponat w Archiwum X — otwórz kartę">AX #${esc(e.archiwumNo || '?')}</a>`
+            : isAdmin() && e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
           <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
           <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
       </tr>`;
