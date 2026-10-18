@@ -4480,10 +4480,10 @@ function orderLine(e) {
   }
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
-  if (hasDoor(e)) parts.push('z drzwiami (osobny element)');
   if (e.wExpr) parts.push('szerokość: ' + wCalcTxt(e));
   if (needsSplit(e)) parts.push('dzielony (krótszy bok ponad 150 cm)');
-  if (e.notes) parts.push(e.notes);
+  // uwaga typu „drzwi” / „+drzwi” przy ścianie z ustawionymi drzwiami nic nie dodaje — drzwi są w wyliczeniu i jako osobny element
+  if (e.notes && !(hasDoor(e) && /^\s*\+?\s*drzwi\s*\.?\s*$/i.test(e.notes))) parts.push(e.notes);
   return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
 }
 function orderText(list = S.elements) {
