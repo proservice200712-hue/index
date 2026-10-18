@@ -631,8 +631,18 @@
   #show-cap button { background: rgba(255,255,255,.12); border: none; color: #fff; width: 30px; height: 26px; border-radius: 6px; cursor: pointer; font-size: .85rem; }
   #show-cap button:hover { background: rgba(103,180,55,.55); }
   #show-cap .sc-t { font-size: 1.02rem; line-height: 1.45; margin-top: 6px; min-height: 2.9em; }
-  #show-cap .sc-bar { height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; margin-top: 8px; overflow: hidden; }
-  #show-cap .sc-bar i { display: block; height: 100%; width: 0; background: #67b437; transition: width .5s; }
+  #show-cap .sc-st { font-weight: 600; color: #cbd5e0; text-transform: none; letter-spacing: 0; margin-right: 6px; }
+  #show-cap .sc-stages { display: flex; gap: 3px; margin-top: 9px; }
+  #show-cap .sc-stages button { flex: 1; width: auto; height: auto; padding: 0; background: none; display: flex; flex-direction: column; gap: 4px; align-items: stretch; cursor: pointer; border-radius: 0; }
+  #show-cap .sc-stages button i { display: block; height: 6px; border-radius: 3px; background: rgba(255,255,255,.18); transition: background .2s; }
+  #show-cap .sc-stages button span { font-size: .62rem; color: #a0aec0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #show-cap .sc-stages button:hover { background: none; }
+  #show-cap .sc-stages button:hover i { background: rgba(155,227,109,.6); }
+  #show-cap .sc-stages button.done i { background: #67b437; }
+  #show-cap .sc-stages button.on i { background: linear-gradient(90deg, #9be36d, #67b437); animation: scDot 1.2s infinite; }
+  #show-cap .sc-stages button.on span { color: #fff; font-weight: 700; }
+  #clock-pane.show-hl { position: relative; z-index: 995; box-shadow: 0 0 0 4px #e53e3e, 0 0 26px 8px rgba(229,62,62,.55); border-radius: 14px; animation: clockHl 1.1s ease-in-out infinite; background: var(--bg, #fff); }
+  @keyframes clockHl { 50% { box-shadow: 0 0 0 4px #e53e3e, 0 0 8px 2px rgba(229,62,62,.25); } }
   .menu.tour-menu .mi small { color: #718096; font-weight: 400; }
 </style>
 </head>
@@ -1389,7 +1399,8 @@ function avatarSm(id) {
   const u = userById(id);
   return `<span class="avatar-sm" style="background:${u ? u.color : '#718096'}" title="${esc(u ? u.name || u.login : id)}">${u ? avatarInner(u) : esc(userLabel(id).slice(0, 3))}</span>`;
 }
-const isAdmin = () => !!(S.me && S.me.admin);
+// w samouczku i pokazie z lektorką widać interfejs zwykłego użytkownika (bez Turbo, Zlecenia, Archiwum X)
+const isAdmin = () => !!(S.me && S.me.admin) && (!S.tour || !!S.tour.pro);
 
 // ekran logowania: kółeczka zespołu — klik wybiera osobę, zostaje tylko hasło
 function renderLoginAvatars() {
@@ -5023,7 +5034,7 @@ const TOUR_STEPS = [
     text: TT('Nazwa stoiska, targi i miasto oraz osoby, które nad nim pracują. <b>‹ Projekty</b> wraca do listy Twoich stoisk.',
       'Назва стенду, виставка й місто та люди, які над ним працюють. <b>‹ Проєкти</b> повертає до списку твоїх стендів.',
       'Stand name, fair and city, and the people working on it. <b>‹ Projects</b> takes you back to your list of stands.') },
-  { sel: '#side-handle',
+  { sel: '#side', before: () => { if (S.tour.sideWas == null) S.tour.sideWas = sideState.open; toggleSide(true); }, after: () => toggleSide(!!S.tour.sideWas),
     title: TT('Targi i stoiska', 'Виставки й стенди', 'Fairs and stands'),
     text: TT('Belka po lewej rozsuwa listę targów i stoisk, do których masz dostęp — szybkie przejście między nimi.',
       'Смуга ліворуч розгортає список виставок і стендів, до яких маєш доступ, — швидкий перехід між ними.',
@@ -5068,11 +5079,11 @@ const TOUR_STEPS = [
       'Ті самі елементи як віконця в масштабі з розмірними лініями — як індекс із Corel. <b>Клікни порожнє віконце</b>, щоб вставити попередній перегляд готової графіки з буфера. Перемикач <b>Таблиця / Графіка</b> — над списком.',
       'The same elements as scaled frames with dimension lines — like a Corel index. <b>Click an empty frame</b> to paste a preview of the finished artwork from the clipboard. The <b>Table / Graphic</b> switch is above the list.') },
   { sel: '#clock-pane',
-    title: TT('Zegar terminów', 'Годинник термінів', 'Deadline clock'),
-    text: TT('Ile czasu zostało: <b style="color:#3e7a1c">zielony</b> — do oddania grafik, <b style="color:#b7791f">żółty</b> — do pakowania (tydzień przed targami), <b style="color:#c53030">czerwony</b> — do targów.',
-      'Скільки часу лишилося: <b style="color:#3e7a1c">зелений</b> — до здачі графіки, <b style="color:#b7791f">жовтий</b> — до пакування (тиждень до виставки), <b style="color:#c53030">червоний</b> — до виставки.',
-      'Time left: <b style="color:#3e7a1c">green</b> — until artwork is due, <b style="color:#b7791f">yellow</b> — until packing (a week before the fair), <b style="color:#c53030">red</b> — until the fair.') },
-  { sel: '#log-handle',
+    title: TT('Licznik — bardzo ważny!', 'Лічильник — дуже важливо!', 'Countdown — very important!'),
+    text: TT('<b>Pliki produkcyjne wysyłaj z wyprzedzeniem</b> — po nich jest jeszcze druk i produkcja. Ile czasu zostało: <b style="color:#3e7a1c">zielony</b> — do oddania grafik, <b style="color:#b7791f">żółty</b> — do pakowania (tydzień przed targami), <b style="color:#c53030">czerwony</b> — do targów.',
+      '<b>Виробничі файли надсилай заздалегідь</b> — після них ще друк і виробництво. Скільки часу лишилося: <b style="color:#3e7a1c">зелений</b> — до здачі графіки, <b style="color:#b7791f">жовтий</b> — до пакування (тиждень до виставки), <b style="color:#c53030">червоний</b> — до виставки.',
+      '<b>Send production files well in advance</b> — printing and production come after. Time left: <b style="color:#3e7a1c">green</b> — until artwork is due, <b style="color:#b7791f">yellow</b> — until packing (a week before the fair), <b style="color:#c53030">red</b> — until the fair.') },
+  { sel: '#logside', before: () => { if (S.tour.logWas == null) S.tour.logWas = logState.open; toggleLog(true); }, after: () => toggleLog(!!S.tour.logWas),
     title: TT('Historia zmian', 'Історія змін', 'Change history'),
     text: TT('Belka po prawej rozsuwa historię: kto, kiedy i co zmienił na stoisku. Liczba na belce to nowe zmiany innych osób.',
       'Смуга праворуч розгортає історію: хто, коли й що змінив на стенді. Число на смузі — нові зміни інших людей.',
@@ -5095,6 +5106,89 @@ const TOUR_STEPS = [
       'Start the tutorial again with this icon. When you finish, you’ll be back where you were.') },
 ];
 
+// ---- PREZENTACJA PRO (administrator) — mówimy do Dimy ----
+const proEl = f => S.elements.find(f);
+function proDialog(eid) { // okno elementu otwarte na pokaz (zapis i tak jest wyłączony)
+  const open = document.querySelector('.modal-back .modal #ed-q');
+  if (open && S.tour && S.tour.dlg === eid) return;
+  while (modalStack.length) modalStack[modalStack.length - 1].close();
+  if (eid) { S.tour.dlg = eid; openElementDialog({ id: eid }); }
+}
+const proClose = () => { if (S.tour) S.tour.dlg = null; while (modalStack.length) modalStack[modalStack.length - 1].close(); };
+const proLogo = () => (proEl(e => e.typeId === 'logo3d') || {}).id;
+const proDoor = () => (proEl(e => hasDoor(e)) || proEl(e => DOOR_TYPES.includes(e.typeId) && !e.doorFor) || {}).id;
+const TOUR_PRO = [
+  { title: TT('Dima, to jest wersja PRO', 'Діма, це версія PRO', 'Dima, this is the PRO version'),
+    text: TT('Pokażę wszystko, co widzi administrator: Zlecenie, Turbo, Archiwum X, drzwi, spady, konstrukcje podwieszane, alarm zmian i połączenie z Corelem. Przykład: stoisko <b>GOG testy</b> — w prezentacji nic się nie zapisuje.',
+      'Покажу все, що бачить адміністратор: Замовлення, Турбо, Archiwum X, двері, вильоти, підвісні конструкції, сигнал змін і зв’язок із Corel. Приклад: стенд <b>GOG testy</b> — у презентації нічого не зберігається.',
+      'I’ll show everything an administrator sees: Order, Turbo, Archiwum X, doors, bleeds, hanging structures, the change alarm and the Corel link. Example: the <b>GOG testy</b> stand — nothing is saved during this tour.') },
+  { sel: '#hdr-actions',
+    title: TT('Zlecenie', 'Замовлення', 'Order'),
+    text: TT('Dima, <b>📋 Zlecenie</b> widzisz tylko Ty — zwykły użytkownik go nie ma. To gotowa lista dla drukarni: znak, wymiar do druku, sztuki i typ.',
+      'Діма, <b>📋 Замовлення</b> бачиш тільки ти — звичайний користувач його не має. Це готовий список для друкарні: позначка, розмір до друку, штуки й тип.',
+      'Dima, only you see <b>📋 Order</b> — regular users don’t. It’s a ready list for the print shop: mark, print size, pieces and type.') },
+  { sel: () => document.querySelector('.modal-back .modal'), wait: () => document.querySelector('#ord-txt'),
+    before: () => copyOrder(), after: proClose,
+    title: TT('Zlecenie — tekst do maila', 'Замовлення — текст для листа', 'Order — e-mail text'),
+    text: TT('Po lewej odznaczasz, czego nie zamawiasz — także całe grupy, np. wysłony albo konstrukcje. Przy SEG program sam dopisuje, że to tkanina obszyta płaską gumką, wysłony idą osobno na końcu, a folia cięta dostaje dopisek „+ transfer”. <b>Kopiuj</b> i wklejasz w maila.',
+      'Ліворуч знімаєш позначку з того, що не замовляєш — також цілі групи, напр. вислони чи конструкції. Для SEG програма сама дописує, що це тканина, обшита плоскою гумкою, вислони йдуть окремо в кінці, а різана плівка отримує „+ transfer”. <b>Копіювати</b> — і вставляєш у лист.',
+      'On the left, untick what you don’t order — whole groups too, e.g. wysłony or structures. For SEG the program adds that it’s fabric with a flat silicone edge, wysłony go separately at the end, and cut foil gets “+ transfer”. <b>Copy</b> and paste into an e-mail.') },
+  { sel: '#btn-turbo',
+    title: TT('⚡ Turbo', '⚡ Турбо', '⚡ Turbo'),
+    text: TT('Turbo to szybkie wpisywanie dużej listy: najpierw wpisujesz wszystkie elementy po kolei — typ, wymiar, Enter, następny — bez klikania w wizkę. Potem przy każdym elemencie jest <b>🧵 nitka</b>: przeciągasz ją na wizkę i element ląduje na swoim miejscu. Turbo widzi tylko administrator.',
+      'Турбо — це швидке введення великого списку: спершу вписуєш усі елементи підряд — тип, розмір, Enter, наступний — без кліків по візуалізації. Потім біля кожного елемента є <b>🧵 нитка</b>: перетягуєш її на візуалізацію, і елемент стає на своє місце. Турбо бачить тільки адміністратор.',
+      'Turbo is for typing a long list fast: first you enter all elements in a row — type, size, Enter, next — without clicking the visual. Then each element has a <b>🧵 thread</b>: drag it onto the visual and the element lands in its place. Only administrators see Turbo.') },
+  { sel: () => unionRect('#ed-axfoot', '.modal-back .modal-f'), wait: () => document.querySelector('#ed-axfoot'),
+    before: () => proDialog(proLogo()), after: proClose,
+    title: TT('Logo 3D i Archiwum X', 'Логотип 3D і Archiwum X', '3D logo and Archiwum X'),
+    text: TT('Dima, pewnie byś chciał, żeby to było od razu połączone z Archiwum X — otóż tak jest. Przy Logo 3D przycisk <b>Z Archiwum X</b> wybiera gotowy eksponat, komplet albo grupę: wymiar, wykonanie i zdjęcie wskakują same, a element dostaje znaczek AX. <b>🗄 Do Archiwum X</b> zakłada nowy wpis w Archiwum X prosto z tego elementu.',
+      'Діма, ти, мабуть, хотів би, щоб це було одразу пов’язано з Archiwum X — так і є. Для Логотипу 3D кнопка <b>З Archiwum X</b> обирає готовий експонат, комплект або групу: розмір, виконання й фото підставляються самі, а елемент отримує значок AX. <b>🗄 До Archiwum X</b> створює новий запис в Archiwum X прямо з цього елемента.',
+      'Dima, you’d probably like this to be linked straight to Archiwum X — well, it is. For a 3D logo, <b>From Archiwum X</b> picks a ready exhibit, set or group: size, variant and photo fill in by themselves and the element gets an AX badge. <b>🗄 To Archiwum X</b> creates a new Archiwum X entry straight from this element.') },
+  { sel: () => (document.querySelector('#ed-door') || {}).closest ? document.querySelector('#ed-door').closest('.door-fld') : null, wait: () => document.querySelector('#ed-door'),
+    before: () => proDialog(proDoor()), after: proClose,
+    title: TT('Drzwi w ścianie', 'Двері в стіні', 'Door in the wall'),
+    text: TT('Przy Blackbacku i Folii zaznaczasz <b>drzwi w ścianie</b> i odległość od krawędzi. Program sam robi osobny element „Drzwi — A” z grafiką na drzwi: spad dół 10, góra 20, boki po 30 cm. Gdy drzwi są za blisko krawędzi, brakujący spad boczny przechodzi na drugą stronę. Przy SEG i wysłonie drzwi mają 99,2 na 248 albo 198,4 cm, bez spadu.',
+      'Для Blackback і Плівки позначаєш <b>двері в стіні</b> й відстань від краю. Програма сама створює окремий елемент „Двері — A” з графікою на двері: виліт низ 10, верх 20, боки по 30 см. Якщо двері надто близько до краю, бракуючий боковий виліт переходить на інший бік. Для SEG і вислони двері 99,2 на 248 або 198,4 см, без вильоту.',
+      'For Blackback and Foil you tick <b>door in the wall</b> and the distance from the edge. The program makes a separate “Door — A” element with the door artwork: bleed bottom 10, top 20, sides 30 cm. If the door is too close to the edge, the missing side bleed moves to the other side. With SEG and wysłona the door is 99.2 × 248 or 198.4 cm, no bleed.') },
+  { sel: '#ed-bleedopts', wait: () => document.querySelector('#ed-bleedopts'),
+    before: () => proDialog(proDoor()), after: proClose,
+    title: TT('Spady', 'Вильоти', 'Bleeds'),
+    text: TT('Spady wybierasz pod wymiarem: automatyczne z typu, bez spadu, jeden dla wszystkich stron albo różne z każdej strony. SEG i wysłona są zawsze bez spadu, płyta PCW domyślnie też.',
+      'Вильоти обираєш під розміром: автоматично з типу, без вильоту, один для всіх сторін або різний з кожного боку. SEG і вислона завжди без вильоту, плита PCW за замовчуванням теж.',
+      'Pick bleeds under the size: automatic from the type, no bleed, one for all sides or different on each side. SEG and wysłona never have bleed, PVC board neither by default.') },
+  { sel: arcRect, wait: () => arcRect() && document.querySelector('#arc .ap-form'),
+    before: () => { const ph = S.photos[0]; if (!ph) return; openArcMenu({ kind: 'point', pts: [[0.5, 0.3]] }, ph.id); setTimeout(() => { arcPickType('podwieszana'); arcPickOpt('v', 'kwadratowa'); }, 300); },
+    after: () => closeArcMenu(true),
+    title: TT('Konstrukcje podwieszane', 'Підвісні конструкції', 'Hanging structures'),
+    text: TT('Konstrukcja podwieszana ma trzy kształty. <b>Okrągła</b> — jeden pas o długości 3,14 × średnica. <b>Kwadratowa</b> — cztery boki obok siebie: szerokość, głębokość, szerokość, głębokość. <b>Inny kształt</b> — płaszczyzny wpisujesz ręcznie. W oknie elementu zaznaczasz <b>zadruk wewnątrz</b> — wtedy dochodzi drugi komplet płaszczyzn bez spadu, oznaczony outside i inside.',
+      'Підвісна конструкція має три форми. <b>Кругла</b> — одна смуга довжиною 3,14 × діаметр. <b>Квадратна</b> — чотири боки поруч: ширина, глибина, ширина, глибина. <b>Інша форма</b> — площини вписуєш вручну. У вікні елемента позначаєш <b>друк усередині</b> — тоді додається другий комплект площин без вильоту, позначений outside та inside.',
+      'A hanging structure has three shapes. <b>Round</b> — one band 3.14 × diameter long. <b>Square</b> — four sides side by side: width, depth, width, depth. <b>Other shape</b> — you enter the panels by hand. In the element window tick <b>print inside</b> — a second set of panels without bleed is added, marked outside and inside.') },
+  { sel: '#el-pane', before: () => setElView('table'),
+    title: TT('Alarm zmian', 'Сигнал змін', 'Change alarm'),
+    text: TT('Dima, gdy ktoś z zespołu zmieni element, ten element <b>mruga na czerwono</b> — na wizce, w tabeli i w widoku Grafika — dopóki go nie klikniesz. Tak od razu widzisz, co klient poprawił od Twojej ostatniej wizyty.',
+      'Діма, коли хтось із команди змінить елемент, він <b>блимає червоним</b> — на візуалізації, у таблиці й у вигляді Графіка — доки ти його не клікнеш. Так одразу бачиш, що клієнт виправив від твого останнього візиту.',
+      'Dima, when someone on the team changes an element, it <b>blinks red</b> — on the visual, in the table and in the Graphic view — until you click it. So you see right away what the client changed since your last visit.') },
+  { sel: () => unionRect('#hdr-pname', '#hdr-pteam'),
+    title: TT('Stoisko: terminy, zespół, numeracja', 'Стенд: терміни, команда, нумерація', 'Stand: deadlines, team, numbering'),
+    text: TT(`Klik w nazwę stoiska otwiera jego ustawienia: targi, terminy — deadline grafiki ustawia się sam ${DEADLINE_DAYS} dni przed targami, ale Ty możesz go przesunąć — zespół, który ma dostęp, i oznaczenia A, B, C albo 1, 2, 3. Jest też <b>Kopiuj stoisko</b> — na kolejną edycję targów z tymi samymi wizkami i elementami.`,
+      `Клік по назві стенду відкриває його налаштування: виставка, терміни — дедлайн графіки ставиться сам за ${DEADLINE_DAYS} днів до виставки, але ти можеш його пересунути — команда з доступом і позначки A, B, C або 1, 2, 3. Є також <b>Копіювати стенд</b> — на наступну виставку з тими самими візуалізаціями й елементами.`,
+      `Clicking the stand name opens its settings: fair, deadlines — the artwork deadline sets itself ${DEADLINE_DAYS} days before the fair, but you can move it — the team with access, and marks A, B, C or 1, 2, 3. There’s also <b>Copy stand</b> — for the next edition of the fair with the same visuals and elements.`) },
+  { sel: '#side', before: () => { if (S.tour.sideWas == null) S.tour.sideWas = sideState.open; toggleSide(true); }, after: () => toggleSide(!!S.tour.sideWas),
+    title: TT('Targi i stoiska', 'Виставки й стенди', 'Fairs and stands'),
+    text: TT('Tu zakładasz targi i stoiska, przeciągasz ich kolejność i chowasz zakończone do archiwum.', 'Тут створюєш виставки й стенди, перетягуєш їхній порядок і ховаєш завершені в архів.', 'Here you create fairs and stands, drag their order and move finished ones to the archive.') },
+  { sel: '#logside', before: () => { if (S.tour.logWas == null) S.tour.logWas = logState.open; toggleLog(true); }, after: () => toggleLog(!!S.tour.logWas),
+    title: TT('Połączenie z Corelem', 'Зв’язок із Corel', 'Corel link'),
+    text: TT('Dima, INDEX jest połączony z CorelDRAW. W Corelu makro <b>INDEX_Arkusz</b> pobiera stoisko i zakłada arkusz z ramkami do druku w skali — ze spadami, drzwiami i płaszczyznami konstrukcji. Grafikę wstawiasz w ramki, a makro <b>INDEX_Miniatury</b> wysyła jej podglądy tutaj, do okienek. Zmiany z Corela mają w historii znaczek Corel. Do prób jest piaskownica: adres z <b>?test</b> i makro INDEX_ArkuszTest.',
+      'Діма, INDEX пов’язаний із CorelDRAW. У Corel макрос <b>INDEX_Arkusz</b> завантажує стенд і створює аркуш із рамками до друку в масштабі — з вильотами, дверима й площинами конструкцій. Графіку вставляєш у рамки, а макрос <b>INDEX_Miniatury</b> надсилає її попередній перегляд сюди, у віконця. Зміни з Corel мають в історії значок Corel. Для проб є пісочниця: адреса з <b>?test</b> і макрос INDEX_ArkuszTest.',
+      'Dima, INDEX is linked with CorelDRAW. In Corel the <b>INDEX_Arkusz</b> macro downloads the stand and builds a sheet of scaled print frames — with bleeds, doors and structure panels. You place the artwork in the frames and <b>INDEX_Miniatury</b> sends the previews back here, into the frames. Changes from Corel get a Corel badge in the history. For testing there’s a sandbox: the <b>?test</b> address and the INDEX_ArkuszTest macro.') },
+  { sel: '#avatar',
+    title: TT('Użytkownicy i kopia', 'Користувачі й копія', 'Users and backup'),
+    text: TT('W menu awatara masz <b>👥 Użytkownicy</b> — konta, hasła i kto jest administratorem — oraz kopię wszystkich projektów do pliku.', 'У меню аватара є <b>👥 Користувачі</b> — акаунти, паролі й хто адміністратор — а також копія всіх проєктів у файл.', 'Your avatar menu has <b>👥 Users</b> — accounts, passwords and who is an administrator — and a backup of all projects to a file.') },
+  { sel: '#btn-tour',
+    title: TT('To wszystko, Dima!', 'Це все, Діма!', 'That’s all, Dima!'),
+    text: TT('W tym menu są też pokaz z lektorką i zwykła prezentacja — możesz je wysłać klientom, żeby sami nauczyli się INDEX-u.', 'У цьому меню також показ із диктором і звичайна презентація — можеш надіслати їх клієнтам, щоб самі навчилися INDEX.', 'This menu also has the narrated demo and the regular tour — send them to clients so they can learn INDEX on their own.') },
+];
+
 let tourBlockedAt = 0;
 function tourDB(real) {
   const no = (path, id) => async () => {
@@ -5109,13 +5203,15 @@ async function waitFor(fn, ms = 4000) {
   while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await new Promise(r => setTimeout(r, 80)); }
   return null;
 }
-async function startTour() {
+async function startTour(pro = false) {
   if (S.tour || !S.me) return;
+  if (pro && !isAdmin()) return;
   const p = S.projects.find(x => x.id === TOUR_PID) || S.projects.find(x => String(x.name || '').trim().toLowerCase() === TOUR_NAME);
   if (!p) { toast(TOUR_UI.missing, 'error'); return; }
   document.querySelectorAll('.menu').forEach(m => m.remove());
   while (modalStack.length) modalStack[modalStack.length - 1].close();
-  S.tour = { pid: p.id, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: DB, i: 0 };
+  const steps = pro ? TOUR_PRO : TOUR_STEPS;
+  S.tour = { pid: p.id, pro, steps, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: DB, i: 0, voiceOn: pro, voice: pro ? shVoice() : null };
   DB = tourDB(DB);
   const block = document.createElement('div'); block.id = 'tour-block';
   const hl = document.createElement('div'); hl.id = 'tour-hl';
@@ -5140,28 +5236,32 @@ async function startTour() {
 }
 async function tourGo(i) {
   const T = S.tour; if (!T || T.busy) return;
-  if (i >= TOUR_STEPS.length) return endTour();
+  if (i >= T.steps.length) return endTour();
   if (i < 0) return;
   T.busy = true;
-  const prev = TOUR_STEPS[T.i];
+  const prev = T.steps[T.i];
   if (prev && prev.after && T.shown) { try { prev.after(); } catch (e) {} }
   T.i = i; T.shown = false;
-  const st = TOUR_STEPS[i];
+  const st = T.steps[i];
   if (st.before) { try { st.before(); } catch (e) { console.warn(e); } }
   if (st.wait) await waitFor(st.wait, 3000);
   if (!S.tour) return;
   T.shown = true; T.busy = false;
-  const n = TOUR_STEPS.length;
+  const n = T.steps.length;
   $('tour-tip').innerHTML = `<div class="tt-h">${st.title}<span class="tt-n">${i + 1} / ${n}</span></div>
     <div class="tt-b">${st.text}</div>
     ${i === 0 ? `<div class="tt-ro">${TOUR_UI.ro}</div>` : ''}
-    <div class="tt-f"><div class="tt-dots">${TOUR_STEPS.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="tt-f"><div class="tt-dots">${T.steps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
       ${i > 0 ? `<button class="btn btn-sm" data-tb>${TOUR_UI.back}</button>` : `<button class="btn btn-sm" data-tx>${TOUR_UI.skip}</button>`}
+      ${T.pro ? `<button class="btn btn-sm" data-tv title="${SHOW_UI.mute}">${T.voiceOn ? '🔊' : '🔇'}</button>` : ''}
       <button class="btn btn-sm btn-solid" data-tn>${i === n - 1 ? TOUR_UI.end : TOUR_UI.next}</button></div>`;
   const tip = $('tour-tip');
   if (tip.querySelector('[data-tb]')) tip.querySelector('[data-tb]').onclick = () => tourGo(i - 1);
   if (tip.querySelector('[data-tx]')) tip.querySelector('[data-tx]').onclick = endTour;
   tip.querySelector('[data-tn]').onclick = () => tourGo(i + 1);
+  const tv = tip.querySelector('[data-tv]');
+  if (tv) tv.onclick = () => { T.voiceOn = !T.voiceOn; tv.textContent = T.voiceOn ? '🔊' : '🔇'; if (T.voiceOn) tourSpeak(st); else speechSynthesis.cancel(); };
+  tourSpeak(st);
   tourPlace();
   tip.querySelector('[data-tn]').focus();
 }
@@ -5174,7 +5274,7 @@ function tourRect(st) {
 }
 function tourPlace() {
   const T = S.tour; if (!T || !T.shown) return;
-  const st = TOUR_STEPS[T.i], r = tourRect(st), hl = $('tour-hl'), tip = $('tour-tip'), block = $('tour-block');
+  const st = T.steps[T.i], r = tourRect(st), hl = $('tour-hl'), tip = $('tour-tip'), block = $('tour-block');
   const W = innerWidth, H = innerHeight, tw = tip.offsetWidth, th = tip.offsetHeight, G = 14;
   if (!r) {
     hl.style.display = 'none'; block.classList.add('dim');
@@ -5194,9 +5294,23 @@ function tourPlace() {
   tip.style.left = Math.round(clamp(tx, 8, W - tw - 8)) + 'px';
   tip.style.top = Math.round(clamp(ty, 8, H - th - 8)) + 'px';
 }
+// lektorka w prezentacji PRO: czyta tytuł i opis kroku (głos żeński jak w pokazie)
+function tourSpeak(st) {
+  const T = S.tour; if (!T || !('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  if (!T.voiceOn) return;
+  if (!T.voice) T.voice = shVoice();
+  if (!T.voice) return;
+  const txt = (st.title + '. ' + st.text).replace(/<br\s*\/?>/g, ' ').replace(/<[^>]+>/g, '').replace(/[📋⇩⚡🧵🗄]/gu, '').replace(/\s+/g, ' ').trim();
+  for (const part of txt.match(/[^.!?…]+[.!?…]*/g) || [txt]) {
+    const u = new SpeechSynthesisUtterance(part.trim()); u.voice = T.voice; u.lang = T.voice.lang; u.rate = 1.04;
+    speechSynthesis.speak(u);
+  }
+}
 function endTour() {
-  const T = S.tour; if (!T) return;
-  const st = TOUR_STEPS[T.i];
+  const T = S.tour; if (!T || T.show) return;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  const st = T.steps[T.i];
   if (st && st.after && T.shown) { try { st.after(); } catch (e) {} }
   closeArcMenu(true);
   clearInterval(T.timer); removeEventListener('resize', tourPlace);
@@ -5228,6 +5342,9 @@ function createMemDB(seed) {
     async set(path, id, o, merge) { data[path] = data[path] || {}; data[path][id] = merge ? { ...(data[path][id] || {}), ...strip(o) } : strip(o); emit(path); },
     async update(path, id, o) { if (!data[path] || !data[path][id]) throw new Error('Brak dokumentu'); Object.assign(data[path][id], strip(o)); emit(path); },
     async del(path, id) { if (data[path]) delete data[path][id]; emit(path); },
+    // wszystko poza dokumentem stoiska (wizki, elementy, historia) — powrót do pustego stoiska
+    wipe(keep) { Object.keys(data).filter(k => k !== keep).forEach(k => { data[k] = {}; emit(k); }); },
+    count(path) { return Object.keys(data[path] || {}).length; },
   };
 }
 const SHOW_PID = 'pokaz-gog';
@@ -5247,10 +5364,14 @@ const SHOW_UI = {
   pause: TT('Pauza (spacja)', 'Пауза (пробіл)', 'Pause (space)'), play: TT('Wznów (spacja)', 'Продовжити (пробіл)', 'Resume (space)'),
   mute: TT('Wycisz lektora', 'Вимкнути голос', 'Mute narrator'), unmute: TT('Włącz lektora', 'Увімкнути голос', 'Unmute narrator'),
   close: TT('Zakończ pokaz (Esc)', 'Завершити показ (Esc)', 'End demo (Esc)'),
+  prev: TT('Poprzedni etap (←)', 'Попередній етап (←)', 'Previous stage (←)'), next: TT('Następny etap (→)', 'Наступний етап (→)', 'Next stage (→)'),
+  stage: TT('Etap', 'Етап', 'Stage'),
   novoice: TT('Brak głosu w tym języku — same napisy', 'Немає голосу цією мовою — лише субтитри', 'No voice for this language — subtitles only'),
   menuShow: TT('Pokaz z lektorem', 'Показ з диктором', 'Narrated demo'),
   menuShowSub: TT('budujemy stoisko krok po kroku', 'будуємо стенд крок за кроком', 'we build a stand step by step'),
   menuTour: TT('Prezentacja ekranu', 'Презентація екрана', 'Screen tour'),
+  menuPro: TT('PRO — dla administratora', 'PRO — для адміністратора', 'PRO — for administrators'),
+  menuProSub: TT('Turbo, Archiwum X, drzwi, konstrukcje, Zlecenie, Corel', 'Турбо, Archiwum X, двері, конструкції, Замовлення, Corel', 'Turbo, Archiwum X, doors, structures, Order, Corel'),
   menuTourSub: TT('omówienie przycisków i paneli', 'огляд кнопок і панелей', 'buttons and panels explained'),
 };
 // wybór z ikony: pokaz z lektorem albo prezentacja
@@ -5262,18 +5383,20 @@ function openTourMenu(ev) {
   const r = $('btn-tour').getBoundingClientRect();
   m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, innerWidth - r.right) + 'px';
   m.innerHTML = `<div class="mi" data-a="show"><div><b>▶ ${SHOW_UI.menuShow}</b><br><small>${SHOW_UI.menuShowSub}</small></div></div>
-    <div class="mi" data-a="tour"><div><b>▤ ${SHOW_UI.menuTour}</b><br><small>${SHOW_UI.menuTourSub}</small></div></div>`;
+    <div class="mi" data-a="tour"><div><b>▤ ${SHOW_UI.menuTour}</b><br><small>${SHOW_UI.menuTourSub}</small></div></div>
+    ${isAdmin() ? `<div class="mi" data-a="pro"><div><b>★ ${SHOW_UI.menuPro}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>` : ''}`;
   document.body.appendChild(m);
-  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); x.dataset.a === 'show' ? startShow() : startTour(); });
+  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); x.dataset.a === 'show' ? startShow() : startTour(x.dataset.a === 'pro'); });
   setTimeout(() => document.addEventListener('click', function f() { m.remove(); document.removeEventListener('click', f); }), 0);
 }
 
 class ShowStop extends Error {}
+class ShowJump extends Error {} // przeskok do innego etapu (pasek etapów, ⏮ ⏭)
 const SH = () => S.tour && S.tour.show ? S.tour : null;
-function shChk() { const T = SH(); if (!T || T.stop) throw new ShowStop(); }
+function shChk() { const T = SH(); if (!T || T.stop) throw new ShowStop(); if (T.jumpTo != null) throw new ShowJump(); }
 async function shGate() { // pauza: czekamy, aż ktoś wznowi
   shChk();
-  while (S.tour && S.tour.paused && !S.tour.stop) await new Promise(r => setTimeout(r, 120));
+  while (S.tour && S.tour.paused && !S.tour.stop && S.tour.jumpTo == null) await new Promise(r => setTimeout(r, 120));
   shChk();
 }
 async function shWait(ms) {
@@ -5313,8 +5436,8 @@ async function shSay(text) {
       const to = setTimeout(fin, 2500 + part.length * 110); // zabezpieczenie, gdy przeglądarka nie zgłosi końca
       T.utter = u; speechSynthesis.speak(u);
     });
-    while (S.tour && S.tour.paused && !S.tour.stop) await new Promise(r => setTimeout(r, 120));
-    if (!SH() || SH().stop || SH().muted) { shChk(); break; }
+    while (S.tour && S.tour.paused && !S.tour.stop && S.tour.jumpTo == null) await new Promise(r => setTimeout(r, 120));
+    if (!SH() || SH().stop || SH().muted || SH().jumpTo != null) { shChk(); break; }
   }
   shChk();
   await shWait(250);
@@ -5373,10 +5496,15 @@ async function shType(input, text) {
   await shMove(x, y, 450);
   shRipple(); input.focus({ preventScroll: true });
   input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true }));
+  // pole liczbowe nie przyjmuje „198." (czyści się) — część z kropką wpisujemy razem z następną cyfrą
+  let cur = '';
   for (const ch of String(text)) {
     await shWait(SHOW_SPEED() < 1 ? 15 : 85);
-    input.value += ch; input.dispatchEvent(new Event('input', { bubbles: true }));
+    cur += ch;
+    if (input.type === 'number' && /[.,]$/.test(cur)) continue;
+    input.value = cur; input.dispatchEvent(new Event('input', { bubbles: true }));
   }
+  if (input.value !== cur) { input.value = cur; input.dispatchEvent(new Event('input', { bubbles: true })); }
   await shWait(200);
 }
 function shKey(label) { // podpowiedź klawisza (np. Ctrl+V) przy kursorze
@@ -5388,6 +5516,28 @@ function shKey(label) { // podpowiedź klawisza (np. Ctrl+V) przy kursorze
 const numTxt = mm => { const v = fromMM(mm); return String(v).replace('.', LANG === 'en' ? '.' : ','); };
 const numInput = mm => String(fromMM(mm));
 const unitWord = () => UNIT() === 'cm' ? TT('centymetrów', 'сантиметрів', 'centimetres') : TT('milimetrów', 'міліметрів', 'millimetres');
+
+// przeciągnięcie znaku elementu (zostaje kreska ze strzałką do miejsca)
+async function shDragLab(eid, lab, ms = 900) {
+  const T = SH(); if (!T || !lab) return;
+  const sel = `#overlay g.shp[data-eid="${eid}"] [data-part="lab"]`;
+  const node = await shWaitFor(() => document.querySelector(sel), 3000);
+  const el = S.elements.find(x => x.id === eid);
+  if (!node || !el || !L.map[el.photoId]) return;
+  const [x, y] = shCenter(node), [tx, ty] = stageToClient(el.photoId, lab);
+  await shMove(x, y, 420); await shWait(100); shRipple();
+  shPtr('pointerdown', node, x, y);
+  T.onMove = (cx, cy) => shPtr('pointermove', viewer, cx, cy);
+  try { await shMove(tx, ty, ms); } finally { T.onMove = null; }
+  shPtr('pointerup', viewer, tx, ty);
+  await shWait(250);
+}
+// odsunięcie znaku: z prawdziwej wizki (shape.lab), a gdy go tam nie ma — trochę w górę i w bok
+function shLabOf(e) {
+  if (e.shape && Array.isArray(e.shape.lab)) return e.shape.lab;
+  const [cx, cy] = shapeCenter(e.shape);
+  return [clamp(cx + (cx > 0.5 ? -0.05 : 0.05), 0.02, 0.98), clamp(cy - 0.08, 0.02, 0.98)];
+}
 
 // --- dodanie elementu przez menu łukowe, z komentarzem lektora ---
 async function shAddElement(e, talk, first) {
@@ -5435,9 +5585,17 @@ async function shAddElement(e, talk, first) {
     await shSay(TT('Wymiar do druku ze spadem i metry kwadratowe program liczy sam.', 'Розмір до друку з вильотом і квадратні метри програма рахує сама.', 'The print size with bleed and the square metres are calculated automatically.'));
   }
   if (talk) await shSay(TT('Dodaj.', 'Додати.', 'Add.'));
+  const before = new Set(S.elements.map(x => x.id));
   await shClick('#arc .ap-go', 450);
   await shWaitFor(() => !ARC, 3000);
-  await shWait(300);
+  const added = await shWaitFor(() => S.elements.find(x => !before.has(x.id)), 3000);
+  await shWait(250);
+  if (added) {
+    if (talk && first) await shSay(TT('Znak odsuwam trochę na bok, żeby nie zasłaniał wizki. Zostaje kreska ze strzałką, która pokazuje dokładne miejsce.',
+      'Позначку трохи відсуваю, щоб не закривала візуалізацію. Лишається лінія зі стрілкою, що показує точне місце.',
+      'I move the mark a little aside so it doesn’t cover the visual. A line with an arrow shows the exact spot.'));
+    await shDragLab(added.id, shLabOf(e), talk ? 900 : 500);
+  }
 }
 
 async function startShow() {
@@ -5458,7 +5616,10 @@ async function startShow() {
   const mem = createMemDB({ [C_PROJECTS]: { [SHOW_PID]: proj } });
   S.tour = { show: true, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
   DB = mem;
-  viewer.setPointerCapture = () => {}; // zdarzenia kursora pokazu nie mają prawdziwego wskaźnika
+  // zdarzenia kursora pokazu nie mają prawdziwego wskaźnika — przechwycenie nie może rzucać błędem
+  S.tour.spc = Element.prototype.setPointerCapture;
+  Element.prototype.setPointerCapture = function (id) { try { return S.tour.spc.call(this, id); } catch (e) {} };
+  S.tour.sideWas = sideState.open; S.tour.logWas = logState.open;
   // warstwy pokazu
   const block = document.createElement('div'); block.id = 'show-block';
   block.addEventListener('pointerdown', e => e.preventDefault()); block.addEventListener('wheel', e => e.preventDefault(), { passive: false });
@@ -5466,19 +5627,26 @@ async function startShow() {
   cur.innerHTML = `<svg viewBox="0 0 24 24" width="30" height="30"><path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14 L19 14 Z" fill="#fff" stroke="#1a202c" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
   const cap = document.createElement('div'); cap.id = 'show-cap'; cap.setAttribute('data-noi18n', '');
   cap.innerHTML = `<div class="sc-h"><span class="sc-dot"></span>${SHOW_UI.title}<span class="sc-sp"></span>
-      <button type="button" data-p title="${SHOW_UI.pause}">⏸</button><button type="button" data-m title="${SHOW_UI.mute}">🔊</button><button type="button" data-x title="${SHOW_UI.close}">✕</button></div>
-    <div class="sc-t" id="show-cap-t"></div><div class="sc-bar"><i id="show-bar"></i></div>`;
+      <span class="sc-st" id="show-st"></span>
+      <button type="button" data-prev title="${SHOW_UI.prev}">⏮</button><button type="button" data-p title="${SHOW_UI.pause}">⏸</button><button type="button" data-next title="${SHOW_UI.next}">⏭</button>
+      <button type="button" data-m title="${SHOW_UI.mute}">🔊</button><button type="button" data-x title="${SHOW_UI.close}">✕</button></div>
+    <div class="sc-t" id="show-cap-t"></div><div class="sc-stages" id="show-stages"></div>`;
   document.body.append(block, cur, cap);
   shCursorAt(S.tour.cx, S.tour.cy);
   const T = S.tour;
   const setPause = p => { T.paused = p; cap.querySelector('[data-p]').textContent = p ? '▶' : '⏸'; cap.querySelector('[data-p]').title = p ? SHOW_UI.play : SHOW_UI.pause;
     if ('speechSynthesis' in window) { p ? speechSynthesis.pause() : speechSynthesis.resume(); } };
   cap.querySelector('[data-p]').onclick = () => setPause(!T.paused);
+  cap.querySelector('[data-prev]').onclick = () => shJump((T.cur || 0) - 1);
+  cap.querySelector('[data-next]').onclick = () => shJump((T.cur || 0) + 1);
+  T.setPause = setPause;
   cap.querySelector('[data-m]').onclick = () => { T.muted = !T.muted; cap.querySelector('[data-m]').textContent = T.muted ? '🔇' : '🔊'; cap.querySelector('[data-m]').title = T.muted ? SHOW_UI.unmute : SHOW_UI.mute; if (T.muted && 'speechSynthesis' in window) speechSynthesis.cancel(); };
   cap.querySelector('[data-x]').onclick = () => { T.stop = true; endShow(); };
   T.keys = e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); T.stop = true; endShow(); return; }
     if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); setPause(!T.paused); return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); shJump((T.cur || 0) - 1); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); shJump((T.cur || 0) + 1); return; }
     e.preventDefault(); e.stopPropagation();
   };
   document.addEventListener('keydown', T.keys, true);
@@ -5493,161 +5661,275 @@ async function startShow() {
   catch (e) { if (!(e instanceof ShowStop)) { console.error(e); toast('Pokaz przerwany: ' + e.message, 'error'); } }
   endShow();
 }
-function shProgress(k, n) { const b = $('show-bar'); if (b) b.style.width = Math.round(k / n * 100) + '%'; }
+// pasek etapów: klik w etap = przeskok (wstecz albo do przodu)
+function shStages() {
+  const T = SH(); if (!T || !T.chapters) return;
+  const box = $('show-stages'); if (!box) return;
+  const n = T.chapters.length, cur = Math.min(T.cur || 0, n - 1);
+  box.innerHTML = T.chapters.map((c, i) => `<button type="button" class="${i < (T.cur || 0) ? 'done' : i === T.cur ? 'on' : ''}" data-k="${i}" title="${i + 1}. ${c.name}"><i></i><span>${c.name}</span></button>`).join('');
+  box.querySelectorAll('button').forEach(b => b.onclick = () => shJump(+b.dataset.k));
+  $('show-st').textContent = `${SHOW_UI.stage} ${cur + 1}/${n} · ${T.chapters[cur].name}`;
+}
+function shJump(k) {
+  const T = SH(); if (!T || !T.chapters) return;
+  if (k < 0 || k >= T.chapters.length) return;
+  T.jumpTo = k;
+  if (T.paused && T.setPause) T.setPause(false);
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+}
 
-async function runShow(photos, els) {
-  const T = S.tour, STEPS = 12; let k = 0;
-  const step = () => shProgress(++k, STEPS);
-  await openProject(SHOW_PID);
-  setElView('table');
-  await shWait(600);
-  await shSay(TT('Cześć! Pokażę, jak w INDEX powstaje opis stoiska. Zbudujemy od zera stoisko GOG na targi ISPO w Amsterdamie.',
-    'Привіт! Покажу, як в INDEX створюється опис стенду. Побудуємо з нуля стенд GOG на виставку ISPO в Амстердамі.',
-    'Hi! Let me show you how a stand description is made in INDEX. We will build the GOG stand for ISPO in Amsterdam from scratch.'));
-  step();
-  // 1. wizka
-  await shSay(TT('Stoisko jest jeszcze puste. Najpierw dodajemy wizkę: kopiujemy obrazek i klikamy Wklej, albo po prostu przeciągamy plik na to pole.',
-    'Стенд поки порожній. Спершу додаємо візуалізацію: копіюємо зображення і натискаємо Вставити, або просто перетягуємо файл на це поле.',
-    'The stand is still empty. First we add a visual: copy the image and click Paste, or just drag the file onto this area.'));
-  const pasteBtn = document.querySelector('#viewer-empty .btn-solid') || document.querySelector('#toolbar button[onclick="pasteFromClipboard()"]');
-  if (pasteBtn) { const [x, y] = shCenter(pasteBtn); await shMove(x, y, 900); await shWait(150); shRipple(); shKey('Ctrl+V'); }
-  for (const ph of photos) { const x = clone(ph); delete x.id; await T.mem.add(pPhotos(SHOW_PID), x, ph.id); }
-  await shWaitFor(() => { const im = [...document.querySelectorAll('#stage-imgs img')]; return im.length && im.every(i => i.complete && i.naturalWidth); }, 8000);
-  fitView(); await shWait(500);
-  step();
-  // 2. przybliżanie
-  await shSay(TT('Wizka jest na miejscu. Kółkiem myszy przybliżamy, a przeciągając tło przesuwamy widok.',
-    'Візуалізація на місці. Коліщатком миші наближаємо, а перетягуючи фон зсуваємо вигляд.',
-    'The visual is in place. The mouse wheel zooms in, dragging the background pans the view.'));
-  {
-    const vr = viewer.getBoundingClientRect(), mx = vr.left + vr.width * 0.42, my = vr.top + vr.height * 0.48;
-    await shMove(mx, my, 700);
-    for (let i = 0; i < 12; i++) { await shWait(40); zoomAt(mx, my, 1.06); }
-    await shWait(500);
-    for (let i = 0; i < 12; i++) { await shWait(30); zoomAt(mx, my, 1 / 1.06); }
-    fitView(); await shWait(400);
-  }
-  step();
-  // 3. elementy: kilka różnych typów z komentarzem, reszta szybciej
+// czyszczenie po przerwanym etapie (menu, okna, przeciąganie, panele, podświetlenia)
+function shCleanup() {
+  const T = SH(); if (!T) return;
+  closeArcMenu(true);
+  while (modalStack.length) modalStack[modalStack.length - 1].close();
+  T.onMove = null; T.fast = false; liveShape = null; act = null;
+  if (S.graphMove) toggleGraphMove(false);
+  S.graphBusy = false;
+  toggleSide(false); toggleLog(false);
+  $('clock-pane').classList.remove('show-hl');
+  document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove());
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+}
+const plainWait = ms => new Promise(r => setTimeout(r, ms));
+async function plainUntil(fn, ms = 5000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await plainWait(60); } return false; }
+
+function showChapters(photos, els) {
+  const T = S.tour;
   const seen = new Set(), talkEls = [];
   for (const e of els) if (!seen.has(e.typeId) && talkEls.length < 4) { seen.add(e.typeId); talkEls.push(e); }
-  let first = true;
-  for (const e of talkEls) { await shAddElement(e, true, first); first = false; step(); }
   const rest = els.filter(e => !talkEls.includes(e));
-  if (rest.length) {
-    await shSay(TT(`Pozostałe elementy — jeszcze ${rest.length} — dodam szybciej, tak samo.`, `Решту елементів — ще ${rest.length} — додам швидше, так само.`, `The remaining ${rest.length} elements I will add faster, the same way.`));
-    T.fast = true;
-    for (const e of rest) await shAddElement(e, false, false);
-    T.fast = false;
-    fitView();
-  }
-  step();
-  // 4. przesunięcie znaku — zostaje kreska ze strzałką
-  const made = () => S.elements.slice().sort((a, b) => (a.num || 0) - (b.num || 0));
-  const target = made().find(x => x.shape && x.shape.kind === 'point') || made()[0];
-  if (target) {
-    await shSay(TT('Znak elementu można odsunąć, żeby nie zasłaniał wizki. Zostaje kreska ze strzałką do miejsca.',
-      'Позначку елемента можна відсунути, щоб не закривала візуалізацію. Лишається лінія зі стрілкою до місця.',
-      'You can drag an element’s mark aside so it doesn’t cover the visual. A line with an arrow keeps pointing to the spot.'));
-    const node = () => document.querySelector(`#overlay g.shp[data-eid="${target.id}"] [data-part="lab"]`);
-    const n0 = await shWaitFor(node);
-    if (n0) {
-      const [x, y] = shCenter(n0);
-      await shMove(x, y, 700); await shWait(150); shRipple();
-      shPtr('pointerdown', n0, x, y);
-      const vr = viewer.getBoundingClientRect();
-      const tx = clamp(x + (x > vr.left + vr.width / 2 ? -110 : 110), vr.left + 30, vr.right - 30), ty = clamp(y - 70, vr.top + 60, vr.bottom - 30);
-      T.onMove = (cx, cy) => shPtr('pointermove', viewer, cx, cy);
-      await shMove(tx, ty, 1100);
-      T.onMove = null;
-      shPtr('pointerup', viewer, tx, ty);
-      await shWait(600);
+  // element w bazie pokazu od razu (przy przeskoku do dalszego etapu): to samo, co daje „Dodaj" + odsunięty znak
+  // numeracja liczona od nowa przy każdym przeskoku (T.inst zeruje shRebuildTo)
+  const instantAdd = async list => {
+    const c = T.inst = T.inst || { num: 0, w: 0 };
+    for (const e of list) {
+      const num = ++c.num;
+      const t = typeById(e.typeId), wys = !!(t.wyslona && e.wyslona);
+      const shape = { ...clone(e.shape), lab: shLabOf(e) };
+      await T.mem.add(pElements(SHOW_PID), { num, typeId: e.typeId, variant: e.variant || '', seg: !!e.seg, thick: hasThick(e) ? e.thick || '' : '',
+        ...togValues(e, e.typeId), wyslona: wys, wnum: wys ? ++c.w : '', w: e.w, h: e.h, d: e.d || '', qty: Math.max(1, Number(e.qty) || 1),
+        notes: e.notes || '', name: '', photoId: e.photoId, shape, createdAt: nowIso(), createdBy: S.me.id });
     }
-  }
-  step();
-  // 5. dwuklik = edycja
-  const ed = made().find(x => (Number(x.qty) || 1) === 1) || made()[0];
-  if (ed) {
-    await shSay(TT('Dwuklik na znaku otwiera okno elementu. Zmienię ilość na dwie sztuki.',
-      'Подвійний клік на позначці відкриває вікно елемента. Змінюю кількість на дві штуки.',
-      'Double-clicking a mark opens the element window. I’ll change the quantity to two pieces.'));
-    const node = () => document.querySelector(`#overlay g.shp[data-eid="${ed.id}"] [data-part="lab"]`) || document.querySelector(`#overlay g.shp[data-eid="${ed.id}"]`);
-    const n0 = await shWaitFor(node);
-    if (n0) {
-      const [x, y] = shCenter(n0);
-      await shMove(x, y, 800); await shWait(150);
-      shRipple(); shPtr('pointerdown', n0, x, y); shPtr('pointerup', viewer, x, y);
-      await new Promise(r => setTimeout(r, 90));
-      const n1 = node(); shRipple(); if (n1) { shPtr('pointerdown', n1, x, y); shPtr('pointerup', viewer, x, y); }
-      const q = await shWaitFor(() => $('ed-q'), 3000);
-      if (q) {
+  };
+  const elByNum = n => S.elements.find(x => Number(x.num) === n);
+  const thumbsFor = () => els.filter(e => e.thumb).slice(0, 3).map(src => ({ src, mine: S.elements.find(x => x.typeId === src.typeId && Number(x.w) === Number(src.w) && Number(x.h) === Number(src.h)) })).filter(x => x.mine);
+  return [
+    { name: TT('Start', 'Старт', 'Start'),
+      run: async () => {
+        await shSay(TT('Cześć! Pokażę, jak w INDEX powstaje opis stoiska. Zbudujemy od zera stoisko GOG na targi ISPO w Amsterdamie.',
+          'Привіт! Покажу, як в INDEX створюється опис стенду. Побудуємо з нуля стенд GOG на виставку ISPO в Амстердамі.',
+          'Hi! Let me show you how a stand description is made in INDEX. We will build the GOG stand for ISPO in Amsterdam from scratch.'));
+      } },
+    { name: TT('Wizka', 'Візуалізація', 'Visual'),
+      run: async () => {
+        await shSay(TT('Stoisko jest jeszcze puste. Najpierw dodajemy wizkę: kopiujemy obrazek i klikamy Wklej, albo po prostu przeciągamy plik na to pole.',
+          'Стенд поки порожній. Спершу додаємо візуалізацію: копіюємо зображення і натискаємо Вставити, або просто перетягуємо файл на це поле.',
+          'The stand is still empty. First we add a visual: copy the image and click Paste, or just drag the file onto this area.'));
+        const pasteBtn = document.querySelector('#viewer-empty .btn-solid') || document.querySelector('#toolbar button[onclick="pasteFromClipboard()"]');
+        if (pasteBtn) { const [x, y] = shCenter(pasteBtn); await shMove(x, y, 900); await shWait(150); shRipple(); shKey('Ctrl+V'); }
+        for (const ph of photos) { const x = clone(ph); delete x.id; await T.mem.add(pPhotos(SHOW_PID), x, ph.id); }
+        await shWaitFor(() => { const im = [...document.querySelectorAll('#stage-imgs img')]; return im.length && im.every(i => i.complete && i.naturalWidth); }, 8000);
+        fitView(); await shWait(500);
+        await shSay(TT('Wizka jest na miejscu. Kółkiem myszy przybliżamy, a przeciągając tło przesuwamy widok.',
+          'Візуалізація на місці. Коліщатком миші наближаємо, а перетягуючи фон зсуваємо вигляд.',
+          'The visual is in place. The mouse wheel zooms in, dragging the background pans the view.'));
+        const vr = viewer.getBoundingClientRect(), mx = vr.left + vr.width * 0.42, my = vr.top + vr.height * 0.48;
+        await shMove(mx, my, 700);
+        for (let i = 0; i < 12; i++) { await shWait(40); zoomAt(mx, my, 1.06); }
+        await shWait(500);
+        for (let i = 0; i < 12; i++) { await shWait(30); zoomAt(mx, my, 1 / 1.06); }
+        fitView(); await shWait(400);
+      },
+      instant: async () => { for (const ph of photos) { const x = clone(ph); delete x.id; await T.mem.add(pPhotos(SHOW_PID), x, ph.id); } } },
+    { name: TT('Elementy', 'Елементи', 'Elements'),
+      run: async () => { let first = true; for (const e of talkEls) { await shAddElement(e, true, first); first = false; } },
+      instant: () => instantAdd(talkEls) },
+    { name: TT('Pozostałe', 'Решта', 'The rest'),
+      run: async () => {
+        if (!rest.length) return;
+        await shSay(TT(`Pozostałe elementy — jeszcze ${rest.length} — dodam szybciej, tak samo.`, `Решту елементів — ще ${rest.length} — додам швидше, так само.`, `The remaining ${rest.length} elements I will add faster, the same way.`));
+        T.fast = true;
+        try { for (const e of rest) await shAddElement(e, false, false); } finally { T.fast = false; }
+        fitView(); await shWait(400);
+      },
+      instant: () => instantAdd(rest) },
+    { name: TT('Edycja', 'Редагування', 'Editing'),
+      run: async () => {
+        const ed = elByNum(1) || S.elements[0]; if (!ed) return;
+        await shSay(TT('Dwuklik na znaku otwiera okno elementu. Zmienię ilość na dwie sztuki.',
+          'Подвійний клік на позначці відкриває вікно елемента. Змінюю кількість на дві штуки.',
+          'Double-clicking a mark opens the element window. I’ll change the quantity to two pieces.'));
+        const node = () => document.querySelector(`#overlay g.shp[data-eid="${ed.id}"] [data-part="lab"]`) || document.querySelector(`#overlay g.shp[data-eid="${ed.id}"]`);
+        const n0 = await shWaitFor(node); if (!n0) return;
+        const [x, y] = shCenter(n0);
+        await shMove(x, y, 800); await shWait(150);
+        shRipple(); shPtr('pointerdown', n0, x, y); shPtr('pointerup', viewer, x, y);
+        await plainWait(90);
+        const n1 = node(); shRipple(); if (n1) { shPtr('pointerdown', n1, x, y); shPtr('pointerup', viewer, x, y); }
+        const q = await shWaitFor(() => $('ed-q'), 3000); if (!q) return;
         await shWait(700);
         await shType(q, '2');
         await shSay(TT('Zapisz.', 'Зберегти.', 'Save.'));
         await shClick('#ed-ok', 600);
         await shWaitFor(() => !$('ed-q'), 3000);
-      }
-    }
-  }
-  step();
-  // 6. tabela
-  await shSay(TT('Na dole jest lista wszystkich elementów: typ, wymiar netto, wymiar do druku i ilość. Klik w wiersz pokazuje element na wizce.',
-    'Внизу список усіх елементів: тип, розмір нетто, розмір до друку й кількість. Клік по рядку показує елемент на візуалізації.',
-    'Below is the list of all elements: type, net size, print size and quantity. Clicking a row shows the element on the visual.'));
-  const row = await shWaitFor(() => document.querySelectorAll('#el-scroll tr[data-eid]')[2] || document.querySelector('#el-scroll tr[data-eid]'));
-  if (row) { await shClick(row, 800); await shWait(900); fitView(); }
-  step();
-  // 7. widok Grafika + wklejenie grafiki
-  await shSay(TT('Przełączam na widok Grafika — elementy jako okienka w skali, z wymiarami, jak index z Corela.',
-    'Перемикаю на вигляд Графіка — елементи як віконця в масштабі з розмірами, як індекс із Corel.',
-    'I switch to the Graphic view — elements as scaled frames with dimensions, like a Corel index.'));
-  await shClick('#el-view button[data-v="graph"]', 800);
-  await shWaitFor(() => document.querySelector('#el-scroll .gc-frame'), 3000);
-  await shWait(600);
-  const withThumb = els.filter(e => e.thumb);
-  if (withThumb.length) {
-    await shSay(TT('Gdy grafika jest gotowa, klikam okienko i wklejam jej podgląd.', 'Коли графіка готова, клікаю віконце й вставляю її попередній перегляд.', 'When the artwork is ready, I click the frame and paste a preview.'));
-    for (const src of withThumb.slice(0, 3)) {
-      const mine = S.elements.find(x => x.typeId === src.typeId && Number(x.w) === Number(src.w) && Number(x.h) === Number(src.h) && !x.thumb);
-      const fr = mine && document.querySelector(`#el-scroll .gc-frame[data-eid="${mine.id}"]`);
-      if (!fr) continue;
-      fr.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      const [x, y] = shCenter(fr);
-      await shMove(x, y, 700); await shWait(150); shRipple(); shKey('Ctrl+V');
-      await T.mem.update(pElements(SHOW_PID), mine.id, { thumb: src.thumb, updatedAt: nowIso(), updatedBy: S.me.id });
-      await shWait(900);
-    }
-  }
-  step();
-  // 8. zegar
-  await shMove(...shCenter($('clock-pane')), 900);
-  await shSay(TT('Zegar pokazuje, ile czasu zostało: zielony do oddania grafik, żółty do pakowania, czerwony do targów.',
-    'Годинник показує, скільки часу лишилося: зелений до здачі графіки, жовтий до пакування, червоний до виставки.',
-    'The clock shows the time left: green until artwork is due, yellow until packing, red until the fair.'));
-  step();
-  // 9. historia zmian
-  await shMove(...shCenter($('log-handle')), 900);
-  await shSay(TT('Każda zmiana trafia do historii po prawej: kto i co zmienił.', 'Кожна зміна потрапляє в історію праворуч: хто й що змінив.', 'Every change lands in the history on the right: who changed what.'));
-  if (!logState.open) { shRipple(); toggleLog(true); await shWait(1800); toggleLog(false); }
-  step();
-  // 10. eksport
-  await shSay(TT('Na koniec eksport: index A3 z wizkami i okienkami oraz tabela A4 — do druku albo jako PDF.',
-    'Наприкінці експорт: індекс A3 з візуалізаціями й віконцями та таблиця A4 — до друку або як PDF.',
-    'Finally, export: an A3 index with visuals and frames, and an A4 table — print or PDF.'));
-  const expBtn = [...document.querySelectorAll('#hdr-actions button')].find(b => /openExportDialog/.test(b.getAttribute('onclick') || ''));
-  if (expBtn) {
-    await shClick(expBtn, 900);
-    await shWait(2600);
-    const m = modalStack[modalStack.length - 1];
-    if (m) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
-  }
-  step();
+      },
+      instant: async () => { await plainUntil(() => elByNum(1)); const ed = elByNum(1); if (ed) await T.mem.update(pElements(SHOW_PID), ed.id, { qty: 2 }); } },
+    { name: TT('Lista', 'Список', 'List'),
+      run: async () => {
+        setElView('table');
+        await shSay(TT('Na dole jest lista wszystkich elementów: typ, wymiar netto, wymiar do druku i ilość. Klik w wiersz pokazuje element na wizce.',
+          'Внизу список усіх елементів: тип, розмір нетто, розмір до друку й кількість. Клік по рядку показує елемент на візуалізації.',
+          'Below is the list of all elements: type, net size, print size and quantity. Clicking a row shows the element on the visual.'));
+        const row = await shWaitFor(() => document.querySelectorAll('#el-scroll tr[data-eid]')[2] || document.querySelector('#el-scroll tr[data-eid]'));
+        if (row) { await shClick(row, 800); await shWait(1200); fitView(); }
+      } },
+    { name: TT('Panele', 'Панелі', 'Panels'),
+      run: async () => {
+        await shSay(TT('Po bokach ekranu są dwie wysuwane belki.', 'По боках екрана є дві висувні смуги.', 'There are two slide-out bars at the sides of the screen.'));
+        await shClick('#side-handle', 900);
+        await shSay(TT('Lewa wysuwa listę targów i stoisk. Tu przechodzisz między swoimi projektami.',
+          'Ліва висуває список виставок і стендів. Тут переходиш між своїми проєктами.',
+          'The left one slides out the list of fairs and stands. This is where you switch between your projects.'));
+        await shClick('#side-handle', 700);
+        await shClick('#log-handle', 900);
+        await shSay(TT('Prawa to historia zmian: kto, kiedy i co zmienił na stoisku. Każde dodanie i poprawka trafia tutaj.',
+          'Права — історія змін: хто, коли й що змінив на стенді. Кожне додавання й виправлення потрапляє сюди.',
+          'The right one is the change history: who changed what on the stand, and when. Every addition and fix ends up here.'));
+        await shClick('#log-handle', 700);
+      } },
+    { name: TT('Grafika', 'Графіка', 'Graphic'),
+      run: async () => {
+        await shSay(TT('Przełączam na widok Grafika — elementy jako okienka w skali, z wymiarami, jak index z Corela.',
+          'Перемикаю на вигляд Графіка — елементи як віконця в масштабі з розмірами, як індекс із Corel.',
+          'I switch to the Graphic view — elements as scaled frames with dimensions, like a Corel index.'));
+        await shClick('#el-view button[data-v="graph"]', 800);
+        await shWaitFor(() => document.querySelector('#el-scroll .gc-frame'), 3000);
+        await shWait(600);
+        const th = thumbsFor();
+        if (th.length) {
+          await shSay(TT('Gdy grafika jest gotowa, klikam okienko i wklejam jej podgląd.', 'Коли графіка готова, клікаю віконце й вставляю її попередній перегляд.', 'When the artwork is ready, I click the frame and paste a preview.'));
+          for (const { src, mine } of th) {
+            const fr = document.querySelector(`#el-scroll .gc-frame[data-eid="${mine.id}"]`); if (!fr) continue;
+            const [x, y] = shCenter(fr);
+            await shMove(x, y, 700); await shWait(150); shRipple(); shKey('Ctrl+V');
+            await T.mem.update(pElements(SHOW_PID), mine.id, { thumb: src.thumb, updatedAt: nowIso(), updatedBy: S.me.id });
+            await shWait(900);
+          }
+        }
+        // przybliżanie i przesuwanie widoku okienek
+        await shSay(TT('Okienka przybliżasz kółkiem myszy, a przeciągając tło przesuwasz cały widok.',
+          'Віконця наближаєш коліщатком миші, а перетягуючи фон зсуваєш увесь вигляд.',
+          'Zoom the frames with the mouse wheel and drag the background to pan the whole view.'));
+        const box = $('el-scroll'), br = box.getBoundingClientRect();
+        const zx = br.left + br.width * 0.3, zy = br.top + br.height * 0.35;
+        await shMove(zx, zy, 700);
+        for (let i = 0; i < 10; i++) { await shWait(45); graphZoomAt(zx, zy, 1.06); }
+        await shWait(400);
+        const g0 = { ...G };
+        await shWait(100); shRipple();
+        T.onMove = (cx, cy) => { G.tx = g0.tx + (cx - zx); G.ty = g0.ty + (cy - zy); applyGraphView(); };
+        try { await shMove(zx + 160, zy + 30, 1000); } finally { T.onMove = null; }
+        await shWait(400);
+        graphFit(); await shWait(500);
+        // tryb „Przesuń": okienko w inne miejsce, pozostałe robią miejsce
+        await shSay(TT('Przycisk Przesuń pozwala ułożyć okienka po swojemu. Chwytam okienko i przenoszę — pozostałe same robią miejsce.',
+          'Кнопка Перемістити дозволяє розкласти віконця по-своєму. Хапаю віконце й переношу — інші самі звільняють місце.',
+          'The Move button lets you arrange the frames your way. I grab a frame and move it — the others make room.'));
+        await shClick('#gc-move', 800);
+        await shWait(500);
+        const cards = [...document.querySelectorAll('#el-scroll .gc')];
+        const card = cards[1] || cards[0];
+        if (card) {
+          const h = card.querySelector('.gc-h') || card;
+          const [x, y] = shCenter(h);
+          await shMove(x, y, 700); await shWait(150); shRipple();
+          shPtr('pointerdown', card, x, y);
+          const tx = x + Math.min(320, br.width * 0.25), ty = y + 40;
+          T.onMove = (cx, cy) => shPtr('pointermove', card, cx, cy);
+          try { await shMove(tx, ty, 1400); } finally { T.onMove = null; }
+          shPtr('pointerup', card, tx, ty);
+          await shWait(800);
+        }
+        await shSay(TT('Zakończ przesuwanie.', 'Завершити переміщення.', 'Finish moving.'));
+        await shClick('#gc-move', 700);
+        await shWait(400);
+      },
+      instant: async () => {
+        setElView('graph');
+        await plainUntil(() => document.querySelector('#el-scroll .gc-frame'), 3000);
+        for (const { src, mine } of thumbsFor()) await T.mem.update(pElements(SHOW_PID), mine.id, { thumb: src.thumb });
+      } },
+    { name: TT('Licznik', 'Лічильник', 'Countdown'),
+      run: async () => {
+        await shMove(...shCenter($('clock-pane')), 900);
+        $('clock-pane').classList.add('show-hl');
+        await shSay(TT('Bardzo ważne: licznik czasu. Zielony odcinek to czas na przesłanie plików produkcyjnych. Pliki trzeba wysyłać z wyprzedzeniem, bo po nich jest jeszcze druk i produkcja. Żółty to pakowanie, tydzień przed targami, a czerwony — same targi.',
+          'Дуже важливо: лічильник часу. Зелений відрізок — час на надсилання виробничих файлів. Файли треба надсилати заздалегідь, бо після них ще друк і виробництво. Жовтий — пакування, за тиждень до виставки, а червоний — сама виставка.',
+          'Very important: the countdown. The green segment is the time to send the production files. Send them well in advance, because printing and production come after. Yellow is packing, a week before the fair, and red is the fair itself.'));
+        $('clock-pane').classList.remove('show-hl');
+      } },
+    { name: TT('Eksport', 'Експорт', 'Export'),
+      run: async () => {
+        await shSay(TT('Na koniec eksport: index A3 z wizkami i okienkami oraz tabela A4 — do druku albo jako PDF.',
+          'Наприкінці експорт: індекс A3 з візуалізаціями й віконцями та таблиця A4 — до друку або як PDF.',
+          'Finally, export: an A3 index with visuals and frames, and an A4 table — print or PDF.'));
+        const expBtn = [...document.querySelectorAll('#hdr-actions button')].find(b => /openExportDialog/.test(b.getAttribute('onclick') || ''));
+        if (!expBtn) return;
+        await shClick(expBtn, 900);
+        await shWait(2600);
+        const m = modalStack[modalStack.length - 1];
+        if (m) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
+      } },
+    { name: TT('Koniec', 'Кінець', 'End'),
+      run: async () => {
+        setElView('table');
+        await shSay(TT('Gotowe — stoisko jest opisane. Ten pokaz niczego nie zapisał. Obejrzysz go jeszcze raz ikoną obok awatara.',
+          'Готово — стенд описано. Цей показ нічого не зберіг. Переглянеш його ще раз іконкою біля аватара.',
+          'Done — the stand is described. This demo saved nothing. Watch it again with the icon next to your avatar.'));
+        await shWait(600);
+      } },
+  ];
+}
+// przeskok: puste stoisko, potem błyskawicznie wszystkie wcześniejsze etapy, dalej normalnie
+async function shRebuildTo(k) {
+  const T = SH(); if (!T) return;
+  shCleanup();
+  T.inst = { num: 0, w: 0 };
+  T.mem.wipe(C_PROJECTS);
   setElView('table');
-  await shSay(TT('Gotowe — stoisko jest opisane. Ten pokaz niczego nie zapisał. Obejrzysz go jeszcze raz ikoną obok awatara.',
-    'Готово — стенд описано. Цей показ нічого не зберіг. Переглянеш його ще раз іконкою біля аватара.',
-    'Done — the stand is described. This demo saved nothing. Watch it again with the icon next to your avatar.'));
-  shProgress(STEPS, STEPS);
-  await shWait(600);
+  await plainUntil(() => !S.photos.length && !S.elements.length, 3000);
+  for (let j = 0; j < k; j++) if (T.chapters[j].instant) await T.chapters[j].instant();
+  const nP = T.mem.count(pPhotos(SHOW_PID)), nE = T.mem.count(pElements(SHOW_PID));
+  await plainUntil(() => S.photos.length === nP && S.elements.length === nE, 4000);
+  if (nP) await plainUntil(() => { const im = [...document.querySelectorAll('#stage-imgs img')]; return im.length && im.every(i => i.complete && i.naturalWidth); }, 6000);
+  fitView();
+  if (S.elView === 'graph') { await plainWait(150); graphFit(); }
+  await plainWait(200);
+}
+async function runShow(photos, els) {
+  const T = S.tour;
+  T.chapters = showChapters(photos, els); T.cur = 0;
+  await openProject(SHOW_PID);
+  setElView('table');
+  shStages();
+  await plainWait(600);
+  let i = 0;
+  while (i < T.chapters.length) {
+    try {
+      T.cur = i; shStages();
+      await T.chapters[i].run();
+      i++;
+    } catch (e) {
+      if (!(e instanceof ShowJump)) throw e;
+      const k = T.jumpTo; T.jumpTo = null;
+      T.cur = k; shStages();
+      await shRebuildTo(k);
+      if (!SH() || SH().stop) throw new ShowStop();
+      i = k;
+    }
+  }
+  T.cur = T.chapters.length; shStages();
 }
 function endShow() {
   const T = S.tour; if (!T || !T.show) return;
@@ -5658,7 +5940,11 @@ function endShow() {
   document.removeEventListener('keydown', T.keys, true);
   ['show-block', 'show-cursor', 'show-cap'].forEach(id => { const e = $(id); if (e) e.remove(); });
   document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove());
-  delete viewer.setPointerCapture;
+  if (T.spc) Element.prototype.setPointerCapture = T.spc;
+  if (S.graphMove) toggleGraphMove(false);
+  S.graphBusy = false;
+  $('clock-pane').classList.remove('show-hl');
+  toggleSide(T.sideWas); toggleLog(T.logWas);
   liveShape = null; act = null;
   DB = T.realDB;
   S.tour = null;
