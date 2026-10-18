@@ -1589,11 +1589,11 @@ function typeLabel(el) {
 }
 const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
 
-// Spad: na razie z typu (+ SEG i ELTEX bez spadu, ręczne nadpisanie przez admina).
+// Spad: z typu; SEG (tkanina Blackback / Lightbox) i wysłona bez spadu, płyta PCW domyślnie bez spadu,
+// przy Blackback standard / Folii / PCW własny wybór w oknie elementu (bleedOverride / bleedBox).
 // Docelowe reguły ustali KG — tu jest jedno miejsce do zmiany.
 function bleedOf(el) {
   if (el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '') return Number(el.bleedOverride) || 0;
-  if (el.eltex) return 0;
   if (el.typeId === 'pcw') return 0; // płyta PCW domyślnie bez spadu (inny spad tylko wybrany ręcznie)
   const t = typeById(el.typeId), v = variantOf(el);
   if (t.seg && el.seg) return 0;
@@ -3548,12 +3548,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       </div>
       <div class="calc" id="ed-calc"></div>
       <div id="ed-bleedopts"></div>
-      <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>
-      ${isAdmin() ? `<details class="adm" ${el.eltex || (el.bleedOverride !== undefined && el.bleedOverride !== '') ? 'open' : ''}><summary>Ustawienia produkcyjne (tylko administrator)</summary>
-        <div class="row2" style="margin-top:10px">
-          <div class="fld"><label>Spad ręcznie [${UNIT()} / stronę]</label><input type="number" id="ed-bleed" min="0" step="${unitStep()}" value="${el.bleedOverride == null ? '' : esc(fromMM(el.bleedOverride))}" placeholder="puste = automatycznie"></div>
-          <div class="fld"><label>&nbsp;</label><label class="chk" style="text-transform:none;font-weight:400;font-size:.85rem;color:var(--dark)"><input type="checkbox" id="ed-eltex" ${el.eltex ? 'checked' : ''}> ELTEX (bez spadu)</label></div>
-        </div></details>` : ''}`,
+      <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
       ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
       ${!isAdmin() ? '' : axLinked(editing) ? axBadge(editing, 'btn')
@@ -3577,7 +3572,6 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     name: $('ed-name').value.trim(),
     qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
-    ...(isAdmin() ? { bleedOverride: toMM($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
     ...(sideBleedOk(el) ? {
       bleedOverride: el.bleedMode === 'all' ? Number(el.bleedAll) || 0 : el.bleedMode === 'none' ? 0 : '',
       bleedBox: el.bleedMode === 'sides' ? Object.fromEntries(BLEED_SIDES.map(([k]) => [k, Number(el.bleedSides[k]) || 0])) : null,
@@ -3664,8 +3658,6 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
     const bla = $('ed-bl-all'); if (bla) bla.addEventListener('input', () => { el.bleedAll = toMM(bla.value); refresh(); });
     $('ed-bleedopts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
-    // ręczny spad administratora — przy Blackback standard / Folii / PCW zastępuje go wybór spadów
-    const admB = $('ed-bleed'); if (admB) admB.closest('.fld').classList.toggle('hidden', sideBleedOk(el));
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
       el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
@@ -3741,7 +3733,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
     renderOpts(); refresh();
   });
-  ['ed-w', 'ed-d', 'ed-h', 'ed-q', 'ed-bleed', 'ed-eltex'].forEach(id => { const i = $(id); if (i) i.addEventListener('input', refresh); });
+  ['ed-w', 'ed-d', 'ed-h', 'ed-q'].forEach(id => { const i = $(id); if (i) i.addEventListener('input', refresh); });
   renderOpts(); refresh();
   setTimeout(() => { const f = $('ed-w'); if (f) f.focus(); }, 40);
   m.el.querySelector('[data-c]').onclick = () => m.close();
@@ -3759,7 +3751,8 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     try {
       if (editing) {
         const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
-        if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex }); else if (sideBleedOk(d)) fields.bleedOverride = d.bleedOverride;
+        // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
+        Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d));
         fields.bleedBox = d.bleedBox || null;
         const diff = describeDiff(editing, { ...editing, ...fields });
@@ -3770,7 +3763,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       } else {
         const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
-        if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex }); else if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
+        if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
         if (d.bleedBox) rec.bleedBox = d.bleedBox;
         const newId = await DB.add(pElements(pid), rec);
@@ -4194,7 +4187,7 @@ function renderElements() {
         <td><span class="badge" style="background:${t.color}">${markOf(e)}</span></td>
         <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
-        <td class="num" ${e.bleedBox ? 'title="spad: lewy / prawy / góra / dół"' : ''}>${bleedCell(e, g)}${e.eltex ? ' <span title="ELTEX">E</span>' : ''}</td>
+        <td class="num" ${e.bleedBox ? 'title="spad: lewy / prawy / góra / dół"' : ''}>${bleedCell(e, g)}</td>
         <td class="dims">${dims ? (isHang(e) ? planesTxt(e, '<br>') : grossTxt(e)) : ''}</td>
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
