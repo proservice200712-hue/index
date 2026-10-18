@@ -632,8 +632,16 @@
   #show-cap button:hover { background: rgba(103,180,55,.55); }
   #show-cap .sc-t { font-size: 1.02rem; line-height: 1.45; margin-top: 6px; min-height: 2.9em; }
   #show-cap .sc-st { font-weight: 600; color: #cbd5e0; text-transform: none; letter-spacing: 0; margin-right: 6px; }
-  #show-cap .sc-stages { display: flex; gap: 3px; margin-top: 9px; }
-  #show-cap .sc-stages button { flex: 1; width: auto; height: auto; padding: 0; background: none; display: flex; flex-direction: column; gap: 4px; align-items: stretch; cursor: pointer; border-radius: 0; }
+  #show-cap .sc-stages { position: relative; margin-top: 9px; cursor: pointer; touch-action: none; user-select: none; }
+  #show-cap .sc-segs { display: flex; gap: 3px; }
+  #show-cap .sc-dot-wrap { position: absolute; left: 0; right: 0; top: 3px; height: 0; pointer-events: none; }
+  #show-cap .sc-play { position: absolute; top: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50% !important; background: #fff;
+    border: 3px solid #67b437; box-shadow: 0 0 0 3px rgba(103,180,55,.3), 0 2px 6px rgba(0,0,0,.5); transition: left .12s linear; }
+  #show-cap .sc-stages.scrub .sc-play { transition: none; transform: scale(1.25); }
+  #show-cap .sc-play b { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); white-space: nowrap; background: #1a202c; color: #fff; font-size: .72rem; padding: 3px 8px; border-radius: 5px; }
+  #show-cap .sc-play b:empty { display: none; }
+  #show-cap .sc-segs button.hov i { background: #9be36d; }
+  #show-cap .sc-stages button { flex: 1; min-width: 0; width: auto; height: auto; padding: 0; background: none; display: flex; flex-direction: column; gap: 4px; align-items: stretch; cursor: pointer; border-radius: 0; }
   #show-cap .sc-stages button i { display: block; height: 6px; border-radius: 3px; background: rgba(255,255,255,.18); transition: background .2s; }
   #show-cap .sc-stages button span { font-size: .62rem; color: #a0aec0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #show-cap .sc-stages button:hover { background: none; }
@@ -5394,14 +5402,14 @@ function guardShowDB(real) {
     del: (p, id) => bad(p, id) ? Promise.resolve() : real.del(p, id) };
 }
 const SHOW_UI = {
-  title: TT('Pokaz z lektorem', 'Показ з диктором', 'Narrated demo'),
+  title: TT('Pokaz z lektorką', 'Показ з дикторкою', 'Narrated demo'),
   pause: TT('Pauza (spacja)', 'Пауза (пробіл)', 'Pause (space)'), play: TT('Wznów (spacja)', 'Продовжити (пробіл)', 'Resume (space)'),
   mute: TT('Wycisz lektora', 'Вимкнути голос', 'Mute narrator'), unmute: TT('Włącz lektora', 'Увімкнути голос', 'Unmute narrator'),
   close: TT('Zakończ pokaz (Esc)', 'Завершити показ (Esc)', 'End demo (Esc)'),
   prev: TT('Poprzedni etap (←)', 'Попередній етап (←)', 'Previous stage (←)'), next: TT('Następny etap (→)', 'Наступний етап (→)', 'Next stage (→)'),
   stage: TT('Etap', 'Етап', 'Stage'),
   novoice: TT('Brak głosu w tym języku — same napisy', 'Немає голосу цією мовою — лише субтитри', 'No voice for this language — subtitles only'),
-  menuShow: TT('Pokaz z lektorem', 'Показ з диктором', 'Narrated demo'),
+  menuShow: TT('Pokaz z lektorką', 'Показ з дикторкою', 'Narrated demo'),
   menuShowSub: TT('budujemy stoisko krok po kroku', 'будуємо стенд крок за кроком', 'we build a stand step by step'),
   menuTour: TT('Prezentacja ekranu', 'Презентація екрана', 'Screen tour'),
   menuPro: TT('PRO — dla administratora', 'PRO — для адміністратора', 'PRO — for administrators'),
@@ -5551,6 +5559,20 @@ const numTxt = mm => { const v = fromMM(mm); return String(v).replace('.', LANG 
 const numInput = mm => String(fromMM(mm));
 const unitWord = () => UNIT() === 'cm' ? TT('centymetrów', 'сантиметрів', 'centimetres') : TT('milimetrów', 'міліметрів', 'millimetres');
 
+// obrys wielokątem: narzędzie ⬠, klik w każdy narożnik, na koniec w pierwszy punkt (zamyka obrys)
+async function shDrawPoly(pid, pts) {
+  if (S.selId) selectElement(null);
+  await shClick('#toolbar [data-tool="poly"]', 650);
+  const tap = async (q, ms) => {
+    const [x, y] = stageToClient(pid, q);
+    await shMove(x, y, ms); await shWait(90); shRipple();
+    shPtr('pointerdown', viewer, x, y); shPtr('pointerup', viewer, x, y);
+    await shWait(120);
+  };
+  for (const q of pts) await tap(q, 480);
+  await tap(pts[0], 480);
+  await shWait(250);
+}
 // przeciągnięcie znaku elementu (zostaje kreska ze strzałką do miejsca)
 async function shDragLab(eid, lab, ms = 900) {
   const T = SH(); if (!T || !lab) return;
@@ -5578,10 +5600,14 @@ async function shAddElement(e, talk, first) {
   const t = typeById(e.typeId), v = (t.variants || []).find(x => x.id === e.variant);
   const pid = e.photoId, q = shapeCenter(e.shape);
   const label = tr(t.name);
-  if (talk) await shSay(first
+  const poly = e.shape && e.shape.kind === 'poly' && Array.isArray(e.shape.pts) && e.shape.pts.length >= 3;
+  if (talk && poly) await shSay(TT(`Teraz ${label}. Ten element obrysuję wielokątem: wybieram narzędzie Wielokąt i klikam kolejne narożniki, a na koniec pierwszy punkt.`,
+    `Тепер ${label}. Цей елемент обведу багатокутником: обираю інструмент Багатокутник і клікаю кути по черзі, а наприкінці першу точку.`,
+    `Now ${label}. I’ll outline this element with a polygon: I pick the Polygon tool, click the corners one by one and finally the first point.`));
+  else if (talk) await shSay(first
     ? TT(`Pierwszy element: ${label}. Klikam miejsce na wizualizacji, gdzie ma być.`, `Перший елемент: ${label}. Клікаю місце на візуалізації, де він має бути.`, `First element: ${label}. I click the spot on the visual where it goes.`)
     : TT(`Teraz ${label}. Klikam jego miejsce.`, `Тепер ${label}. Клікаю його місце.`, `Now ${label}. I click its spot.`));
-  await shTapPhoto(pid, q);
+  if (poly) await shDrawPoly(pid, e.shape.pts); else await shTapPhoto(pid, q);
   if (!await shWaitFor(() => ARC && ARC.root.querySelector(`.arc-btn[data-t="${e.typeId}"]`))) return;
   await shWait(450);
   if (talk && first) await shSay(TT('Otwiera się menu z typami elementów. Wybieram typ.', 'Відкривається меню з типами елементів. Обираю тип.', 'A menu with element types opens. I pick the type.'));
@@ -5622,6 +5648,7 @@ async function shAddElement(e, talk, first) {
   const before = new Set(S.elements.map(x => x.id));
   await shClick('#arc .ap-go', 450);
   await shWaitFor(() => !ARC, 3000);
+  if (tool !== 'point') { await shClick('#toolbar [data-tool="point"]', 450); }
   const added = await shWaitFor(() => S.elements.find(x => !before.has(x.id)), 3000);
   await shWait(250);
   if (added) {
@@ -5695,14 +5722,71 @@ async function startShow() {
   catch (e) { if (!(e instanceof ShowStop)) { console.error(e); toast('Pokaz przerwany: ' + e.message, 'error'); } }
   endShow();
 }
-// pasek etapów: klik w etap = przeskok (wstecz albo do przodu)
+// pasek etapów: klik w etap = przeskok; kropka jedzie razem z pokazem i można ją przeciągnąć w przód / w tył
 function shStages() {
   const T = SH(); if (!T || !T.chapters) return;
   const box = $('show-stages'); if (!box) return;
   const n = T.chapters.length, cur = Math.min(T.cur || 0, n - 1);
-  box.innerHTML = T.chapters.map((c, i) => `<button type="button" class="${i < (T.cur || 0) ? 'done' : i === T.cur ? 'on' : ''}" data-k="${i}" title="${i + 1}. ${c.name}"><i></i><span>${c.name}</span></button>`).join('');
-  box.querySelectorAll('button').forEach(b => b.onclick = () => shJump(+b.dataset.k));
+  if (box.dataset.n !== String(n)) {
+    box.dataset.n = n;
+    box.innerHTML = `<div class="sc-segs">${T.chapters.map((c, i) => `<button type="button" data-k="${i}" title="${i + 1}. ${esc(c.name)}"><i></i><span>${esc(c.name)}</span></button>`).join('')}</div>
+      <div class="sc-dot-wrap"><div class="sc-play" id="show-dot"><b id="show-dot-lab"></b></div></div>`;
+    shScrubInit(box);
+  }
+  box.querySelectorAll('.sc-segs button').forEach((b, i) => { b.classList.toggle('done', i < (T.cur || 0)); b.classList.toggle('on', i === T.cur); });
   $('show-st').textContent = `${SHOW_UI.stage} ${cur + 1}/${n} · ${T.chapters[cur].name}`;
+  shDot();
+}
+// pozycja kropki: początek etapu + szacowana część etapu, która już minęła (stoi w czasie pauzy)
+function shDotPos() {
+  const T = SH(); if (!T || !T.chapters) return 0;
+  const n = T.chapters.length; if ((T.cur || 0) >= n) return 1;
+  const c = T.chapters[T.cur || 0], est = (c.est || 15) * 1000 * (T.fast ? 0.5 : 1);
+  return ((T.cur || 0) + Math.min(0.96, (T.chMs || 0) / est)) / n;
+}
+function shDot(pos) {
+  const d = $('show-dot'); if (!d) return;
+  d.style.left = ((pos == null ? shDotPos() : pos) * 100) + '%';
+}
+function shScrubInit(box) {
+  const T = SH(); if (!T) return;
+  const segs = box.querySelector('.sc-segs');
+  const posAt = x => { const r = segs.getBoundingClientRect(); return clamp((x - r.left) / r.width, 0, 0.9999); };
+  box.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const S0 = SH(); if (!S0) return;
+    S0.scrub = { x0: e.clientX, wasPaused: !!S0.paused, moved: false };
+    box.setPointerCapture(e.pointerId);
+    const mv = ev => {
+      const sc = S0.scrub; if (!sc) return;
+      if (!sc.moved && Math.abs(ev.clientX - sc.x0) < 4) return;
+      if (!sc.moved) { sc.moved = true; if (!S0.paused && S0.setPause) S0.setPause(true); box.classList.add('scrub'); }
+      const pos = posAt(ev.clientX), k = Math.floor(pos * S0.chapters.length);
+      shDot(pos);
+      $('show-dot-lab').textContent = `${k + 1}. ${S0.chapters[k].name}`;
+      box.querySelectorAll('.sc-segs button').forEach((b, i) => b.classList.toggle('hov', i === k));
+    };
+    const up = ev => {
+      box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); box.removeEventListener('pointercancel', up);
+      const sc = S0.scrub; S0.scrub = null;
+      box.classList.remove('scrub');
+      box.querySelectorAll('.sc-segs button.hov').forEach(b => b.classList.remove('hov'));
+      $('show-dot-lab').textContent = '';
+      if (!sc) return;
+      // klik albo puszczenie kropki = przeskok do etapu pod kursorem (wznawia pokaz)
+      shJump(Math.floor(posAt(ev.clientX) * S0.chapters.length));
+    };
+    box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+  });
+  // zegar kropki: czas w bieżącym etapie (bez pauz i przeciągania)
+  let last = performance.now();
+  T.dotTimer = setInterval(() => {
+    const now = performance.now(), dt = now - last; last = now;
+    const S1 = SH(); if (!S1) return;
+    if (!S1.paused && !S1.scrub && !S1.rebuilding) S1.chMs = (S1.chMs || 0) + dt;
+    if (!S1.scrub) shDot();
+  }, 120);
 }
 function shJump(k) {
   const T = SH(); if (!T || !T.chapters) return;
@@ -5718,6 +5802,8 @@ function shCleanup() {
   closeArcMenu(true);
   while (modalStack.length) modalStack[modalStack.length - 1].close();
   T.onMove = null; T.fast = false; liveShape = null; act = null;
+  if (assignTo) cancelAssign();
+  cancelDraft(); if (tool !== 'point') setTool('point');
   if (S.graphMove) toggleGraphMove(false);
   S.graphBusy = false;
   toggleSide(false); toggleLog(false);
@@ -5749,13 +5835,13 @@ function showChapters(photos, els) {
   const elByNum = n => S.elements.find(x => Number(x.num) === n);
   const thumbsFor = () => els.filter(e => e.thumb).slice(0, 3).map(src => ({ src, mine: S.elements.find(x => x.typeId === src.typeId && Number(x.w) === Number(src.w) && Number(x.h) === Number(src.h)) })).filter(x => x.mine);
   return [
-    { name: TT('Start', 'Старт', 'Start'),
+    { est: 9, name: TT('Start', 'Старт', 'Start'),
       run: async () => {
         await shSay(TT('Cześć! Pokażę, jak w INDEX powstaje opis stoiska. Zbudujemy od zera stoisko GOG na targi ISPO w Amsterdamie.',
           'Привіт! Покажу, як в INDEX створюється опис стенду. Побудуємо з нуля стенд GOG на виставку ISPO в Амстердамі.',
           'Hi! Let me show you how a stand description is made in INDEX. We will build the GOG stand for ISPO in Amsterdam from scratch.'));
       } },
-    { name: TT('Wizualizacja', 'Візуалізація', 'Visual'),
+    { est: 24, name: TT('Wizualizacja', 'Візуалізація', 'Visual'),
       run: async () => {
         await shSay(TT('Stoisko jest jeszcze puste. Najpierw dodajemy wizualizację: kopiujemy obrazek i klikamy Wklej, albo po prostu przeciągamy plik na to pole.',
           'Стенд поки порожній. Спершу додаємо візуалізацію: копіюємо зображення і натискаємо Вставити, або просто перетягуємо файл на це поле.',
@@ -5776,10 +5862,9 @@ function showChapters(photos, els) {
         fitView(); await shWait(400);
       },
       instant: async () => { for (const ph of photos) { const x = clone(ph); delete x.id; await T.mem.add(pPhotos(SHOW_PID), x, ph.id); } } },
-    { name: TT('Elementy', 'Елементи', 'Elements'),
-      run: async () => { let first = true; for (const e of talkEls) { await shAddElement(e, true, first); first = false; } },
-      instant: () => instantAdd(talkEls) },
-    { name: TT('Pozostałe', 'Решта', 'The rest'),
+    ...talkEls.map((e, i) => ({ name: `${numMark(i + 1)} · ${tr(typeById(e.typeId).name)}`, est: i ? 30 : 46,
+      run: () => shAddElement(e, true, i === 0), instant: () => instantAdd([e]) })),
+    { est: 8 + rest.length * 9, name: TT('Pozostałe', 'Решта', 'The rest'),
       run: async () => {
         if (!rest.length) return;
         await shSay(TT(`Pozostałe elementy — jeszcze ${rest.length} — dodam szybciej, tak samo.`, `Решту елементів — ще ${rest.length} — додам швидше, так само.`, `The remaining ${rest.length} elements I will add faster, the same way.`));
@@ -5788,7 +5873,7 @@ function showChapters(photos, els) {
         fitView(); await shWait(400);
       },
       instant: () => instantAdd(rest) },
-    { name: TT('Edycja', 'Редагування', 'Editing'),
+    { est: 16, name: TT('Edycja', 'Редагування', 'Editing'),
       run: async () => {
         const ed = elByNum(1) || S.elements[0]; if (!ed) return;
         await shSay(TT('Dwuklik na znaku otwiera okno elementu. Zmienię ilość na dwie sztuki.',
@@ -5809,7 +5894,7 @@ function showChapters(photos, els) {
         await shWaitFor(() => !$('ed-q'), 3000);
       },
       instant: async () => { await plainUntil(() => elByNum(1)); const ed = elByNum(1); if (ed) await T.mem.update(pElements(SHOW_PID), ed.id, { qty: 2 }); } },
-    { name: TT('Lista', 'Список', 'List'),
+    { est: 13, name: TT('Lista', 'Список', 'List'),
       run: async () => {
         setElView('table');
         await shSay(TT('Na dole jest lista wszystkich elementów: typ, wymiar netto, wymiar do druku i ilość. Klik w wiersz pokazuje element na wizualizacji.',
@@ -5818,7 +5903,7 @@ function showChapters(photos, els) {
         const row = await shWaitFor(() => document.querySelectorAll('#el-scroll tr[data-eid]')[2] || document.querySelector('#el-scroll tr[data-eid]'));
         if (row) { await shClick(row, 800); await shWait(1200); fitView(); }
       } },
-    { name: TT('Panele', 'Панелі', 'Panels'),
+    { est: 24, name: TT('Panele', 'Панелі', 'Panels'),
       run: async () => {
         await shSay(TT('Po bokach ekranu są dwie wysuwane belki.', 'По боках екрана є дві висувні смуги.', 'There are two slide-out bars at the sides of the screen.'));
         await shClick('#side-handle', 900);
@@ -5832,7 +5917,7 @@ function showChapters(photos, els) {
           'The right one is the change history: who changed what on the stand, and when. Every addition and fix ends up here.'));
         await shClick('#log-handle', 700);
       } },
-    { name: TT('Grafika', 'Графіка', 'Graphic'),
+    { est: 50, name: TT('Grafika', 'Графіка', 'Graphic'),
       run: async () => {
         await shSay(TT('Przełączam na widok Grafika — elementy jako okienka w skali, z wymiarami, jak index z Corela.',
           'Перемикаю на вигляд Графіка — елементи як віконця в масштабі з розмірами, як індекс із Corel.',
@@ -5894,7 +5979,7 @@ function showChapters(photos, els) {
         await plainUntil(() => document.querySelector('#el-scroll .gc-frame'), 3000);
         for (const { src, mine } of thumbsFor()) await T.mem.update(pElements(SHOW_PID), mine.id, { thumb: src.thumb });
       } },
-    { name: TT('Licznik', 'Лічильник', 'Countdown'),
+    { est: 22, name: TT('Licznik', 'Лічильник', 'Countdown'),
       run: async () => {
         await shMove(...shCenter($('clock-pane')), 900);
         $('clock-pane').classList.add('show-hl');
@@ -5903,7 +5988,7 @@ function showChapters(photos, els) {
           'Very important: the countdown. The green segment is the time to send the production files. Send them well in advance, because printing and production come after. Yellow is packing, a week before the fair, and red is the fair itself.'));
         $('clock-pane').classList.remove('show-hl');
       } },
-    { name: TT('Eksport', 'Експорт', 'Export'),
+    { est: 13, name: TT('Eksport', 'Експорт', 'Export'),
       run: async () => {
         await shSay(TT('Na koniec eksport: index A3 z wizualizacjami i okienkami oraz tabela A4 — do druku albo jako PDF.',
           'Наприкінці експорт: індекс A3 з візуалізаціями й віконцями та таблиця A4 — до друку або як PDF.',
@@ -5915,7 +6000,7 @@ function showChapters(photos, els) {
         const m = modalStack[modalStack.length - 1];
         if (m) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
       } },
-    { name: TT('Koniec', 'Кінець', 'End'),
+    { est: 9, name: TT('Koniec', 'Кінець', 'End'),
       run: async () => {
         setElView('table');
         await shSay(TT('Gotowe — stoisko jest opisane. Ten pokaz niczego nie zapisał. Obejrzysz go jeszcze raz ikoną obok awatara.',
@@ -5951,19 +6036,19 @@ async function runShow(photos, els) {
   let i = 0;
   while (i < T.chapters.length) {
     try {
-      T.cur = i; shStages();
+      T.cur = i; T.chMs = 0; shStages();
       await T.chapters[i].run();
       i++;
     } catch (e) {
       if (!(e instanceof ShowJump)) throw e;
       const k = T.jumpTo; T.jumpTo = null;
-      T.cur = k; shStages();
-      await shRebuildTo(k);
+      T.cur = k; T.chMs = 0; T.rebuilding = true; shStages();
+      try { await shRebuildTo(k); } finally { T.rebuilding = false; }
       if (!SH() || SH().stop) throw new ShowStop();
       i = k;
     }
   }
-  T.cur = T.chapters.length; shStages();
+  T.cur = T.chapters.length; shStages(); shDot(1);
 }
 function endShow() {
   const T = S.tour; if (!T || !T.show) return;
@@ -5972,6 +6057,7 @@ function endShow() {
   closeArcMenu(true);
   while (modalStack.length) modalStack[modalStack.length - 1].close();
   document.removeEventListener('keydown', T.keys, true);
+  clearInterval(T.dotTimer);
   ['show-block', 'show-cursor', 'show-cap'].forEach(id => { const e = $(id); if (e) e.remove(); });
   document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove());
   if (T.spc) Element.prototype.setPointerCapture = T.spc;
