@@ -5447,9 +5447,7 @@ function openTourMenu(ev) {
   const r = $('btn-tour').getBoundingClientRect();
   m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, innerWidth - r.right) + 'px';
   m.innerHTML = `<div class="mi" data-a="show"><div><b>▶ ${SHOW_UI.menuShow}</b><br><small>${SHOW_UI.menuShowSub}</small></div></div>
-    <div class="mi" data-a="tour"><div><b>▤ ${SHOW_UI.menuTour}</b><br><small>${SHOW_UI.menuTourSub}</small></div></div>
-    ${isAdmin() ? `<div class="mi" data-a="prolive"><div><b>★ ${SHOW_UI.menuProLive}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>
-    <div class="mi" data-a="pro"><div><b>☆ ${SHOW_UI.menuProSlides}</b><br><small>${SHOW_UI.menuPro}</small></div></div>` : ''}`;
+    ${isAdmin() ? `<div class="mi" data-a="prolive"><div><b>★ ${SHOW_UI.menuProLive}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>` : ''}`;
   document.body.appendChild(m);
   m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'show' ? startShow() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
   setTimeout(() => document.addEventListener('click', function f() { m.remove(); document.removeEventListener('click', f); }), 0);
