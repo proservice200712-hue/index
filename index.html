@@ -487,6 +487,17 @@
   #ax-frame .axf-bar span { flex: 1; color: #cbd5e0; font-size: 0.85rem; }
   #ax-frame .axf-bar .btn { padding: 4px 10px; }
   #ax-frame iframe { flex: 1; border: 0; background: #f0f4f8; }
+  .axpick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .axpick-cur { font-size: 0.88rem; background: #f1f8ec; border-left: 3px solid var(--accent); padding: 5px 9px; }
+  .axp-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .axp-top input { flex: 1; min-width: 180px; padding: 8px 10px; border: 1.5px solid var(--line); font-size: 0.9rem; }
+  .axp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; max-height: 60vh; overflow-y: auto; padding: 2px; }
+  .axp-tile { display: flex; flex-direction: column; gap: 4px; text-align: left; background: #fff; border: 1.5px solid var(--line); padding: 6px; cursor: pointer; font: inherit; color: var(--dark); }
+  .axp-tile:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  .axp-tile img, .axp-tile .axp-noimg { width: 100%; aspect-ratio: 24 / 17; object-fit: contain; background: #f0f4f8; }
+  .axp-tile .axp-noimg { display: flex; align-items: center; justify-content: center; color: var(--gray); font-size: 0.75rem; }
+  .axp-tile b { font-size: 0.85rem; }
+  .axp-tile small { font-size: 0.72rem; color: var(--gray); }
   .ax-badge { display: inline-block; font-size: 0.68rem; font-weight: 800; color: #fff; background: #2d3748; padding: 2px 6px; margin-right: 4px; text-decoration: none; white-space: nowrap; }
   .ax-badge:hover { background: var(--accent); color: var(--dark); }
   .ord-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
@@ -1679,6 +1690,9 @@ async function syncDoorElement(mainId, main) {
   addLog(pid, `Dodano drzwi do ściany ${markOf(main)} — grafika na drzwi ${grossTxt(rec)} ${UNIT()}`, id);
 }
 // spady do wyboru (Blackback standard i Folia): automatyczne z typu, jeden dla wszystkich stron albo różne z każdej strony
+// pola powiązania z Archiwum X do zapisu; zdjęcie z archiwum trafia na miniaturę tylko przy nowym wyborze
+const axFields = d => ({ archiwumId: d.archiwumId || '', archiwumNo: d.archiwumNo || '', archiwumKind: d.archiwumKind || '', archiwumName: d.archiwumName || '',
+  archiwumTag: d.archiwumTag || '', archiwumIds: d.archiwumIds || [], archiwumNos: d.archiwumNos || [], ...(d.axThumb ? { thumb: d.thumb || '' } : {}) });
 const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat');
 const BLEED_SIDES = [['l', 'lewy'], ['r', 'prawy'], ['t', 'góra'], ['b', 'dół']];
 const bleedCell = (el, g) => el.bleedBox ? `${lenPL(el.bleedBox.l)}/${lenPL(el.bleedBox.r)}/${lenPL(el.bleedBox.t)}/${lenPL(el.bleedBox.b)}` : (g.b ? bleedTxt(g.b) : '—');
@@ -3295,11 +3309,20 @@ function axGuess(el) {
     default: return { type: '3D blokowe', light: [] };
   }
 }
-const axLink = el => el.archiwumId ? AX_URL + '?id=' + encodeURIComponent(el.archiwumId) : '';
+const axLink = el => { const id = el.archiwumId || (el.archiwumIds || [])[0]; return id ? AX_URL + '?id=' + encodeURIComponent(id) : ''; };
+const axLinked = el => !!(el.archiwumId || el.archiwumKind);
+// znaczek powiązania: eksponat „AX #12”, komplet „AX K3”, grupa „AX G5”
+function axBadge(el, cls = 'ax-badge') {
+  if (!axLinked(el)) return '';
+  const txt = el.archiwumId ? '#' + (el.archiwumNo || '?') : (el.archiwumTag || (el.archiwumKind === 'set' ? 'komplet' : 'grupa'));
+  const tip = el.archiwumId ? 'Eksponat w Archiwum X — otwórz kartę'
+    : `${el.archiwumKind === 'set' ? 'Komplet' : 'Grupa'} w Archiwum X: ${el.archiwumName || ''} (${(el.archiwumNos || []).map(n => '#' + n).join(', ')}) — otwórz pierwszy eksponat`;
+  return `<a class="${cls}" href="${esc(axLink(el))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(tip)}">${cls === 'ax-badge' ? 'AX' : '🗄 Archiwum X'} ${esc(txt)}</a>`;
+}
 let axJob = null;
 function openArchiwumDialog(eid) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project || !isAdmin()) return;
-  if (el.archiwumId) { window.open(axLink(el), '_blank'); return; }
+  if (axLinked(el)) { window.open(axLink(el), '_blank'); return; }
   const p = S.project, g = axGuess(el);
   // wymiary w jednostce, w której dany użytkownik pracuje w Archiwum X (DM w mm, reszta w cm)
   const mm = S.me.login === 'DM', dim = v => Number(v) > 0 ? (mm ? Number(v) : Math.round(Number(v)) / 10) : '';
@@ -3338,6 +3361,109 @@ window.addEventListener('message', async ev => {
     } catch (e) { toast('Eksponat zapisany w Archiwum X, ale nie udało się połączyć go z elementem: ' + e.message, 'error', 7000); }
   }
 });
+
+// =====================================================================
+//  WYBÓR Z ARCHIWUM X: element Logo 3D może być istniejącym eksponatem, kompletem (K) albo grupą (G).
+//  Komplet = jedno logo z części, grupa = kilka sztuk tego samego (jak w Archiwum X).
+//  Czytamy prawdziwe kolekcje Archiwum X, tylko do odczytu — także w piaskownicy.
+// =====================================================================
+let AXC = null;
+const axPhoto = r => r.cover === 'screen' ? (r.photoScreen || r.photoCamera || '') : (r.photoCamera || r.photoScreen || '');
+const axMM = (r, v) => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return n > 0 ? Math.round(n * (r.dimUnit === 'mm' ? 1 : 10) * 10) / 10 : ''; };
+const axDimTxt = r => r.width && r.height ? `${r.width} × ${r.height} ${r.dimUnit || 'cm'}` : '';
+function axCompany(items) {
+  const n = new Map(); items.forEach(r => { const c = (r.company || '').trim(); if (c) n.set(c, (n.get(c) || 0) + 1); });
+  return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+// wykonanie w INDEX z typu i podświetlenia eksponatu
+function axVariant(r) {
+  const t = String(r.type || '').toLowerCase(), li = Array.isArray(r.lighting) ? r.lighting : [r.lighting || ''];
+  if (t.startsWith('pcw')) return 'pcw';
+  if (t.includes('neon')) return 'neon';
+  if (t.includes('pleksi') || t.includes('plexi')) return 'plexi';
+  if (li.includes('HALO')) return 'halo';
+  if (li.includes('Frontlit') || li.includes('Sidelit') || t.startsWith('led')) return 'cnc-led';
+  if (t.startsWith('3d blokowe')) return 'blok';
+  return '';
+}
+async function axLoad(force) {
+  if (AXC && !force) return AXC;
+  const [recs, cats] = await Promise.all([DB.list('records'), DB.list('catalogs')]);
+  const live = recs.filter(r => r.status !== 'archiwum').sort((a, b) => (Number(b.number) || 0) - (Number(a.number) || 0));
+  const meta = {}; cats.forEach(c => { if (c.name) meta[c.name] = c; });
+  const tagOf = n => { const c = meta[n]; if (!c) return ''; const k = c.kind === 'set' ? c.knum : c.gnum; return k ? (c.kind === 'set' ? 'K' : 'G') + k : ''; };
+  const parentOf = n => { const p = meta[n] && meta[n].parent; return p && p !== n && meta[p] ? p : ''; };
+  const direct = n => live.filter(r => (r.catalog || '') === n);
+  const conts = Object.values(meta).map(c => {
+    const kind = c.kind === 'set' ? 'set' : 'group';
+    const sets = kind === 'group' ? Object.values(meta).filter(k => k.kind === 'set' && parentOf(k.name) === c.name).map(k => k.name) : [];
+    const items = direct(c.name).concat(...sets.map(direct)).sort((a, b) => (Number(a.number) || 0) - (Number(b.number) || 0));
+    const company = axCompany(items);
+    const tag = [parentOf(c.name) ? tagOf(parentOf(c.name)) : '', tagOf(c.name)].filter(Boolean).join(' ');
+    return { kind, name: c.name, tag: tagOf(c.name), fullTag: tag, image: c.image || (items[0] ? axPhoto(items[0]) : ''), items, sets,
+      title: c.custom ? c.name : (company || c.name) };
+  }).filter(c => c.items.length).sort((a, b) => a.title.localeCompare(b.title, 'pl'));
+  AXC = { recs: live, conts };
+  return AXC;
+}
+function openAxPicker(onPick) {
+  let kind = 'rec', data = null;
+  const m = openModal({ title: '🗄 Wybierz z Archiwum X', wide: true, body: `
+    <div class="axp-top"><div class="seg" id="axp-kind"><button type="button" data-k="rec" class="on">Eksponat</button><button type="button" data-k="set">Komplet</button><button type="button" data-k="group">Grupa</button></div>
+      <input type="search" id="axp-q" placeholder="Szukaj: firma, numer, K3, G5, typ…"><button type="button" class="btn btn-sm" id="axp-ref" title="Wczytaj Archiwum X od nowa">⟳</button></div>
+    <div class="axp-list" id="axp-list"><div class="hint">Wczytuję Archiwum X…</div></div>` });
+  const tile = (i, img, title, sub) => `<button type="button" class="axp-tile" data-i="${i}">${img ? `<img src="${esc(img.includes('/upload/') ? img.replace('/upload/', '/upload/c_fit,w_320,h_230,q_auto/') : img)}" alt="" loading="lazy">` : '<span class="axp-noimg">brak zdjęcia</span>'}
+    <b>${esc(title)}</b><small>${esc(sub)}</small></button>`;
+  let shown = [];
+  const render = () => {
+    if (!data) return;
+    const q = $('axp-q').value.trim().toLowerCase();
+    const hit = s => !q || s.toLowerCase().includes(q);
+    if (kind === 'rec') {
+      shown = data.recs.filter(r => hit(`${r.company} #${r.number} ${r.number} ${r.type} ${(r.lighting || []).join?.(' ') || ''}`)).slice(0, 150);
+      $('axp-list').innerHTML = shown.map((r, i) => tile(i, axPhoto(r), `${r.company || '—'} #${r.number || '?'}`, [r.type, axDimTxt(r)].filter(Boolean).join(' · '))).join('');
+    } else {
+      shown = data.conts.filter(c => c.kind === kind && hit(`${c.title} ${c.name} ${c.fullTag} ${c.items.map(r => '#' + r.number + ' ' + r.company).join(' ')}`)).slice(0, 150);
+      $('axp-list').innerHTML = shown.map((c, i) => tile(i, c.image, `${c.title} ${c.fullTag}`,
+        `${kind === 'set' ? 'komplet — ' + c.items.length + (c.items.length === 1 ? ' część' : ' części') : 'grupa — ' + c.items.length + ' szt.'} · ${c.items.map(r => '#' + r.number).join(', ')}`)).join('');
+    }
+    if (!shown.length) $('axp-list').innerHTML = `<div class="hint">${q ? 'Nic nie pasuje do „' + esc(q) + '”.' : kind === 'rec' ? 'Brak eksponatów.' : kind === 'set' ? 'Brak kompletów.' : 'Brak grup.'}</div>`;
+    $('axp-list').querySelectorAll('.axp-tile').forEach(b => b.onclick = () => {
+      const x = shown[Number(b.dataset.i)];
+      m.close();
+      onPick(kind === 'rec' ? { kind: 'rec', rec: x } : { kind, cont: x });
+    });
+  };
+  m.el.querySelectorAll('#axp-kind button').forEach(b => b.onclick = () => {
+    kind = b.dataset.k; m.el.querySelectorAll('#axp-kind button').forEach(x => x.classList.toggle('on', x === b)); render();
+  });
+  $('axp-q').addEventListener('input', render);
+  const load = force => axLoad(force).then(d => { data = d; render(); })
+    .catch(e => { $('axp-list').innerHTML = `<div class="hint">Nie udało się wczytać Archiwum X: ${esc(e.message)}</div>`; });
+  $('axp-ref').onclick = () => { $('axp-list').innerHTML = '<div class="hint">Wczytuję Archiwum X…</div>'; load(true); };
+  load(false);
+}
+function axClearPick(el) {
+  Object.assign(el, { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [] });
+}
+// przepisuje do elementu dane wybranego eksponatu / kompletu / grupy; zwraca linijkę do uwag
+function axApplyPick(el, pick) {
+  axClearPick(el);
+  const items = pick.kind === 'rec' ? [pick.rec] : pick.cont.items, r0 = items[0];
+  if (pick.kind === 'rec') Object.assign(el, { archiwumId: r0.id, archiwumNo: r0.number || '' });
+  else Object.assign(el, { archiwumKind: pick.kind, archiwumName: pick.cont.name, archiwumTag: pick.cont.fullTag || pick.cont.tag,
+    archiwumIds: items.map(r => r.id), archiwumNos: items.map(r => r.number || '') });
+  const v = axVariant(r0); if (v) el.variant = v;
+  // komplet z kilku części nie ma jednego wymiaru — wymiary części idą do uwag
+  const oneDim = pick.kind !== 'set' || items.length === 1;
+  if (oneDim) { el.w = axMM(r0, r0.width); el.h = axMM(r0, r0.height); if (axMM(r0, r0.thickness)) el.thick = axMM(r0, r0.thickness); }
+  el.qty = pick.kind === 'group' ? items.length : 1;
+  const img = pick.kind === 'rec' ? axPhoto(r0) : pick.cont.image;
+  if (img) { el.thumb = img; el.axThumb = true; }
+  const head = pick.kind === 'rec' ? `${r0.company || '—'} #${r0.number || '?'}` : `${pick.cont.title} ${pick.cont.fullTag || ''}`.trim();
+  if (!el.name) el.name = head;
+  return `Archiwum X: ${head}` + (pick.kind === 'rec' ? '' : ` (${pick.kind === 'set' ? 'komplet' : 'grupa'}: ` + items.map(r => '#' + r.number + (axDimTxt(r) ? ' ' + axDimTxt(r) : '')).join(', ') + ')');
+}
 
 function startTurbo() {
   if (!isAdmin() || !S.project) return;
@@ -3427,7 +3553,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         </div></details>` : ''}`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
       ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
-      ${editing.archiwumId ? `<a class="btn" href="${esc(axLink(editing))}" target="_blank" rel="noopener">🗄 Archiwum X #${esc(editing.archiwumNo || '?')}</a>`
+      ${axLinked(editing) ? axBadge(editing, 'btn')
         : isAdmin() && editing.typeId === 'logo3d' ? '<button class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}` : ''}
       ${turbo && !editing ? '<span class="turbo-tag" style="margin-right:auto">⚡ Turbo — Enter = dodaj i następny</span>' : ''}
       <button class="btn" data-c>${turbo && !editing ? 'Zakończ wpisywanie' : 'Anuluj'}</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : turbo ? 'Dodaj i następny ↵' : 'Dodaj element'}</button>`,
@@ -3458,6 +3584,15 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   const renderOpts = () => {
     const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
     let h = '';
+    if (t && t.id === 'logo3d') {
+      const ax = el.archiwumId ? `eksponat <b>#${esc(el.archiwumNo || '?')}</b>`
+        : el.archiwumKind ? `${el.archiwumKind === 'set' ? 'komplet' : 'grupa'} <b>${esc(el.archiwumTag || el.archiwumName || '')}</b> · ${(el.archiwumNos || []).map(n => '#' + esc(n)).join(', ')}` : '';
+      h += `<div class="fld axpick"><label>Z Archiwum X</label><div class="axpick-row">
+        ${ax ? `<span class="axpick-cur">🗄 ${ax}</span>` : ''}
+        <button type="button" class="btn btn-sm" id="ed-axpick">${ax ? 'Zmień' : '🗄 Wybierz eksponat, komplet albo grupę'}</button>
+        ${ax ? '<button type="button" class="btn btn-sm" id="ed-axclear" title="Odłącz od Archiwum X (wymiary zostają)">✕ Odłącz</button>' : ''}</div>
+        ${ax ? '' : '<div class="hint">Gotowe logo z magazynu — wymiar, wykonanie i zdjęcie przepiszą się same.</div>'}</div>`;
+    }
     if (t && t.variants && t.variants.length) {
       h += `<div class="fld"><label>${t.id === 'podwieszana' ? 'Kształt konstrukcji' : 'Wykonanie'}</label>
         <div class="var-list">${t.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === el.variant ? 'on' : ''}" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>`;
@@ -3501,6 +3636,14 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     }
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, bez spadu)</span></span></label>`;
     $('ed-opts').innerHTML = h;
+    const axp = $('ed-axpick'); if (axp) axp.onclick = () => openAxPicker(pick => {
+      const line = axApplyPick(el, pick);
+      $('ed-w').value = fromMM(el.w); $('ed-h').value = fromMM(el.h); $('ed-q').value = el.qty || 1;
+      if (!$('ed-name').value.trim()) $('ed-name').value = el.name || '';
+      const nt = $('ed-notes'); if (!nt.value.includes(line)) nt.value = (nt.value.trim() ? nt.value.trim() + '\n' : '') + line;
+      renderOpts(); refresh();
+    });
+    const axc = $('ed-axclear'); if (axc) axc.onclick = () => { axClearPick(el); renderOpts(); refresh(); };
     const ins = $('ed-inside'); if (ins) ins.addEventListener('change', () => { el.inside = ins.checked; refresh(); });
     const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
@@ -3606,6 +3749,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       if (editing) {
         const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         if (isAdmin()) Object.assign(fields, { bleedOverride: d.bleedOverride, eltex: d.eltex }); else if (sideBleedOk(d)) fields.bleedOverride = d.bleedOverride;
+        Object.assign(fields, axFields(d));
         fields.bleedBox = d.bleedBox || null;
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
@@ -3616,6 +3760,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (isAdmin()) Object.assign(rec, { bleedOverride: d.bleedOverride, eltex: d.eltex }); else if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
+        Object.assign(rec, axFields(d));
         if (d.bleedBox) rec.bleedBox = d.bleedBox;
         const newId = await DB.add(pElements(pid), rec);
         if (hasDoor(rec)) await syncDoorElement(newId, { ...rec, id: newId });
@@ -4046,7 +4191,7 @@ function renderElements() {
         <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
           ${e.shape ? '' : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
-          ${e.archiwumId ? `<a class="ax-badge" href="${esc(axLink(e))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Eksponat w Archiwum X — otwórz kartę">AX #${esc(e.archiwumNo || '?')}</a>`
+          ${axLinked(e) ? axBadge(e)
             : isAdmin() && e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
           <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
           <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
