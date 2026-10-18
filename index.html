@@ -1693,7 +1693,7 @@ async function syncDoorElement(mainId, main) {
 // pola powiązania z Archiwum X do zapisu; zdjęcie z archiwum trafia na miniaturę tylko przy nowym wyborze
 const axFields = d => ({ archiwumId: d.archiwumId || '', archiwumNo: d.archiwumNo || '', archiwumKind: d.archiwumKind || '', archiwumName: d.archiwumName || '',
   archiwumTag: d.archiwumTag || '', archiwumIds: d.archiwumIds || [], archiwumNos: d.archiwumNos || [], ...(d.axThumb ? { thumb: d.thumb || '' } : {}) });
-const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat');
+const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat' || el.typeId === 'pcw');
 const BLEED_SIDES = [['l', 'lewy'], ['r', 'prawy'], ['t', 'góra'], ['b', 'dół']];
 const bleedCell = (el, g) => el.bleedBox ? `${lenPL(el.bleedBox.l)}/${lenPL(el.bleedBox.r)}/${lenPL(el.bleedBox.t)}/${lenPL(el.bleedBox.b)}` : (g.b ? bleedTxt(g.b) : '—');
 
@@ -3546,6 +3546,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         <div id="ed-planes" class="hidden"></div>
       </div>
       <div class="calc" id="ed-calc"></div>
+      <div id="ed-bleedopts"></div>
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>
       ${isAdmin() ? `<details class="adm" ${el.eltex || (el.bleedOverride !== undefined && el.bleedOverride !== '') ? 'open' : ''}><summary>Ustawienia produkcyjne (tylko administrator)</summary>
         <div class="row2" style="margin-top:10px">
@@ -3623,13 +3624,15 @@ function openElementDialog({ id, shape, photoId, turbo }) {
           <div id="ed-door-prev"></div>
           <div class="hint">Drzwi dostaną osobny element „Drzwi — ${esc(lab)}” (grafika na drzwi) obok ściany.</div></div>` : ''}</div>`;
     }
+    // spady (Blackback standard, Folia, Płyta PCW) — pod wymiarem, nad uwagami
+    let hb = '';
     if (t && sideBleedOk(el)) {
       const auto = bleedOf({ ...el, bleedOverride: '', bleedBox: null, eltex: false });
       if (!el.bleedMode) el.bleedMode = el.bleedBox ? 'sides' : (el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '') ? 'all' : 'auto';
       if (el.bleedAll == null) el.bleedAll = el.bleedMode === 'all' ? Number(el.bleedOverride) || 0 : auto;
       if (!el.bleedSides) el.bleedSides = el.bleedBox ? { ...el.bleedBox } : { l: auto, r: auto, t: auto, b: auto };
       const bm = el.bleedMode;
-      h += `<div class="fld bleed-fld"><label>Spady</label><div class="var-list">
+      hb = `<div class="fld bleed-fld" style="margin-top:12px"><label>Spady</label><div class="var-list">
         <button type="button" class="type-btn var-btn ${bm === 'auto' ? 'on' : ''}" data-bmode="auto">Automatycznie · ${lenPL(auto)} ${UNIT()}</button>
         <button type="button" class="type-btn var-btn ${bm === 'all' ? 'on' : ''}" data-bmode="all">Jeden dla wszystkich stron</button>
         <button type="button" class="type-btn var-btn ${bm === 'sides' ? 'on' : ''}" data-bmode="sides">Różne dla każdej strony</button></div>
@@ -3638,6 +3641,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     }
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, bez spadu)</span></span></label>`;
     $('ed-opts').innerHTML = h;
+    $('ed-bleedopts').innerHTML = hb;
     const axp = $('ed-axpick'); if (axp) axp.onclick = () => openAxPicker(pick => {
       const line = axApplyPick(el, pick);
       $('ed-w').value = fromMM(el.w); $('ed-h').value = fromMM(el.h); $('ed-q').value = el.qty || 1;
@@ -3652,10 +3656,10 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-opts').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
-    $('ed-opts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
+    $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
     const bla = $('ed-bl-all'); if (bla) bla.addEventListener('input', () => { el.bleedAll = toMM(bla.value); refresh(); });
-    $('ed-opts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
-    // ręczny spad administratora — przy Blackback standard / Folii zastępuje go wybór spadów wyżej
+    $('ed-bleedopts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
+    // ręczny spad administratora — przy Blackback standard / Folii / PCW zastępuje go wybór spadów
     const admB = $('ed-bleed'); if (admB) admB.closest('.fld').classList.toggle('hidden', sideBleedOk(el));
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
