@@ -1244,8 +1244,9 @@ I18N_PAIRS.push(['⬠ Zmień na wielokąt', '⬠ Змінити на багат�
   ['Narysuj obrys elementu jeszcze raz — narożnik po narożniku', 'Обвести елемент ще раз — кут за кутом', 'Draw the element outline again — corner by corner'],
   ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)']);
 I18N_PAIRS.push(['produkcja', 'виробництво', 'production'],
-  ['Folia z laminatem: krótszy bok do druku ma ponad 150 cm — będzie musiała być dzielona na pasy', 'Плівка з ламінатом: коротший бік до друку понад 150 см — її доведеться ділити на смуги', 'Laminated foil: the shorter print side is over 150 cm — it will have to be split into strips'],
-  ['folia laminowana — krótszy bok ponad 150 cm, będzie dzielona', 'ламінована плівка — коротший бік понад 150 см, буде ділитися', 'laminated foil — shorter side over 150 cm, will be split']);
+  ['Wydruk na folii (z laminatem lub bez): krótszy bok do druku ma ponad 150 cm — będzie musiał być dzielony na pasy', 'Друк на плівці (з ламінатом чи без): коротший бік до друку понад 150 см — його доведеться ділити на смуги', 'Foil print (with or without laminate): the shorter print side is over 150 cm — it will have to be split into strips'],
+  ['wydruk na folii — krótszy bok ponad 150 cm, będzie dzielony', 'друк на плівці — коротший бік понад 150 см, буде ділитися', 'foil print — shorter side over 150 cm, will be split'],
+  ['dzielony (krótszy bok ponad 150 cm)', 'ділиться (коротший бік понад 150 см)', 'split (shorter side over 150 cm)']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -1786,11 +1787,11 @@ async function syncDoorElement(mainId, main) {
 // pola powiązania z Archiwum X do zapisu; zdjęcie z archiwum trafia na miniaturę tylko przy nowym wyborze
 const axFields = d => ({ archiwumId: d.archiwumId || '', archiwumNo: d.archiwumNo || '', archiwumKind: d.archiwumKind || '', archiwumName: d.archiwumName || '',
   archiwumTag: d.archiwumTag || '', archiwumIds: d.archiwumIds || [], archiwumNos: d.archiwumNos || [], ...(d.axThumb ? { thumb: d.thumb || '' } : {}) });
-// folia z laminatem: gdy krótszy bok do druku ma ponad 150 cm, trzeba ją dzielić na pasy
+// wydruk na folii (z laminatem i bez): gdy krótszy bok do druku ma ponad 150 cm, trzeba go dzielić na pasy
 const SPLIT_MM = 1500;
-const needsSplit = el => el.typeId === 'folia-laminat' && !!el.laminate && hasDims(el) && Math.min(grossOf(el).w, grossOf(el).h) > SPLIT_MM;
-const SPLIT_TXT = 'folia laminowana — krótszy bok ponad 150 cm, będzie dzielona';
-const splitBadge = el => needsSplit(el) ? `<span class="split-warn" title="Folia z laminatem: krótszy bok do druku ma ponad 150 cm — będzie musiała być dzielona na pasy">!</span>` : '';
+const needsSplit = el => el.typeId === 'folia-laminat' && hasDims(el) && Math.min(grossOf(el).w, grossOf(el).h) > SPLIT_MM;
+const SPLIT_TXT = 'wydruk na folii — krótszy bok ponad 150 cm, będzie dzielony';
+const splitBadge = el => needsSplit(el) ? `<span class="split-warn" title="Wydruk na folii (z laminatem lub bez): krótszy bok do druku ma ponad 150 cm — będzie musiał być dzielony na pasy">!</span>` : '';
 const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat' || el.typeId === 'pcw');
 const BLEED_SIDES = [['l', 'lewy'], ['r', 'prawy'], ['t', 'góra'], ['b', 'dół']];
 const bleedCell = (el, g) => el.bleedBox ? `${lenPL(el.bleedBox.l)}/${lenPL(el.bleedBox.r)}/${lenPL(el.bleedBox.t)}/${lenPL(el.bleedBox.b)}` : (g.b ? bleedTxt(g.b) : '—');
@@ -4413,7 +4414,7 @@ function orderLine(e) {
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
   if (hasDoor(e)) parts.push('z drzwiami (osobny element)');
-  if (needsSplit(e)) parts.push('dzielona (krótszy bok ponad 150 cm)');
+  if (needsSplit(e)) parts.push('dzielony (krótszy bok ponad 150 cm)');
   if (e.notes) parts.push(e.notes);
   return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
 }
