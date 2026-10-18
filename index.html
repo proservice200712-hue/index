@@ -614,6 +614,9 @@
   #tour-tip .tt-dots i { width: 7px; height: 7px; border-radius: 50% !important; background: #cbd5e0; }
   #tour-tip .tt-dots i.on { background: #67b437; }
   #tour-tip .tt-ro { margin-top: 10px; font-size: .75rem; color: #718096; }
+  .split-warn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50% !important; background: #e53e3e; color: #fff;
+    font: 800 .7rem/1 'Segoe UI', Arial, sans-serif; vertical-align: middle; cursor: help; animation: scDot 1.4s infinite; }
+  .split-line { margin-top: 4px; color: #c53030; font-weight: 600; }
   /* POKAZ Z LEKTOREM: kursor, napisy, sterowanie */
   #show-block { position: fixed; inset: 0; z-index: 990; background: transparent; cursor: default; }
   #show-cursor { position: fixed; z-index: 1003; width: 30px; height: 30px; margin: -3px 0 0 -5px; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); transition: transform .12s; }
@@ -799,7 +802,7 @@
       </svg>
       <div class="cl-lab" id="cl-lab"></div>
       <div class="cl-sub" id="cl-sub"></div>
-      <div class="cl-legend"><span><i style="background:#67b437"></i>grafika</span><span><i style="background:#ecc94b"></i>pakowanie</span><span><i style="background:#e53e3e"></i>impreza</span></div>
+      <div class="cl-legend"><span><i style="background:#67b437"></i>grafika</span><span><i style="background:#ecc94b"></i>produkcja</span><span><i style="background:#e53e3e"></i>impreza</span></div>
     </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
@@ -907,7 +910,7 @@ const USER_COLORS = ['#38a169','#3182ce','#e53e3e','#d69e2e','#805ad5','#dd6b20'
 const DEFAULT_TYPES = [
   { id: 'folia-kontur', order: 1, name: 'Folia cięta po konturze', color: '#45b731', bleed: 0, icon: 'cut', finish: true, transfer: true,
     desc: 'Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.' },
-  { id: 'folia-laminat', order: 2, name: 'Folia', color: '#00a0e3', bleed: 10, icon: 'print', laminate: true,
+  { id: 'folia-laminat', order: 2, name: 'Folia', color: '#00a0e3', bleed: 50, icon: 'print', laminate: true,
     desc: 'Zadrukowana folia oklejająca całą powierzchnię (ściana, lada, słup). W opcjach zaznacz, czy z laminatem.' },
   { id: 'pcw', order: 3, name: 'Płyta PCW', color: '#e31e24', bleed: 0, icon: 'board', thick: true, contour: true,
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
@@ -953,7 +956,7 @@ function fmtShort(d) { const x = new Date(d); return `${pad(x.getDate())}.${pad(
 function numPL(v, dec = 2) { return Number(v || 0).toLocaleString('pl-PL', { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
 function intPL(v) { return v === '' || v == null ? '' : Number(v).toLocaleString('pl-PL', { maximumFractionDigits: 1 }); }
 // Jednostki: w bazie zawsze mm. Krzysztof (KG) domyślnie pracuje w cm, pozostali w mm — zmiana w menu awatara.
-const UNIT = () => (S.me && (S.me.unit || (S.me.id === 'kg' ? 'cm' : 'mm'))) || 'mm';
+const UNIT = () => S.tour ? 'mm' : (S.me && (S.me.unit || (S.me.id === 'kg' ? 'cm' : 'mm'))) || 'mm'; // prezentacje i pokaz zawsze w mm
 function lenPL(mm) {
   if (mm === '' || mm == null) return '';
   return UNIT() === 'cm' ? (Math.round(Number(mm)) / 10).toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : intPL(mm);
@@ -1237,6 +1240,9 @@ I18N_PAIRS.push(['⬠ Zmień na wielokąt', '⬠ Змінити на багат�
   ['Zamiast punktu: obrys elementu wielokątem — narożnik po narożniku', 'Замість точки: обвести елемент багатокутником — кут за кутом', 'Instead of a point: outline the element with a polygon — corner by corner'],
   ['Narysuj obrys elementu jeszcze raz — narożnik po narożniku', 'Обвести елемент ще раз — кут за кутом', 'Draw the element outline again — corner by corner'],
   ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)']);
+I18N_PAIRS.push(['produkcja', 'виробництво', 'production'],
+  ['Folia z laminatem: krótszy bok do druku ma ponad 150 cm — będzie musiała być dzielona na pasy', 'Плівка з ламінатом: коротший бік до друку понад 150 см — її доведеться ділити на смуги', 'Laminated foil: the shorter print side is over 150 cm — it will have to be split into strips'],
+  ['folia laminowana — krótszy bok ponad 150 cm, będzie dzielona', 'ламінована плівка — коротший бік понад 150 см, буде ділитися', 'laminated foil — shorter side over 150 cm, will be split']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -1646,7 +1652,7 @@ function wysNumFor(d, selfId) {
 }
 // uwagi do tabel: SEG z opcji + to, co wpisano
 const notesOf = el => { const t = typeById(el.typeId);
-  return [t.seg && el.seg ? 'SEG' : '', t.wyslona && el.wyslona ? 'Wysłona' : '', el.notes || ''].filter(Boolean).join(' · '); };
+  return [t.seg && el.seg ? 'SEG' : '', t.wyslona && el.wyslona ? 'Wysłona' : '', needsSplit(el) ? '! ' + SPLIT_TXT : '', el.notes || ''].filter(Boolean).join(' · '); };
 function typeLabel(el) {
   const t = typeById(el.typeId), v = variantOf(el);
   let s = t.name;
@@ -1765,6 +1771,11 @@ async function syncDoorElement(mainId, main) {
 // pola powiązania z Archiwum X do zapisu; zdjęcie z archiwum trafia na miniaturę tylko przy nowym wyborze
 const axFields = d => ({ archiwumId: d.archiwumId || '', archiwumNo: d.archiwumNo || '', archiwumKind: d.archiwumKind || '', archiwumName: d.archiwumName || '',
   archiwumTag: d.archiwumTag || '', archiwumIds: d.archiwumIds || [], archiwumNos: d.archiwumNos || [], ...(d.axThumb ? { thumb: d.thumb || '' } : {}) });
+// folia z laminatem: gdy krótszy bok do druku ma ponad 150 cm, trzeba ją dzielić na pasy
+const SPLIT_MM = 1500;
+const needsSplit = el => el.typeId === 'folia-laminat' && !!el.laminate && hasDims(el) && Math.min(grossOf(el).w, grossOf(el).h) > SPLIT_MM;
+const SPLIT_TXT = 'folia laminowana — krótszy bok ponad 150 cm, będzie dzielona';
+const splitBadge = el => needsSplit(el) ? `<span class="split-warn" title="Folia z laminatem: krótszy bok do druku ma ponad 150 cm — będzie musiała być dzielona na pasy">!</span>` : '';
 const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat' || el.typeId === 'pcw');
 const BLEED_SIDES = [['l', 'lewy'], ['r', 'prawy'], ['t', 'góra'], ['b', 'dół']];
 const bleedCell = (el, g) => el.bleedBox ? `${lenPL(el.bleedBox.l)}/${lenPL(el.bleedBox.r)}/${lenPL(el.bleedBox.t)}/${lenPL(el.bleedBox.b)}` : (g.b ? bleedTxt(g.b) : '—');
@@ -3253,7 +3264,7 @@ function arcEl() {
 function arcCalc() {
   const c = ARC && ARC.root.querySelector('#ap-calc'); if (!c) return;
   const e = arcEl(), g = grossOf(e);
-  c.innerHTML = hasDims(e) ? `druk <b>${grossTxt(e)} ${UNIT()}</b> · spad ${bleedTxt(g.b)} · <b>${numPL(areaOf(e))} m²</b>`
+  c.innerHTML = hasDims(e) ? `druk <b>${grossTxt(e)} ${UNIT()}</b> · spad ${bleedTxt(g.b)} · <b>${numPL(areaOf(e))} m²</b>${needsSplit(e) ? `<div class="split-line">${splitBadge(e)} ${SPLIT_TXT}</div>` : ''}`
     : `<span class="w">wymiar do ustalenia</span> · spad ${bleedTxt(g.b)}`;
 }
 async function arcSave() {
@@ -3809,7 +3820,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
       : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? bleedTxt(g.b) + '</b> / stronę' : 'brak</b>'}`
       : `${dimsMode(cur) === 'flat' && !isHang(cur) ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${g.box ? bleedCell(cur, g) + ' ' + UNIT() + '</b> <span style="color:var(--gray)">(lewy/prawy/góra/dół)</span><b>' : bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
-         · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>`;
+         · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>${needsSplit(cur) ? `<div class="split-line">${splitBadge(cur)} ${SPLIT_TXT}</div>` : ''}`;
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
     if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; el.wyslona = false; Object.assign(el, togReset()); }
@@ -3956,7 +3967,9 @@ function renderGraph() {
   const k = Math.min(avail / maxH, 320 / maxW);
   const cards = S.elements.map(e => {
     const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = grossOf(e);
-    const FW = dims ? Math.max(36, g.w * k) : 120, FH = dims ? Math.max(36, g.h * k) : 80;
+    // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
+    const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
+    const FW = dims ? Math.max(8, fw0 * up) : 120, FH = dims ? Math.max(8, fh0 * up) : 80;
     const bw = dims && g.b ? Math.min(FW / 4, Math.max(3, g.b * k)) : 0, bh = dims && g.b ? Math.min(FH / 4, Math.max(3, g.b * k)) : 0;
     const LM = !dims ? 0 : g.b ? 56 : 32, BM = !dims ? 0 : g.b ? 44 : 24;
     const W = LM + FW + 4, H = FH + BM;
@@ -3989,7 +4002,7 @@ function renderGraph() {
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : isHang(e) ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · ${(planesOf(e) || []).length} pł. do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${t.color};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
-      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
+      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
@@ -4284,7 +4297,7 @@ function renderElements() {
         <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
         <td class="num" ${e.bleedBox ? 'title="spad: lewy / prawy / góra / dół"' : ''}>${bleedCell(e, g)}</td>
-        <td class="dims">${dims ? (isHang(e) ? planesTxt(e, '<br>') : grossTxt(e)) : ''}</td>
+        <td class="dims">${dims ? (isHang(e) ? planesTxt(e, '<br>') : grossTxt(e) + splitBadge(e)) : ''}</td>
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
         <td class="notes" title="${esc(notesOf(e))}">${esc(notesOf(e))}</td>
@@ -4383,6 +4396,7 @@ function orderLine(e) {
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
   if (hasDoor(e)) parts.push('z drzwiami (osobny element)');
+  if (needsSplit(e)) parts.push('dzielona (krótszy bok ponad 150 cm)');
   if (e.notes) parts.push(e.notes);
   return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
 }
@@ -4649,7 +4663,8 @@ async function renderIndexA3(stamp) {
   const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
   const cardOf = (r, k) => {
     const d = r.w !== '', gb = r.spad;
-    const FW = d ? Math.max(MINF, r.bw * k) : 160, FH = d ? Math.max(MINF, r.bh * k) : 100;
+    const fw0 = r.bw * k, fh0 = r.bh * k, up = d && Math.max(fw0, fh0) < MINF * 2 ? MINF * 2 / Math.max(fw0, fh0) : 1; // proporcje bez zmian
+    const FW = d ? Math.max(6, fw0 * up) : 160, FH = d ? Math.max(6, fh0 * up) : 100;
     const LM = !d ? 0 : gb ? 104 : 60, BM = !d ? 0 : gb ? 88 : 48;
     const w = Math.max(LM + FW + 10, 230);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
@@ -5122,9 +5137,9 @@ const TOUR_STEPS = [
       'The same elements as scaled frames with dimension lines — like a Corel index. <b>Click an empty frame</b> to paste a preview of the finished artwork from the clipboard. The <b>Table / Graphic</b> switch is above the list.') },
   { sel: '#clock-pane',
     title: TT('Licznik — bardzo ważny!', 'Лічильник — дуже важливо!', 'Countdown — very important!'),
-    text: TT('<b>Pliki produkcyjne wysyłaj z wyprzedzeniem</b> — po nich jest jeszcze druk i produkcja. Ile czasu zostało: <b style="color:#3e7a1c">zielony</b> — do oddania grafik, <b style="color:#b7791f">żółty</b> — do pakowania (tydzień przed targami), <b style="color:#c53030">czerwony</b> — do targów.',
-      '<b>Виробничі файли надсилай заздалегідь</b> — після них ще друк і виробництво. Скільки часу лишилося: <b style="color:#3e7a1c">зелений</b> — до здачі графіки, <b style="color:#b7791f">жовтий</b> — до пакування (тиждень до виставки), <b style="color:#c53030">червоний</b> — до виставки.',
-      '<b>Send production files well in advance</b> — printing and production come after. Time left: <b style="color:#3e7a1c">green</b> — until artwork is due, <b style="color:#b7791f">yellow</b> — until packing (a week before the fair), <b style="color:#c53030">red</b> — until the fair.') },
+    text: TT('<b>Pliki produkcyjne wysyłaj z wyprzedzeniem</b> — po nich jest jeszcze druk i produkcja. Ile czasu zostało: <b style="color:#3e7a1c">zielony</b> — do oddania grafik, <b style="color:#b7791f">żółty</b> — czas produkcji (do pakowania, tydzień przed targami), <b style="color:#c53030">czerwony</b> — do targów.',
+      '<b>Виробничі файли надсилай заздалегідь</b> — після них ще друк і виробництво. Скільки часу лишилося: <b style="color:#3e7a1c">зелений</b> — до здачі графіки, <b style="color:#b7791f">жовтий</b> — час виробництва (до пакування, за тиждень до виставки), <b style="color:#c53030">червоний</b> — до виставки.',
+      '<b>Send production files well in advance</b> — printing and production come after. Time left: <b style="color:#3e7a1c">green</b> — until artwork is due, <b style="color:#b7791f">yellow</b> — production time (until packing, a week before the fair), <b style="color:#c53030">red</b> — until the fair.') },
   { sel: '#logside', before: () => { if (S.tour.logWas == null) S.tour.logWas = logState.open; toggleLog(true); }, after: () => toggleLog(!!S.tour.logWas),
     title: TT('Historia zmian', 'Історія змін', 'Change history'),
     text: TT('Belka po prawej rozsuwa historię: kto, kiedy i co zmienił na stoisku. Liczba na belce to nowe zmiany innych osób.',
@@ -5161,9 +5176,9 @@ const proLogo = () => (proEl(e => e.typeId === 'logo3d') || {}).id;
 const proDoor = () => (proEl(e => hasDoor(e)) || proEl(e => DOOR_TYPES.includes(e.typeId) && !e.doorFor) || {}).id;
 const TOUR_PRO = [
   { title: TT('Dima, to jest wersja PRO', 'Діма, це версія PRO', 'Dima, this is the PRO version'),
-    text: TT('Pokażę wszystko, co widzi administrator: Zlecenie, Turbo, Archiwum X, drzwi, spady, konstrukcje podwieszane, alarm zmian i połączenie z Corelem. Przykład: stoisko <b>GOG testy</b> — w prezentacji nic się nie zapisuje.',
-      'Покажу все, що бачить адміністратор: Замовлення, Турбо, Archiwum X, двері, вильоти, підвісні конструкції, сигнал змін і зв’язок із Corel. Приклад: стенд <b>GOG testy</b> — у презентації нічого не зберігається.',
-      'I’ll show everything an administrator sees: Order, Turbo, Archiwum X, doors, bleeds, hanging structures, the change alarm and the Corel link. Example: the <b>GOG testy</b> stand — nothing is saved during this tour.') },
+    text: TT('Pokażę wszystko, co widzi administrator: Zlecenie, Turbo, drzwi, spady, konstrukcje podwieszane, alarm zmian i połączenie z Corelem. Przykład: stoisko <b>GOG testy</b> — w prezentacji nic się nie zapisuje.',
+      'Покажу все, що бачить адміністратор: Замовлення, Турбо, двері, вильоти, підвісні конструкції, сигнал змін і зв’язок із Corel. Приклад: стенд <b>GOG testy</b> — у презентації нічого не зберігається.',
+      'I’ll show everything an administrator sees: Order, Turbo, doors, bleeds, hanging structures, the change alarm and the Corel link. Example: the <b>GOG testy</b> stand — nothing is saved during this tour.') },
   { sel: '#hdr-actions',
     title: TT('Zlecenie', 'Замовлення', 'Order'),
     text: TT('Dima, <b>📋 Zlecenie</b> widzisz tylko Ty — zwykły użytkownik go nie ma. To gotowa lista dla drukarni: znak, wymiar do druku, sztuki i typ.',
@@ -5413,7 +5428,7 @@ const SHOW_UI = {
   menuShowSub: TT('budujemy stoisko krok po kroku', 'будуємо стенд крок за кроком', 'we build a stand step by step'),
   menuTour: TT('Prezentacja ekranu', 'Презентація екрана', 'Screen tour'),
   menuPro: TT('PRO — dla administratora', 'PRO — для адміністратора', 'PRO — for administrators'),
-  menuProSub: TT('Turbo, Archiwum X, drzwi, konstrukcje, Zlecenie, Corel', 'Турбо, Archiwum X, двері, конструкції, Замовлення, Corel', 'Turbo, Archiwum X, doors, structures, Order, Corel'),
+  menuProSub: TT('Turbo, drzwi, konstrukcje, Zlecenie, Corel i jeszcze coś', 'Турбо, двері, конструкції, Замовлення, Corel і ще дещо', 'Turbo, doors, structures, Order, Corel and more'),
   menuTourSub: TT('omówienie przycisków i paneli', 'огляд кнопок і панелей', 'buttons and panels explained'),
 };
 // wybór z ikony: pokaz z lektorem albo prezentacja
@@ -5854,6 +5869,11 @@ function showChapters(photos, els) {
         await shSay(TT('Wizualizacja jest na miejscu. Kółkiem myszy przybliżamy, a przeciągając tło przesuwamy widok.',
           'Візуалізація на місці. Коліщатком миші наближаємо, а перетягуючи фон зсуваємо вигляд.',
           'The visual is in place. The mouse wheel zooms in, dragging the background pans the view.'));
+        const addBtn = document.querySelector('#toolbar button[onclick="pickPhotos()"]');
+        if (addBtn) await shMove(...shCenter(addBtn), 800);
+        await shSay(TT('Wizualizacji może być więcej — każdą następną dodajesz tak samo, przyciskiem Wizki albo wklejając. Tutaj jedna wystarczy.',
+          'Візуалізацій може бути більше — кожну наступну додаєш так само, кнопкою Візуалізації або вставкою. Тут однієї досить.',
+          'There can be more visuals — add each next one the same way, with the Visuals button or by pasting. Here one is enough.'));
         const vr = viewer.getBoundingClientRect(), mx = vr.left + vr.width * 0.42, my = vr.top + vr.height * 0.48;
         await shMove(mx, my, 700);
         for (let i = 0; i < 12; i++) { await shWait(40); zoomAt(mx, my, 1.06); }
@@ -5983,9 +6003,9 @@ function showChapters(photos, els) {
       run: async () => {
         await shMove(...shCenter($('clock-pane')), 900);
         $('clock-pane').classList.add('show-hl');
-        await shSay(TT('Bardzo ważne: licznik czasu. Zielony odcinek to czas na przesłanie plików produkcyjnych. Pliki trzeba wysyłać z wyprzedzeniem, bo po nich jest jeszcze druk i produkcja. Żółty to pakowanie, tydzień przed targami, a czerwony — same targi.',
-          'Дуже важливо: лічильник часу. Зелений відрізок — час на надсилання виробничих файлів. Файли треба надсилати заздалегідь, бо після них ще друк і виробництво. Жовтий — пакування, за тиждень до виставки, а червоний — сама виставка.',
-          'Very important: the countdown. The green segment is the time to send the production files. Send them well in advance, because printing and production come after. Yellow is packing, a week before the fair, and red is the fair itself.'));
+        await shSay(TT('Bardzo ważne: licznik czasu. Zielony odcinek to czas na przesłanie plików produkcyjnych. Pliki trzeba wysyłać z wyprzedzeniem, bo po nich jest jeszcze druk i produkcja. Żółty to czas produkcji — do pakowania, tydzień przed targami — a czerwony to same targi.',
+          'Дуже важливо: лічильник часу. Зелений відрізок — час на надсилання виробничих файлів. Файли треба надсилати заздалегідь, бо після них ще друк і виробництво. Жовтий — час виробництва, до пакування за тиждень до виставки, а червоний — сама виставка.',
+          'Very important: the countdown. The green segment is the time to send the production files. Send them well in advance, because printing and production come after. Yellow is production time, until packing a week before the fair, and red is the fair itself.'));
         $('clock-pane').classList.remove('show-hl');
       } },
     { est: 13, name: TT('Eksport', 'Експорт', 'Export'),
