@@ -492,6 +492,9 @@
   #ax-frame .axf-bar .btn { padding: 4px 10px; }
   #ax-frame iframe { flex: 1; border: 0; background: #f0f4f8; }
   .ax-foot { display: contents; }
+  #ed-w.bad { border-color: var(--red); }
+  .w-calc:empty { display: none; }
+  .w-calc { color: var(--dark); margin-top: 4px; }
   .axpick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .axpick-cur { font-size: 0.88rem; background: #f1f8ec; border-left: 3px solid var(--accent); padding: 5px 9px; }
   .axp-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
@@ -995,6 +998,32 @@ function openSizePop(input) {
     input.value = it.dataset.v; input.dispatchEvent(new Event('input', { bubbles: true })); closeSizePop(); input.focus();
   });
   const on = pop.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+}
+// kalkulator w polu szerokości: 99,2x2+8 → 206,4 (mnożenie: x, × albo *; także + − / i nawiasy)
+const calcNorm = s => String(s == null ? '' : s).replace(/\s+/g, '').replace(/,/g, '.').replace(/[x×X]/g, '*').replace(/[−–]/g, '-');
+const isCalc = s => /[-+*/()]/.test(calcNorm(s).replace(/^-/, ''));
+function calcEval(s) {
+  const n = calcNorm(s); if (!n) return '';
+  if (!/^[0-9.+\-*/()]+$/.test(n)) return NaN;
+  try { const v = Function('"use strict";return (' + n + ')')(); return Number.isFinite(v) ? Math.round(v * 100) / 100 : NaN; } catch (e) { return NaN; }
+}
+const calcVal = s => isCalc(s) ? calcEval(s) : s;
+const numIn = v => v === '' || v == null ? '' : String(v).replace('.', ',');
+// wyliczenie szerokości do zlecenia: składniki po „+”; przy ścianie z drzwiami składnik = szerokość drzwi
+// w miejscu, gdzie stoją drzwi (od lewej / od prawej), dostaje dopisek „(drzwi)”
+function wCalcTxt(e) {
+  if (!e.wExpr) return '';
+  const u = e.wExprUnit || 'cm', k = u === 'cm' ? 10 : 1;
+  const terms = calcNorm(e.wExpr).split('+');
+  const vals = terms.map(t => calcEval(t));
+  let mark = -1;
+  if (hasDoor(e) && !/[()]/.test(e.wExpr) && vals.every(Number.isFinite)) {
+    const p = doorPos(e), dw = p.w / k, dx = p.x / k;
+    let start = 0, best = Infinity;
+    vals.forEach((v, i) => { if (Math.abs(v - dw) < 0.06 && Math.abs(start - dx) < best) { best = Math.abs(start - dx); mark = i; } start += v; });
+  }
+  const pretty = t => t.replace(/\*/g, ' × ').replace(/(\d)-/g, '$1 − ').replace(/\./g, ',');
+  return terms.map((t, i) => pretty(t) + (i === mark ? ' (drzwi)' : '')).join(' + ') + ` = ${numIn(calcEval(e.wExpr))} ${u}`;
 }
 // dodaje / zdejmuje przycisk ▾ przy polu wymiaru
 function sizeButton(input, on) {
@@ -1760,10 +1789,10 @@ function doorSvg(el, x0, y0, nw, nh) {
     <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(49,130,206,.28)" stroke="${p.fits ? '#3182ce' : '#e53e3e'}" stroke-width="1.2" stroke-dasharray="4 2"/>`;
   const yy = y + Math.min(h / 2, 14), left = p.left <= p.right;
   const ax = left ? x0 : x + w, bx = left ? x : x0 + nw, val = left ? p.left : p.right;
-  // wąska szczelina: liczba obok, na zewnątrz drzwi
-  const narrow = Math.abs(bx - ax) < 34, tx = narrow ? (left ? x + w + 3 : x - 3) : (ax + bx) / 2, anchor = narrow ? (left ? 'start' : 'end') : 'middle';
+  // liczba zawsze nad swoją strzałką; wąska szczelina — liczba nad drzwiami, nad tą szczeliną
+  const narrow = Math.abs(bx - ax) < 34, tx = (ax + bx) / 2, ty = narrow ? Math.max(y0 + 9, y - 3) : yy - 3;
   if (val > 0) o += `<line x1="${ax}" y1="${yy}" x2="${bx}" y2="${yy}" stroke="#2b6cb0" stroke-width="1" marker-start="url(#dArrow)" marker-end="url(#dArrow)"/>
-    <text x="${tx}" y="${yy - 3}" text-anchor="${anchor}" fill="#2b6cb0" font-size="10" font-weight="700">${lenPL(val)}</text>`;
+    <text x="${tx}" y="${ty}" text-anchor="middle" fill="#2b6cb0" font-size="10" font-weight="700">${lenPL(val)}</text>`;
   o += `<text x="${x + w / 2}" y="${y + h - 4}" text-anchor="middle" fill="#2b6cb0" font-size="9">drzwi</text>`;
   return o;
 }
@@ -3658,12 +3687,13 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       <div class="fld"><label>Nazwa elementu (opcjonalnie)</label><input type="text" id="ed-name" value="${esc(el.name || '')}" placeholder="np. ściana tylna, lada, kaseton nad wejściem"></div>
       <div class="fld"><label id="ed-dims-lab">2. Wymiar widoczny (netto)</label>
         <div class="row-dims" id="ed-dims">
-          <div class="fld" style="margin:0"><input type="number" id="ed-w" min="0" step="${unitStep()}" value="${esc(fromMM(el.w))}" placeholder="szerokość [${UNIT()}]"></div>
+          <div class="fld" style="margin:0"><input type="text" inputmode="decimal" autocomplete="off" id="ed-w" value="${esc(numIn(fromMM(el.w)))}" placeholder="szerokość [${UNIT()}]" title="Można wpisać działanie, np. 99,2x2+8 — pokażę wynik, a wyliczenie zapamiętam"></div>
           <div class="fld" style="margin:0" id="ed-d-wrap"><input type="number" id="ed-d" min="0" step="${unitStep()}" value="${esc(fromMM(el.d || ''))}" placeholder="głębokość [${UNIT()}]"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-h" min="0" step="${unitStep()}" value="${esc(fromMM(el.h))}" placeholder="wysokość [${UNIT()}]"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-q" min="1" step="1" value="${esc(el.qty || 1)}" title="Ilość sztuk"></div>
         </div>
         <div class="hint" id="ed-dims-hint"></div>
+        <div class="hint w-calc" id="ed-wcalc"></div>
         <div id="ed-planes" class="hidden"></div>
       </div>
       <div class="calc" id="ed-calc"></div>
@@ -3680,7 +3710,10 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   const read = () => ({
     ...el,
     typeId: el.typeId,
-    w: toMM($('ed-w').value),
+    w: toMM(calcVal($('ed-w').value)),
+    // zapamiętane wyliczenie szerokości (np. 4+49,2+99,2+8) — tylko gdy nadal daje wpisaną szerokość
+    wExpr: el.wExpr && Math.abs((toMM(calcEval(el.wExpr)) || 0) - (toMM(calcVal($('ed-w').value)) || 0)) < 1 ? el.wExpr : '',
+    wExprUnit: el.wExpr ? (el.wExprUnit || UNIT()) : '',
     h: toMM($('ed-h').value),
     d: dimsMode(el) === 'box' ? toMM($('ed-d').value) : '',
     variant: el.variant || '',
@@ -3762,7 +3795,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-bleedopts').innerHTML = hb;
     const axp = $('ed-axpick'); if (axp) axp.onclick = () => openAxPicker(pick => {
       const line = axApplyPick(el, pick);
-      $('ed-w').value = fromMM(el.w); $('ed-h').value = fromMM(el.h); $('ed-q').value = el.qty || 1;
+      $('ed-w').value = numIn(fromMM(el.w)); el.wExpr = ''; $('ed-h').value = fromMM(el.h); $('ed-q').value = el.qty || 1;
       if (!$('ed-name').value.trim()) $('ed-name').value = el.name || '';
       const nt = $('ed-notes'); if (!nt.value.includes(line)) nt.value = (nt.value.trim() ? nt.value.trim() + '\n' : '') + line;
       renderOpts(); refresh();
@@ -3794,7 +3827,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-planes').classList.toggle('hidden', !recznie);
     ['ed-w', 'ed-h'].forEach(i => $(i).parentNode.classList.toggle('hidden', !!recznie));
     if (recznie) {
-      if (!el.planes || !el.planes.length) el.planes = [{ w: Number(toMM($('ed-w').value)) || '', h: Number(toMM($('ed-h').value)) || '' }];
+      if (!el.planes || !el.planes.length) el.planes = [{ w: Number(toMM(calcVal($('ed-w').value))) || '', h: Number(toMM($('ed-h').value)) || '' }];
       renderPlanes();
     }
     $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
@@ -3843,8 +3876,17 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       else {
         const W = Number(cur.w), H = Number(cur.h), sc = Math.min(420 / W, 170 / H), pw = W * sc, ph = H * sc, p = doorPos(cur);
         dp.innerHTML = `<svg width="${pw + 20}" height="${ph + 14}" class="door-svg"><rect x="10" y="4" width="${pw}" height="${ph}" fill="#f7fafc" stroke="#2b2a29" stroke-width="1.4"/>${doorSvg(cur, 10, 4, pw, ph)}</svg>
-          ${p.fits ? '' : '<div class="tag-warn">Drzwi nie mieszczą się w ścianie — sprawdź odległość i wymiar.</div>'}`;
+          ${p.fits ? `<div class="hint">Na podglądzie wymiar od bliższej krawędzi: <b>${lenPL(Math.min(p.left, p.right))} ${UNIT()} od ${p.left <= p.right ? 'lewej' : 'prawej'}</b>
+            (od lewej ${lenPL(p.left)}, od prawej ${lenPL(p.right)} ${UNIT()}).</div>` : '<div class="tag-warn">Drzwi nie mieszczą się w ścianie — sprawdź odległość i wymiar.</div>'}`;
       }
+    }
+    // zapamiętane wyliczenie szerokości (z zaznaczonymi drzwiami) — kliknięcie wstawia je z powrotem do pola
+    const wc = $('ed-wcalc');
+    if (wc) {
+      const txt = cur.wExpr ? wCalcTxt(cur) : '';
+      wc.innerHTML = txt ? `🧮 Szerokość z wyliczenia: <b>${esc(txt)}</b> <a href="#" data-wedit>popraw</a>` : '';
+      const a = wc.querySelector('[data-wedit]');
+      if (a) a.onclick = ev => { ev.preventDefault(); const wi = $('ed-w'); wi.value = el.wExpr; wi.focus(); };
     }
     const g = grossOf(cur);
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
@@ -3859,6 +3901,18 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     renderOpts(); refresh();
   });
   ['ed-w', 'ed-d', 'ed-h', 'ed-q'].forEach(id => { const i = $(id); if (i) i.addEventListener('input', refresh); });
+  // szerokość: działanie liczone od razu; po wyjściu z pola widać wynik, wyliczenie zostaje zapamiętane
+  const wIn = $('ed-w');
+  wIn.addEventListener('input', () => {
+    const v = wIn.value;
+    if (isCalc(v)) { el.wExpr = v.trim(); el.wExprUnit = UNIT(); } else el.wExpr = '';
+    wIn.classList.toggle('bad', isCalc(v) && !Number.isFinite(calcEval(v)));
+    refresh();
+  });
+  wIn.addEventListener('blur', () => {
+    const v = wIn.value;
+    if (isCalc(v) && Number.isFinite(calcEval(v))) { wIn.value = numIn(calcEval(v)); wIn.classList.remove('bad'); refresh(); }
+  });
   renderOpts(); refresh();
   setTimeout(() => { const f = $('ed-w'); if (f) f.focus(); }, 40);
   m.el.querySelector('[data-c]').onclick = () => m.close();
@@ -3878,7 +3932,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
-        Object.assign(fields, axFields(d));
+        Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
         fields.bleedBox = d.bleedBox || null;
         const diff = describeDiff(editing, { ...editing, ...fields });
         await DB.update(pElements(pid), editing.id, fields);
@@ -3890,6 +3944,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
+        if (d.wExpr) Object.assign(rec, { wExpr: d.wExpr, wExprUnit: d.wExprUnit });
         if (d.bleedBox) rec.bleedBox = d.bleedBox;
         const newId = await DB.add(pElements(pid), rec);
         if (hasDoor(rec)) await syncDoorElement(newId, { ...rec, id: newId });
@@ -4426,6 +4481,7 @@ function orderLine(e) {
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
   if (hasDoor(e)) parts.push('z drzwiami (osobny element)');
+  if (e.wExpr) parts.push('szerokość: ' + wCalcTxt(e));
   if (needsSplit(e)) parts.push('dzielony (krótszy bok ponad 150 cm)');
   if (e.notes) parts.push(e.notes);
   return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
