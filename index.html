@@ -5241,6 +5241,10 @@ const TOUR_PRO = [
   { sel: '#avatar',
     title: TT('Użytkownicy i kopia', 'Користувачі й копія', 'Users and backup'),
     text: TT('W menu awatara masz <b>👥 Użytkownicy</b> — konta, hasła i kto jest administratorem — oraz kopię wszystkich projektów do pliku.', 'У меню аватара є <b>👥 Користувачі</b> — акаунти, паролі й хто адміністратор — а також копія всіх проєктів у файл.', 'Your avatar menu has <b>👥 Users</b> — accounts, passwords and who is an administrator — and a backup of all projects to a file.') },
+  { title: TT('Dima, co dalej?', 'Діма, що далі?', 'Dima, what’s next?'),
+    text: TT('Teraz, jak to jest tak przygotowane, może kolejnym krokiem będzie robienie <b>automatycznej wyceny</b> dla standardowych elementów? Lub połączenie z jakimś fajnym <b>kalkulatorem</b>, aby dodawał cenę za literki 3D? 🙂',
+      'Тепер, коли все так підготовлено, може наступним кроком буде <b>автоматичне ціноутворення</b> для стандартних елементів? Або зв’язок із якимось класним <b>калькулятором</b>, щоб додавав ціну за 3D-літери? 🙂',
+      'Now that it’s all set up like this, maybe the next step is <b>automatic pricing</b> for standard elements? Or a link to some nice <b>calculator</b> that adds the price for 3D letters? 🙂') },
   { sel: '#btn-tour',
     title: TT('To wszystko, Dima!', 'Це все, Діма!', 'That’s all, Dima!'),
     text: TT('W tym menu są też pokaz z lektorką i zwykła prezentacja — możesz je wysłać klientom, żeby sami nauczyli się INDEX-u.', 'У цьому меню також показ із диктором і звичайна презентація — можеш надіслати їх клієнтам, щоб самі навчилися INDEX.', 'This menu also has the narrated demo and the regular tour — send them to clients so they can learn INDEX on their own.') },
@@ -5358,7 +5362,7 @@ function tourSpeak(st) {
   if (!T.voiceOn) return;
   if (!T.voice) T.voice = shVoice();
   if (!T.voice) return;
-  const txt = (st.title + '. ' + st.text).replace(/<br\s*\/?>/g, ' ').replace(/<[^>]+>/g, '').replace(/[📋⇩⚡🧵🗄]/gu, '').replace(/\s+/g, ' ').trim();
+  const txt = (st.title + '. ' + st.text).replace(/<br\s*\/?>/g, ' ').replace(/<[^>]+>/g, '').replace(/[📋⇩⚡🧵🗄🙂]/gu, '').replace(/:\)/g, '').replace(/\s+/g, ' ').trim();
   for (const part of txt.match(/[^.!?…]+[.!?…]*/g) || [txt]) {
     const u = new SpeechSynthesisUtterance(part.trim()); u.voice = T.voice; u.lang = T.voice.lang; u.rate = 1.04;
     speechSynthesis.speak(u);
