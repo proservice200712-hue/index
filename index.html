@@ -487,6 +487,7 @@
   #ax-frame .axf-bar span { flex: 1; color: #cbd5e0; font-size: 0.85rem; }
   #ax-frame .axf-bar .btn { padding: 4px 10px; }
   #ax-frame iframe { flex: 1; border: 0; background: #f0f4f8; }
+  .ax-foot { display: contents; }
   .axpick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .axpick-cur { font-size: 0.88rem; background: #f1f8ec; border-left: 3px solid var(--accent); padding: 5px 9px; }
   .axp-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
@@ -3552,9 +3553,8 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       <div id="ed-bleedopts"></div>
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
-      ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
-      ${!isAdmin() ? '' : axLinked(editing) ? axBadge(editing, 'btn')
-        : editing.typeId === 'logo3d' ? '<button class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}` : ''}
+      ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}` : ''}
+      <span id="ed-axfoot" class="ax-foot"></span>
       ${turbo && !editing ? '<span class="turbo-tag" style="margin-right:auto">⚡ Turbo — Enter = dodaj i następny</span>' : ''}
       <button class="btn" data-c>${turbo && !editing ? 'Zakończ wpisywanie' : 'Anuluj'}</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : turbo ? 'Dodaj i następny ↵' : 'Dodaj element'}</button>`,
   });
@@ -3583,16 +3583,14 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   const renderOpts = () => {
     const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
     let h = '';
-    // Archiwum X (wybór eksponatu / kompletu / grupy) — tylko administrator
-    if (t && t.id === 'logo3d' && isAdmin()) {
-      const ax = el.archiwumId ? `eksponat <b>#${esc(el.archiwumNo || '?')}</b>`
-        : el.archiwumKind ? `${el.archiwumKind === 'set' ? 'komplet' : 'grupa'} <b>${esc(el.archiwumTag || el.archiwumName || '')}</b> · ${(el.archiwumNos || []).map(n => '#' + esc(n)).join(', ')}` : '';
-      h += `<div class="fld axpick"><label>Z Archiwum X</label><div class="axpick-row">
-        ${ax ? `<span class="axpick-cur">🗄 ${ax}</span>` : ''}
-        <button type="button" class="btn btn-sm" id="ed-axpick">${ax ? 'Zmień' : '🗄 Wybierz eksponat, komplet albo grupę'}</button>
-        ${ax ? '<button type="button" class="btn btn-sm" id="ed-axclear" title="Odłącz od Archiwum X (wymiary zostają)">✕ Odłącz</button>' : ''}</div>
-        ${ax ? '' : '<div class="hint">Gotowe logo z magazynu — wymiar, wykonanie i zdjęcie przepiszą się same.</div>'}</div>`;
-    }
+    // Archiwum X przy Logo 3D (tylko administrator): w stopce „Z Archiwum X” (eksponat / komplet / grupa)
+    // obok „Do Archiwum X”; po powiązaniu — znaczek z linkiem i ✕ do odłączenia
+    const axf = $('ed-axfoot');
+    if (axf) axf.innerHTML = t && t.id === 'logo3d' && isAdmin()
+      ? `${axLinked(el) ? axBadge(el, 'btn') + '<button type="button" class="btn" id="ed-axclear" title="Odłącz od Archiwum X (wymiary zostają)">✕</button>' : ''}
+        <button type="button" class="btn" id="ed-axpick" title="Gotowe logo z magazynu: eksponat, komplet albo grupa">🗄 Z Archiwum X</button>
+        ${editing && !axLinked(el) ? '<button type="button" class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}`
+      : '';
     if (t && t.variants && t.variants.length) {
       h += `<div class="fld"><label>${t.id === 'podwieszana' ? 'Kształt konstrukcji' : 'Wykonanie'}</label>
         <div class="var-list">${t.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === el.variant ? 'on' : ''}" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>`;
@@ -3651,6 +3649,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       renderOpts(); refresh();
     });
     const axc = $('ed-axclear'); if (axc) axc.onclick = () => { axClearPick(el); renderOpts(); refresh(); };
+    const axb = $('ed-ax'); if (axb) axb.onclick = () => { m.close(); openArchiwumDialog(editing.id); };
     const ins = $('ed-inside'); if (ins) ins.addEventListener('change', () => { el.inside = ins.checked; refresh(); });
     const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
@@ -3780,7 +3779,6 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   if (editing) {
     $('ed-del').onclick = async () => { m.close(); deleteElement(editing.id); };
     const as = $('ed-assign'); if (as) as.onclick = () => { m.close(); startAssign(editing.id); };
-    const axb = $('ed-ax'); if (axb) axb.onclick = () => { m.close(); openArchiwumDialog(editing.id); };
   }
 }
 function describeDiff(a, b) {
