@@ -5252,9 +5252,9 @@ const TOUR_PRO = [
     text: TT('Tu zakładasz targi i stoiska, przeciągasz ich kolejność i chowasz zakończone do archiwum.', 'Тут створюєш виставки й стенди, перетягуєш їхній порядок і ховаєш завершені в архів.', 'Here you create fairs and stands, drag their order and move finished ones to the archive.') },
   { sel: '#logside', before: () => { if (S.tour.logWas == null) S.tour.logWas = logState.open; toggleLog(true); }, after: () => toggleLog(!!S.tour.logWas),
     title: TT('Połączenie z Corelem', 'Зв’язок із Corel', 'Corel link'),
-    text: TT('Dima, INDEX jest połączony z CorelDRAW. W Corelu makro <b>INDEX_Arkusz</b> pobiera stoisko i zakłada arkusz z ramkami do druku w skali — ze spadami, drzwiami i płaszczyznami konstrukcji. Grafikę wstawiasz w ramki, a makro <b>INDEX_Miniatury</b> wysyła jej podglądy tutaj, do okienek. Zmiany z Corela mają w historii znaczek Corel. Do prób jest piaskownica: adres z <b>?test</b> i makro INDEX_ArkuszTest.',
-      'Діма, INDEX пов’язаний із CorelDRAW. У Corel макрос <b>INDEX_Arkusz</b> завантажує стенд і створює аркуш із рамками до друку в масштабі — з вильотами, дверима й площинами конструкцій. Графіку вставляєш у рамки, а макрос <b>INDEX_Miniatury</b> надсилає її попередній перегляд сюди, у віконця. Зміни з Corel мають в історії значок Corel. Для проб є пісочниця: адреса з <b>?test</b> і макрос INDEX_ArkuszTest.',
-      'Dima, INDEX is linked with CorelDRAW. In Corel the <b>INDEX_Arkusz</b> macro downloads the stand and builds a sheet of scaled print frames — with bleeds, doors and structure panels. You place the artwork in the frames and <b>INDEX_Miniatury</b> sends the previews back here, into the frames. Changes from Corel get a Corel badge in the history. For testing there’s a sandbox: the <b>?test</b> address and the INDEX_ArkuszTest macro.') },
+    text: TT('Dima, INDEX jest połączony z CorelDRAW. W Corelu makro <b>INDEX_Arkusz</b> pobiera stoisko i zakłada arkusz z ramkami do druku w skali — ze spadami, drzwiami i płaszczyznami konstrukcji. Grafikę wstawiasz w ramki, a makro <b>INDEX_Miniatury</b> wysyła jej podglądy tutaj, do okienek.',
+      'Діма, INDEX пов’язаний із CorelDRAW. У Corel макрос <b>INDEX_Arkusz</b> завантажує стенд і створює аркуш із рамками до друку в масштабі — з вильотами, дверима й площинами конструкцій. Графіку вставляєш у рамки, а макрос <b>INDEX_Miniatury</b> надсилає її попередній перегляд сюди, у віконця.',
+      'Dima, INDEX is linked with CorelDRAW. In Corel the <b>INDEX_Arkusz</b> macro downloads the stand and builds a sheet of scaled print frames — with bleeds, doors and structure panels. You place the artwork in the frames and <b>INDEX_Miniatury</b> sends the previews back here, into the frames.') },
   { sel: '#avatar',
     title: TT('Użytkownicy i kopia', 'Користувачі й копія', 'Users and backup'),
     text: TT('W menu awatara masz <b>👥 Użytkownicy</b> — konta, hasła i kto jest administratorem — oraz kopię wszystkich projektów do pliku.', 'У меню аватара є <b>👥 Користувачі</b> — акаунти, паролі й хто адміністратор — а також копія всіх проєктів у файл.', 'Your avatar menu has <b>👥 Users</b> — accounts, passwords and who is an administrator — and a backup of all projects to a file.') },
@@ -6110,14 +6110,24 @@ async function sayP(text) {
   const T = SH(); if (!T) return;
   const name = (T.cur || 0) % 5 === 0 && T.cur > 0 && T.namedAt !== T.cur; // raz na etap
   if (name) T.namedAt = T.cur;
-  await shSay(name ? `${DIMA}, ${/^[A-ZĄĆĘŁŃÓŚŹŻА-ЯІЇЄҐ][a-ząćęłńóśźżа-яіїєґ]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text}` : text);
+  // po imieniu mała litera — ale nazwy funkcji i programów zostają wielką (Turbo, Archiwum X, Corel, INDEX)
+  const keep = /^(Turbo|Турбо|Archiwum|Corel|INDEX|Zlecenie|Замовлення|Order)/.test(text);
+  await shSay(name ? `${DIMA}, ${!keep && /^[A-ZĄĆĘŁŃÓŚŹŻА-ЯІЇЄҐ][a-ząćęłńóśźżа-яіїєґ]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text}` : text);
 }
 function proChapters(photos, all) {
   const T = S.tour;
   const byType = (t, f = () => true) => all.find(e => e.typeId === t && !e.doorFor && f(e));
   const logo = byType('logo3d'), foil = byType('folia-laminat');
   const wall = byType('blackback', e => !hasDoor(e) && !e.wyslona && !all.some(x => x.doorFor === e.id)) || byType('blackback', e => !e.wyslona);
-  const TURBO = { typeId: 'folia-kontur', finish: 'mat', w: 600, h: 200, qty: 2, q: [0.42, 0.78] };
+  // Turbo: trzy elementy wpisane pod rząd, potem każdy nitką na swoje miejsce
+  const TURBO = [
+    { typeId: 'folia-kontur', finish: 'mat', w: 600, h: 200, qty: 2, q: [0.42, 0.78],
+      say: TT('Pierwszy: folia cięta po konturze, mat, 600 na 200 milimetrów, dwie sztuki. Enter.', 'Перший: плівка різана по контуру, мат, 600 на 200 міліметрів, дві штуки. Enter.', 'First: contour-cut foil, matte, 600 by 200 millimetres, two pieces. Enter.') },
+    { typeId: 'pcw', thick: 5, w: 1000, h: 700, qty: 1, q: [0.3, 0.62],
+      say: TT('Drugi: płyta PCW 5 milimetrów, 1000 na 700. Enter.', 'Другий: плита PCW 5 міліметрів, 1000 на 700. Enter.', 'Second: 5 mm PVC board, 1000 by 700. Enter.') },
+    { typeId: 'folia-laminat', laminate: true, w: 1200, h: 800, qty: 1, q: [0.62, 0.7],
+      say: TT('Trzeci: folia z laminatem, 1200 na 800. Enter.', 'Третій: плівка з ламінатом, 1200 на 800. Enter.', 'Third: laminated foil, 1200 by 800. Enter.') },
+  ];
   const HANG = { typeId: 'podwieszana', variant: 'kwadratowa', w: 3000, d: 3000, h: 1000, q: [0.5, 0.06] };
   // całe stoisko GOG testy od razu — te same id (drzwi wskazują swoje ściany)
   T.setup = async () => {
@@ -6152,43 +6162,6 @@ function proChapters(photos, all) {
         if (cb) { await shClick(cb, 700); await shWait(700); await shMove(...shCenter($('ord-txt')), 700); await shWait(900); await shClick(cb, 600); }
         const ok = $('ord-ok'); if (ok) { await shMove(...shCenter(ok), 700); await shWait(500); }
         await shCancelDlg();
-      } },
-    { est: 70, name: TT('Turbo i nitka', 'Турбо й нитка', 'Turbo and thread'),
-      run: async () => {
-        await sayP(PT(3));
-        await shClick('#btn-turbo', 800);
-        await shWaitFor(() => $('ed-q'), 3000); await shWait(500);
-        await shSay(TT('Wpisuję element bez klikania w wizualizację: folia cięta, mat, 600 na 200 milimetrów, dwie sztuki. Enter — i od razu następny.',
-          'Вписую елемент без кліку по візуалізації: різана плівка, мат, 600 на 200 міліметрів, дві штуки. Enter — і одразу наступний.',
-          'I type an element without clicking the visual: cut foil, matte, 600 by 200 millimetres, two pieces. Enter — and straight to the next.'));
-        await shClick(`.modal-back .type-btn[data-t="${TURBO.typeId}"]`, 700); await shWait(300);
-        const fin = document.querySelector(`.modal-back [data-fin="${TURBO.finish}"]`); if (fin) await shClick(fin, 500);
-        await shType($('ed-w'), String(TURBO.w)); await shType($('ed-h'), String(TURBO.h)); await shType($('ed-q'), String(TURBO.qty));
-        const before = new Set(S.elements.map(x => x.id));
-        await shClick('#ed-ok', 600);
-        const added = await shWaitFor(() => S.elements.find(x => !before.has(x.id)), 3000);
-        await shWaitFor(() => $('ed-q'), 2000); await shWait(400);
-        await shSay(TT('Na pokaz jeden wystarczy — kończę wpisywanie.', 'Для показу одного досить — завершую введення.', 'One is enough for the demo — I finish typing.'));
-        await shCancelDlg();
-        if (!added) return;
-        const thr = await shWaitFor(() => document.querySelector(`#el-scroll [data-thread="${added.id}"]`), 3000);
-        if (!thr) return;
-        thr.scrollIntoView({ block: 'nearest' });
-        await shSay(TT('Teraz nitka: łapię ją przy elemencie i przeciągam na miejsce na wizualizacji.', 'Тепер нитка: хапаю її біля елемента й перетягую на місце на візуалізації.', 'Now the thread: I grab it next to the element and drag it onto its place on the visual.'));
-        const [x, y] = shCenter(thr);
-        await shMove(x, y, 700); await shWait(150); shRipple();
-        shPtr('pointerdown', thr, x, y);
-        const [tx, ty] = stageToClient(S.photos[0].id, TURBO.q);
-        T.onMove = (cx, cy) => shPtr('pointermove', document, cx, cy);
-        try { await shMove(tx, ty, 1500); } finally { T.onMove = null; }
-        shRipple(); shPtr('pointerup', document, tx, ty);
-        await shWait(900);
-        const end = document.querySelector('#turbo-bar button[onclick="endTurbo()"]'); if (end) await shClick(end, 700);
-      },
-      instant: async () => {
-        const { q, ...d } = TURBO;
-        await T.mem.add(pElements(SHOW_PID), { ...d, num: nextNumNow(), variant: '', seg: false, wyslona: false, laminate: false, contour: false, notes: '', name: '',
-          photoId: S.photos[0].id, shape: { kind: 'point', pts: [q] }, createdAt: nowIso(), createdBy: S.me.id });
       } },
     { est: 55, name: TT('Drzwi', 'Двері', 'Doors'),
       run: async () => {
@@ -6297,18 +6270,70 @@ function proChapters(photos, all) {
         await sayP(PT(12));
         document.querySelectorAll('.menu').forEach(m => m.remove());
       } },
-    { est: 75, name: 'Archiwum X',
+    { est: 95, name: TT('Turbo i nitka', 'Турбо й нитка', 'Turbo and thread'),
+      run: async () => {
+        await sayP(PT(3));
+        await shClick('#btn-turbo', 800);
+        await shWaitFor(() => $('ed-q'), 3000); await shWait(500);
+        await shSay(TT('Trzy przykłady pod rząd, bez klikania w wizualizację.', 'Три приклади поспіль, без кліків по візуалізації.', 'Three examples in a row, without clicking the visual.'));
+        const added = [];
+        for (const it of TURBO) {
+          await shWaitFor(() => $('ed-q') && $('ed-ok') && !$('ed-ok').disabled, 3000); await shWait(300);
+          await shSay(it.say);
+          await shClick(`.modal-back .type-btn[data-t="${it.typeId}"]`, 650); await shWait(300);
+          if (it.finish) { const f = document.querySelector(`.modal-back [data-fin="${it.finish}"]`); if (f) await shClick(f, 450); }
+          if (it.laminate) { const l = document.querySelector('.modal-back input[data-tog="laminate"]'); if (l && !l.checked) await shClick(l, 450); }
+          if (it.thick) await shType(await shWaitFor(() => $('ed-thick'), 1500), String(it.thick));
+          await shType($('ed-w'), String(it.w)); await shType($('ed-h'), String(it.h));
+          if (it.qty > 1) await shType($('ed-q'), String(it.qty));
+          const before = new Set(S.elements.map(x => x.id));
+          await shClick('#ed-ok', 500);
+          const el = await shWaitFor(() => S.elements.find(x => !before.has(x.id)), 3000);
+          if (el) added.push([el, it]);
+          await shWait(400);
+        }
+        await shWaitFor(() => $('ed-q'), 2000); await shWait(300);
+        await shSay(TT('Koniec wpisywania.', 'Кінець введення.', 'Done typing.'));
+        await shCancelDlg();
+        await shSay(TT('Teraz nitki: każdy element łapię za nitkę i przeciągam na jego miejsce na wizualizacji.', 'Тепер нитки: кожен елемент хапаю за нитку й перетягую на його місце на візуалізації.', 'Now the threads: I grab each element by its thread and drag it onto its place on the visual.'));
+        for (const [el, it] of added) {
+          const thr = await shWaitFor(() => document.querySelector(`#el-scroll [data-thread="${el.id}"]`), 3000);
+          if (!thr) continue;
+          thr.scrollIntoView({ block: 'nearest' }); await shWait(150);
+          const [x, y] = shCenter(thr);
+          await shMove(x, y, 650); await shWait(120); shRipple();
+          shPtr('pointerdown', thr, x, y);
+          const [tx, ty] = stageToClient(S.photos[0].id, it.q);
+          T.onMove = (cx, cy) => shPtr('pointermove', document, cx, cy);
+          try { await shMove(tx, ty, 1200); } finally { T.onMove = null; }
+          shRipple(); shPtr('pointerup', document, tx, ty);
+          await shWait(700);
+        }
+        const end = document.querySelector('#turbo-bar button[onclick="endTurbo()"]'); if (end) await shClick(end, 700);
+      },
+      instant: async () => {
+        for (const { q, say, ...d } of TURBO) {
+          await T.mem.add(pElements(SHOW_PID), { variant: '', seg: false, wyslona: false, laminate: false, contour: false, finish: '', thick: '', ...d, num: nextNumNow(),
+            notes: '', name: '', photoId: S.photos[0].id, shape: { kind: 'point', pts: [q] }, createdAt: nowIso(), createdBy: S.me.id });
+          await shSettle();
+        }
+      } },
+    { est: 80, name: 'Archiwum X',
       run: async () => {
         if (!logo) return;
-        await sayP(TT('Na koniec Archiwum X. Otwieram Logo 3D.', 'Наостанок Archiwum X. Відкриваю Логотип 3D.', 'Finally, Archiwum X. I open the 3D logo.'));
+        const mk = document.querySelector(`#overlay g.shp[data-eid="${logo.id}"] [data-part="lab"]`);
+        if (mk) await shMove(...shCenter(mk), 800);
+        await shSay(TT('Pewnie byś chciał, żeby to było od razu połączone z Archiwum X — otóż tak jest. Z Archiwum X wybierasz gotowy eksponat, komplet albo grupę.',
+          'Ти, мабуть, хотів би, щоб це було одразу пов’язано з Archiwum X — так і є. З Archiwum X обираєш готовий експонат, комплект або групу.',
+          'You’d probably like this to be linked straight to Archiwum X — well, it is. From Archiwum X you pick a ready exhibit, set or group.'));
         await shOpenEl(logo.id);
         // 1) nowy eksponat w Archiwum X prosto z elementu (formularz tylko pokazany, bez zapisu)
         const exp = await shWaitFor(() => $('ed-ax'), 2000);
         if (exp) {
           await shMove(...shCenter(exp), 800);
-          await shSay(TT('Gdy logo jest nowe, robisz z niego eksponat w Archiwum X: przycisk Do Archiwum X otwiera formularz Archiwum X wypełniony danymi z tego elementu — firma, typ, wymiar, zdjęcie i opis skąd pochodzi. Zapisujesz, a element dostaje znaczek AX.',
-            'Коли логотип новий, робиш із нього експонат в Archiwum X: кнопка До Archiwum X відкриває форму Archiwum X, заповнену даними цього елемента — фірма, тип, розмір, фото й опис, звідки він. Зберігаєш — і елемент отримує значок AX.',
-            'When the logo is new, you turn it into an Archiwum X exhibit: To Archiwum X opens the Archiwum X form filled with this element’s data — company, type, size, photo and where it comes from. Save it and the element gets an AX badge.'));
+          await shSay(TT('A gdy logo jest nowe — w drugą stronę: przycisk Do Archiwum X otwiera formularz Archiwum X wypełniony danymi z tego elementu: firma, typ, wymiar, zdjęcie i opis, skąd pochodzi.',
+            'А коли логотип новий — у зворотний бік: кнопка До Archiwum X відкриває форму Archiwum X, заповнену даними цього елемента: фірма, тип, розмір, фото й опис, звідки він.',
+            'And when the logo is new — the other way round: To Archiwum X opens the Archiwum X form filled with this element’s data: company, type, size, photo and where it comes from.'));
           await shClick(exp, 400);
           await shWaitFor(() => $('ax-frame'), 3000);
           await shWait(3500);
@@ -6320,11 +6345,9 @@ function proChapters(photos, all) {
         }
         // 2) import z Archiwum X
         const pick = await shWaitFor(() => $('ed-axpick'), 2000);
-        if (pick) await shMove(...shCenter(pick), 800);
-        await shSay(TT('Pewnie byś chciał, żeby to było od razu połączone z Archiwum X — otóż tak jest. Z Archiwum X wybierasz gotowy eksponat, komplet albo grupę.',
-          'Ти, мабуть, хотів би, щоб це було одразу пов’язано з Archiwum X — так і є. З Archiwum X обираєш готовий експонат, комплект або групу.',
-          'You’d probably like this to be linked straight to Archiwum X — well, it is. From Archiwum X you pick a ready exhibit, set or group.'));
         if (!pick) return shCancelDlg();
+        await shMove(...shCenter(pick), 800);
+        await shSay(TT('Teraz import: Z Archiwum X.', 'Тепер імпорт: З Archiwum X.', 'Now the import: From Archiwum X.'));
         await shClick(pick, 400);
         const tile = await shWaitFor(() => document.querySelector('.axp-tile'), 6000);
         if (tile) {
