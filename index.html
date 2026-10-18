@@ -614,6 +614,26 @@
   #tour-tip .tt-dots i { width: 7px; height: 7px; border-radius: 50% !important; background: #cbd5e0; }
   #tour-tip .tt-dots i.on { background: #67b437; }
   #tour-tip .tt-ro { margin-top: 10px; font-size: .75rem; color: #718096; }
+  /* POKAZ Z LEKTOREM: kursor, napisy, sterowanie */
+  #show-block { position: fixed; inset: 0; z-index: 990; background: transparent; cursor: default; }
+  #show-cursor { position: fixed; z-index: 1003; width: 30px; height: 30px; margin: -3px 0 0 -5px; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); transition: transform .12s; }
+  #show-cursor.down { transform: scale(.82); }
+  .show-ripple { position: fixed; z-index: 1002; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50% !important; border: 3px solid #67b437; pointer-events: none; animation: showRip .55s ease-out forwards; }
+  @keyframes showRip { from { transform: scale(.6); opacity: 1; } to { transform: scale(3.6); opacity: 0; } }
+  .show-key { position: fixed; z-index: 1003; background: #1a202c; color: #fff; font: 700 .85rem 'Segoe UI', Arial, sans-serif; padding: 4px 9px; border-radius: 6px; border-bottom: 3px solid #67b437; pointer-events: none; animation: showKey 1.4s ease forwards; }
+  @keyframes showKey { 0% { opacity: 0; transform: translateY(6px); } 15%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  #show-cap { position: fixed; z-index: 1002; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, calc(100vw - 32px)); background: rgba(16,20,28,.92); color: #fff;
+    border-radius: 12px; padding: 10px 16px 12px; box-shadow: 0 12px 34px rgba(0,0,0,.45); backdrop-filter: blur(6px); }
+  #show-cap .sc-h { display: flex; align-items: center; gap: 8px; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #9be36d; }
+  #show-cap .sc-dot { width: 8px; height: 8px; border-radius: 50% !important; background: #e53e3e; animation: scDot 1.2s infinite; }
+  @keyframes scDot { 50% { opacity: .25; } }
+  #show-cap .sc-sp { flex: 1; }
+  #show-cap button { background: rgba(255,255,255,.12); border: none; color: #fff; width: 30px; height: 26px; border-radius: 6px; cursor: pointer; font-size: .85rem; }
+  #show-cap button:hover { background: rgba(103,180,55,.55); }
+  #show-cap .sc-t { font-size: 1.02rem; line-height: 1.45; margin-top: 6px; min-height: 2.9em; }
+  #show-cap .sc-bar { height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  #show-cap .sc-bar i { display: block; height: 100%; width: 0; background: #67b437; transition: width .5s; }
+  .menu.tour-menu .mi small { color: #718096; font-weight: 400; }
 </style>
 </head>
 <body>
@@ -633,7 +653,7 @@
   <div class="hdr-spacer"></div>
   <div id="hdr-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
   <div class="langs" id="langs" data-noi18n></div>
-  <button type="button" class="hdr-tour hidden" id="btn-tour" onclick="startTour()" title="Samouczek — jak korzystać z INDEX">
+  <button type="button" class="hdr-tour hidden" id="btn-tour" onclick="openTourMenu(event)" title="Samouczek — jak korzystać z INDEX">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10 7.5v5l4.2-2.5z" fill="currentColor" stroke="none"/></svg>
   </button>
   <div class="avatar hidden" id="avatar" onclick="toggleUserMenu(event)"></div>
@@ -2455,7 +2475,7 @@ function renderProjectHeader() {
   $('hdr-cd').innerHTML = ''; // w projekcie odlicza zegar-butla obok tabeli
   updateClock();
   $('hdr-actions').innerHTML = `
-    <button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>
+    ${isAdmin() ? `<button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>` : ''}
     <button class="btn" onclick="openExportDialog()">⇩ Eksport</button>`;
 }
 let statsTimer = null;
@@ -5058,10 +5078,10 @@ const TOUR_STEPS = [
       'Смуга праворуч розгортає історію: хто, коли й що змінив на стенді. Число на смузі — нові зміни інших людей.',
       'The bar on the right slides out the history: who changed what and when. The number on the bar shows new changes by others.') },
   { sel: '#hdr-actions',
-    title: TT('Zlecenie i eksport', 'Замовлення та експорт', 'Order and export'),
-    text: TT('<b>📋 Zlecenie</b> kopiuje listę elementów do schowka — do wklejenia w mailu. <b>⇩ Eksport</b>: index A3 (wizki + okienka z wymiarami) i tabela A4 — do druku albo jako PDF.',
-      '<b>📋 Замовлення</b> копіює список елементів у буфер — щоб вставити в лист. <b>⇩ Експорт</b>: індекс A3 (візуалізації + віконця з розмірами) і таблиця A4 — до друку або як PDF.',
-      '<b>📋 Order</b> copies the element list to the clipboard — ready to paste into an e-mail. <b>⇩ Export</b>: A3 index (visuals + dimensioned frames) and A4 table — print or PDF.') },
+    title: TT('Eksport', 'Експорт', 'Export'),
+    text: TT('<b>⇩ Eksport</b>: index A3 (wizki + okienka z wymiarami) i tabela A4 — do druku albo jako PDF.',
+      '<b>⇩ Експорт</b>: індекс A3 (візуалізації + віконця з розмірами) і таблиця A4 — до друку або як PDF.',
+      '<b>⇩ Export</b>: A3 index (visuals + dimensioned frames) and A4 table — print or PDF.') },
   { sel: '#langs',
     title: TT('Język', 'Мова', 'Language'),
     text: TT('Polski, ukraiński albo angielski — kliknij flagę.', 'Польська, українська або англійська — клікни прапорець.', 'Polish, Ukrainian or English — click a flag.') },
@@ -5182,6 +5202,464 @@ function endTour() {
   clearInterval(T.timer); removeEventListener('resize', tourPlace);
   document.removeEventListener('keydown', T.keys, true);
   ['tour-block', 'tour-hl', 'tour-tip'].forEach(id => { const e = $(id); if (e) e.remove(); });
+  DB = T.realDB;
+  S.tour = null;
+  if (S.elView !== T.prevView) setElView(T.prevView);
+  S.sideSel = T.prevSide;
+  if (T.prevPid) openProject(T.prevPid);
+  else { goHome(); history.replaceState(null, '', location.pathname + (MODE_QS ? '?' + MODE_QS : '')); renderSide(); }
+}
+
+// =====================================================================
+//  POKAZ Z LEKTOREM: kursor sam buduje stoisko „GOG testy” od zera (wkleja wizkę, klika ściany,
+//  wybiera typy w menu łukowym, wpisuje wymiary, przesuwa znacznik, edytuje, wkleja grafikę, eksport),
+//  a lektor (synteza mowy przeglądarki + napisy) opowiada, co się dzieje.
+//  Wszystko na kopii w pamięci (MemDB) — prawdziwa baza nie jest dotykana.
+// =====================================================================
+function createMemDB(seed) {
+  const data = clone(seed || {}), subs = {};
+  const rows = path => Object.entries(data[path] || {}).map(([id, v]) => ({ id, ...clone(v) }));
+  const emit = path => setTimeout(() => (subs[path] || []).forEach(cb => cb(rows(path))), 0);
+  return {
+    sub(path, cb) { (subs[path] = subs[path] || []).push(cb); setTimeout(() => cb(rows(path)), 0); return () => { subs[path] = (subs[path] || []).filter(x => x !== cb); }; },
+    async get(path, id) { const v = (data[path] || {})[id]; return v ? { id, ...clone(v) } : null; },
+    async list(path) { return rows(path); },
+    async add(path, o, id) { id = id || uid(); (data[path] = data[path] || {})[id] = strip(o); emit(path); return id; },
+    async set(path, id, o, merge) { data[path] = data[path] || {}; data[path][id] = merge ? { ...(data[path][id] || {}), ...strip(o) } : strip(o); emit(path); },
+    async update(path, id, o) { if (!data[path] || !data[path][id]) throw new Error('Brak dokumentu'); Object.assign(data[path][id], strip(o)); emit(path); },
+    async del(path, id) { if (data[path]) delete data[path][id]; emit(path); },
+  };
+}
+const SHOW_PID = 'pokaz-gog';
+// po pokazie: spóźnione zapisy aplikacji (np. historia po „Dodaj” przerwanym w połowie) nie mogą trafić
+// do prawdziwej bazy — wszystko, co dotyczy stoiska pokazowego, jest odrzucane
+function guardShowDB(real) {
+  if (real.__guard) return real;
+  const bad = (p, id) => String(p).includes(SHOW_PID) || id === SHOW_PID;
+  return { ...real, __guard: true,
+    add: (p, o) => bad(p) ? Promise.resolve('x') : real.add(p, o),
+    set: (p, id, o, m) => bad(p, id) ? Promise.resolve() : real.set(p, id, o, m),
+    update: (p, id, o) => bad(p, id) ? Promise.resolve() : real.update(p, id, o),
+    del: (p, id) => bad(p, id) ? Promise.resolve() : real.del(p, id) };
+}
+const SHOW_UI = {
+  title: TT('Pokaz z lektorem', 'Показ з диктором', 'Narrated demo'),
+  pause: TT('Pauza (spacja)', 'Пауза (пробіл)', 'Pause (space)'), play: TT('Wznów (spacja)', 'Продовжити (пробіл)', 'Resume (space)'),
+  mute: TT('Wycisz lektora', 'Вимкнути голос', 'Mute narrator'), unmute: TT('Włącz lektora', 'Увімкнути голос', 'Unmute narrator'),
+  close: TT('Zakończ pokaz (Esc)', 'Завершити показ (Esc)', 'End demo (Esc)'),
+  novoice: TT('Brak głosu w tym języku — same napisy', 'Немає голосу цією мовою — лише субтитри', 'No voice for this language — subtitles only'),
+  menuShow: TT('Pokaz z lektorem', 'Показ з диктором', 'Narrated demo'),
+  menuShowSub: TT('budujemy stoisko krok po kroku', 'будуємо стенд крок за кроком', 'we build a stand step by step'),
+  menuTour: TT('Prezentacja ekranu', 'Презентація екрана', 'Screen tour'),
+  menuTourSub: TT('omówienie przycisków i paneli', 'огляд кнопок і панелей', 'buttons and panels explained'),
+};
+// wybór z ikony: pokaz z lektorem albo prezentacja
+function openTourMenu(ev) {
+  ev.stopPropagation();
+  const old = document.querySelector('.menu.tour-menu'); if (old) { old.remove(); return; }
+  if (S.tour) return;
+  const m = document.createElement('div'); m.className = 'menu tour-menu'; m.setAttribute('data-noi18n', '');
+  const r = $('btn-tour').getBoundingClientRect();
+  m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, innerWidth - r.right) + 'px';
+  m.innerHTML = `<div class="mi" data-a="show"><div><b>▶ ${SHOW_UI.menuShow}</b><br><small>${SHOW_UI.menuShowSub}</small></div></div>
+    <div class="mi" data-a="tour"><div><b>▤ ${SHOW_UI.menuTour}</b><br><small>${SHOW_UI.menuTourSub}</small></div></div>`;
+  document.body.appendChild(m);
+  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); x.dataset.a === 'show' ? startShow() : startTour(); });
+  setTimeout(() => document.addEventListener('click', function f() { m.remove(); document.removeEventListener('click', f); }), 0);
+}
+
+class ShowStop extends Error {}
+const SH = () => S.tour && S.tour.show ? S.tour : null;
+function shChk() { const T = SH(); if (!T || T.stop) throw new ShowStop(); }
+async function shGate() { // pauza: czekamy, aż ktoś wznowi
+  shChk();
+  while (S.tour && S.tour.paused && !S.tour.stop) await new Promise(r => setTimeout(r, 120));
+  shChk();
+}
+async function shWait(ms) {
+  const T0 = Date.now(); let left = ms;
+  while (left > 0) { await shGate(); const d = Math.min(left, 100); await new Promise(r => setTimeout(r, d)); left -= d; }
+  shChk();
+  return Date.now() - T0;
+}
+const SHOW_SPEED = () => (S.tour && S.tour.fast ? 0.35 : 1);
+// --- lektor: synteza mowy + napisy ---
+function shVoice() {
+  if (!('speechSynthesis' in window)) return null;
+  const want = { pl: 'pl', uk: 'uk', en: 'en' }[LANG];
+  const vs = speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().startsWith(want));
+  // lektorka: najpierw głosy żeńskie (Paulina, Zofia, Polina, Libby…), męskie na sam koniec
+  const FEM = /paulina|zofia|agnieszka|ewa|maja|polina|kateryna|oksana|female|zira|hazel|susan|libby|sonia|aria|jenny|emma|ava|natasha|google polski|google українська/i;
+  const MALE = /adam|marek|jacek|ostap|male|david|mark|george|ryan|guy|thomas|brian|christopher/i;
+  const rank = v => (FEM.test(v.name) ? 0 : MALE.test(v.name) ? 3 : 1) + (/natural|online|google/i.test(v.name) ? 0 : 0.5);
+  return vs.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
+}
+async function shSay(text) {
+  const T = SH(); if (!T) throw new ShowStop();
+  await shGate();
+  const cap = $('show-cap-t'); if (cap) cap.innerHTML = text;
+  const plain = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  if (T.fast) { await shWait(Math.min(1400, 400 + plain.length * 15)); return; }
+  if (T.muted || !T.voice) { await shWait(900 + plain.length * 55); return; }
+  // zdania osobno (Chrome ucina długie wypowiedzi)
+  const parts = plain.match(/[^.!?…]+[.!?…]*/g) || [plain];
+  for (const part of parts) {
+    await shGate();
+    await new Promise(res => {
+      const u = new SpeechSynthesisUtterance(part.trim());
+      u.voice = T.voice; u.lang = T.voice.lang; u.rate = 1.04;
+      let done = false; const fin = () => { if (!done) { done = true; clearTimeout(to); res(); } };
+      u.onend = fin; u.onerror = fin;
+      const to = setTimeout(fin, 2500 + part.length * 110); // zabezpieczenie, gdy przeglądarka nie zgłosi końca
+      T.utter = u; speechSynthesis.speak(u);
+    });
+    while (S.tour && S.tour.paused && !S.tour.stop) await new Promise(r => setTimeout(r, 120));
+    if (!SH() || SH().stop || SH().muted) { shChk(); break; }
+  }
+  shChk();
+  await shWait(250);
+}
+// --- kursor ---
+function shCursorAt(x, y) { const c = $('show-cursor'); if (!c) return; c.style.left = x + 'px'; c.style.top = y + 'px'; S.tour.cx = x; S.tour.cy = y; }
+async function shMove(x, y, ms = 700) {
+  const T = SH(); if (!T) throw new ShowStop();
+  ms *= SHOW_SPEED();
+  const x0 = T.cx, y0 = T.cy, t0 = performance.now();
+  const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  let paused = 0;
+  while (true) {
+    const p0 = performance.now(); await shGate(); paused += performance.now() - p0;
+    const t = Math.min(1, (performance.now() - t0 - paused) / ms), k = ease(t);
+    shCursorAt(x0 + (x - x0) * k, y0 + (y - y0) * k);
+    if (T.onMove) T.onMove(T.cx, T.cy);
+    if (t >= 1) break;
+    await new Promise(r => requestAnimationFrame(() => r()));
+  }
+}
+const shCenter = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+function shRipple() {
+  const T = SH(); if (!T) return;
+  const r = document.createElement('div'); r.className = 'show-ripple'; r.style.left = T.cx + 'px'; r.style.top = T.cy + 'px';
+  document.body.appendChild(r); setTimeout(() => r.remove(), 600);
+  const c = $('show-cursor'); if (c) { c.classList.add('down'); setTimeout(() => c.classList.remove('down'), 160); }
+}
+async function shWaitFor(fn, ms = 4000) { const t0 = Date.now(); while (Date.now() - t0 < ms) { shChk(); const v = fn(); if (v) return v; await new Promise(r => setTimeout(r, 60)); } return null; }
+// kliknięcie w przycisk / element (prawdziwy .click())
+async function shClick(sel, ms) {
+  const el = typeof sel === 'string' ? await shWaitFor(() => document.querySelector(sel)) : sel;
+  if (!el) return null;
+  const [x, y] = shCenter(el);
+  await shMove(x, y, ms);
+  await shWait(120); shRipple(); el.click(); await shWait(260);
+  return el;
+}
+function shPtr(type, target, x, y, extra = {}) {
+  target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, pointerId: 1, pointerType: 'mouse', isPrimary: true,
+    button: 0, buttons: type === 'pointerup' ? 0 : 1, ...extra }));
+}
+// klik w wizkę (tło) w punkcie znormalizowanym
+async function shTapPhoto(pid, q) {
+  const [x, y] = stageToClient(pid, q);
+  await shMove(x, y, 800);
+  await shWait(150); shRipple();
+  if (S.selId) selectElement(null); // pierwsze kliknięcie obok zaznaczonego elementu tylko odznacza
+  shPtr('pointerdown', viewer, x, y); shPtr('pointerup', viewer, x, y);
+  await shWait(200);
+}
+// pisanie w polu
+async function shType(input, text) {
+  if (!input) return;
+  const [x, y] = shCenter(input);
+  await shMove(x, y, 450);
+  shRipple(); input.focus({ preventScroll: true });
+  input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true }));
+  for (const ch of String(text)) {
+    await shWait(SHOW_SPEED() < 1 ? 15 : 85);
+    input.value += ch; input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  await shWait(200);
+}
+function shKey(label) { // podpowiedź klawisza (np. Ctrl+V) przy kursorze
+  const T = SH(); if (!T) return;
+  const k = document.createElement('div'); k.className = 'show-key'; k.textContent = label;
+  k.style.left = (T.cx + 18) + 'px'; k.style.top = (T.cy + 18) + 'px';
+  document.body.appendChild(k); setTimeout(() => k.remove(), 1400);
+}
+const numTxt = mm => { const v = fromMM(mm); return String(v).replace('.', LANG === 'en' ? '.' : ','); };
+const numInput = mm => String(fromMM(mm));
+const unitWord = () => UNIT() === 'cm' ? TT('centymetrów', 'сантиметрів', 'centimetres') : TT('milimetrów', 'міліметрів', 'millimetres');
+
+// --- dodanie elementu przez menu łukowe, z komentarzem lektora ---
+async function shAddElement(e, talk, first) {
+  const t = typeById(e.typeId), v = (t.variants || []).find(x => x.id === e.variant);
+  const pid = e.photoId, q = shapeCenter(e.shape);
+  const label = tr(t.name);
+  if (talk) await shSay(first
+    ? TT(`Pierwszy element: ${label}. Klikam miejsce na wizce, gdzie ma być.`, `Перший елемент: ${label}. Клікаю місце на візуалізації, де він має бути.`, `First element: ${label}. I click the spot on the visual where it goes.`)
+    : TT(`Teraz ${label}. Klikam jego miejsce.`, `Тепер ${label}. Клікаю його місце.`, `Now ${label}. I click its spot.`));
+  await shTapPhoto(pid, q);
+  if (!await shWaitFor(() => ARC && ARC.root.querySelector(`.arc-btn[data-t="${e.typeId}"]`))) return;
+  await shWait(450);
+  if (talk && first) await shSay(TT('Otwiera się menu z typami elementów. Wybieram typ.', 'Відкривається меню з типами елементів. Обираю тип.', 'A menu with element types opens. I pick the type.'));
+  await shClick(`#arc .arc-btn[data-t="${e.typeId}"]`, 650);
+  await shWait(350);
+  if (v) {
+    if (talk) await shSay(TT(`Wykonanie: ${tr(v.name)}.`, `Виконання: ${tr(v.name)}.`, `Variant: ${tr(v.name)}.`));
+    await shClick(`#arc .ap-opt[data-step="v"][data-o="${v.id}"]`, 500); await shWait(250);
+  }
+  if (t.seg) {
+    const o = e.wyslona && t.wyslona ? '2' : e.seg ? '1' : '0';
+    if (talk) await shSay(o === '1' ? TT('Mocowanie: SEG, czyli tkanina na ramie aluminiowej. SEG nie ma spadu.', 'Кріплення: SEG, тобто тканина на алюмінієвій рамі. SEG без вильоту.', 'Mounting: SEG, fabric on an aluminium frame. SEG has no bleed.')
+      : o === '2' ? TT('Mocowanie: wysłona.', `Кріплення: ${tr('Wysłona')}.`, `Mounting: ${tr('Wysłona')}.`) : TT('Mocowanie standardowe, ze spadem.', 'Стандартне кріплення, з вильотом.', 'Standard mounting, with bleed.'));
+    await shClick(`#arc .ap-opt[data-step="s"][data-o="${o}"]`, 500); await shWait(250);
+  }
+  if (hasThick(e) && Number(e.thick) > 0) {
+    if (talk) await shSay(TT(`Grubość ${e.thick} milimetrów.`, `Товщина ${e.thick} міліметрів.`, `Thickness ${e.thick} millimetres.`));
+    await shType(await shWaitFor(() => document.querySelector('#arc input[data-f="thick"]')), String(e.thick));
+  }
+  for (const [k] of TYPE_TOGGLES) if (t[k] && e[k]) {
+    if (talk) await shSay(k === 'laminate' ? TT('Z laminatem.', 'З ламінатом.', 'With laminate.') : TT('Z cięciem po konturze.', 'З порізкою по контуру.', 'Contour cut.'));
+    await shClick(`#arc .ap-tog[data-tog="${k}"]`, 450);
+  }
+  if (t.finish && e.finish) await shClick(`#arc .ap-fin[data-fin="${e.finish}"]`, 450);
+  const w = await shWaitFor(() => document.querySelector('#arc input[data-f="w"]'));
+  if (talk) await shSay(TT(`Wpisuję wymiar widoczny: ${numTxt(e.w)} na ${numTxt(e.h)} ${unitWord()}.`, `Вписую видимий розмір: ${numTxt(e.w)} на ${numTxt(e.h)} ${unitWord()}.`, `I enter the visible size: ${numTxt(e.w)} by ${numTxt(e.h)} ${unitWord()}.`));
+  await shType(w, numInput(e.w));
+  if (dimsMode(e) === 'box') await shType(document.querySelector('#arc input[data-f="d"]'), numInput(e.d));
+  await shType(document.querySelector('#arc input[data-f="h"]'), numInput(e.h));
+  if ((Number(e.qty) || 1) > 1) await shType(document.querySelector('#arc input[data-f="qty"]'), String(e.qty));
+  if (e.notes) await shType(document.querySelector('#arc input[data-f="notes"]'), e.notes);
+  if (talk && first) {
+    const calc = document.querySelector('#ap-calc');
+    if (calc) { await shMove(...shCenter(calc), 500); }
+    await shSay(TT('Wymiar do druku ze spadem i metry kwadratowe program liczy sam.', 'Розмір до друку з вильотом і квадратні метри програма рахує сама.', 'The print size with bleed and the square metres are calculated automatically.'));
+  }
+  if (talk) await shSay(TT('Dodaj.', 'Додати.', 'Add.'));
+  await shClick('#arc .ap-go', 450);
+  await shWaitFor(() => !ARC, 3000);
+  await shWait(300);
+}
+
+async function startShow() {
+  if (S.tour || !S.me) return;
+  const src = S.projects.find(x => x.id === TOUR_PID) || S.projects.find(x => String(x.name || '').trim().toLowerCase() === TOUR_NAME);
+  if (!src) { toast(TOUR_UI.missing, 'error'); return; }
+  document.querySelectorAll('.menu').forEach(m => m.remove());
+  while (modalStack.length) modalStack[modalStack.length - 1].close();
+  // materiał pokazu: wizki i elementy prawdziwego stoiska (tylko odczyt)
+  let photos, els;
+  try { photos = await DB.list(pPhotos(src.id)); els = (await DB.list(pElements(src.id))).map(normalizeEl); }
+  catch (e) { toast('Błąd bazy: ' + e.message, 'error'); return; }
+  els = els.filter(e => e.shape && e.photoId && photos.some(p => p.id === e.photoId) && !e.doorFor)
+    .sort((a, b) => (isWys(a) - isWys(b)) || (a.num || 0) - (b.num || 0));
+  if (!photos.length || !els.length) { toast(TOUR_UI.missing, 'error'); return; }
+  const proj = { ...clone(src), id: undefined, users: [S.me.id], photosCount: 0, elementsCount: 0, cover: '' };
+  delete proj.id;
+  const mem = createMemDB({ [C_PROJECTS]: { [SHOW_PID]: proj } });
+  S.tour = { show: true, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
+  DB = mem;
+  viewer.setPointerCapture = () => {}; // zdarzenia kursora pokazu nie mają prawdziwego wskaźnika
+  // warstwy pokazu
+  const block = document.createElement('div'); block.id = 'show-block';
+  block.addEventListener('pointerdown', e => e.preventDefault()); block.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+  const cur = document.createElement('div'); cur.id = 'show-cursor';
+  cur.innerHTML = `<svg viewBox="0 0 24 24" width="30" height="30"><path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14 L19 14 Z" fill="#fff" stroke="#1a202c" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  const cap = document.createElement('div'); cap.id = 'show-cap'; cap.setAttribute('data-noi18n', '');
+  cap.innerHTML = `<div class="sc-h"><span class="sc-dot"></span>${SHOW_UI.title}<span class="sc-sp"></span>
+      <button type="button" data-p title="${SHOW_UI.pause}">⏸</button><button type="button" data-m title="${SHOW_UI.mute}">🔊</button><button type="button" data-x title="${SHOW_UI.close}">✕</button></div>
+    <div class="sc-t" id="show-cap-t"></div><div class="sc-bar"><i id="show-bar"></i></div>`;
+  document.body.append(block, cur, cap);
+  shCursorAt(S.tour.cx, S.tour.cy);
+  const T = S.tour;
+  const setPause = p => { T.paused = p; cap.querySelector('[data-p]').textContent = p ? '▶' : '⏸'; cap.querySelector('[data-p]').title = p ? SHOW_UI.play : SHOW_UI.pause;
+    if ('speechSynthesis' in window) { p ? speechSynthesis.pause() : speechSynthesis.resume(); } };
+  cap.querySelector('[data-p]').onclick = () => setPause(!T.paused);
+  cap.querySelector('[data-m]').onclick = () => { T.muted = !T.muted; cap.querySelector('[data-m]').textContent = T.muted ? '🔇' : '🔊'; cap.querySelector('[data-m]').title = T.muted ? SHOW_UI.unmute : SHOW_UI.mute; if (T.muted && 'speechSynthesis' in window) speechSynthesis.cancel(); };
+  cap.querySelector('[data-x]').onclick = () => { T.stop = true; endShow(); };
+  T.keys = e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); T.stop = true; endShow(); return; }
+    if (e.key === ' ') { e.preventDefault(); e.stopPropagation(); setPause(!T.paused); return; }
+    e.preventDefault(); e.stopPropagation();
+  };
+  document.addEventListener('keydown', T.keys, true);
+  // głos (lista głosów bywa pusta tuż po starcie)
+  if ('speechSynthesis' in window) {
+    speechSynthesis.cancel();
+    T.voice = shVoice();
+    if (!T.voice) { await new Promise(r => { const f = () => r(); speechSynthesis.addEventListener('voiceschanged', f, { once: true }); setTimeout(r, 1200); }); T.voice = shVoice(); }
+  }
+  if (!T.voice) toast(SHOW_UI.novoice, '', 5000);
+  try { await runShow(photos, els); }
+  catch (e) { if (!(e instanceof ShowStop)) { console.error(e); toast('Pokaz przerwany: ' + e.message, 'error'); } }
+  endShow();
+}
+function shProgress(k, n) { const b = $('show-bar'); if (b) b.style.width = Math.round(k / n * 100) + '%'; }
+
+async function runShow(photos, els) {
+  const T = S.tour, STEPS = 12; let k = 0;
+  const step = () => shProgress(++k, STEPS);
+  await openProject(SHOW_PID);
+  setElView('table');
+  await shWait(600);
+  await shSay(TT('Cześć! Pokażę, jak w INDEX powstaje opis stoiska. Zbudujemy od zera stoisko GOG na targi ISPO w Amsterdamie.',
+    'Привіт! Покажу, як в INDEX створюється опис стенду. Побудуємо з нуля стенд GOG на виставку ISPO в Амстердамі.',
+    'Hi! Let me show you how a stand description is made in INDEX. We will build the GOG stand for ISPO in Amsterdam from scratch.'));
+  step();
+  // 1. wizka
+  await shSay(TT('Stoisko jest jeszcze puste. Najpierw dodajemy wizkę: kopiujemy obrazek i klikamy Wklej, albo po prostu przeciągamy plik na to pole.',
+    'Стенд поки порожній. Спершу додаємо візуалізацію: копіюємо зображення і натискаємо Вставити, або просто перетягуємо файл на це поле.',
+    'The stand is still empty. First we add a visual: copy the image and click Paste, or just drag the file onto this area.'));
+  const pasteBtn = document.querySelector('#viewer-empty .btn-solid') || document.querySelector('#toolbar button[onclick="pasteFromClipboard()"]');
+  if (pasteBtn) { const [x, y] = shCenter(pasteBtn); await shMove(x, y, 900); await shWait(150); shRipple(); shKey('Ctrl+V'); }
+  for (const ph of photos) { const x = clone(ph); delete x.id; await T.mem.add(pPhotos(SHOW_PID), x, ph.id); }
+  await shWaitFor(() => { const im = [...document.querySelectorAll('#stage-imgs img')]; return im.length && im.every(i => i.complete && i.naturalWidth); }, 8000);
+  fitView(); await shWait(500);
+  step();
+  // 2. przybliżanie
+  await shSay(TT('Wizka jest na miejscu. Kółkiem myszy przybliżamy, a przeciągając tło przesuwamy widok.',
+    'Візуалізація на місці. Коліщатком миші наближаємо, а перетягуючи фон зсуваємо вигляд.',
+    'The visual is in place. The mouse wheel zooms in, dragging the background pans the view.'));
+  {
+    const vr = viewer.getBoundingClientRect(), mx = vr.left + vr.width * 0.42, my = vr.top + vr.height * 0.48;
+    await shMove(mx, my, 700);
+    for (let i = 0; i < 12; i++) { await shWait(40); zoomAt(mx, my, 1.06); }
+    await shWait(500);
+    for (let i = 0; i < 12; i++) { await shWait(30); zoomAt(mx, my, 1 / 1.06); }
+    fitView(); await shWait(400);
+  }
+  step();
+  // 3. elementy: kilka różnych typów z komentarzem, reszta szybciej
+  const seen = new Set(), talkEls = [];
+  for (const e of els) if (!seen.has(e.typeId) && talkEls.length < 4) { seen.add(e.typeId); talkEls.push(e); }
+  let first = true;
+  for (const e of talkEls) { await shAddElement(e, true, first); first = false; step(); }
+  const rest = els.filter(e => !talkEls.includes(e));
+  if (rest.length) {
+    await shSay(TT(`Pozostałe elementy — jeszcze ${rest.length} — dodam szybciej, tak samo.`, `Решту елементів — ще ${rest.length} — додам швидше, так само.`, `The remaining ${rest.length} elements I will add faster, the same way.`));
+    T.fast = true;
+    for (const e of rest) await shAddElement(e, false, false);
+    T.fast = false;
+    fitView();
+  }
+  step();
+  // 4. przesunięcie znaku — zostaje kreska ze strzałką
+  const made = () => S.elements.slice().sort((a, b) => (a.num || 0) - (b.num || 0));
+  const target = made().find(x => x.shape && x.shape.kind === 'point') || made()[0];
+  if (target) {
+    await shSay(TT('Znak elementu można odsunąć, żeby nie zasłaniał wizki. Zostaje kreska ze strzałką do miejsca.',
+      'Позначку елемента можна відсунути, щоб не закривала візуалізацію. Лишається лінія зі стрілкою до місця.',
+      'You can drag an element’s mark aside so it doesn’t cover the visual. A line with an arrow keeps pointing to the spot.'));
+    const node = () => document.querySelector(`#overlay g.shp[data-eid="${target.id}"] [data-part="lab"]`);
+    const n0 = await shWaitFor(node);
+    if (n0) {
+      const [x, y] = shCenter(n0);
+      await shMove(x, y, 700); await shWait(150); shRipple();
+      shPtr('pointerdown', n0, x, y);
+      const vr = viewer.getBoundingClientRect();
+      const tx = clamp(x + (x > vr.left + vr.width / 2 ? -110 : 110), vr.left + 30, vr.right - 30), ty = clamp(y - 70, vr.top + 60, vr.bottom - 30);
+      T.onMove = (cx, cy) => shPtr('pointermove', viewer, cx, cy);
+      await shMove(tx, ty, 1100);
+      T.onMove = null;
+      shPtr('pointerup', viewer, tx, ty);
+      await shWait(600);
+    }
+  }
+  step();
+  // 5. dwuklik = edycja
+  const ed = made().find(x => (Number(x.qty) || 1) === 1) || made()[0];
+  if (ed) {
+    await shSay(TT('Dwuklik na znaku otwiera okno elementu. Zmienię ilość na dwie sztuki.',
+      'Подвійний клік на позначці відкриває вікно елемента. Змінюю кількість на дві штуки.',
+      'Double-clicking a mark opens the element window. I’ll change the quantity to two pieces.'));
+    const node = () => document.querySelector(`#overlay g.shp[data-eid="${ed.id}"] [data-part="lab"]`) || document.querySelector(`#overlay g.shp[data-eid="${ed.id}"]`);
+    const n0 = await shWaitFor(node);
+    if (n0) {
+      const [x, y] = shCenter(n0);
+      await shMove(x, y, 800); await shWait(150);
+      shRipple(); shPtr('pointerdown', n0, x, y); shPtr('pointerup', viewer, x, y);
+      await new Promise(r => setTimeout(r, 90));
+      const n1 = node(); shRipple(); if (n1) { shPtr('pointerdown', n1, x, y); shPtr('pointerup', viewer, x, y); }
+      const q = await shWaitFor(() => $('ed-q'), 3000);
+      if (q) {
+        await shWait(700);
+        await shType(q, '2');
+        await shSay(TT('Zapisz.', 'Зберегти.', 'Save.'));
+        await shClick('#ed-ok', 600);
+        await shWaitFor(() => !$('ed-q'), 3000);
+      }
+    }
+  }
+  step();
+  // 6. tabela
+  await shSay(TT('Na dole jest lista wszystkich elementów: typ, wymiar netto, wymiar do druku i ilość. Klik w wiersz pokazuje element na wizce.',
+    'Внизу список усіх елементів: тип, розмір нетто, розмір до друку й кількість. Клік по рядку показує елемент на візуалізації.',
+    'Below is the list of all elements: type, net size, print size and quantity. Clicking a row shows the element on the visual.'));
+  const row = await shWaitFor(() => document.querySelectorAll('#el-scroll tr[data-eid]')[2] || document.querySelector('#el-scroll tr[data-eid]'));
+  if (row) { await shClick(row, 800); await shWait(900); fitView(); }
+  step();
+  // 7. widok Grafika + wklejenie grafiki
+  await shSay(TT('Przełączam na widok Grafika — elementy jako okienka w skali, z wymiarami, jak index z Corela.',
+    'Перемикаю на вигляд Графіка — елементи як віконця в масштабі з розмірами, як індекс із Corel.',
+    'I switch to the Graphic view — elements as scaled frames with dimensions, like a Corel index.'));
+  await shClick('#el-view button[data-v="graph"]', 800);
+  await shWaitFor(() => document.querySelector('#el-scroll .gc-frame'), 3000);
+  await shWait(600);
+  const withThumb = els.filter(e => e.thumb);
+  if (withThumb.length) {
+    await shSay(TT('Gdy grafika jest gotowa, klikam okienko i wklejam jej podgląd.', 'Коли графіка готова, клікаю віконце й вставляю її попередній перегляд.', 'When the artwork is ready, I click the frame and paste a preview.'));
+    for (const src of withThumb.slice(0, 3)) {
+      const mine = S.elements.find(x => x.typeId === src.typeId && Number(x.w) === Number(src.w) && Number(x.h) === Number(src.h) && !x.thumb);
+      const fr = mine && document.querySelector(`#el-scroll .gc-frame[data-eid="${mine.id}"]`);
+      if (!fr) continue;
+      fr.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const [x, y] = shCenter(fr);
+      await shMove(x, y, 700); await shWait(150); shRipple(); shKey('Ctrl+V');
+      await T.mem.update(pElements(SHOW_PID), mine.id, { thumb: src.thumb, updatedAt: nowIso(), updatedBy: S.me.id });
+      await shWait(900);
+    }
+  }
+  step();
+  // 8. zegar
+  await shMove(...shCenter($('clock-pane')), 900);
+  await shSay(TT('Zegar pokazuje, ile czasu zostało: zielony do oddania grafik, żółty do pakowania, czerwony do targów.',
+    'Годинник показує, скільки часу лишилося: зелений до здачі графіки, жовтий до пакування, червоний до виставки.',
+    'The clock shows the time left: green until artwork is due, yellow until packing, red until the fair.'));
+  step();
+  // 9. historia zmian
+  await shMove(...shCenter($('log-handle')), 900);
+  await shSay(TT('Każda zmiana trafia do historii po prawej: kto i co zmienił.', 'Кожна зміна потрапляє в історію праворуч: хто й що змінив.', 'Every change lands in the history on the right: who changed what.'));
+  if (!logState.open) { shRipple(); toggleLog(true); await shWait(1800); toggleLog(false); }
+  step();
+  // 10. eksport
+  await shSay(TT('Na koniec eksport: index A3 z wizkami i okienkami oraz tabela A4 — do druku albo jako PDF.',
+    'Наприкінці експорт: індекс A3 з візуалізаціями й віконцями та таблиця A4 — до друку або як PDF.',
+    'Finally, export: an A3 index with visuals and frames, and an A4 table — print or PDF.'));
+  const expBtn = [...document.querySelectorAll('#hdr-actions button')].find(b => /openExportDialog/.test(b.getAttribute('onclick') || ''));
+  if (expBtn) {
+    await shClick(expBtn, 900);
+    await shWait(2600);
+    const m = modalStack[modalStack.length - 1];
+    if (m) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
+  }
+  step();
+  setElView('table');
+  await shSay(TT('Gotowe — stoisko jest opisane. Ten pokaz niczego nie zapisał. Obejrzysz go jeszcze raz ikoną obok awatara.',
+    'Готово — стенд описано. Цей показ нічого не зберіг. Переглянеш його ще раз іконкою біля аватара.',
+    'Done — the stand is described. This demo saved nothing. Watch it again with the icon next to your avatar.'));
+  shProgress(STEPS, STEPS);
+  await shWait(600);
+}
+function endShow() {
+  const T = S.tour; if (!T || !T.show) return;
+  T.stop = true;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  closeArcMenu(true);
+  while (modalStack.length) modalStack[modalStack.length - 1].close();
+  document.removeEventListener('keydown', T.keys, true);
+  ['show-block', 'show-cursor', 'show-cap'].forEach(id => { const e = $(id); if (e) e.remove(); });
+  document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove());
+  delete viewer.setPointerCapture;
+  liveShape = null; act = null;
   DB = T.realDB;
   S.tour = null;
   if (S.elView !== T.prevView) setElView(T.prevView);
