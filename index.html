@@ -846,7 +846,7 @@ const DEFAULT_TYPES = [
     desc: 'Napis lub logo wycięte z folii, naklejone bezpośrednio na ścianę lub szybę. Bez tła.' },
   { id: 'folia-laminat', order: 2, name: 'Folia', color: '#00a0e3', bleed: 10, icon: 'print', laminate: true,
     desc: 'Zadrukowana folia oklejająca całą powierzchnię (ściana, lada, słup). W opcjach zaznacz, czy z laminatem.' },
-  { id: 'pcw', order: 3, name: 'Płyta PCW', color: '#e31e24', bleed: 10, icon: 'board', thick: true, contour: true,
+  { id: 'pcw', order: 3, name: 'Płyta PCW', color: '#e31e24', bleed: 0, icon: 'board', thick: true, contour: true,
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
   { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 100, icon: 'banner', seg: true, wyslona: true,
     desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).' },
@@ -1594,6 +1594,7 @@ const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (type
 function bleedOf(el) {
   if (el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '') return Number(el.bleedOverride) || 0;
   if (el.eltex) return 0;
+  if (el.typeId === 'pcw') return 0; // płyta PCW domyślnie bez spadu (inny spad tylko wybrany ręcznie)
   const t = typeById(el.typeId), v = variantOf(el);
   if (t.seg && el.seg) return 0;
   if (t.wyslona && el.wyslona) return 0; // wysłona bez spadu
@@ -3578,7 +3579,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     notes: $('ed-notes').value.trim(),
     ...(isAdmin() ? { bleedOverride: toMM($('ed-bleed').value), eltex: $('ed-eltex').checked } : {}),
     ...(sideBleedOk(el) ? {
-      bleedOverride: el.bleedMode === 'all' ? Number(el.bleedAll) || 0 : '',
+      bleedOverride: el.bleedMode === 'all' ? Number(el.bleedAll) || 0 : el.bleedMode === 'none' ? 0 : '',
       bleedBox: el.bleedMode === 'sides' ? Object.fromEntries(BLEED_SIDES.map(([k]) => [k, Number(el.bleedSides[k]) || 0])) : null,
     } : el.doorFor ? {} : { bleedBox: null }),
   });
@@ -3628,12 +3629,16 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     let hb = '';
     if (t && sideBleedOk(el)) {
       const auto = bleedOf({ ...el, bleedOverride: '', bleedBox: null, eltex: false });
-      if (!el.bleedMode) el.bleedMode = el.bleedBox ? 'sides' : (el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '') ? 'all' : 'auto';
-      if (el.bleedAll == null) el.bleedAll = el.bleedMode === 'all' ? Number(el.bleedOverride) || 0 : auto;
-      if (!el.bleedSides) el.bleedSides = el.bleedBox ? { ...el.bleedBox } : { l: auto, r: auto, t: auto, b: auto };
+      // płyta PCW: domyślnie bez spadu, bez opcji „automatycznie”
+      const pcw = el.typeId === 'pcw', base = auto || 10;
+      const hasOv = el.bleedOverride !== undefined && el.bleedOverride !== null && el.bleedOverride !== '';
+      if (!el.bleedMode || (pcw && el.bleedMode === 'auto')) el.bleedMode = el.bleedBox ? 'sides' : hasOv ? (Number(el.bleedOverride) > 0 ? 'all' : 'none') : pcw ? 'none' : 'auto';
+      if (el.bleedAll == null) el.bleedAll = el.bleedMode === 'all' ? Number(el.bleedOverride) || 0 : base;
+      if (!el.bleedSides) el.bleedSides = el.bleedBox ? { ...el.bleedBox } : { l: base, r: base, t: base, b: base };
       const bm = el.bleedMode;
       hb = `<div class="fld bleed-fld" style="margin-top:12px"><label>Spady</label><div class="var-list">
-        <button type="button" class="type-btn var-btn ${bm === 'auto' ? 'on' : ''}" data-bmode="auto">Automatycznie · ${lenPL(auto)} ${UNIT()}</button>
+        <button type="button" class="type-btn var-btn ${bm === 'none' ? 'on' : ''}" data-bmode="none">Bez spadu</button>
+        ${pcw ? '' : `<button type="button" class="type-btn var-btn ${bm === 'auto' ? 'on' : ''}" data-bmode="auto">Automatycznie · ${lenPL(auto)} ${UNIT()}</button>`}
         <button type="button" class="type-btn var-btn ${bm === 'all' ? 'on' : ''}" data-bmode="all">Jeden dla wszystkich stron</button>
         <button type="button" class="type-btn var-btn ${bm === 'sides' ? 'on' : ''}" data-bmode="sides">Różne dla każdej strony</button></div>
         ${bm === 'all' ? `<div class="bleed-row"><span class="bl-i">spad <input type="number" id="ed-bl-all" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedAll))}"> ${UNIT()} / stronę</span></div>` : ''}
