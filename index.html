@@ -956,6 +956,8 @@ const bleedTxt = b => b ? lenPL(b) + ' ' + UNIT() : 'brak';
 const unitStep = () => UNIT() === 'cm' ? '0.1' : '1';
 // wysłona: typowe wymiary = wielokrotności 49,6 cm (do 496 cm) — lista do wyboru, ręczne wpisanie dalej działa
 const WYS_STEP_MM = 496;
+const segStep = () => UNIT() === 'cm' ? WYS_STEP_MM / 10 : WYS_STEP_MM; // skok pola wysokości Blackback SEG
+const segHeight = el => !!(el && el.typeId === 'blackback' && el.seg && !el.wyslona);
 // Własna lista (nie <datalist>: przeglądarka filtruje ją po wpisanej wartości, więc przy edycji znikała).
 // Przycisk ▾ przy polu otwiera wszystkie wartości; kliknięcie wpisuje wymiar i odpala „input".
 const wysValues = () => Array.from({ length: 10 }, (_, i) => (i + 1) * WYS_STEP_MM).map(mm => UNIT() === 'cm' ? mm / 10 : mm);
@@ -1223,6 +1225,10 @@ const I18N_RX = [
   [/^Ustawia się sam: (\d+) dni przed startem targów\.(.*)$/, 'Встановлюється сам: за $1 дн. до початку виставки.', 'Set automatically: $1 days before the fair starts.'],
   [/^przełącz na (mm|cm)$/, 'перемкнути на $1', 'switch to $1'], [/^deadline graf\. minął (.+)$/, 'дедлайн графіки минув $1', 'graphics deadline passed $1'],
 ];
+I18N_PAIRS.push(['⬠ Zmień na wielokąt', '⬠ Змінити на багатокутник', '⬠ Change to polygon'], ['⬠ Obrysuj od nowa', '⬠ Обвести заново', '⬠ Redraw outline'],
+  ['Zamiast punktu: obrys elementu wielokątem — narożnik po narożniku', 'Замість точки: обвести елемент багатокутником — кут за кутом', 'Instead of a point: outline the element with a polygon — corner by corner'],
+  ['Narysuj obrys elementu jeszcze raz — narożnik po narożniku', 'Обвести елемент ще раз — кут за кутом', 'Draw the element outline again — corner by corner'],
+  ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -2628,6 +2634,8 @@ let L = { map: {}, W: 0 };    // układ: id wizki -> { x, w, h }
 let tool = 'point';
 let draft = null;          // rysowany wielokąt {kind, photoId, pts:[[x,y]...], cursor}
 let assignTo = null;       // element bez zaznaczenia, któremu właśnie wskazujemy miejsce
+let assignLoc = -1;        // które miejsce elementu (−1 = pierwsze, 0.. = kolejne sztuki) dostaje nowe zaznaczenie
+let assignPoly = false;    // nowe zaznaczenie rysowane wielokątem (zmiana punktu na obrys)
 let spaceDown = false;
 const viewer = $('viewer'), stage = $('stage'), stageImgs = $('stage-imgs'), overlay = $('overlay');
 const curPhoto = () => S.photos.find(p => p.id === S.photoId) || null;
@@ -3023,12 +3031,17 @@ function cancelDraft() { draft = null; liveShape = null; act = null; if (S.proje
 
 async function onShapeDrawn(shape, photoId) {
   if (assignTo) {
-    const el = S.elements.find(e => e.id === assignTo);
+    const el = S.elements.find(e => e.id === assignTo), loc = assignLoc, poly = assignPoly, had = el && !!locShape(el, loc);
     cancelAssign();
+    if (poly) setTool('point');
     if (el) {
-      await DB.update(pElements(S.project.id), el.id, { shape, photoId, updatedAt: nowIso(), updatedBy: S.me.id });
-      addLog(S.project.id, `Zaznaczono element ${markOf(el)} na wizce #${photoNo(photoId)}`, el.id);
-      selectElement(el.id, false);
+      if (loc >= 0 && (el.extra || [])[loc]) {
+        const extra = clone(el.extra); extra[loc] = { ...extra[loc], photoId, shape };
+        await DB.update(pElements(S.project.id), el.id, { extra, updatedAt: nowIso(), updatedBy: S.me.id });
+      } else await DB.update(pElements(S.project.id), el.id, { shape, photoId, updatedAt: nowIso(), updatedBy: S.me.id });
+      addLog(S.project.id, had && shape.kind === 'poly' ? `Zmieniono zaznaczenie elementu ${markOf(el)} na wielokąt (wizka #${photoNo(photoId)})`
+        : `Zaznaczono element ${markOf(el)} na wizce #${photoNo(photoId)}`, el.id);
+      selectElement(el.id, false, loc);
     }
     return;
   }
@@ -3155,8 +3168,10 @@ function renderArcPanel() {
     if (ready) {
       const m = dimsMode(ARC), vv = variantOf(ARC);
       const wysList = typeById(ARC.typeId).wyslona && ARC.wyslona;
-      const f = (id, ph, val) => { const inp = `<input type="number" min="0" step="${id === 'thick' ? '1' : unitStep()}" data-f="${id}" value="${esc(val)}" placeholder="${ph}">`;
-        return wysList && (id === 'w' || id === 'h') ? `<span class="sz-wrap">${inp}</span>` : inp; };
+      // Blackback SEG: wysokość co 49,6 cm (lista ▾ i strzałki pola)
+      const segH = segHeight({ typeId: ARC.typeId, seg: ARC.seg, wyslona: ARC.wyslona });
+      const f = (id, ph, val) => { const inp = `<input type="number" min="0" step="${id === 'thick' ? '1' : segH && id === 'h' ? segStep() : unitStep()}" data-f="${id}" value="${esc(val)}" placeholder="${ph}">`;
+        return (wysList && (id === 'w' || id === 'h')) || (segH && id === 'h') ? `<span class="sz-wrap">${inp}</span>` : inp; };
       h += `<div class="ap-sec ap-form${fresh('form' + m + (vv && vv.thick ? 't' : ''))}">
         <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny' : 'Wymiar konstrukcji'} [${UNIT()}]</div>
         <div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>
@@ -3607,7 +3622,9 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       <div id="ed-bleedopts"></div>
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
-      ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}` : ''}
+      ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
+      ${editing.shape && editing.shape.kind === 'poly' ? '<button class="btn" id="ed-poly" title="Narysuj obrys elementu jeszcze raz — narożnik po narożniku">⬠ Obrysuj od nowa</button>'
+        : '<button class="btn" id="ed-poly" title="Zamiast punktu: obrys elementu wielokątem — narożnik po narożniku">⬠ Zmień na wielokąt</button>'}` : ''}
       <span id="ed-axfoot" class="ax-foot"></span>
       ${turbo && !editing ? '<span class="turbo-tag" style="margin-right:auto">⚡ Turbo — Enter = dodaj i następny</span>' : ''}
       <button class="btn" data-c>${turbo && !editing ? 'Zakończ wpisywanie' : 'Anuluj'}</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : turbo ? 'Dodaj i następny ↵' : 'Dodaj element'}</button>`,
@@ -3736,7 +3753,11 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-w').placeholder = (m === 'ring' ? 'średnica' : 'szerokość') + ` [${UNIT()}]`;
     // wysłona: lista typowych wymiarów (wielokrotności 49,6 cm) przy szerokości i wysokości
     const wysList = t && t.wyslona && el.wyslona;
-    ['ed-w', 'ed-h'].forEach(id => sizeButton($(id), !!wysList));
+    sizeButton($('ed-w'), !!wysList);
+    // Blackback SEG: wysokość z listy co 49,6 cm, strzałki pola też skaczą o 49,6 cm
+    const segH = segHeight(el);
+    sizeButton($('ed-h'), !!wysList || segH);
+    $('ed-h').step = segH ? segStep() : unitStep();
     $('ed-dims-lab').textContent = m === 'flat' ? '2. Wymiar widoczny (netto)' : '2. Wymiar konstrukcji';
     $('ed-dims-hint').textContent = unitHint(m === 'ring' ? 'Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).'
       : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
@@ -3833,6 +3854,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   if (editing) {
     $('ed-del').onclick = async () => { m.close(); deleteElement(editing.id); };
     const as = $('ed-assign'); if (as) as.onclick = () => { m.close(); startAssign(editing.id); };
+    const ep = $('ed-poly'); if (ep) ep.onclick = () => { const loc = S.selId === editing.id && S.selLoc >= 0 ? S.selLoc : -1; m.close(); startAssign(editing.id, true, loc); };
   }
 }
 function describeDiff(a, b) {
@@ -3857,16 +3879,28 @@ async function deleteElement(id) {
   if (S.selId === id) S.selId = null;
 }
 function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
-function startAssign(eid) {
+// poly = rysowanie wielokątem (zmiana zaznaczenia punktowego na obrys albo obrys od nowa); loc = które miejsce elementu
+function startAssign(eid, poly = false, loc = -1) {
   const el = S.elements.find(e => e.id === eid); if (!el) return;
   if (!S.photos.length) return toast('Najpierw dodaj wizkę', 'error');
-  assignTo = eid;
-  setTool('point'); updateHint();
+  setTool(poly ? 'poly' : 'point');
+  assignTo = eid; assignLoc = loc; assignPoly = poly;
+  updateHint();
+  // obrys zaczynamy na wizce, na której element już jest
+  const pid = locPhoto(el, loc); if (pid && L.map[pid]) { setCurrentPhoto(pid); const sh = locShape(el, loc); if (sh) { const [cx, cy] = shapeCenter(sh); centerOn(pid, cx, cy); } }
   const b = $('assign-bar');
-  b.innerHTML = `Zaznacz na wizce element ${markOf(el)} <button class="btn btn-sm" onclick="cancelAssign()">Anuluj</button>`;
+  b.innerHTML = poly
+    ? `Obrysuj wielokątem element ${markOf(el)}: klikaj kolejne narożniki, kliknij pierwszy punkt (albo dwuklik), aby zamknąć <button class="btn btn-sm" onclick="cancelAssign(true)">Anuluj</button>`
+    : `Zaznacz na wizce element ${markOf(el)} <button class="btn btn-sm" onclick="cancelAssign()">Anuluj</button>`;
   b.classList.remove('hidden');
 }
-function cancelAssign() { assignTo = null; $('assign-bar').classList.add('hidden'); updateHint(); }
+function cancelAssign(back) {
+  const wasPoly = assignPoly;
+  assignTo = null; assignLoc = -1; assignPoly = false;
+  $('assign-bar').classList.add('hidden');
+  if (back && wasPoly) setTool('point');
+  updateHint();
+}
 
 function setElFilter(v) {
   S.elFilter = v;
@@ -5026,7 +5060,7 @@ function arcRect() {
 }
 const TOUR_STEPS = [
   { title: TT('Witaj w INDEX', 'Вітаємо в INDEX', 'Welcome to INDEX'),
-    text: TT('INDEX to graficzny spis wszystkiego, co ma być wydrukowane i zamontowane na stoisku. Na wizce zaznaczasz miejsce, wybierasz typ (folia, baner, lightbox, logo 3D…) i podajesz wymiar — resztę, np. spady, program liczy sam.<br><br>Pokażę to na przykładowym stoisku <b>GOG testy</b>.',
+    text: TT('INDEX to graficzny spis wszystkiego, co ma być wydrukowane i zamontowane na stoisku. Na wizualizacji zaznaczasz miejsce, wybierasz typ (folia, baner, lightbox, logo 3D…) i podajesz wymiar — resztę, np. spady, program liczy sam.<br><br>Pokażę to na przykładowym stoisku <b>GOG testy</b>.',
       'INDEX — це графічний перелік усього, що треба надрукувати й змонтувати на стенді. На візуалізації позначаєш місце, обираєш тип (плівка, банер, лайтбокс, 3D-логотип…) і вказуєш розмір — решту, напр. виліт під обріз, програма рахує сама.<br><br>Покажу на прикладовому стенді <b>GOG testy</b>.',
       'INDEX is a graphic list of everything that has to be printed and mounted on the stand. You mark a spot on the visual, pick the type (foil, banner, lightbox, 3D logo…) and enter the size — the rest, e.g. bleed, is calculated for you.<br><br>Let me show you on the sample stand <b>GOG testy</b>.') },
   { sel: () => unionRect('#hdr-project', '#hdr-pname', '#hdr-pfair', '#hdr-pteam'),
@@ -5040,13 +5074,13 @@ const TOUR_STEPS = [
       'Смуга ліворуч розгортає список виставок і стендів, до яких маєш доступ, — швидкий перехід між ними.',
       'The bar on the left slides out the list of fairs and stands you have access to — a quick way to switch between them.') },
   { sel: '#viewer', before: () => fitView(),
-    title: TT('Wizki stoiska', 'Візуалізації стенду', 'Stand visuals'),
+    title: TT('Wizualizacje stoiska', 'Візуалізації стенду', 'Stand visuals'),
     text: TT('Tu są wizualizacje stoiska. Dodajesz je, przeciągając pliki, przyciskiem <b>＋ Wizki</b> albo wklejając obrazek (<b>Ctrl+V</b>).<br>Kółko myszy przybliża, przeciągnięcie tła przesuwa widok.',
       'Тут візуалізації стенду. Додаєш їх, перетягуючи файли, кнопкою <b>＋ Візуалізації</b> або вставляючи зображення (<b>Ctrl+V</b>).<br>Коліщатко миші наближає, перетягування фону зсуває вигляд.',
       'These are the stand visuals. Add them by dragging files in, with the <b>＋ Visuals</b> button or by pasting an image (<b>Ctrl+V</b>).<br>The mouse wheel zooms, dragging the background pans the view.') },
   { sel: '#toolbar',
     title: TT('Narzędzia', 'Інструменти', 'Tools'),
-    text: TT('<b>📍 Zaznacz kliknięciem</b> — element w jednym punkcie. <b>⬠ Wielokąt</b> — obrys ściany narożnikami. <b>− / +</b> przybliżenie, <b>⤢ Dopasuj</b> pokazuje całe wizki.',
+    text: TT('<b>📍 Zaznacz kliknięciem</b> — element w jednym punkcie. <b>⬠ Wielokąt</b> — obrys ściany narożnikami. <b>− / +</b> przybliżenie, <b>⤢ Dopasuj</b> pokazuje całe wizualizacje.',
       '<b>📍 Позначити кліком</b> — елемент в одній точці. <b>⬠ Багатокутник</b> — контур стіни по кутах. <b>− / +</b> масштаб, <b>⤢ Вмістити</b> показує всі візуалізації.',
       '<b>📍 Click to mark</b> — an element at a single point. <b>⬠ Polygon</b> — outline a wall by its corners. <b>− / +</b> zoom, <b>⤢ Fit</b> shows all visuals.') },
   { sel: firstMark, wait: firstMark,
@@ -5058,7 +5092,7 @@ const TOUR_STEPS = [
     before: () => { const ph = S.photos[0]; if (ph) openArcMenu({ kind: 'point', pts: [[0.5, 0.45]] }, ph.id); },
     after: () => closeArcMenu(true),
     title: TT('Nowy element: menu łukowe', 'Новий елемент: дугове меню', 'New element: arc menu'),
-    text: TT('Klikasz miejsce na wizce i pojawia się takie menu. Wybierasz <b>typ</b> (myszą albo cyfrą 1–9), potem wykonanie i <b>wymiar</b> — Enter zapisuje. Ostatnia pozycja, <b>Kolejna sztuka…</b>, dodaje istniejący element w nowym miejscu.',
+    text: TT('Klikasz miejsce na wizualizacji i pojawia się takie menu. Wybierasz <b>typ</b> (myszą albo cyfrą 1–9), potem wykonanie i <b>wymiar</b> — Enter zapisuje. Ostatnia pozycja, <b>Kolejna sztuka…</b>, dodaje istniejący element w nowym miejscu.',
       'Клікаєш місце на візуалізації — з’являється таке меню. Обираєш <b>тип</b> (мишею або цифрою 1–9), потім виконання і <b>розмір</b> — Enter зберігає. Остання позиція, <b>Ще одна штука…</b>, додає наявний елемент у новому місці.',
       'Click a spot on the visual and this menu appears. Pick the <b>type</b> (mouse or digits 1–9), then the variant and the <b>size</b> — Enter saves. The last item, <b>Another piece…</b>, adds an existing element in a new place.') },
   { sel: () => document.querySelector('.modal-back .modal'), wait: () => document.querySelector('.modal-back .modal'),
@@ -5070,7 +5104,7 @@ const TOUR_STEPS = [
       'All element data: <b>type and variant</b>, <b>net size</b> (width × height), <b>quantity</b> and <b>notes</b>. Bleed and print size are calculated automatically.<br>Not sure what the element should be made of? Choose <b>Don’t know — to be decided</b> and describe it in the notes.') },
   { sel: '#el-pane', before: () => setElView('table'),
     title: TT('Lista elementów — tabela', 'Список елементів — таблиця', 'Element list — table'),
-    text: TT('Wszystkie elementy stoiska: znak, typ, wymiar netto i do druku, ilość, uwagi. Klik w wiersz pokazuje element na wizce, dwuklik otwiera edycję. <b>+ Element bez zaznaczenia</b> — dla rzeczy, których nie widać na wizkach.',
+    text: TT('Wszystkie elementy stoiska: znak, typ, wymiar netto i do druku, ilość, uwagi. Klik w wiersz pokazuje element na wizualizacji, dwuklik otwiera edycję. <b>+ Element bez zaznaczenia</b> — dla rzeczy, których nie widać na wizualizacjach.',
       'Усі елементи стенду: позначка, тип, розмір нетто й до друку, кількість, примітки. Клік по рядку показує елемент на візуалізації, подвійний клік відкриває редагування. <b>+ Елемент без позначки</b> — для речей, яких не видно на візуалізаціях.',
       'All elements of the stand: mark, type, net and print size, quantity, notes. Click a row to show the element on the visual, double-click to edit. <b>+ Element without marker</b> — for things not visible on the visuals.') },
   { sel: '#el-pane', before: () => setElView('graph'), wait: () => document.querySelector('#el-scroll .gc'),
@@ -5090,7 +5124,7 @@ const TOUR_STEPS = [
       'The bar on the right slides out the history: who changed what and when. The number on the bar shows new changes by others.') },
   { sel: '#hdr-actions',
     title: TT('Eksport', 'Експорт', 'Export'),
-    text: TT('<b>⇩ Eksport</b>: index A3 (wizki + okienka z wymiarami) i tabela A4 — do druku albo jako PDF.',
+    text: TT('<b>⇩ Eksport</b>: index A3 (wizualizacje + okienka z wymiarami) i tabela A4 — do druku albo jako PDF.',
       '<b>⇩ Експорт</b>: індекс A3 (візуалізації + віконця з розмірами) і таблиця A4 — до друку або як PDF.',
       '<b>⇩ Export</b>: A3 index (visuals + dimensioned frames) and A4 table — print or PDF.') },
   { sel: '#langs',
@@ -5135,7 +5169,7 @@ const TOUR_PRO = [
       'On the left, untick what you don’t order — whole groups too, e.g. wysłony or structures. For SEG the program adds that it’s fabric with a flat silicone edge, wysłony go separately at the end, and cut foil gets “+ transfer”. <b>Copy</b> and paste into an e-mail.') },
   { sel: '#btn-turbo',
     title: TT('⚡ Turbo', '⚡ Турбо', '⚡ Turbo'),
-    text: TT('Turbo to szybkie wpisywanie dużej listy: najpierw wpisujesz wszystkie elementy po kolei — typ, wymiar, Enter, następny — bez klikania w wizkę. Potem przy każdym elemencie jest <b>🧵 nitka</b>: przeciągasz ją na wizkę i element ląduje na swoim miejscu. Turbo widzi tylko administrator.',
+    text: TT('Turbo to szybkie wpisywanie dużej listy: najpierw wpisujesz wszystkie elementy po kolei — typ, wymiar, Enter, następny — bez klikania w wizualizację. Potem przy każdym elemencie jest <b>🧵 nitka</b>: przeciągasz ją na wizualizację i element ląduje na swoim miejscu. Turbo widzi tylko administrator.',
       'Турбо — це швидке введення великого списку: спершу вписуєш усі елементи підряд — тип, розмір, Enter, наступний — без кліків по візуалізації. Потім біля кожного елемента є <b>🧵 нитка</b>: перетягуєш її на візуалізацію, і елемент стає на своє місце. Турбо бачить тільки адміністратор.',
       'Turbo is for typing a long list fast: first you enter all elements in a row — type, size, Enter, next — without clicking the visual. Then each element has a <b>🧵 thread</b>: drag it onto the visual and the element lands in its place. Only administrators see Turbo.') },
   { sel: () => unionRect('#ed-axfoot', '.modal-back .modal-f'), wait: () => document.querySelector('#ed-axfoot'),
@@ -5165,12 +5199,12 @@ const TOUR_PRO = [
       'A hanging structure has three shapes. <b>Round</b> — one band 3.14 × diameter long. <b>Square</b> — four sides side by side: width, depth, width, depth. <b>Other shape</b> — you enter the panels by hand. In the element window tick <b>print inside</b> — a second set of panels without bleed is added, marked outside and inside.') },
   { sel: '#el-pane', before: () => setElView('table'),
     title: TT('Alarm zmian', 'Сигнал змін', 'Change alarm'),
-    text: TT('Dima, gdy ktoś z zespołu zmieni element, ten element <b>mruga na czerwono</b> — na wizce, w tabeli i w widoku Grafika — dopóki go nie klikniesz. Tak od razu widzisz, co klient poprawił od Twojej ostatniej wizyty.',
+    text: TT('Dima, gdy ktoś z zespołu zmieni element, ten element <b>mruga na czerwono</b> — na wizualizacji, w tabeli i w widoku Grafika — dopóki go nie klikniesz. Tak od razu widzisz, co klient poprawił od Twojej ostatniej wizyty.',
       'Діма, коли хтось із команди змінить елемент, він <b>блимає червоним</b> — на візуалізації, у таблиці й у вигляді Графіка — доки ти його не клікнеш. Так одразу бачиш, що клієнт виправив від твого останнього візиту.',
       'Dima, when someone on the team changes an element, it <b>blinks red</b> — on the visual, in the table and in the Graphic view — until you click it. So you see right away what the client changed since your last visit.') },
   { sel: () => unionRect('#hdr-pname', '#hdr-pteam'),
     title: TT('Stoisko: terminy, zespół, numeracja', 'Стенд: терміни, команда, нумерація', 'Stand: deadlines, team, numbering'),
-    text: TT(`Klik w nazwę stoiska otwiera jego ustawienia: targi, terminy — deadline grafiki ustawia się sam ${DEADLINE_DAYS} dni przed targami, ale Ty możesz go przesunąć — zespół, który ma dostęp, i oznaczenia A, B, C albo 1, 2, 3. Jest też <b>Kopiuj stoisko</b> — na kolejną edycję targów z tymi samymi wizkami i elementami.`,
+    text: TT(`Klik w nazwę stoiska otwiera jego ustawienia: targi, terminy — deadline grafiki ustawia się sam ${DEADLINE_DAYS} dni przed targami, ale Ty możesz go przesunąć — zespół, który ma dostęp, i oznaczenia A, B, C albo 1, 2, 3. Jest też <b>Kopiuj stoisko</b> — na kolejną edycję targów z tymi samymi wizualizacjami i elementami.`,
       `Клік по назві стенду відкриває його налаштування: виставка, терміни — дедлайн графіки ставиться сам за ${DEADLINE_DAYS} днів до виставки, але ти можеш його пересунути — команда з доступом і позначки A, B, C або 1, 2, 3. Є також <b>Копіювати стенд</b> — на наступну виставку з тими самими візуалізаціями й елементами.`,
       `Clicking the stand name opens its settings: fair, deadlines — the artwork deadline sets itself ${DEADLINE_DAYS} days before the fair, but you can move it — the team with access, and marks A, B, C or 1, 2, 3. There’s also <b>Copy stand</b> — for the next edition of the fair with the same visuals and elements.`) },
   { sel: '#side', before: () => { if (S.tour.sideWas == null) S.tour.sideWas = sideState.open; toggleSide(true); }, after: () => toggleSide(!!S.tour.sideWas),
@@ -5545,7 +5579,7 @@ async function shAddElement(e, talk, first) {
   const pid = e.photoId, q = shapeCenter(e.shape);
   const label = tr(t.name);
   if (talk) await shSay(first
-    ? TT(`Pierwszy element: ${label}. Klikam miejsce na wizce, gdzie ma być.`, `Перший елемент: ${label}. Клікаю місце на візуалізації, де він має бути.`, `First element: ${label}. I click the spot on the visual where it goes.`)
+    ? TT(`Pierwszy element: ${label}. Klikam miejsce na wizualizacji, gdzie ma być.`, `Перший елемент: ${label}. Клікаю місце на візуалізації, де він має бути.`, `First element: ${label}. I click the spot on the visual where it goes.`)
     : TT(`Teraz ${label}. Klikam jego miejsce.`, `Тепер ${label}. Клікаю його місце.`, `Now ${label}. I click its spot.`));
   await shTapPhoto(pid, q);
   if (!await shWaitFor(() => ARC && ARC.root.querySelector(`.arc-btn[data-t="${e.typeId}"]`))) return;
@@ -5591,7 +5625,7 @@ async function shAddElement(e, talk, first) {
   const added = await shWaitFor(() => S.elements.find(x => !before.has(x.id)), 3000);
   await shWait(250);
   if (added) {
-    if (talk && first) await shSay(TT('Znak odsuwam trochę na bok, żeby nie zasłaniał wizki. Zostaje kreska ze strzałką, która pokazuje dokładne miejsce.',
+    if (talk && first) await shSay(TT('Znak odsuwam trochę na bok, żeby nie zasłaniał wizualizacji. Zostaje kreska ze strzałką, która pokazuje dokładne miejsce.',
       'Позначку трохи відсуваю, щоб не закривала візуалізацію. Лишається лінія зі стрілкою, що показує точне місце.',
       'I move the mark a little aside so it doesn’t cover the visual. A line with an arrow shows the exact spot.'));
     await shDragLab(added.id, shLabOf(e), talk ? 900 : 500);
@@ -5721,9 +5755,9 @@ function showChapters(photos, els) {
           'Привіт! Покажу, як в INDEX створюється опис стенду. Побудуємо з нуля стенд GOG на виставку ISPO в Амстердамі.',
           'Hi! Let me show you how a stand description is made in INDEX. We will build the GOG stand for ISPO in Amsterdam from scratch.'));
       } },
-    { name: TT('Wizka', 'Візуалізація', 'Visual'),
+    { name: TT('Wizualizacja', 'Візуалізація', 'Visual'),
       run: async () => {
-        await shSay(TT('Stoisko jest jeszcze puste. Najpierw dodajemy wizkę: kopiujemy obrazek i klikamy Wklej, albo po prostu przeciągamy plik na to pole.',
+        await shSay(TT('Stoisko jest jeszcze puste. Najpierw dodajemy wizualizację: kopiujemy obrazek i klikamy Wklej, albo po prostu przeciągamy plik na to pole.',
           'Стенд поки порожній. Спершу додаємо візуалізацію: копіюємо зображення і натискаємо Вставити, або просто перетягуємо файл на це поле.',
           'The stand is still empty. First we add a visual: copy the image and click Paste, or just drag the file onto this area.'));
         const pasteBtn = document.querySelector('#viewer-empty .btn-solid') || document.querySelector('#toolbar button[onclick="pasteFromClipboard()"]');
@@ -5731,7 +5765,7 @@ function showChapters(photos, els) {
         for (const ph of photos) { const x = clone(ph); delete x.id; await T.mem.add(pPhotos(SHOW_PID), x, ph.id); }
         await shWaitFor(() => { const im = [...document.querySelectorAll('#stage-imgs img')]; return im.length && im.every(i => i.complete && i.naturalWidth); }, 8000);
         fitView(); await shWait(500);
-        await shSay(TT('Wizka jest na miejscu. Kółkiem myszy przybliżamy, a przeciągając tło przesuwamy widok.',
+        await shSay(TT('Wizualizacja jest na miejscu. Kółkiem myszy przybliżamy, a przeciągając tło przesuwamy widok.',
           'Візуалізація на місці. Коліщатком миші наближаємо, а перетягуючи фон зсуваємо вигляд.',
           'The visual is in place. The mouse wheel zooms in, dragging the background pans the view.'));
         const vr = viewer.getBoundingClientRect(), mx = vr.left + vr.width * 0.42, my = vr.top + vr.height * 0.48;
@@ -5778,7 +5812,7 @@ function showChapters(photos, els) {
     { name: TT('Lista', 'Список', 'List'),
       run: async () => {
         setElView('table');
-        await shSay(TT('Na dole jest lista wszystkich elementów: typ, wymiar netto, wymiar do druku i ilość. Klik w wiersz pokazuje element na wizce.',
+        await shSay(TT('Na dole jest lista wszystkich elementów: typ, wymiar netto, wymiar do druku i ilość. Klik w wiersz pokazuje element na wizualizacji.',
           'Внизу список усіх елементів: тип, розмір нетто, розмір до друку й кількість. Клік по рядку показує елемент на візуалізації.',
           'Below is the list of all elements: type, net size, print size and quantity. Clicking a row shows the element on the visual.'));
         const row = await shWaitFor(() => document.querySelectorAll('#el-scroll tr[data-eid]')[2] || document.querySelector('#el-scroll tr[data-eid]'));
@@ -5871,7 +5905,7 @@ function showChapters(photos, els) {
       } },
     { name: TT('Eksport', 'Експорт', 'Export'),
       run: async () => {
-        await shSay(TT('Na koniec eksport: index A3 z wizkami i okienkami oraz tabela A4 — do druku albo jako PDF.',
+        await shSay(TT('Na koniec eksport: index A3 z wizualizacjami i okienkami oraz tabela A4 — do druku albo jako PDF.',
           'Наприкінці експорт: індекс A3 з візуалізаціями й віконцями та таблиця A4 — до друку або як PDF.',
           'Finally, export: an A3 index with visuals and frames, and an A4 table — print or PDF.'));
         const expBtn = [...document.querySelectorAll('#hdr-actions button')].find(b => /openExportDialog/.test(b.getAttribute('onclick') || ''));
