@@ -502,7 +502,9 @@
   .ax-badge:hover { background: var(--accent); color: var(--dark); }
   .ord-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
   .ord-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-  .ord-gh { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 2px 0 4px; }
+  .ord-gh { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 2px 0 4px; padding: 4px 6px; background: var(--bg); cursor: pointer; }
+  .ord-gh input { width: 16px; height: 16px; flex: 0 0 auto; }
+  .ord-gh .ord-gn { margin-left: auto; font-weight: 700; letter-spacing: 0; }
   .ord-it { display: flex; align-items: center; gap: 8px; padding: 5px 6px; cursor: pointer; font-size: 0.84rem; border-bottom: 1px solid #edf2f7; }
   .ord-it small { display: block; color: var(--gray); font-size: 0.74rem; }
   .ord-it.off { opacity: .45; }
@@ -4311,13 +4313,20 @@ function copyOrder() {
   m.el.querySelector('[data-c]').onclick = () => m.close();
   const sel = () => S.elements.filter(e => !off.has(e.id));
   const render = () => {
-    $('ord-list').innerHTML = orderGroups(S.elements).map(([name, l]) => `<div class="ord-g">${name ? `<div class="ord-gh">${esc(name)}</div>` : ''}
+    const groups = orderGroups(S.elements);
+    // nagłówek grupy (wysłony, podwieszenia) = przełącznik całej grupy naraz
+    $('ord-list').innerHTML = groups.map(([name, l], gi) => `<div class="ord-g">${name ? `<label class="ord-gh"><input type="checkbox" data-ogrp="${gi}" ${l.every(e => !off.has(e.id)) ? 'checked' : ''} title="Zaznacz / odznacz całą grupę"> ${esc(name)} <span class="ord-gn">${l.filter(e => !off.has(e.id)).length}/${l.length}</span></label>` : ''}
       ${l.map(e => `<label class="ord-it ${off.has(e.id) ? 'off' : ''}"><input type="checkbox" data-oid="${e.id}" ${off.has(e.id) ? '' : 'checked'}>
         <span class="badge" style="background:${typeById(e.typeId).color}">${markOf(e)}</span>
         <span>${esc(typeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
     $('ord-txt').textContent = orderText(sel()) || '(nic nie zaznaczono)';
     $('ord-cnt').textContent = `${sel().length} z ${S.elements.length} el.`;
     $('ord-list').querySelectorAll('[data-oid]').forEach(c => c.onchange = () => { if (c.checked) off.delete(c.dataset.oid); else off.add(c.dataset.oid); render(); });
+    $('ord-list').querySelectorAll('[data-ogrp]').forEach(c => {
+      const l = groups[+c.dataset.ogrp][1];
+      c.indeterminate = !c.checked && l.some(e => !off.has(e.id));
+      c.onchange = () => { l.forEach(e => c.checked ? off.delete(e.id) : off.add(e.id)); render(); };
+    });
   };
   render();
   $('ord-ok').onclick = async () => {
