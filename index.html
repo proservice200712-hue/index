@@ -6247,57 +6247,9 @@ function proChapters(photos, all) {
     { est: 14, name: TT('Start', 'Старт', 'Start'),
       run: async () => {
         fitView();
-        await shSay(TT('Cześć Dima! To jest wersja PRO, na żywo. Masz przed sobą gotowe stoisko GOG testy — pokażę Ci wszystko, co widzi administrator. Nic się tu nie zapisuje.',
-          'Привіт, Діма! Це версія PRO, наживо. Перед тобою готовий стенд GOG testy — покажу все, що бачить адміністратор. Тут нічого не зберігається.',
-          'Hi Dima! This is the PRO version, live. In front of you is the finished GOG testy stand — I’ll show you everything an administrator sees. Nothing is saved here.'));
-      } },
-    { est: 85, name: TT('Drzwi', 'Двері', 'Doors'),
-      run: async () => {
-        if (!wall) return;
-        await shOpenEl(wall.id);
-        await sayP(PT(5));
-        const dch = $('ed-door'); if (!dch) return shCancelDlg();
-        dch.closest('.door-fld').scrollIntoView({ block: 'nearest' });
-        await shClick(dch, 700); await shWait(400);
-        const dist = await shWaitFor(() => $('ed-door-dist'), 2000);
-        if (dist) await shType(dist, '500');
-        await shWait(600);
-        const before = new Set(S.elements.map(x => x.id));
-        await shClick('#ed-ok', 700);
-        await shWaitFor(() => S.elements.find(x => !before.has(x.id) && x.doorFor === wall.id), 3000);
-        await shSay(TT('Gotowe — doszedł osobny element z grafiką na drzwi.', 'Готово — додався окремий елемент із графікою на двері.', 'Done — a separate element with the door artwork was added.'));
-        const row = document.querySelector(`#el-scroll tr[data-eid="${(S.elements.find(x => x.doorFor === wall.id) || {}).id}"]`);
-        if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); await shWait(800); }
-        // kalkulator w szerokości: działanie z drzwiami, w polu wynik, wyliczenie zapamiętane — to samo w Zleceniu
-        const ce = calcTarget();
-        if (!ce) return;
-        await shOpenEl(ce.id);
-        const w = await shWaitFor(() => $('ed-w'), 2000);
-        if (!w) return shCancelDlg();
-        w.scrollIntoView({ block: 'center' }); await shWait(200);
-        await shMove(...shCenter(w), 700);
-        await shSay(TT('Przy ścianie z drzwiami przydaje się kalkulator w polu szerokości. Wpisuję działanie: kawałek ściany, drzwi i reszta.',
-          'Для стіни з дверима знадобиться калькулятор у полі ширини. Вводжу дію: шматок стіни, двері й решта.',
-          'For a wall with a door, the width field calculator comes in handy. I type a sum: a piece of wall, the door and the rest.'));
-        await shType(w, calcExprFor(ce));
-        await shWait(700);
-        w.dispatchEvent(new FocusEvent('blur')); await shWait(500);
-        const hint = $('ed-wcalc'); if (hint && hint.textContent.trim()) await shMove(...shCenter(hint), 700);
-        await shSay(TT('Pole pokazuje sam wynik, a wyliczenie zostaje zapamiętane. Drzwi są w nim oznaczone, bo program wie, gdzie je ustawiłeś — od lewej albo od prawej. Wszystko to trafi do Zlecenia — pokażę pod koniec.',
-          'Поле показує тільки результат, а розрахунок запам’ятовується. Двері в ньому позначені, бо програма знає, де ти їх поставив — зліва чи справа. Усе це потрапить у Замовлення — покажу наприкінці.',
-          'The field shows just the result, and the calculation is remembered. The door is marked in it because the program knows where you placed it — from the left or the right. All of this goes into the Order — I’ll show it at the end.'));
-        await shClick('#ed-ok', 700);
-        await shWaitFor(() => !$('ed-q'), 3000);
-      },
-      instant: async () => {
-        if (!wall) return;
-        const main = { ...S.elements.find(x => x.id === wall.id), door: { on: true, from: 'left', dist: 500, size: 'h2480' } };
-        await T.mem.update(pElements(SHOW_PID), wall.id, { door: main.door });
-        await shSettle();
-        await syncDoorElement(wall.id, main);
-        await shSettle();
-        const ce = calcTarget();
-        if (ce && !(ce.wExpr && (ce.wExprUnit || 'cm') === UNIT())) await T.mem.update(pElements(SHOW_PID), ce.id, { wExpr: calcExprFor(ce), wExprUnit: UNIT() });
+        await shSay(TT('Cześć Dima! Masz przed sobą gotowe stoisko GOG testy — pokażę Ci wszystko, co widzi administrator.',
+          'Привіт, Діма! Перед тобою готовий стенд GOG testy — покажу все, що бачить адміністратор.',
+          'Hi Dima! In front of you is the finished GOG testy stand — I’ll show you everything an administrator sees.'));
       } },
     { est: 30, name: TT('Spady', 'Вильоти', 'Bleeds'),
       run: async () => {
@@ -6477,6 +6429,54 @@ function proChapters(photos, all) {
           const m = modalStack[modalStack.length - 1]; if (m && m.el.querySelector('#axp-list')) m.close();
           await shCancelDlg();
         }
+      } },
+    { est: 85, name: TT('Drzwi', 'Двері', 'Doors'),
+      run: async () => {
+        if (!wall) return;
+        await shOpenEl(wall.id);
+        await sayP(PT(5));
+        const dch = $('ed-door'); if (!dch) return shCancelDlg();
+        dch.closest('.door-fld').scrollIntoView({ block: 'nearest' });
+        await shClick(dch, 700); await shWait(400);
+        const dist = await shWaitFor(() => $('ed-door-dist'), 2000);
+        if (dist) await shType(dist, '500');
+        await shWait(600);
+        const before = new Set(S.elements.map(x => x.id));
+        await shClick('#ed-ok', 700);
+        await shWaitFor(() => S.elements.find(x => !before.has(x.id) && x.doorFor === wall.id), 3000);
+        await shSay(TT('Gotowe — doszedł osobny element z grafiką na drzwi.', 'Готово — додався окремий елемент із графікою на двері.', 'Done — a separate element with the door artwork was added.'));
+        const row = document.querySelector(`#el-scroll tr[data-eid="${(S.elements.find(x => x.doorFor === wall.id) || {}).id}"]`);
+        if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); await shWait(800); }
+        // kalkulator w szerokości: działanie z drzwiami, w polu wynik, wyliczenie zapamiętane — to samo w Zleceniu
+        const ce = calcTarget();
+        if (!ce) return;
+        await shOpenEl(ce.id);
+        const w = await shWaitFor(() => $('ed-w'), 2000);
+        if (!w) return shCancelDlg();
+        w.scrollIntoView({ block: 'center' }); await shWait(200);
+        await shMove(...shCenter(w), 700);
+        await shSay(TT('Przy ścianie z drzwiami przydaje się kalkulator w polu szerokości. Wpisuję działanie: kawałek ściany, drzwi i reszta.',
+          'Для стіни з дверима знадобиться калькулятор у полі ширини. Вводжу дію: шматок стіни, двері й решта.',
+          'For a wall with a door, the width field calculator comes in handy. I type a sum: a piece of wall, the door and the rest.'));
+        await shType(w, calcExprFor(ce));
+        await shWait(700);
+        w.dispatchEvent(new FocusEvent('blur')); await shWait(500);
+        const hint = $('ed-wcalc'); if (hint && hint.textContent.trim()) await shMove(...shCenter(hint), 700);
+        await shSay(TT('Pole pokazuje sam wynik, a wyliczenie zostaje zapamiętane. Drzwi są w nim oznaczone, bo program wie, gdzie je ustawiłeś — od lewej albo od prawej. Wszystko to trafia do Zlecenia — zaraz pokażę.',
+          'Поле показує тільки результат, а розрахунок запам’ятовується. Двері в ньому позначені, бо програма знає, де ти їх поставив — зліва чи справа. Усе це потрапляє в Замовлення — зараз покажу.',
+          'The field shows just the result, and the calculation is remembered. The door is marked in it because the program knows where you placed it — from the left or the right. All of this goes into the Order — I’ll show you right now.'));
+        await shClick('#ed-ok', 700);
+        await shWaitFor(() => !$('ed-q'), 3000);
+      },
+      instant: async () => {
+        if (!wall) return;
+        const main = { ...S.elements.find(x => x.id === wall.id), door: { on: true, from: 'left', dist: 500, size: 'h2480' } };
+        await T.mem.update(pElements(SHOW_PID), wall.id, { door: main.door });
+        await shSettle();
+        await syncDoorElement(wall.id, main);
+        await shSettle();
+        const ce = calcTarget();
+        if (ce && !(ce.wExpr && (ce.wExprUnit || 'cm') === UNIT())) await T.mem.update(pElements(SHOW_PID), ce.id, { wExpr: calcExprFor(ce), wExprUnit: UNIT() });
       } },
     { est: 60, name: TT('Zlecenie', 'Замовлення', 'Order'),
       run: async () => {
