@@ -618,16 +618,19 @@
     font: 800 .7rem/1 'Segoe UI', Arial, sans-serif; vertical-align: middle; cursor: help; animation: scDot 1.4s infinite; }
   .split-line { margin-top: 4px; color: #c53030; font-weight: 600; }
   /* POKAZ Z LEKTOREM: kursor, napisy, sterowanie */
-  #show-block { position: fixed; inset: 0; z-index: 990; background: transparent; cursor: default; }
-  #show-cursor { position: fixed; z-index: 1003; width: 30px; height: 30px; margin: -3px 0 0 -5px; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); transition: transform .12s; }
+  #show-block { position: fixed; inset: 0; z-index: 2600; background: transparent; cursor: default; }
+  #show-cursor { position: fixed; z-index: 2603; width: 30px; height: 30px; margin: -3px 0 0 -5px; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); transition: transform .12s; }
   #show-cursor.down { transform: scale(.82); }
-  .show-ripple { position: fixed; z-index: 1002; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50% !important; border: 3px solid #67b437; pointer-events: none; animation: showRip .55s ease-out forwards; }
+  .show-ripple { position: fixed; z-index: 2602; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50% !important; border: 3px solid #67b437; pointer-events: none; animation: showRip .55s ease-out forwards; }
   @keyframes showRip { from { transform: scale(.6); opacity: 1; } to { transform: scale(3.6); opacity: 0; } }
-  .show-key { position: fixed; z-index: 1003; background: #1a202c; color: #fff; font: 700 .85rem 'Segoe UI', Arial, sans-serif; padding: 4px 9px; border-radius: 6px; border-bottom: 3px solid #67b437; pointer-events: none; animation: showKey 1.4s ease forwards; }
+  .show-key { position: fixed; z-index: 2603; background: #1a202c; color: #fff; font: 700 .85rem 'Segoe UI', Arial, sans-serif; padding: 4px 9px; border-radius: 6px; border-bottom: 3px solid #67b437; pointer-events: none; animation: showKey 1.4s ease forwards; }
   @keyframes showKey { 0% { opacity: 0; transform: translateY(6px); } 15%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-  #show-cap { position: fixed; z-index: 1002; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, calc(100vw - 32px)); background: rgba(16,20,28,.92); color: #fff;
+  #show-cap { position: fixed; z-index: 2602; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(720px, calc(100vw - 32px)); background: rgba(16,20,28,.92); color: #fff;
     border-radius: 12px; padding: 10px 16px 12px; box-shadow: 0 12px 34px rgba(0,0,0,.45); backdrop-filter: blur(6px); }
   #show-cap .sc-h { display: flex; align-items: center; gap: 8px; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #9be36d; }
+  #show-cap .sc-h { cursor: move; user-select: none; touch-action: none; }
+  #show-cap .sc-grip { color: #718096; font-size: 1rem; margin-left: 4px; letter-spacing: 0; }
+  #show-cap.moving { opacity: .9; box-shadow: 0 18px 44px rgba(0,0,0,.6); }
   #show-cap .sc-dot { width: 8px; height: 8px; border-radius: 50% !important; background: #e53e3e; animation: scDot 1.2s infinite; }
   @keyframes scDot { 50% { opacity: .25; } }
   #show-cap .sc-sp { flex: 1; }
@@ -1599,7 +1602,19 @@ const hasThick = el => { const v = variantOf(el); return !!((v && v.thick) || ty
 const isWys = el => !!(typeById(el.typeId).wyslona && el.wyslona);
 // numeracja elementów stoiska: A, B, C… (domyślnie) albo 1, 2, 3… (ustawienie „Oznaczenia” w stoisku)
 const numMark = n => S.project && S.project.numbering === '123' ? String(n | 0 || '?') : letterOf(n);
-const markOf = el => isWys(el) && el.wnum ? 'W' + el.wnum : numMark(el.num);
+// drzwi w ścianie dostają znak ściany z dopiskiem: A → A1, 1 → 1a (znak kończący się cyfrą dostaje literę)
+const doorMark = m => m + (/\d$/.test(m) ? 'a' : '1');
+const markOf = el => {
+  if (el && el.doorFor) { const w = S.elements.find(e => e.id === el.doorFor); if (w && !w.doorFor) return doorMark(markOf(w)); }
+  return isWys(el) && el.wnum ? 'W' + el.wnum : numMark(el.num);
+};
+// kolejność elementów: litery / numery, wysłony na końcu, drzwi zaraz za swoją ścianą
+function elOrder(list) {
+  const byId = new Map(list.map(e => [e.id, e]));
+  const base = e => (e.doorFor && byId.get(e.doorFor)) || e;
+  return list.sort((a, b) => { const A = base(a), B = base(b);
+    return (isWys(A) - isWys(B)) || (isWys(A) ? (A.wnum || 0) - (B.wnum || 0) : (A.num || 0) - (B.num || 0)) || (!!a.doorFor - !!b.doorFor); });
+}
 // Miejsca elementu na wizkach: pierwsze (shape / photoId) i kolejne sztuki w innych miejscach (extra).
 // loc = -1 to pierwsze miejsce, 0, 1, 2… to kolejne.
 const locsOf = el => [{ loc: -1, photoId: el.photoId, shape: el.shape }]
@@ -1646,7 +1661,7 @@ function wysNumFor(d, selfId) {
   if (!isWys(d)) return null;
   const self = selfId ? S.elements.find(e => e.id === selfId) : null;
   if (self && isWys(self) && self.wnum) return self.wnum;
-  const used = S.elements.filter(e => e.id !== selfId && isWys(e) && e.wnum).map(e => e.wnum);
+  const used = S.elements.filter(e => e.id !== selfId && isWys(e) && e.wnum && !e.doorFor).map(e => e.wnum);
   let n = 1; while (used.includes(n)) n++;
   return n;
 }
@@ -2467,7 +2482,7 @@ async function openProject(pid) {
     renderElements(); syncProjectStats(); updateHint();
   }));
   S.unsubProject.push(DB.sub(pElements(pid), rows => {
-    S.elements = rows.map(normalizeEl).sort((a, b) => (isWys(a) - isWys(b)) || (isWys(a) ? (a.wnum || 0) - (b.wnum || 0) : (a.num || 0) - (b.num || 0)));
+    S.elements = elOrder(rows.map(normalizeEl));
     if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
     renderOverlay(); renderElements(); syncProjectStats(); updateHint();
   }));
@@ -2809,7 +2824,8 @@ function renderOverlay() {
     const t = typeById(el.typeId), sel = el.id === S.selId, hov = el.id === S.hoverId;
     const selHere = sel && (S.selLoc ?? -1) === loc; // uchwyty tylko przy wskazanym miejscu
     const [ax, ay] = shapeCenter(sh), [cx, cy] = labPos(sh);
-    const r = (sh.kind === 'point' ? 15 : 13) * s;
+    const wk = isWys(el) ? 0.8 : 1; // wysłony: znacznik o 20% mniejszy
+    const r = (sh.kind === 'point' ? 15 : 13) * s * wk;
     out += `<g class="shp${hov ? ' hov' : ''}${isAlert(el) ? ' alert' : ''}" data-eid="${el.id}" data-loc="${loc}">`;
     // znacznik odsunięty od miejsca, którego dotyczy: kreska z grotem do tego miejsca
     if (sh.lab) {
@@ -2832,7 +2848,7 @@ function renderOverlay() {
     out += `<g class="mk" data-part="lab" style="animation-delay:-${(performance.now() % 2000 / 1000).toFixed(3)}s">
       <circle class="halo" cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="none" stroke="${t.color}" stroke-width="${3 * s}"/>
       <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
-      <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s}" text-anchor="middle" font-size="${(markOf(el).length > 1 ? 10.5 : 13) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${markOf(el)}</text>
+      <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s * wk}" text-anchor="middle" font-size="${(markOf(el).length > 2 ? 9 : markOf(el).length > 1 ? 10.5 : 13) * s * wk}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${markOf(el)}</text>
     </g></g>`;
     if (selHere && tool === 'point' && sh.kind !== 'point') {
       shapePolyPts(sh).forEach((q, i) => {
@@ -3374,7 +3390,7 @@ if (window.ResizeObserver) new ResizeObserver(() => { if (S.project && hasPhotos
 // =====================================================================
 //  ELEMENTY: okno opisu, lista
 // =====================================================================
-function nextNum(exceptId) { return S.elements.filter(e => !isWys(e) && e.id !== exceptId).reduce((m, e) => Math.max(m, e.num || 0), 0) + 1; }
+function nextNum(exceptId) { return S.elements.filter(e => !isWys(e) && !e.doorFor && e.id !== exceptId).reduce((m, e) => Math.max(m, e.num || 0), 0) + 1; }
 // =====================================================================
 //  TURBO (administrator): 1) elementy wpisywane jeden po drugim bez klikania w wizkę
 //  (typ, wymiar, Enter = następny), 2) potem nitka 🧵 z listy przeciągana na wizkę.
@@ -3739,7 +3755,8 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       renderOpts(); refresh();
     });
     const axc = $('ed-axclear'); if (axc) axc.onclick = () => { axClearPick(el); renderOpts(); refresh(); };
-    const axb = $('ed-ax'); if (axb) axb.onclick = () => { m.close(); openArchiwumDialog(editing.id); };
+    // (w tej funkcji „m” to rodzaj wymiaru, nie okno — okno zamykamy przez listę otwartych okien)
+    const axb = $('ed-ax'); if (axb) axb.onclick = () => { const md = modalStack.find(x => x.el === axb.closest('.modal-back')); if (md) md.close(); openArchiwumDialog(editing.id); };
     const ins = $('ed-inside'); if (ins) ins.addEventListener('change', () => { el.inside = ins.checked; refresh(); });
     const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
@@ -5409,6 +5426,7 @@ function createMemDB(seed) {
   };
 }
 const SHOW_PID = 'pokaz-gog';
+const PRO_PID = 'j6mi4QZmQczOD7QUw5F2', PRO_NAME = 'gog'; // PRO dla Dimy: pełne stoisko GOG
 // po pokazie: spóźnione zapisy aplikacji (np. historia po „Dodaj” przerwanym w połowie) nie mogą trafić
 // do prawdziwej bazy — wszystko, co dotyczy stoiska pokazowego, jest odrzucane
 function guardShowDB(real) {
@@ -5428,6 +5446,7 @@ const SHOW_UI = {
   pause: TT('Pauza (spacja)', 'Пауза (пробіл)', 'Pause (space)'), play: TT('Wznów (spacja)', 'Продовжити (пробіл)', 'Resume (space)'),
   mute: TT('Wycisz lektora', 'Вимкнути голос', 'Mute narrator'), unmute: TT('Włącz lektora', 'Увімкнути голос', 'Unmute narrator'),
   close: TT('Zakończ pokaz (Esc)', 'Завершити показ (Esc)', 'End demo (Esc)'),
+  drag: TT('Chwyć i przesuń, gdy okienko coś zasłania', 'Схопи й пересунь, якщо віконце щось закриває', 'Grab and move it if the box covers something'),
   prev: TT('Poprzedni etap (←)', 'Попередній етап (←)', 'Previous stage (←)'), next: TT('Następny etap (→)', 'Наступний етап (→)', 'Next stage (→)'),
   stage: TT('Etap', 'Етап', 'Stage'),
   novoice: TT('Brak głosu w tym języku — same napisy', 'Немає голосу цією мовою — лише субтитри', 'No voice for this language — subtitles only'),
@@ -5484,7 +5503,7 @@ async function shSay(text) {
   const T = SH(); if (!T) throw new ShowStop();
   await shGate();
   const cap = $('show-cap-t'); if (cap) cap.innerHTML = text;
-  const plain = text.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  const plain = text.replace(/<[^>]+>/g, '').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/:\)/g, '').replace(/\s+/g, ' ').trim();
   if (T.fast) { await shWait(Math.min(1400, 400 + plain.length * 15)); return; }
   if (T.muted || !T.voice) { await shWait(900 + plain.length * 55); return; }
   // zdania osobno (Chrome ucina długie wypowiedzi)
@@ -5683,7 +5702,8 @@ async function shAddElement(e, talk, first) {
 async function startShow(pro = false) {
   if (S.tour || !S.me) return;
   if (pro && !isAdmin()) return;
-  const src = S.projects.find(x => x.id === TOUR_PID) || S.projects.find(x => String(x.name || '').trim().toLowerCase() === TOUR_NAME);
+  const byName = n => S.projects.find(x => String(x.name || '').trim().toLowerCase() === n);
+  const src = (pro && (S.projects.find(x => x.id === PRO_PID) || byName(PRO_NAME))) || S.projects.find(x => x.id === TOUR_PID) || byName(TOUR_NAME);
   if (!src) { toast(TOUR_UI.missing, 'error'); return; }
   document.querySelectorAll('.menu').forEach(m => m.remove());
   while (modalStack.length) modalStack[modalStack.length - 1].close();
@@ -5711,7 +5731,7 @@ async function startShow(pro = false) {
   const cur = document.createElement('div'); cur.id = 'show-cursor';
   cur.innerHTML = `<svg viewBox="0 0 24 24" width="30" height="30"><path d="M4 2 L4 20 L9 15.5 L12.5 22.5 L15.5 21 L12 14 L19 14 Z" fill="#fff" stroke="#1a202c" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
   const cap = document.createElement('div'); cap.id = 'show-cap'; cap.setAttribute('data-noi18n', '');
-  cap.innerHTML = `<div class="sc-h"><span class="sc-dot"></span>${SHOW_UI.title}<span class="sc-sp"></span>
+  cap.innerHTML = `<div class="sc-h" title="${SHOW_UI.drag}"><span class="sc-dot"></span>${SHOW_UI.title}<span class="sc-grip">⠿</span><span class="sc-sp"></span>
       <span class="sc-st" id="show-st"></span>
       <button type="button" data-prev title="${SHOW_UI.prev}">⏮</button><button type="button" data-p title="${SHOW_UI.pause}">⏸</button><button type="button" data-next title="${SHOW_UI.next}">⏭</button>
       <button type="button" data-m title="${SHOW_UI.mute}">🔊</button><button type="button" data-x title="${SHOW_UI.close}">✕</button></div>
@@ -5719,6 +5739,22 @@ async function startShow(pro = false) {
   document.body.append(block, cur, cap);
   shCursorAt(S.tour.cx, S.tour.cy);
   const T = S.tour;
+  // przesuwanie okienka napisów za nagłówek
+  const head = cap.querySelector('.sc-h');
+  head.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    e.preventDefault();
+    const r = cap.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    try { head.setPointerCapture(e.pointerId); } catch (x) {}
+    cap.classList.add('moving');
+    const mv = ev => {
+      cap.style.left = clamp(ev.clientX - dx, 0, innerWidth - r.width) + 'px';
+      cap.style.top = clamp(ev.clientY - dy, 0, innerHeight - 50) + 'px';
+      cap.style.bottom = 'auto'; cap.style.transform = 'none';
+    };
+    const up = () => { head.removeEventListener('pointermove', mv); head.removeEventListener('pointerup', up); head.removeEventListener('pointercancel', up); cap.classList.remove('moving'); };
+    head.addEventListener('pointermove', mv); head.addEventListener('pointerup', up); head.addEventListener('pointercancel', up);
+  });
   const setPause = p => { T.paused = p; cap.querySelector('[data-p]').textContent = p ? '▶' : '⏸'; cap.querySelector('[data-p]').title = p ? SHOW_UI.play : SHOW_UI.pause;
     if ('speechSynthesis' in window) { p ? speechSynthesis.pause() : speechSynthesis.resume(); } };
   cap.querySelector('[data-p]').onclick = () => setPause(!T.paused);
@@ -6066,7 +6102,16 @@ async function shOpenEl(eid) {
   await shWait(500);
 }
 async function shCancelDlg() { const c = document.querySelector('.modal-back [data-c]'); if (c) await shClick(c, 600); else proClose(); await shWait(300); }
-const PT = i => TOUR_PRO[i] ? TOUR_PRO[i].text : '';
+// teksty slajdów PRO bez „Dima,” — imię dokłada sayP co piąty etap (0, 5, 10…)
+const PT = i => { const t = TOUR_PRO[i] ? TOUR_PRO[i].text : ''; const m = t.match(/^(Dima|Діма), (.)(.)/);
+  return m ? (/[a-ząćęłńóśźżа-яіїєґ]/.test(m[3]) ? m[2].toUpperCase() : m[2]) + m[3] + t.slice(m[0].length) : t; };
+const DIMA = TT('Dima', 'Діма', 'Dima');
+async function sayP(text) {
+  const T = SH(); if (!T) return;
+  const name = (T.cur || 0) % 5 === 0 && T.cur > 0 && T.namedAt !== T.cur; // raz na etap
+  if (name) T.namedAt = T.cur;
+  await shSay(name ? `${DIMA}, ${/^[A-ZĄĆĘŁŃÓŚŹŻА-ЯІЇЄҐ][a-ząćęłńóśźżа-яіїєґ]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text}` : text);
+}
 function proChapters(photos, all) {
   const T = S.tour;
   const byType = (t, f = () => true) => all.find(e => e.typeId === t && !e.doorFor && f(e));
@@ -6099,10 +6144,10 @@ function proChapters(photos, all) {
         const btn = [...document.querySelectorAll('#hdr-actions button')].find(b => /copyOrder/.test(b.getAttribute('onclick') || ''));
         if (!btn) return;
         await shMove(...shCenter(btn), 800);
-        await shSay(PT(1));
+        await sayP(PT(1));
         await shClick(btn, 300);
         await shWaitFor(() => $('ord-txt'), 3000); await shWait(500);
-        await shSay(PT(2));
+        await sayP(PT(2));
         const cb = document.querySelectorAll('#ord-list input[data-oid]')[1];
         if (cb) { await shClick(cb, 700); await shWait(700); await shMove(...shCenter($('ord-txt')), 700); await shWait(900); await shClick(cb, 600); }
         const ok = $('ord-ok'); if (ok) { await shMove(...shCenter(ok), 700); await shWait(500); }
@@ -6110,7 +6155,7 @@ function proChapters(photos, all) {
       } },
     { est: 70, name: TT('Turbo i nitka', 'Турбо й нитка', 'Turbo and thread'),
       run: async () => {
-        await shSay(PT(3));
+        await sayP(PT(3));
         await shClick('#btn-turbo', 800);
         await shWaitFor(() => $('ed-q'), 3000); await shWait(500);
         await shSay(TT('Wpisuję element bez klikania w wizualizację: folia cięta, mat, 600 na 200 milimetrów, dwie sztuki. Enter — i od razu następny.',
@@ -6145,26 +6190,11 @@ function proChapters(photos, all) {
         await T.mem.add(pElements(SHOW_PID), { ...d, num: nextNumNow(), variant: '', seg: false, wyslona: false, laminate: false, contour: false, notes: '', name: '',
           photoId: S.photos[0].id, shape: { kind: 'point', pts: [q] }, createdAt: nowIso(), createdBy: S.me.id });
       } },
-    { est: 40, name: 'Archiwum X',
-      run: async () => {
-        if (!logo) return;
-        await shOpenEl(logo.id);
-        const pick = await shWaitFor(() => $('ed-axpick'), 2000);
-        if (pick) await shMove(...shCenter(pick), 800);
-        await shSay(PT(4));
-        if (pick) {
-          await shClick(pick, 400);
-          await shWaitFor(() => document.querySelector('.axp-tile'), 5000);
-          const tile = document.querySelector('.axp-tile'); if (tile) { await shMove(...shCenter(tile), 900); await shWait(1200); }
-          const m = modalStack[modalStack.length - 1]; if (m && m.el.querySelector('#axp-list')) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
-        }
-        await shCancelDlg();
-      } },
     { est: 55, name: TT('Drzwi', 'Двері', 'Doors'),
       run: async () => {
         if (!wall) return;
         await shOpenEl(wall.id);
-        await shSay(PT(5));
+        await sayP(PT(5));
         const dch = $('ed-door'); if (!dch) return shCancelDlg();
         dch.closest('.door-fld').scrollIntoView({ block: 'nearest' });
         await shClick(dch, 700); await shWait(400);
@@ -6190,7 +6220,7 @@ function proChapters(photos, all) {
         if (!foil) return;
         await shOpenEl(foil.id);
         const bo = $('ed-bleedopts'); if (bo) bo.scrollIntoView({ block: 'nearest' });
-        await shSay(PT(6));
+        await sayP(PT(6));
         const sides = document.querySelector('.modal-back [data-bmode="sides"]');
         if (sides) { await shClick(sides, 700); await shWait(400); const l = document.querySelector('.modal-back input[data-bl="l"]'); if (l) await shType(l, '80'); await shWait(900); }
         await shCancelDlg();
@@ -6203,7 +6233,7 @@ function proChapters(photos, all) {
         await shWait(400);
         await shClick('#arc .arc-btn[data-t="podwieszana"]', 650); await shWait(300);
         await shClick(`#arc .ap-opt[data-step="v"][data-o="${HANG.variant}"]`, 500); await shWait(300);
-        await shSay(PT(7));
+        await sayP(PT(7));
         await shType(await shWaitFor(() => document.querySelector('#arc input[data-f="w"]')), String(HANG.w));
         await shType(document.querySelector('#arc input[data-f="d"]'), String(HANG.d));
         await shType(document.querySelector('#arc input[data-f="h"]'), String(HANG.h));
@@ -6232,7 +6262,7 @@ function proChapters(photos, all) {
         await shWait(700);
         const row = await shWaitFor(() => document.querySelector(`#el-scroll tr[data-eid="${tgt.id}"]`));
         if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); }
-        await shSay(PT(8));
+        await sayP(PT(8));
         if (row) { await shClick(document.querySelector(`#el-scroll tr[data-eid="${tgt.id}"]`), 500); await shWait(800); fitView(); }
       } },
     { est: 35, name: TT('Ustawienia stoiska', 'Налаштування стенду', 'Stand settings'),
@@ -6243,19 +6273,19 @@ function proChapters(photos, all) {
           await shClick('#hdr-pname', 800);
           await shWaitFor(() => $('pf-num'), 3000); await shWait(400);
           const num = $('pf-num'); if (num) await shMove(...shCenter(num), 800);
-          await shSay(PT(9));
+          await sayP(PT(9));
           const m = modalStack[modalStack.length - 1]; if (m) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
         } finally { S.projects = S.projects.filter(x => x.id !== SHOW_PID); }
       } },
     { est: 20, name: TT('Targi i stoiska', 'Виставки й стенди', 'Fairs and stands'),
-      run: async () => { await shClick('#side-handle', 800); await shSay(PT(10)); await shClick('#side-handle', 700); } },
+      run: async () => { await shClick('#side-handle', 800); await sayP(PT(10)); await shClick('#side-handle', 700); } },
     { est: 45, name: 'Corel',
       run: async () => {
         await addCorelLog(); await shWait(300);
         await shClick('#log-handle', 800);
         const src = await shWaitFor(() => document.querySelector('#log-list .log-src'), 2500);
         if (src) await shMove(...shCenter(src), 800);
-        await shSay(PT(11));
+        await sayP(PT(11));
         await shClick('#log-handle', 700);
       },
       instant: addCorelLog },
@@ -6264,17 +6294,64 @@ function proChapters(photos, all) {
         await shClick('#avatar', 800);
         const u = await shWaitFor(() => document.querySelector('.user-menu [data-a="users"]'), 2000);
         if (u) await shMove(...shCenter(u), 700);
-        await shSay(PT(12));
+        await sayP(PT(12));
         document.querySelectorAll('.menu').forEach(m => m.remove());
       } },
+    { est: 75, name: 'Archiwum X',
+      run: async () => {
+        if (!logo) return;
+        await sayP(TT('Na koniec Archiwum X. Otwieram Logo 3D.', 'Наостанок Archiwum X. Відкриваю Логотип 3D.', 'Finally, Archiwum X. I open the 3D logo.'));
+        await shOpenEl(logo.id);
+        // 1) nowy eksponat w Archiwum X prosto z elementu (formularz tylko pokazany, bez zapisu)
+        const exp = await shWaitFor(() => $('ed-ax'), 2000);
+        if (exp) {
+          await shMove(...shCenter(exp), 800);
+          await shSay(TT('Gdy logo jest nowe, robisz z niego eksponat w Archiwum X: przycisk Do Archiwum X otwiera formularz Archiwum X wypełniony danymi z tego elementu — firma, typ, wymiar, zdjęcie i opis skąd pochodzi. Zapisujesz, a element dostaje znaczek AX.',
+            'Коли логотип новий, робиш із нього експонат в Archiwum X: кнопка До Archiwum X відкриває форму Archiwum X, заповнену даними цього елемента — фірма, тип, розмір, фото й опис, звідки він. Зберігаєш — і елемент отримує значок AX.',
+            'When the logo is new, you turn it into an Archiwum X exhibit: To Archiwum X opens the Archiwum X form filled with this element’s data — company, type, size, photo and where it comes from. Save it and the element gets an AX badge.'));
+          await shClick(exp, 400);
+          await shWaitFor(() => $('ax-frame'), 3000);
+          await shWait(3500);
+          const x = document.querySelector('#ax-frame .axf-bar button');
+          await shSay(TT('W pokazie nic tu nie zapisuję — zamykam.', 'У показі тут нічого не зберігаю — закриваю.', 'In the demo I save nothing here — closing.'));
+          if (x) await shClick(x, 700); else closeArchiwumFrame();
+          await shWait(400);
+          await shOpenEl(logo.id);
+        }
+        // 2) import z Archiwum X
+        const pick = await shWaitFor(() => $('ed-axpick'), 2000);
+        if (pick) await shMove(...shCenter(pick), 800);
+        await shSay(TT('Pewnie byś chciał, żeby to było od razu połączone z Archiwum X — otóż tak jest. Z Archiwum X wybierasz gotowy eksponat, komplet albo grupę.',
+          'Ти, мабуть, хотів би, щоб це було одразу пов’язано з Archiwum X — так і є. З Archiwum X обираєш готовий експонат, комплект або групу.',
+          'You’d probably like this to be linked straight to Archiwum X — well, it is. From Archiwum X you pick a ready exhibit, set or group.'));
+        if (!pick) return shCancelDlg();
+        await shClick(pick, 400);
+        const tile = await shWaitFor(() => document.querySelector('.axp-tile'), 6000);
+        if (tile) {
+          await shMove(...shCenter(tile), 900); await shWait(600);
+          await shClick(tile, 400);
+          await shWait(700);
+          const w = $('ed-w'); if (w) await shMove(...shCenter(w), 700);
+          await shSay(TT('Wymiar, wykonanie i zdjęcie wskoczyły same. Zapisuję — element dostaje znaczek AX i jest powiązany z eksponatem.',
+            'Розмір, виконання й фото підставилися самі. Зберігаю — елемент отримує значок AX і пов’язаний з експонатом.',
+            'Size, variant and photo filled in by themselves. I save — the element gets the AX badge and is linked to the exhibit.'));
+          await shClick('#ed-ok', 700);
+          await shWaitFor(() => !$('ed-q'), 3000);
+          const row = document.querySelector(`#el-scroll tr[data-eid="${logo.id}"]`);
+          if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); await shWait(1200); }
+        } else {
+          const m = modalStack[modalStack.length - 1]; if (m && m.el.querySelector('#axp-list')) m.close();
+          await shCancelDlg();
+        }
+      } },
     { est: 18, name: TT('Co dalej?', 'Що далі?', 'What’s next?'),
-      run: async () => { await shMove(innerWidth / 2, innerHeight / 2 - 80, 900); await shSay(PT(13)); } },
+      run: async () => { await shMove(innerWidth / 2, innerHeight / 2 - 80, 900); await sayP(PT(13)); } },
     { est: 12, name: TT('Koniec', 'Кінець', 'End'),
       run: async () => {
         await shMove(...shCenter($('btn-tour')), 900);
-        await shSay(TT('To wszystko, Dima! Ten pokaz niczego nie zapisał. W menu tej ikony są też pokaz dla klientów i slajdy.',
-          'Це все, Діма! Цей показ нічого не зберіг. У меню цієї іконки є також показ для клієнтів і слайди.',
-          'That’s all, Dima! This demo saved nothing. This icon’s menu also has the client demo and the slides.'));
+        await shSay(TT('To wszystko! Ten pokaz niczego nie zapisał. W menu tej ikony jest też pokaz z lektorką dla klientów.',
+          'Це все! Цей показ нічого не зберіг. У меню цієї іконки є також показ із дикторкою для клієнтів.',
+          'That’s all! This demo saved nothing. This icon’s menu also has the narrated demo for clients.'));
         await shWait(500);
       } },
   ];
@@ -6307,7 +6384,7 @@ async function runShow(photos, els) {
   let i = 0;
   while (i < T.chapters.length) {
     try {
-      T.cur = i; T.chMs = 0; shStages();
+      T.cur = i; T.chMs = 0; T.namedAt = -1; shStages();
       await T.chapters[i].run();
       i++;
     } catch (e) {
