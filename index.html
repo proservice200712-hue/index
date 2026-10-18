@@ -106,6 +106,10 @@
   .avatar img, .avatar-sm img, .la-c img { width: 100%; height: 100%; object-fit: cover; border-radius: 50% !important; display: block; }
   .avatar, .avatar-sm { overflow: hidden; }
   .login-err { color: var(--red); font-size: 0.8rem; min-height: 1.2em; margin-bottom: 6px; }
+  #practice-bar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 310; display: flex; align-items: center; gap: 10px;
+    background: #1a202c; color: #fff; padding: 8px 10px 8px 16px; box-shadow: 0 6px 24px rgba(0,0,0,.35); border-left: 4px solid var(--accent); font-size: 0.85rem; max-width: calc(100vw - 24px); flex-wrap: wrap; }
+  #practice-bar .btn { color: #fff; border-color: rgba(255,255,255,.4); }
+  #practice-bar .btn-solid { background: var(--accent); border-color: var(--accent); color: #1a202c; }
   .demo-badge { position: fixed; right: 10px; bottom: 10px; background: var(--accent); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; z-index: 300; }
 
   /* lista projektów */
@@ -1875,7 +1879,9 @@ function startProjectsSub() {
     renderSide();
   });
 }
-const canSee = p => isAdmin() || (p.users || []).includes(S.me.id) || (p.team || []).some(m => m.uid === S.me.id);
+// stoisko „GOG testy” to materiał samouczka (pokaz, stoisko ćwiczeniowe) — nie ma go na liście stoisk
+const isTourSrc = p => p.id === TOUR_PID || String(p.name || '').trim().toLowerCase() === TOUR_NAME;
+const canSee = p => !isTourSrc(p) && (isAdmin() || (p.users || []).includes(S.me.id) || (p.team || []).some(m => m.uid === S.me.id));
 // zespół projektu: konta INDEX ({uid}) i osoby spoza systemu ({name})
 const initialsOf = n => String(n || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
 function teamAvatar(m) {
@@ -1890,6 +1896,7 @@ function showScreen(id) {
 }
 function goHome() {
   if (!S.me) return;
+  if (S.practice) endPractice(false);
   closeProject();
   showScreen('screen-home');
   $('hdr-project').classList.add('hidden');
@@ -2457,9 +2464,11 @@ function openProjectForm(pid, fairId) {
 //  PROJEKT — otwieranie i subskrypcje
 // =====================================================================
 async function openProject(pid) {
+  // wyjście ze stoiska ćwiczeniowego na prawdziwe stoisko: najpierw wracamy do prawdziwej bazy
+  if (S.practice && pid !== PRACT_PID) endPractice(false);
   let p = S.projects.find(x => x.id === pid) || await DB.get(C_PROJECTS, pid);
   if (!p) { toast('Nie znaleziono projektu', 'error'); return goHome(); }
-  if (!canSee(p) && !(S.tour && S.tour.pid === p.id)) { toast('Brak dostępu do tego projektu', 'error'); return goHome(); }
+  if (!canSee(p) && !(S.tour && S.tour.pid === p.id) && !(S.practice && pid === PRACT_PID)) { toast('Brak dostępu do tego projektu', 'error'); return goHome(); }
   closeProject();
   S.project = p;
   S.photos = []; S.elements = []; S.log = []; S.photoId = null; S.selId = null; S.logSeen = null;
@@ -3432,6 +3441,8 @@ let axJob = null;
 function openArchiwumDialog(eid) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project || !isAdmin()) return;
   if (axLinked(el)) { window.open(axLink(el), '_blank'); return; }
+  // Archiwum X to prawdziwa baza — ze stoiska ćwiczeniowego nic tam nie wpisujemy
+  if (S.practice) { toast(SHOW_UI.practiceBar, '', 4000); return; }
   const p = S.project, g = axGuess(el);
   // wymiary w jednostce, w której dany użytkownik pracuje w Archiwum X (DM w mm, reszta w cm)
   const mm = S.me.login === 'DM', dim = v => Number(v) > 0 ? (mm ? Number(v) : Math.round(Number(v)) / 10) : '';
@@ -3497,7 +3508,8 @@ function axVariant(r) {
 }
 async function axLoad(force) {
   if (AXC && !force) return AXC;
-  const [recs, cats] = await Promise.all([DB.list('records'), DB.list('catalogs')]);
+  const rdb = S.practice ? S.practice.realDB : DB; // stoisko ćwiczeniowe: Archiwum X czytamy z prawdziwej bazy
+  const [recs, cats] = await Promise.all([rdb.list('records'), rdb.list('catalogs')]);
   const live = recs.filter(r => r.status !== 'archiwum').sort((a, b) => (Number(b.number) || 0) - (Number(a.number) || 0));
   const meta = {}; cats.forEach(c => { if (c.name) meta[c.name] = c; });
   const tagOf = n => { const c = meta[n]; if (!c) return ''; const k = c.kind === 'set' ? c.knum : c.gnum; return k ? (c.kind === 'set' ? 'K' : 'G') + k : ''; };
@@ -5427,12 +5439,13 @@ function createMemDB(seed) {
   };
 }
 const SHOW_PID = 'pokaz-gog';
+const PRACT_PID = 'cwiczenia-gog'; // stoisko ćwiczeniowe: kopia „GOG testy” w pamięci, zmiany nie są zapisywane
 const PRO_PID = 'j6mi4QZmQczOD7QUw5F2', PRO_NAME = 'gog'; // PRO dla Dimy: pełne stoisko GOG
 // po pokazie: spóźnione zapisy aplikacji (np. historia po „Dodaj” przerwanym w połowie) nie mogą trafić
 // do prawdziwej bazy — wszystko, co dotyczy stoiska pokazowego, jest odrzucane
 function guardShowDB(real) {
   if (real.__guard) return real;
-  const bad = (p, id) => String(p).includes(SHOW_PID) || id === SHOW_PID;
+  const bad = (p, id) => String(p).includes(SHOW_PID) || id === SHOW_PID || String(p).includes(PRACT_PID) || id === PRACT_PID;
   return { ...real, __guard: true,
     add: (p, o) => bad(p) ? Promise.resolve('x') : real.add(p, o),
     set: (p, id, o, m) => bad(p, id) ? Promise.resolve() : real.set(p, id, o, m),
@@ -5453,6 +5466,11 @@ const SHOW_UI = {
   novoice: TT('Brak głosu w tym języku — same napisy', 'Немає голосу цією мовою — лише субтитри', 'No voice for this language — subtitles only'),
   menuShow: TT('Pokaz z lektorką', 'Показ з дикторкою', 'Narrated demo'),
   menuShowSub: TT('budujemy stoisko krok po kroku', 'будуємо стенд крок за кроком', 'we build a stand step by step'),
+  menuPractice: TT('Stoisko ćwiczeniowe', 'Тренувальний стенд', 'Practice stand'),
+  menuPracticeSub: TT('ćwicz śmiało — zmiany nie są zapisywane', 'тренуйся сміливо — зміни не зберігаються', 'practise freely — changes are not saved'),
+  practiceBar: TT('Stoisko ćwiczeniowe — zmiany nie są zapisywane', 'Тренувальний стенд — зміни не зберігаються', 'Practice stand — changes are not saved'),
+  practiceReset: TT('Zacznij od nowa', 'Почати знову', 'Start over'),
+  practiceEnd: TT('Zakończ', 'Завершити', 'Finish'),
   menuTour: TT('Prezentacja ekranu', 'Презентація екрана', 'Screen tour'),
   menuPro: TT('PRO — dla administratora', 'PRO — для адміністратора', 'PRO — for administrators'),
   menuProSub: TT('Turbo, drzwi, konstrukcje, Zlecenie, Corel i jeszcze coś', 'Турбо, двері, конструкції, Замовлення, Corel і ще дещо', 'Turbo, doors, structures, Order, Corel and more'),
@@ -5462,14 +5480,15 @@ const SHOW_UI = {
 function openTourMenu(ev) {
   ev.stopPropagation();
   const old = document.querySelector('.menu.tour-menu'); if (old) { old.remove(); return; }
-  if (S.tour) return;
+  if (S.tour || S.practice) return;
   const m = document.createElement('div'); m.className = 'menu tour-menu'; m.setAttribute('data-noi18n', '');
   const r = $('btn-tour').getBoundingClientRect();
   m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, innerWidth - r.right) + 'px';
   m.innerHTML = `<div class="mi" data-a="show"><div><b>▶ ${SHOW_UI.menuShow}</b><br><small>${SHOW_UI.menuShowSub}</small></div></div>
+    <div class="mi" data-a="practice"><div><b>🎓 ${SHOW_UI.menuPractice}</b><br><small>${SHOW_UI.menuPracticeSub}</small></div></div>
     ${isAdmin() ? `<div class="mi" data-a="prolive"><div><b>★ ${SHOW_UI.menuProLive}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>` : ''}`;
   document.body.appendChild(m);
-  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'show' ? startShow() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
+  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'show' ? startShow() : a === 'practice' ? startPractice() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
   setTimeout(() => document.addEventListener('click', function f() { m.remove(); document.removeEventListener('click', f); }), 0);
 }
 
@@ -6442,6 +6461,49 @@ async function runShow(photos, els) {
   }
   T.cur = T.chapters.length; shStages(); shDot(1);
 }
+// =====================================================================
+//  STOISKO ĆWICZENIOWE: kopia stoiska „GOG testy” (wizki + elementy) w pamięci przeglądarki.
+//  Można wszystko klikać, dodawać i usuwać — nic nie trafia do bazy; „Zacznij od nowa” wraca do kopii.
+// =====================================================================
+async function startPractice() {
+  if (S.tour || S.practice || !S.me) return;
+  const src = S.projects.find(x => x.id === TOUR_PID) || S.projects.find(x => String(x.name || '').trim().toLowerCase() === TOUR_NAME);
+  if (!src) { toast(TOUR_UI.missing, 'error'); return; }
+  document.querySelectorAll('.menu').forEach(m => m.remove());
+  while (modalStack.length) modalStack[modalStack.length - 1].close();
+  let photos, els;
+  try { photos = await DB.list(pPhotos(src.id)); els = await DB.list(pElements(src.id)); }
+  catch (e) { toast('Błąd bazy: ' + e.message, 'error'); return; }
+  const byId = list => Object.fromEntries(list.map(x => { const o = clone(x); delete o.id; return [x.id, o]; }));
+  const proj = { ...clone(src), name: SHOW_UI.menuPractice, users: [S.me.id], team: [] };
+  delete proj.id;
+  const seed = { [C_PROJECTS]: { [PRACT_PID]: proj }, [pPhotos(PRACT_PID)]: byId(photos), [pElements(PRACT_PID)]: byId(els) };
+  S.practice = { seed, realDB: guardShowDB(DB), prevPid: S.project ? S.project.id : null };
+  DB = createMemDB(seed);
+  try { localStorage.removeItem(`INDEX_SEEN_${S.me.id}_${PRACT_PID}`); } catch (e) {}
+  let bar = $('practice-bar');
+  if (!bar) {
+    bar = document.createElement('div'); bar.id = 'practice-bar'; bar.setAttribute('data-noi18n', '');
+    bar.innerHTML = `<b>🎓 ${SHOW_UI.practiceBar}</b><button class="btn btn-sm" data-r>↺ ${SHOW_UI.practiceReset}</button><button class="btn btn-sm btn-solid" data-x>${SHOW_UI.practiceEnd}</button>`;
+    document.body.appendChild(bar);
+    bar.querySelector('[data-r]').onclick = () => { if (!S.practice) return; DB = createMemDB(S.practice.seed); openProject(PRACT_PID); toast(SHOW_UI.practiceReset + ' ✓', 'success'); };
+    bar.querySelector('[data-x]').onclick = () => endPractice(true);
+  }
+  await openProject(PRACT_PID);
+}
+function endPractice(nav = true) {
+  const P = S.practice; if (!P) return;
+  while (modalStack.length) modalStack[modalStack.length - 1].close();
+  if (S.turbo) endTurbo();
+  DB = P.realDB;
+  S.practice = null;
+  const bar = $('practice-bar'); if (bar) bar.remove();
+  try { localStorage.removeItem(`INDEX_SEEN_${S.me.id}_${PRACT_PID}`); } catch (e) {}
+  if (!nav) return;
+  if (P.prevPid && P.prevPid !== PRACT_PID) openProject(P.prevPid);
+  else goHome();
+}
+
 function endShow() {
   const T = S.tour; if (!T || !T.show) return;
   T.stop = true;
