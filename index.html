@@ -5422,6 +5422,9 @@ function guardShowDB(real) {
 }
 const SHOW_UI = {
   title: TT('Pokaz z lektorką', 'Показ з дикторкою', 'Narrated demo'),
+  titlePro: TT('PRO na żywo — dla Dimy', 'PRO наживо — для Діми', 'PRO live — for Dima'),
+  menuProLive: TT('PRO na żywo — z lektorką', 'PRO наживо — з дикторкою', 'PRO live — narrated'),
+  menuProSlides: TT('PRO — slajdy', 'PRO — слайди', 'PRO — slides'),
   pause: TT('Pauza (spacja)', 'Пауза (пробіл)', 'Pause (space)'), play: TT('Wznów (spacja)', 'Продовжити (пробіл)', 'Resume (space)'),
   mute: TT('Wycisz lektora', 'Вимкнути голос', 'Mute narrator'), unmute: TT('Włącz lektora', 'Увімкнути голос', 'Unmute narrator'),
   close: TT('Zakończ pokaz (Esc)', 'Завершити показ (Esc)', 'End demo (Esc)'),
@@ -5445,9 +5448,10 @@ function openTourMenu(ev) {
   m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, innerWidth - r.right) + 'px';
   m.innerHTML = `<div class="mi" data-a="show"><div><b>▶ ${SHOW_UI.menuShow}</b><br><small>${SHOW_UI.menuShowSub}</small></div></div>
     <div class="mi" data-a="tour"><div><b>▤ ${SHOW_UI.menuTour}</b><br><small>${SHOW_UI.menuTourSub}</small></div></div>
-    ${isAdmin() ? `<div class="mi" data-a="pro"><div><b>★ ${SHOW_UI.menuPro}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>` : ''}`;
+    ${isAdmin() ? `<div class="mi" data-a="prolive"><div><b>★ ${SHOW_UI.menuProLive}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>
+    <div class="mi" data-a="pro"><div><b>☆ ${SHOW_UI.menuProSlides}</b><br><small>${SHOW_UI.menuPro}</small></div></div>` : ''}`;
   document.body.appendChild(m);
-  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); x.dataset.a === 'show' ? startShow() : startTour(x.dataset.a === 'pro'); });
+  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'show' ? startShow() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
   setTimeout(() => document.addEventListener('click', function f() { m.remove(); document.removeEventListener('click', f); }), 0);
 }
 
@@ -5517,7 +5521,7 @@ async function shMove(x, y, ms = 700) {
     shCursorAt(x0 + (x - x0) * k, y0 + (y - y0) * k);
     if (T.onMove) T.onMove(T.cx, T.cy);
     if (t >= 1) break;
-    await new Promise(r => requestAnimationFrame(() => r()));
+    await new Promise(r => setTimeout(r, 16)); // zegar zamiast klatek obrazu: kursor jedzie także w schowanym oknie
   }
 }
 const shCenter = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
@@ -5678,8 +5682,9 @@ async function shAddElement(e, talk, first) {
   }
 }
 
-async function startShow() {
+async function startShow(pro = false) {
   if (S.tour || !S.me) return;
+  if (pro && !isAdmin()) return;
   const src = S.projects.find(x => x.id === TOUR_PID) || S.projects.find(x => String(x.name || '').trim().toLowerCase() === TOUR_NAME);
   if (!src) { toast(TOUR_UI.missing, 'error'); return; }
   document.querySelectorAll('.menu').forEach(m => m.remove());
@@ -5688,13 +5693,15 @@ async function startShow() {
   let photos, els;
   try { photos = await DB.list(pPhotos(src.id)); els = (await DB.list(pElements(src.id))).map(normalizeEl); }
   catch (e) { toast('Błąd bazy: ' + e.message, 'error'); return; }
+  const allEls = clone(els); // PRO: całe stoisko 1:1 (drzwi, miniatury, odsunięte znaki)
   els = els.filter(e => e.shape && e.photoId && photos.some(p => p.id === e.photoId) && !e.doorFor)
     .sort((a, b) => (isWys(a) - isWys(b)) || (a.num || 0) - (b.num || 0));
   if (!photos.length || !els.length) { toast(TOUR_UI.missing, 'error'); return; }
   const proj = { ...clone(src), id: undefined, users: [S.me.id], photosCount: 0, elementsCount: 0, cover: '' };
   delete proj.id;
   const mem = createMemDB({ [C_PROJECTS]: { [SHOW_PID]: proj } });
-  S.tour = { show: true, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
+  try { localStorage.removeItem(`INDEX_SEEN_${S.me.id}_${SHOW_PID}`); } catch (e) {}
+  S.tour = { show: true, pro, allEls, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
   DB = mem;
   // zdarzenia kursora pokazu nie mają prawdziwego wskaźnika — przechwycenie nie może rzucać błędem
   S.tour.spc = Element.prototype.setPointerCapture;
@@ -5737,6 +5744,7 @@ async function startShow() {
     if (!T.voice) { await new Promise(r => { const f = () => r(); speechSynthesis.addEventListener('voiceschanged', f, { once: true }); setTimeout(r, 1200); }); T.voice = shVoice(); }
   }
   if (!T.voice) toast(SHOW_UI.novoice, '', 5000);
+  if (pro) cap.querySelector('.sc-h').firstChild.nextSibling.textContent = SHOW_UI.titlePro;
   try { await runShow(photos, els); }
   catch (e) { if (!(e instanceof ShowStop)) { console.error(e); toast('Pokaz przerwany: ' + e.message, 'error'); } }
   endShow();
@@ -5821,6 +5829,9 @@ function shCleanup() {
   closeArcMenu(true);
   while (modalStack.length) modalStack[modalStack.length - 1].close();
   T.onMove = null; T.fast = false; liveShape = null; act = null;
+  if (S.turbo) endTurbo();
+  document.querySelectorAll('.menu').forEach(m => m.remove());
+  const thr = $('thread-svg'); if (thr) thr.remove();
   if (assignTo) cancelAssign();
   cancelDraft(); if (tool !== 'point') setTool('point');
   if (S.graphMove) toggleGraphMove(false);
@@ -6034,6 +6045,242 @@ function showChapters(photos, els) {
       } },
   ];
 }
+
+// ---- PRO NA ŻYWO: kursor pokazuje Dimie funkcje administratora na gotowym stoisku GOG testy ----
+async function shSettle() {
+  const T = SH(); if (!T) return;
+  const nE = T.mem.count(pElements(SHOW_PID)), nP = T.mem.count(pPhotos(SHOW_PID));
+  await plainUntil(() => S.elements.length === nE && S.photos.length === nP, 4000);
+  if (nP) await plainUntil(() => { const im = [...document.querySelectorAll('#stage-imgs img')]; return im.length && im.every(i => i.complete && i.naturalWidth); }, 6000);
+}
+// okno elementu dwuklikiem na znaku (jak użytkownik); gdy znaku nie widać — przez ✎ w tabeli
+async function shOpenEl(eid) {
+  const node = () => document.querySelector(`#overlay g.shp[data-eid="${eid}"] [data-part="lab"]`) || document.querySelector(`#overlay g.shp[data-eid="${eid}"]`);
+  const n0 = await shWaitFor(node, 1500);
+  if (n0) {
+    const [x, y] = shCenter(n0);
+    await shMove(x, y, 750); await shWait(120);
+    shRipple(); shPtr('pointerdown', n0, x, y); shPtr('pointerup', viewer, x, y);
+    await plainWait(90);
+    const n1 = node(); shRipple(); if (n1) { shPtr('pointerdown', n1, x, y); shPtr('pointerup', viewer, x, y); }
+  } else openElementDialog({ id: eid });
+  await shWaitFor(() => $('ed-q'), 3000);
+  await shWait(500);
+}
+async function shCancelDlg() { const c = document.querySelector('.modal-back [data-c]'); if (c) await shClick(c, 600); else proClose(); await shWait(300); }
+const PT = i => TOUR_PRO[i] ? TOUR_PRO[i].text : '';
+function proChapters(photos, all) {
+  const T = S.tour;
+  const byType = (t, f = () => true) => all.find(e => e.typeId === t && !e.doorFor && f(e));
+  const logo = byType('logo3d'), foil = byType('folia-laminat');
+  const wall = byType('blackback', e => !hasDoor(e) && !e.wyslona && !all.some(x => x.doorFor === e.id)) || byType('blackback', e => !e.wyslona);
+  const TURBO = { typeId: 'folia-kontur', finish: 'mat', w: 600, h: 200, qty: 2, q: [0.42, 0.78] };
+  const HANG = { typeId: 'podwieszana', variant: 'kwadratowa', w: 3000, d: 3000, h: 1000, q: [0.5, 0.06] };
+  // całe stoisko GOG testy od razu — te same id (drzwi wskazują swoje ściany)
+  T.setup = async () => {
+    for (const ph of photos) { const x = clone(ph); delete x.id; await T.mem.add(pPhotos(SHOW_PID), x, ph.id); }
+    for (const e of all) { const x = clone(e); delete x.id; await T.mem.add(pElements(SHOW_PID), x, e.id); }
+  };
+  // wpis w historii, który przyszedł z Corela (makro INDEX_Miniatury)
+  const addCorelLog = async () => {
+    if (S.log.some(l => l.src === 'corel')) return;
+    const d = logo || all[0];
+    await T.mem.add(pLog(SHOW_PID), { at: nowIso(), user: S.me.id, text: `Corel: grafika elementu ${d ? markOf(d) : 'A'} (miniatura z arkusza)`, eid: d ? d.id : '', src: 'corel' });
+  };
+  const nextNumNow = () => 1 + S.elements.filter(e => !isWys(e)).reduce((m, e) => Math.max(m, Number(e.num) || 0), 0);
+  return [
+    { est: 14, name: TT('Start', 'Старт', 'Start'),
+      run: async () => {
+        fitView();
+        await shSay(TT('Cześć Dima! To jest wersja PRO, na żywo. Masz przed sobą gotowe stoisko GOG testy — pokażę Ci wszystko, co widzi administrator. Nic się tu nie zapisuje.',
+          'Привіт, Діма! Це версія PRO, наживо. Перед тобою готовий стенд GOG testy — покажу все, що бачить адміністратор. Тут нічого не зберігається.',
+          'Hi Dima! This is the PRO version, live. In front of you is the finished GOG testy stand — I’ll show you everything an administrator sees. Nothing is saved here.'));
+      } },
+    { est: 40, name: TT('Zlecenie', 'Замовлення', 'Order'),
+      run: async () => {
+        const btn = [...document.querySelectorAll('#hdr-actions button')].find(b => /copyOrder/.test(b.getAttribute('onclick') || ''));
+        if (!btn) return;
+        await shMove(...shCenter(btn), 800);
+        await shSay(PT(1));
+        await shClick(btn, 300);
+        await shWaitFor(() => $('ord-txt'), 3000); await shWait(500);
+        await shSay(PT(2));
+        const cb = document.querySelectorAll('#ord-list input[data-oid]')[1];
+        if (cb) { await shClick(cb, 700); await shWait(700); await shMove(...shCenter($('ord-txt')), 700); await shWait(900); await shClick(cb, 600); }
+        const ok = $('ord-ok'); if (ok) { await shMove(...shCenter(ok), 700); await shWait(500); }
+        await shCancelDlg();
+      } },
+    { est: 70, name: TT('Turbo i nitka', 'Турбо й нитка', 'Turbo and thread'),
+      run: async () => {
+        await shSay(PT(3));
+        await shClick('#btn-turbo', 800);
+        await shWaitFor(() => $('ed-q'), 3000); await shWait(500);
+        await shSay(TT('Wpisuję element bez klikania w wizualizację: folia cięta, mat, 600 na 200 milimetrów, dwie sztuki. Enter — i od razu następny.',
+          'Вписую елемент без кліку по візуалізації: різана плівка, мат, 600 на 200 міліметрів, дві штуки. Enter — і одразу наступний.',
+          'I type an element without clicking the visual: cut foil, matte, 600 by 200 millimetres, two pieces. Enter — and straight to the next.'));
+        await shClick(`.modal-back .type-btn[data-t="${TURBO.typeId}"]`, 700); await shWait(300);
+        const fin = document.querySelector(`.modal-back [data-fin="${TURBO.finish}"]`); if (fin) await shClick(fin, 500);
+        await shType($('ed-w'), String(TURBO.w)); await shType($('ed-h'), String(TURBO.h)); await shType($('ed-q'), String(TURBO.qty));
+        const before = new Set(S.elements.map(x => x.id));
+        await shClick('#ed-ok', 600);
+        const added = await shWaitFor(() => S.elements.find(x => !before.has(x.id)), 3000);
+        await shWaitFor(() => $('ed-q'), 2000); await shWait(400);
+        await shSay(TT('Na pokaz jeden wystarczy — kończę wpisywanie.', 'Для показу одного досить — завершую введення.', 'One is enough for the demo — I finish typing.'));
+        await shCancelDlg();
+        if (!added) return;
+        const thr = await shWaitFor(() => document.querySelector(`#el-scroll [data-thread="${added.id}"]`), 3000);
+        if (!thr) return;
+        thr.scrollIntoView({ block: 'nearest' });
+        await shSay(TT('Teraz nitka: łapię ją przy elemencie i przeciągam na miejsce na wizualizacji.', 'Тепер нитка: хапаю її біля елемента й перетягую на місце на візуалізації.', 'Now the thread: I grab it next to the element and drag it onto its place on the visual.'));
+        const [x, y] = shCenter(thr);
+        await shMove(x, y, 700); await shWait(150); shRipple();
+        shPtr('pointerdown', thr, x, y);
+        const [tx, ty] = stageToClient(S.photos[0].id, TURBO.q);
+        T.onMove = (cx, cy) => shPtr('pointermove', document, cx, cy);
+        try { await shMove(tx, ty, 1500); } finally { T.onMove = null; }
+        shRipple(); shPtr('pointerup', document, tx, ty);
+        await shWait(900);
+        const end = document.querySelector('#turbo-bar button[onclick="endTurbo()"]'); if (end) await shClick(end, 700);
+      },
+      instant: async () => {
+        const { q, ...d } = TURBO;
+        await T.mem.add(pElements(SHOW_PID), { ...d, num: nextNumNow(), variant: '', seg: false, wyslona: false, laminate: false, contour: false, notes: '', name: '',
+          photoId: S.photos[0].id, shape: { kind: 'point', pts: [q] }, createdAt: nowIso(), createdBy: S.me.id });
+      } },
+    { est: 40, name: 'Archiwum X',
+      run: async () => {
+        if (!logo) return;
+        await shOpenEl(logo.id);
+        const pick = await shWaitFor(() => $('ed-axpick'), 2000);
+        if (pick) await shMove(...shCenter(pick), 800);
+        await shSay(PT(4));
+        if (pick) {
+          await shClick(pick, 400);
+          await shWaitFor(() => document.querySelector('.axp-tile'), 5000);
+          const tile = document.querySelector('.axp-tile'); if (tile) { await shMove(...shCenter(tile), 900); await shWait(1200); }
+          const m = modalStack[modalStack.length - 1]; if (m && m.el.querySelector('#axp-list')) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
+        }
+        await shCancelDlg();
+      } },
+    { est: 55, name: TT('Drzwi', 'Двері', 'Doors'),
+      run: async () => {
+        if (!wall) return;
+        await shOpenEl(wall.id);
+        await shSay(PT(5));
+        const dch = $('ed-door'); if (!dch) return shCancelDlg();
+        dch.closest('.door-fld').scrollIntoView({ block: 'nearest' });
+        await shClick(dch, 700); await shWait(400);
+        const dist = await shWaitFor(() => $('ed-door-dist'), 2000);
+        if (dist) await shType(dist, '500');
+        await shWait(600);
+        const before = new Set(S.elements.map(x => x.id));
+        await shClick('#ed-ok', 700);
+        await shWaitFor(() => S.elements.find(x => !before.has(x.id) && x.doorFor === wall.id), 3000);
+        await shSay(TT('Gotowe — doszedł osobny element z grafiką na drzwi.', 'Готово — додався окремий елемент із графікою на двері.', 'Done — a separate element with the door artwork was added.'));
+        const row = document.querySelector(`#el-scroll tr[data-eid="${(S.elements.find(x => x.doorFor === wall.id) || {}).id}"]`);
+        if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); await shWait(800); }
+      },
+      instant: async () => {
+        if (!wall) return;
+        const main = { ...S.elements.find(x => x.id === wall.id), door: { on: true, from: 'left', dist: 500, size: 'h2480' } };
+        await T.mem.update(pElements(SHOW_PID), wall.id, { door: main.door });
+        await shSettle();
+        await syncDoorElement(wall.id, main);
+      } },
+    { est: 30, name: TT('Spady', 'Вильоти', 'Bleeds'),
+      run: async () => {
+        if (!foil) return;
+        await shOpenEl(foil.id);
+        const bo = $('ed-bleedopts'); if (bo) bo.scrollIntoView({ block: 'nearest' });
+        await shSay(PT(6));
+        const sides = document.querySelector('.modal-back [data-bmode="sides"]');
+        if (sides) { await shClick(sides, 700); await shWait(400); const l = document.querySelector('.modal-back input[data-bl="l"]'); if (l) await shType(l, '80'); await shWait(900); }
+        await shCancelDlg();
+      } },
+    { est: 60, name: TT('Konstrukcja', 'Конструкція', 'Structure'),
+      run: async () => {
+        await shSay(TT('Konstrukcja podwieszana: klikam nad stoiskiem i wybieram kształt.', 'Підвісна конструкція: клікаю над стендом і обираю форму.', 'Hanging structure: I click above the stand and choose the shape.'));
+        await shTapPhoto(S.photos[0].id, HANG.q);
+        if (!await shWaitFor(() => ARC && ARC.root.querySelector('.arc-btn[data-t="podwieszana"]'))) return;
+        await shWait(400);
+        await shClick('#arc .arc-btn[data-t="podwieszana"]', 650); await shWait(300);
+        await shClick(`#arc .ap-opt[data-step="v"][data-o="${HANG.variant}"]`, 500); await shWait(300);
+        await shSay(PT(7));
+        await shType(await shWaitFor(() => document.querySelector('#arc input[data-f="w"]')), String(HANG.w));
+        await shType(document.querySelector('#arc input[data-f="d"]'), String(HANG.d));
+        await shType(document.querySelector('#arc input[data-f="h"]'), String(HANG.h));
+        const before = new Set(S.elements.map(x => x.id));
+        await shClick('#arc .ap-go', 500);
+        const added = await shWaitFor(() => S.elements.find(x => !before.has(x.id)), 3000);
+        if (!added) return;
+        await shWait(400);
+        await shOpenEl(added.id);
+        const ins = $('ed-inside');
+        if (ins) { ins.scrollIntoView({ block: 'nearest' }); await shClick(ins, 700); await shWait(600); await shClick('#ed-ok', 700); await shWaitFor(() => !$('ed-q'), 3000); }
+        const row = document.querySelector(`#el-scroll tr[data-eid="${added.id}"]`);
+        if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); }
+        await shSay(TT('W tabeli każda płaszczyzna ma swój znak i wymiar do druku — na zewnątrz ze spadem, w środku bez.', 'У таблиці кожна площина має свою позначку й розмір до друку — зовні з вильотом, усередині без.', 'In the table each panel has its own mark and print size — outside with bleed, inside without.'));
+      },
+      instant: async () => {
+        const { q, ...d } = HANG;
+        await T.mem.add(pElements(SHOW_PID), { ...d, num: nextNumNow(), seg: false, wyslona: false, inside: true, qty: 1, notes: '', name: '',
+          photoId: S.photos[0].id, shape: { kind: 'point', pts: [q] }, createdAt: nowIso(), createdBy: S.me.id });
+      } },
+    { est: 30, name: TT('Alarm zmian', 'Сигнал змін', 'Change alarm'),
+      run: async () => {
+        setElView('table');
+        const tgt = foil || S.elements[0]; if (!tgt) return;
+        await T.mem.update(pElements(SHOW_PID), tgt.id, { notes: TT('klient: proszę o mat zamiast połysku', 'клієнт: прошу мат замість глянцю', 'client: matte instead of gloss please'), updatedAt: nowIso(), updatedBy: 'klient' });
+        await shWait(700);
+        const row = await shWaitFor(() => document.querySelector(`#el-scroll tr[data-eid="${tgt.id}"]`));
+        if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); }
+        await shSay(PT(8));
+        if (row) { await shClick(document.querySelector(`#el-scroll tr[data-eid="${tgt.id}"]`), 500); await shWait(800); fitView(); }
+      } },
+    { est: 35, name: TT('Ustawienia stoiska', 'Налаштування стенду', 'Stand settings'),
+      run: async () => {
+        // okno ustawień szuka stoiska na liście projektów — stoisko pokazowe dopisane na chwilę
+        if (!S.projects.some(x => x.id === SHOW_PID)) S.projects = S.projects.concat([{ ...S.project, id: SHOW_PID }]);
+        try {
+          await shClick('#hdr-pname', 800);
+          await shWaitFor(() => $('pf-num'), 3000); await shWait(400);
+          const num = $('pf-num'); if (num) await shMove(...shCenter(num), 800);
+          await shSay(PT(9));
+          const m = modalStack[modalStack.length - 1]; if (m) { const x = m.el.querySelector('[data-close]'); if (x) await shClick(x, 600); else m.close(); }
+        } finally { S.projects = S.projects.filter(x => x.id !== SHOW_PID); }
+      } },
+    { est: 20, name: TT('Targi i stoiska', 'Виставки й стенди', 'Fairs and stands'),
+      run: async () => { await shClick('#side-handle', 800); await shSay(PT(10)); await shClick('#side-handle', 700); } },
+    { est: 45, name: 'Corel',
+      run: async () => {
+        await addCorelLog(); await shWait(300);
+        await shClick('#log-handle', 800);
+        const src = await shWaitFor(() => document.querySelector('#log-list .log-src'), 2500);
+        if (src) await shMove(...shCenter(src), 800);
+        await shSay(PT(11));
+        await shClick('#log-handle', 700);
+      },
+      instant: addCorelLog },
+    { est: 20, name: TT('Użytkownicy', 'Користувачі', 'Users'),
+      run: async () => {
+        await shClick('#avatar', 800);
+        const u = await shWaitFor(() => document.querySelector('.user-menu [data-a="users"]'), 2000);
+        if (u) await shMove(...shCenter(u), 700);
+        await shSay(PT(12));
+        document.querySelectorAll('.menu').forEach(m => m.remove());
+      } },
+    { est: 18, name: TT('Co dalej?', 'Що далі?', 'What’s next?'),
+      run: async () => { await shMove(innerWidth / 2, innerHeight / 2 - 80, 900); await shSay(PT(13)); } },
+    { est: 12, name: TT('Koniec', 'Кінець', 'End'),
+      run: async () => {
+        await shMove(...shCenter($('btn-tour')), 900);
+        await shSay(TT('To wszystko, Dima! Ten pokaz niczego nie zapisał. W menu tej ikony są też pokaz dla klientów i slajdy.',
+          'Це все, Діма! Цей показ нічого не зберіг. У меню цієї іконки є також показ для клієнтів і слайди.',
+          'That’s all, Dima! This demo saved nothing. This icon’s menu also has the client demo and the slides.'));
+        await shWait(500);
+      } },
+  ];
+}
 // przeskok: puste stoisko, potem błyskawicznie wszystkie wcześniejsze etapy, dalej normalnie
 async function shRebuildTo(k) {
   const T = SH(); if (!T) return;
@@ -6042,7 +6289,8 @@ async function shRebuildTo(k) {
   T.mem.wipe(C_PROJECTS);
   setElView('table');
   await plainUntil(() => !S.photos.length && !S.elements.length, 3000);
-  for (let j = 0; j < k; j++) if (T.chapters[j].instant) await T.chapters[j].instant();
+  if (T.setup) { await T.setup(); await shSettle(); }
+  for (let j = 0; j < k; j++) if (T.chapters[j].instant) { await T.chapters[j].instant(); await shSettle(); }
   const nP = T.mem.count(pPhotos(SHOW_PID)), nE = T.mem.count(pElements(SHOW_PID));
   await plainUntil(() => S.photos.length === nP && S.elements.length === nE, 4000);
   if (nP) await plainUntil(() => { const im = [...document.querySelectorAll('#stage-imgs img')]; return im.length && im.every(i => i.complete && i.naturalWidth); }, 6000);
@@ -6052,9 +6300,10 @@ async function shRebuildTo(k) {
 }
 async function runShow(photos, els) {
   const T = S.tour;
-  T.chapters = showChapters(photos, els); T.cur = 0;
+  T.chapters = T.pro ? proChapters(photos, T.allEls) : showChapters(photos, els); T.cur = 0;
   await openProject(SHOW_PID);
   setElView('table');
+  if (T.setup) { await T.setup(); await shSettle(); }
   shStages();
   await plainWait(600);
   let i = 0;
@@ -6090,6 +6339,9 @@ function endShow() {
   $('clock-pane').classList.remove('show-hl');
   toggleSide(T.sideWas); toggleLog(T.logWas);
   liveShape = null; act = null;
+  if (S.turbo) endTurbo();
+  document.querySelectorAll('.menu').forEach(m => m.remove());
+  try { localStorage.removeItem(`INDEX_SEEN_${S.me.id}_${SHOW_PID}`); } catch (e) {}
   DB = T.realDB;
   S.tour = null;
   if (S.elView !== T.prevView) setElView(T.prevView);
