@@ -3407,6 +3407,7 @@ async function axLoad(force) {
   return AXC;
 }
 function openAxPicker(onPick) {
+  if (!isAdmin()) return;
   let kind = 'rec', data = null;
   const m = openModal({ title: '🗄 Wybierz z Archiwum X', wide: true, body: `
     <div class="axp-top"><div class="seg" id="axp-kind"><button type="button" data-k="rec" class="on">Eksponat</button><button type="button" data-k="set">Komplet</button><button type="button" data-k="group">Grupa</button></div>
@@ -3553,8 +3554,8 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         </div></details>` : ''}`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
       ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
-      ${axLinked(editing) ? axBadge(editing, 'btn')
-        : isAdmin() && editing.typeId === 'logo3d' ? '<button class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}` : ''}
+      ${!isAdmin() ? '' : axLinked(editing) ? axBadge(editing, 'btn')
+        : editing.typeId === 'logo3d' ? '<button class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}` : ''}
       ${turbo && !editing ? '<span class="turbo-tag" style="margin-right:auto">⚡ Turbo — Enter = dodaj i następny</span>' : ''}
       <button class="btn" data-c>${turbo && !editing ? 'Zakończ wpisywanie' : 'Anuluj'}</button><button class="btn btn-solid" id="ed-ok">${editing ? 'Zapisz' : turbo ? 'Dodaj i następny ↵' : 'Dodaj element'}</button>`,
   });
@@ -3584,7 +3585,8 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   const renderOpts = () => {
     const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
     let h = '';
-    if (t && t.id === 'logo3d') {
+    // Archiwum X (wybór eksponatu / kompletu / grupy) — tylko administrator
+    if (t && t.id === 'logo3d' && isAdmin()) {
       const ax = el.archiwumId ? `eksponat <b>#${esc(el.archiwumNo || '?')}</b>`
         : el.archiwumKind ? `${el.archiwumKind === 'set' ? 'komplet' : 'grupa'} <b>${esc(el.archiwumTag || el.archiwumName || '')}</b> · ${(el.archiwumNos || []).map(n => '#' + esc(n)).join(', ')}` : '';
       h += `<div class="fld axpick"><label>Z Archiwum X</label><div class="axpick-row">
@@ -4191,8 +4193,8 @@ function renderElements() {
         <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
           ${e.shape ? '' : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
-          ${axLinked(e) ? axBadge(e)
-            : isAdmin() && e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
+          ${!isAdmin() ? '' : axLinked(e) ? axBadge(e)
+            : e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
           <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
           <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
       </tr>`;
