@@ -492,6 +492,7 @@
   #ax-frame .axf-bar .btn { padding: 4px 10px; }
   #ax-frame iframe { flex: 1; border: 0; background: #f0f4f8; }
   .ax-foot { display: contents; }
+  #ord-txt mark.show-mark { background: #fefcbf; color: inherit; padding: 1px 0; box-shadow: 0 0 0 2px #ecc94b; }
   #ed-w.bad { border-color: var(--red); }
   .w-calc:empty { display: none; }
   .w-calc { color: var(--dark); margin-top: 4px; }
@@ -6234,6 +6235,14 @@ function proChapters(photos, all) {
     await T.mem.add(pLog(SHOW_PID), { at: nowIso(), user: S.me.id, text: `Corel: grafika elementu ${d ? markOf(d) : 'A'} (miniatura z arkusza)`, eid: d ? d.id : '', src: 'corel' });
   };
   const nextNumNow = () => 1 + S.elements.filter(e => !isWys(e)).reduce((m, e) => Math.max(m, Number(e.num) || 0), 0);
+  // kalkulator szerokości: ściana SEG / wysłona z drzwiami (albo ta, której przed chwilą dodaliśmy drzwi)
+  const calcTarget = () => S.elements.find(e => e.typeId === 'blackback' && !e.doorFor && hasDoor(e) && (e.seg || e.wyslona))
+    || S.elements.find(e => wall && e.id === wall.id && hasDoor(e));
+  const calcExprFor = e => {
+    if (e.wExpr && (e.wExprUnit || 'cm') === UNIT()) return e.wExpr;
+    const p = doorPos(e);
+    return [p.left, p.w, p.right].filter(v => v > 0.05).map(v => numIn(Math.round(fromMM(v) * 10) / 10)).join('+');
+  };
   return [
     { est: 14, name: TT('Start', 'Старт', 'Start'),
       run: async () => {
@@ -6242,21 +6251,7 @@ function proChapters(photos, all) {
           'Привіт, Діма! Це версія PRO, наживо. Перед тобою готовий стенд GOG testy — покажу все, що бачить адміністратор. Тут нічого не зберігається.',
           'Hi Dima! This is the PRO version, live. In front of you is the finished GOG testy stand — I’ll show you everything an administrator sees. Nothing is saved here.'));
       } },
-    { est: 40, name: TT('Zlecenie', 'Замовлення', 'Order'),
-      run: async () => {
-        const btn = [...document.querySelectorAll('#hdr-actions button')].find(b => /copyOrder/.test(b.getAttribute('onclick') || ''));
-        if (!btn) return;
-        await shMove(...shCenter(btn), 800);
-        await sayP(PT(1));
-        await shClick(btn, 300);
-        await shWaitFor(() => $('ord-txt'), 3000); await shWait(500);
-        await sayP(PT(2));
-        const cb = document.querySelectorAll('#ord-list input[data-oid]')[1];
-        if (cb) { await shClick(cb, 700); await shWait(700); await shMove(...shCenter($('ord-txt')), 700); await shWait(900); await shClick(cb, 600); }
-        const ok = $('ord-ok'); if (ok) { await shMove(...shCenter(ok), 700); await shWait(500); }
-        await shCancelDlg();
-      } },
-    { est: 55, name: TT('Drzwi', 'Двері', 'Doors'),
+    { est: 85, name: TT('Drzwi', 'Двері', 'Doors'),
       run: async () => {
         if (!wall) return;
         await shOpenEl(wall.id);
@@ -6273,6 +6268,26 @@ function proChapters(photos, all) {
         await shSay(TT('Gotowe — doszedł osobny element z grafiką na drzwi.', 'Готово — додався окремий елемент із графікою на двері.', 'Done — a separate element with the door artwork was added.'));
         const row = document.querySelector(`#el-scroll tr[data-eid="${(S.elements.find(x => x.doorFor === wall.id) || {}).id}"]`);
         if (row) { row.scrollIntoView({ block: 'nearest' }); await shMove(...shCenter(row), 800); await shWait(800); }
+        // kalkulator w szerokości: działanie z drzwiami, w polu wynik, wyliczenie zapamiętane — to samo w Zleceniu
+        const ce = calcTarget();
+        if (!ce) return;
+        await shOpenEl(ce.id);
+        const w = await shWaitFor(() => $('ed-w'), 2000);
+        if (!w) return shCancelDlg();
+        w.scrollIntoView({ block: 'center' }); await shWait(200);
+        await shMove(...shCenter(w), 700);
+        await shSay(TT('Przy ścianie z drzwiami przydaje się kalkulator w polu szerokości. Wpisuję działanie: kawałek ściany, drzwi i reszta.',
+          'Для стіни з дверима знадобиться калькулятор у полі ширини. Вводжу дію: шматок стіни, двері й решта.',
+          'For a wall with a door, the width field calculator comes in handy. I type a sum: a piece of wall, the door and the rest.'));
+        await shType(w, calcExprFor(ce));
+        await shWait(700);
+        w.dispatchEvent(new FocusEvent('blur')); await shWait(500);
+        const hint = $('ed-wcalc'); if (hint && hint.textContent.trim()) await shMove(...shCenter(hint), 700);
+        await shSay(TT('Pole pokazuje sam wynik, a wyliczenie zostaje zapamiętane. Drzwi są w nim oznaczone, bo program wie, gdzie je ustawiłeś — od lewej albo od prawej. Wszystko to trafi do Zlecenia — pokażę pod koniec.',
+          'Поле показує тільки результат, а розрахунок запам’ятовується. Двері в ньому позначені, бо програма знає, де ти їх поставив — зліва чи справа. Усе це потрапить у Замовлення — покажу наприкінці.',
+          'The field shows just the result, and the calculation is remembered. The door is marked in it because the program knows where you placed it — from the left or the right. All of this goes into the Order — I’ll show it at the end.'));
+        await shClick('#ed-ok', 700);
+        await shWaitFor(() => !$('ed-q'), 3000);
       },
       instant: async () => {
         if (!wall) return;
@@ -6280,6 +6295,9 @@ function proChapters(photos, all) {
         await T.mem.update(pElements(SHOW_PID), wall.id, { door: main.door });
         await shSettle();
         await syncDoorElement(wall.id, main);
+        await shSettle();
+        const ce = calcTarget();
+        if (ce && !(ce.wExpr && (ce.wExprUnit || 'cm') === UNIT())) await T.mem.update(pElements(SHOW_PID), ce.id, { wExpr: calcExprFor(ce), wExprUnit: UNIT() });
       } },
     { est: 30, name: TT('Spady', 'Вильоти', 'Bleeds'),
       run: async () => {
@@ -6459,6 +6477,34 @@ function proChapters(photos, all) {
           const m = modalStack[modalStack.length - 1]; if (m && m.el.querySelector('#axp-list')) m.close();
           await shCancelDlg();
         }
+      } },
+    { est: 60, name: TT('Zlecenie', 'Замовлення', 'Order'),
+      run: async () => {
+        const btn = [...document.querySelectorAll('#hdr-actions button')].find(b => /copyOrder/.test(b.getAttribute('onclick') || ''));
+        if (!btn) return;
+        await shMove(...shCenter(btn), 800);
+        await sayP(PT(1));
+        await shClick(btn, 300);
+        await shWaitFor(() => $('ord-txt'), 3000); await shWait(500);
+        await sayP(PT(2));
+        const cb = document.querySelectorAll('#ord-list input[data-oid]')[1];
+        if (cb) { await shClick(cb, 700); await shWait(700); await shMove(...shCenter($('ord-txt')), 700); await shWait(900); await shClick(cb, 600); }
+        // ściana z drzwiami: w Zleceniu całe wyliczenie szerokości, drzwi oznaczone
+        const pre = $('ord-txt');
+        if (pre) {
+          const lines = pre.textContent.split('\n'), li = lines.findIndex(l => /\(drzwi\)/.test(l));
+          if (li >= 0) {
+            pre.innerHTML = lines.map((l, i) => i === li ? `<mark class="show-mark">${esc(l)}</mark>` : esc(l)).join('\n');
+            const mk = pre.querySelector('.show-mark');
+            if (mk) { mk.scrollIntoView({ block: 'center' }); await shWait(200); await shMove(...shCenter(mk), 800); }
+            await shSay(TT('A tu ściana z drzwiami. W Zleceniu jest całe wyliczenie szerokości z kalkulatora, a drzwi są oznaczone w swoim miejscu — od lewej albo od prawej. Drukarnia od razu widzi, z czego składa się wymiar.',
+              'А тут стіна з дверима. У Замовленні є весь розрахунок ширини з калькулятора, а двері позначені на своєму місці — зліва чи справа. Друкарня одразу бачить, з чого складається розмір.',
+              'And here is the wall with the door. The Order has the whole width calculation from the calculator, with the door marked in its place — from the left or the right. The print shop sees straight away what the size is made of.'));
+            await shWait(900);
+          }
+        }
+        const ok = $('ord-ok'); if (ok) { await shMove(...shCenter(ok), 700); await shWait(500); }
+        await shCancelDlg();
       } },
     { est: 18, name: TT('Co dalej?', 'Що далі?', 'What’s next?'),
       run: async () => { await shMove(innerWidth / 2, innerHeight / 2 - 80, 900); await sayP(PT(13)); } },
