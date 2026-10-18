@@ -5482,7 +5482,17 @@ async function shGate() { // pauza: czekamy, aż ktoś wznowi
   while (S.tour && S.tour.paused && !S.tour.stop && S.tour.jumpTo == null) await new Promise(r => setTimeout(r, 120));
   shChk();
 }
+// przewijanie w głąb etapu (kropka puszczona w środku etapu): T.skip = ile ms pokazu pominąć —
+// zdania, pauzy i ruchy kursora przed tym miejscem lecą błyskawicznie, kropka jedzie razem z nimi
+function shSkip(cost) {
+  const T = SH(); if (!T || !(T.skip > 0)) return false;
+  const d = Math.min(cost, T.skip);
+  T.skip -= d; T.chMs = (T.chMs || 0) + d;
+  return true;
+}
 async function shWait(ms) {
+  const T = SH();
+  if (T && T.skip > 0) { const d = Math.min(ms, T.skip); shSkip(d); ms -= d; await new Promise(r => setTimeout(r, Math.min(d, 40))); if (ms <= 0) { shChk(); return d; } }
   const T0 = Date.now(); let left = ms;
   while (left > 0) { await shGate(); const d = Math.min(left, 100); await new Promise(r => setTimeout(r, d)); left -= d; }
   shChk();
@@ -5505,6 +5515,10 @@ async function shSay(text) {
   await shGate();
   const cap = $('show-cap-t'); if (cap) cap.innerHTML = text;
   const plain = text.replace(/<[^>]+>/g, '').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/:\)/g, '').replace(/\s+/g, ' ').trim();
+  // przewijanie: zdanie przed miejscem, w które puszczono kropkę, tylko mignie w napisach
+  const cost = 900 + plain.length * 55;
+  if (T.skip >= cost) { shSkip(cost); await new Promise(r => setTimeout(r, 40)); shChk(); return; }
+  if (T.skip > 0) shSkip(T.skip); // kropka w trakcie zdania: zdanie od początku
   if (T.fast) { await shWait(Math.min(1400, 400 + plain.length * 15)); return; }
   if (T.muted || !T.voice) { await shWait(900 + plain.length * 55); return; }
   // zdania osobno (Chrome ucina długie wypowiedzi)
@@ -5530,6 +5544,7 @@ function shCursorAt(x, y) { const c = $('show-cursor'); if (!c) return; c.style.
 async function shMove(x, y, ms = 700) {
   const T = SH(); if (!T) throw new ShowStop();
   ms *= SHOW_SPEED();
+  if (T.skip > 0) { shSkip(ms); shCursorAt(x, y); if (T.onMove) T.onMove(x, y); await shGate(); return; }
   const x0 = T.cx, y0 = T.cy, t0 = performance.now();
   const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   let paused = 0;
@@ -5836,8 +5851,10 @@ function shScrubInit(box) {
       box.querySelectorAll('.sc-segs button.hov').forEach(b => b.classList.remove('hov'));
       $('show-dot-lab').textContent = '';
       if (!sc) return;
-      // klik albo puszczenie kropki = przeskok do etapu pod kursorem (wznawia pokaz)
-      shJump(Math.floor(posAt(ev.clientX) * S0.chapters.length));
+      // klik albo puszczenie kropki = przeskok dokładnie w to miejsce: etap pod kursorem + przewinięcie w jego głąb
+      const n = S0.chapters.length, pos = posAt(ev.clientX), k = Math.floor(pos * n), frac = pos * n - k;
+      shDot(pos);
+      shJump(k, frac > 0.04 ? frac * (S0.chapters[k].est || 15) * 1000 : 0);
     };
     box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
   });
@@ -5846,14 +5863,14 @@ function shScrubInit(box) {
   T.dotTimer = setInterval(() => {
     const now = performance.now(), dt = now - last; last = now;
     const S1 = SH(); if (!S1) return;
-    if (!S1.paused && !S1.scrub && !S1.rebuilding) S1.chMs = (S1.chMs || 0) + dt;
-    if (!S1.scrub) shDot();
+    if (!S1.paused && !S1.scrub && !S1.rebuilding && !(S1.skip > 0)) S1.chMs = (S1.chMs || 0) + dt;
+    if (!S1.scrub && !S1.rebuilding) shDot();
   }, 120);
 }
-function shJump(k) {
+function shJump(k, seekMs = 0) {
   const T = SH(); if (!T || !T.chapters) return;
   if (k < 0 || k >= T.chapters.length) return;
-  T.jumpTo = k;
+  T.jumpTo = k; T.seekMs = seekMs;
   if (T.paused && T.setPause) T.setPause(false);
   if ('speechSynthesis' in window) speechSynthesis.cancel();
 }
@@ -5902,9 +5919,9 @@ function showChapters(photos, els) {
   return [
     { est: 9, name: TT('Start', 'Старт', 'Start'),
       run: async () => {
-        await shSay(TT('Cześć! Pokażę, jak w INDEX powstaje opis stoiska. Zbudujemy od zera stoisko GOG na targi ISPO w Amsterdamie.',
-          'Привіт! Покажу, як в INDEX створюється опис стенду. Побудуємо з нуля стенд GOG на виставку ISPO в Амстердамі.',
-          'Hi! Let me show you how a stand description is made in INDEX. We will build the GOG stand for ISPO in Amsterdam from scratch.'));
+        await shSay(TT('Cześć! Pokażę, jak w INDEX powstaje opis stoiska elementów graficznych. Zbudujemy od zera stoisko GOG na targi ISPO w Amsterdamie.',
+          'Привіт! Покажу, як в INDEX створюється опис графічних елементів стенду. Побудуємо з нуля стенд GOG на виставку ISPO в Амстердамі.',
+          'Hi! Let me show you how the description of a stand\'s graphic elements is made in INDEX. We will build the GOG stand for ISPO in Amsterdam from scratch.'));
       } },
     { est: 24, name: TT('Wizualizacja', 'Візуалізація', 'Visual'),
       run: async () => {
@@ -6408,13 +6425,16 @@ async function runShow(photos, els) {
   let i = 0;
   while (i < T.chapters.length) {
     try {
-      T.cur = i; T.chMs = 0; T.namedAt = -1; shStages();
+      T.cur = i; T.chMs = 0; T.namedAt = -1; T.skip = T.seekMs || 0; T.seekMs = 0; shStages();
       await T.chapters[i].run();
+      T.skip = 0;
       i++;
     } catch (e) {
       if (!(e instanceof ShowJump)) throw e;
-      const k = T.jumpTo; T.jumpTo = null;
+      const k = T.jumpTo; T.jumpTo = null; T.skip = 0;
       T.cur = k; T.chMs = 0; T.rebuilding = true; shStages();
+      // kropka czeka w miejscu, w które ją puszczono, aż etap się odbuduje
+      if (T.seekMs) shDot((k + Math.min(0.96, T.seekMs / ((T.chapters[k].est || 15) * 1000))) / T.chapters.length);
       try { await shRebuildTo(k); } finally { T.rebuilding = false; }
       if (!SH() || SH().stop) throw new ShowStop();
       i = k;
