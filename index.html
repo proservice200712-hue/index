@@ -812,7 +812,7 @@
       </svg>
       <div class="cl-lab" id="cl-lab"></div>
       <div class="cl-sub" id="cl-sub"></div>
-      <div class="cl-legend"><span><i style="background:#67b437"></i>grafika</span><span><i style="background:#ecc94b"></i>produkcja</span><span><i style="background:#e53e3e"></i>impreza</span></div>
+      <div class="cl-legend"><span><i style="background:#67b437"></i>grafika</span><span><i style="background:#ecc94b"></i>produkcja</span><span><i style="background:#e53e3e"></i>targi</span></div>
     </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
@@ -1209,23 +1209,23 @@ const I18N_PAIRS = [
   ['Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.', 'Ширина × глибина × висота в міліметрах (квадратна: глибину можна пропустити), останнє поле — кількість штук. Графіку рахуємо як смугу на чотирьох сторонах.', 'Width × depth × height in millimetres (square: depth can be skipped), last field — quantity. The graphic is a band on four sides.'],
   ['Szerokość × głębokość × wysokość w centymetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.', 'Ширина × глибина × висота в сантиметрах (квадратна: глибину можна пропустити), останнє поле — кількість штук. Графіку рахуємо як смугу на чотирьох сторонах.', 'Width × depth × height in centimetres (square: depth can be skipped), last field — quantity. The graphic is a band on four sides.'],
   // zegar i terminy
-  ['do deadline’u graficznego', 'до дедлайну графіки', 'to the graphics deadline'], ['do deadline’u pakowania', 'до дедлайну пакування', 'to the packing deadline'], ['do imprezy', 'до заходу', 'to the event'],
-  ['dziś', 'сьогодні', 'today'], ['Trwa', 'Триває', 'Ongoing'], ['Koniec', 'Кінець', 'Over'], ['pakowanie', 'пакування', 'packing'], ['impreza', 'захід', 'event'],
+  ['do deadline’u graficznego', 'до дедлайну графіки', 'to the graphics deadline'], ['do deadline’u pakowania', 'до дедлайну пакування', 'to the packing deadline'], ['do targów', 'до виставки', 'to the fair'],
+  ['dziś', 'сьогодні', 'today'], ['Trwa', 'Триває', 'Ongoing'], ['Koniec', 'Кінець', 'Over'], ['pakowanie', 'пакування', 'packing'], ['targi', 'виставка', 'fair'],
   ['ustaw terminy w ⚙ Projekt', 'встановіть дати в ⚙ Проєкт', 'set dates in ⚙ Project'],
-  ['Deadline graficzny', 'Дедлайн графіки', 'Graphics deadline'], ['Deadline pakowania', 'Дедлайн пакування', 'Packing deadline'], ['Do imprezy', 'До заходу', 'To the event'],
-  ['Impreza trwa', 'Захід триває', 'Event ongoing'], ['Po imprezie', 'Після заходу', 'After the event'], ['Brak terminów', 'Немає дат', 'No dates'],
+  ['Deadline graficzny', 'Дедлайн графіки', 'Graphics deadline'], ['Deadline pakowania', 'Дедлайн пакування', 'Packing deadline'], ['Do targów', 'До виставки', 'To the fair'],
+  ['Targi trwają', 'Виставка триває', 'Fair ongoing'], ['Po targach', 'Після виставки', 'After the fair'], ['Brak terminów', 'Немає дат', 'No dates'],
   // formularze stoiska i targów
   ['Ustawienia stoiska', 'Налаштування стенду', 'Stand settings'], ['Nowe stoisko', 'Новий стенд', 'New stand'], ['Klient / nazwa stoiska *', 'Клієнт / назва стенду *', 'Client / stand name *'],
   ['Targi', 'Виставка', 'Fair'], ['bez targów', 'без виставки', 'no fair'], ['Nowe targi dodasz w panelu bocznym przyciskiem „+ New fairs".', 'Нову виставку додасте в бічній панелі кнопкою „+ New fairs".', 'Add a new fair in the side panel with "+ New fairs".'],
-  ['Start imprezy', 'Початок заходу', 'Event start'], ['Koniec imprezy (opcjonalnie)', 'Кінець заходу (необов’язково)', 'Event end (optional)'], ['Koniec imprezy', 'Кінець заходу', 'Event end'],
+  ['Start targów', 'Початок виставки', 'Fair start'], ['Koniec targów (opcjonalnie)', 'Кінець виставки (необов’язково)', 'Fair end (optional)'], ['Koniec targów', 'Кінець виставки', 'Fair end'],
   ['Zespół — kto zajmuje się projektem', 'Команда — хто займається проєктом', 'Team — who works on the project'],
   ['dopisz osobę spoza systemu (np. Marek — drukarnia) i Enter', 'додайте особу поза системою (напр. Марко — друкарня) і Enter', 'add a person outside the system (e.g. Mark — print shop) and Enter'],
   ['Kliknij osobę, aby dodać ją do zespołu — konto dodane do zespołu widzi to stoisko.', 'Натисніть особу, щоб додати її до команди — обліковий запис у команді бачить цей стенд.', 'Click a person to add them to the team — an account in the team can see this stand.'],
   ['Usuń stoisko', 'Видалити стенд', 'Delete stand'], ['Nowe targi', 'Нова виставка', 'New fair'], ['Targi — edycja', 'Виставка — редагування', 'Fair — edit'], ['Nazwa targów *', 'Назва виставки *', 'Fair name *'],
   ['Miasto', 'Місто', 'City'], ['Usuń targi', 'Видалити виставку', 'Delete fair'],
   ['Podaj nazwę stoiska', 'Вкажіть назву стенду', 'Enter the stand name'], ['Podaj nazwę targów', 'Вкажіть назву виставки', 'Enter the fair name'],
-  ['Deadline graficzny musi być przed imprezą', 'Дедлайн графіки має бути до заходу', 'The graphics deadline must be before the event'],
-  ['Deadline pakowania musi być przed imprezą', 'Дедлайн пакування має бути до заходу', 'The packing deadline must be before the event'],
+  ['Deadline graficzny musi być przed targami', 'Дедлайн графіки має бути до виставки', 'The graphics deadline must be before the fair'],
+  ['Deadline pakowania musi być przed targami', 'Дедлайн пакування має бути до виставки', 'The packing deadline must be before the fair'],
   ['Deadline pakowania musi być po graficznym', 'Дедлайн пакування має бути після дедлайну графіки', 'The packing deadline must be after the graphics deadline'],
   ['Zmieniono ustawienia projektu', 'Змінено налаштування проєкту', 'Project settings changed'],
   // menu
@@ -1266,7 +1266,7 @@ const I18N_RX = [
   [/^Nowy element ([A-Z]+)$/, 'Новий елемент $1', 'New element $1'], [/^Element ([A-Z]+)$/, 'Елемент $1', 'Element $1'],
   [/^Standard — spad (.+)$/, 'Стандарт — виліт $1', 'Standard — bleed $1'], [/^spad (.+)$/, 'виліт $1', 'bleed $1'],
   [/^gr\. (.+)$/, 'тов. $1', 'th. $1'], [/^× (\d+) szt\.$/, '× $1 шт.', '× $1 pcs'], [/^(\d+) szt\.$/, '$1 шт.', '$1 pcs'],
-  [/^pakowanie (.+)$/, 'пакування $1', 'packing $1'], [/^impreza (.+)$/, 'захід $1', 'event $1'], [/^start (.+)$/, 'початок $1', 'start $1'],
+  [/^pakowanie (.+)$/, 'пакування $1', 'packing $1'], [/^targi (.+)$/, 'виставка $1', 'fair $1'], [/^start (.+)$/, 'початок $1', 'start $1'],
   [/^Kliknij albo naciśnij (\d+), aby wybrać$/, 'Натисніть або клавіша $1, щоб вибрати', 'Click or press $1 to select'],
   [/^Wgrywanie wizki (.*)…$/, 'Завантаження візуалізації $1…', 'Uploading visual $1…'],
   [/^Ustawia się sam: (\d+) dni przed startem targów\.(.*)$/, 'Встановлюється сам: за $1 дн. до початку виставки.', 'Set automatically: $1 days before the fair starts.'],
@@ -2172,8 +2172,8 @@ function openFairForm(fid) {
       <div class="fld"><label>Nazwa targów *</label><input type="text" id="ff-name" value="${esc(f.name || '')}" placeholder="np. ISPO Amsterdam 2026"></div>
       <div class="fld"><label>Miasto</label><input type="text" id="ff-city" value="${esc(f.city || '')}"></div>
       <div class="row2">
-        <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="ff-ev" value="${esc(f.eventStart || '')}"></div>
-        <div class="fld"><label>Koniec imprezy</label><input type="datetime-local" id="ff-evend" value="${esc(f.eventEnd || '')}"></div>
+        <div class="fld"><label>Start targów</label><input type="datetime-local" id="ff-ev" value="${esc(f.eventStart || '')}"></div>
+        <div class="fld"><label>Koniec targów</label><input type="datetime-local" id="ff-evend" value="${esc(f.eventEnd || '')}"></div>
       </div>
       <div class="row2">${deadlineField('ff-dl', f.deadlineGfx)}${packField('ff-pk', f.deadlinePack)}</div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ff-ok">${fid ? 'Zapisz' : 'Utwórz'}</button>`,
@@ -2185,10 +2185,10 @@ function openFairForm(fid) {
     const d = { name: $('ff-name').value.trim(), city: $('ff-city').value.trim(), eventStart: $('ff-ev').value,
       eventEnd: $('ff-evend').value, deadlineGfx: $('ff-dl').value, deadlinePack: $('ff-pk').value, updatedAt: nowIso() };
     if (!d.name) return toast('Podaj nazwę targów', 'error');
-    if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed imprezą', 'error');
-    if (d.deadlinePack && d.eventStart && d.deadlinePack > d.eventStart) return toast('Deadline pakowania musi być przed imprezą', 'error');
+    if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed targami', 'error');
+    if (d.deadlinePack && d.eventStart && d.deadlinePack > d.eventStart) return toast('Deadline pakowania musi być przed targami', 'error');
     if (d.deadlinePack && d.deadlineGfx && d.deadlinePack < d.deadlineGfx) return toast('Deadline pakowania musi być po graficznym', 'error');
-    if (d.eventEnd && d.eventStart && d.eventEnd < d.eventStart) return toast('Koniec imprezy jest przed startem', 'error');
+    if (d.eventEnd && d.eventStart && d.eventEnd < d.eventStart) return toast('Koniec targów jest przed startem', 'error');
     $('ff-ok').disabled = true;
     try {
       if (fid) {
@@ -2296,11 +2296,11 @@ async function sideArchive() {
 const tsOf = v => { if (!v) return null; const t = new Date(v).getTime(); return isNaN(t) ? null : t; };
 function countdownInfo(p, now = Date.now()) {
   const dl = tsOf(gfxOf(p)), pk = tsOf(packOf(p)), ev = tsOf(p.eventStart), evEnd = tsOf(p.eventEnd) || (ev ? ev + 864e5 : null);
-  if (dl && now < dl) return { phase: 'deadline', label: 'Deadline graficzny', target: dl, next: pk ? 'pakowanie ' + fmtDate(pk) : ev ? 'impreza ' + fmtDate(ev) : '' };
-  if (pk && now < pk) return { phase: 'pack', label: 'Deadline pakowania', target: pk, next: ev ? 'impreza ' + fmtDate(ev) : '' };
-  if (ev && now < ev) return { phase: 'event', label: 'Do imprezy', target: ev, next: 'start ' + fmtDateTime(ev) };
-  if (ev && now < evEnd) return { phase: 'live', label: 'Impreza trwa', target: null, next: 'do ' + fmtDate(evEnd) };
-  if (ev) return { phase: 'done', label: 'Po imprezie', target: null, next: fmtDate(ev) };
+  if (dl && now < dl) return { phase: 'deadline', label: 'Deadline graficzny', target: dl, next: pk ? 'pakowanie ' + fmtDate(pk) : ev ? 'targi ' + fmtDate(ev) : '' };
+  if (pk && now < pk) return { phase: 'pack', label: 'Deadline pakowania', target: pk, next: ev ? 'targi ' + fmtDate(ev) : '' };
+  if (ev && now < ev) return { phase: 'event', label: 'Do targów', target: ev, next: 'start ' + fmtDateTime(ev) };
+  if (ev && now < evEnd) return { phase: 'live', label: 'Targi trwają', target: null, next: 'do ' + fmtDate(evEnd) };
+  if (ev) return { phase: 'done', label: 'Po targach', target: null, next: fmtDate(ev) };
   return { phase: 'none', label: 'Brak terminów', target: null, next: '' };
 }
 function fmtLeft(ms) {
@@ -2354,7 +2354,7 @@ function updateClock() {
     big.textContent = c.phase === 'live' ? 'Trwa' : c.phase === 'done' ? 'Koniec' : '—'; big.classList.remove('long');
     small.textContent = '';
   }
-  $('cl-lab').textContent = { deadline: 'do deadline’u graficznego', pack: 'do deadline’u pakowania', event: 'do imprezy' }[c.phase] || c.label;
+  $('cl-lab').textContent = { deadline: 'do deadline’u graficznego', pack: 'do deadline’u pakowania', event: 'do targów' }[c.phase] || c.label;
   $('cl-sub').textContent = c.target ? fmtDateTime(c.target) + (c.next && c.phase !== 'event' ? ' · ' + c.next : '') : c.next || 'ustaw terminy w ⚙ Projekt';
 }
 setInterval(() => {
@@ -2387,8 +2387,8 @@ function openProjectForm(pid, fairId) {
       <div class="fld"><label>Targi</label><select id="pf-fairid"><option value="">— bez targów${p.fair && !p.fairId ? ' (było: ' + esc(p.fair) + ')' : ''} —</option>${fairOpts}</select>
         <div class="hint">Nowe targi dodasz w panelu bocznym przyciskiem „+ New fairs".</div></div>
       <div class="row2">
-        <div class="fld"><label>Start imprezy</label><input type="datetime-local" id="pf-ev" value="${esc(p.eventStart || '')}"></div>
-        <div class="fld"><label>Koniec imprezy (opcjonalnie)</label><input type="datetime-local" id="pf-evend" value="${esc(p.eventEnd || '')}"></div>
+        <div class="fld"><label>Start targów</label><input type="datetime-local" id="pf-ev" value="${esc(p.eventStart || '')}"></div>
+        <div class="fld"><label>Koniec targów (opcjonalnie)</label><input type="datetime-local" id="pf-evend" value="${esc(p.eventEnd || '')}"></div>
       </div>
       <div class="row2">${deadlineField('pf-dl', p.deadlineGfx, false)}${packField('pf-pk', p.deadlinePack || (pid ? autoPack(p.eventStart) : ''), false)}</div>
       <div class="fld"><label>Zespół — kto zajmuje się projektem</label>
@@ -2454,8 +2454,8 @@ function openProjectForm(pid, fairId) {
       updatedAt: nowIso(),
     };
     if (!d.name) return toast('Podaj nazwę stoiska', 'error');
-    if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed imprezą', 'error');
-    if (d.deadlinePack && d.eventStart && d.deadlinePack > d.eventStart) return toast('Deadline pakowania musi być przed imprezą', 'error');
+    if (d.deadlineGfx && d.eventStart && d.deadlineGfx > d.eventStart) return toast('Deadline graficzny musi być przed targami', 'error');
+    if (d.deadlinePack && d.eventStart && d.deadlinePack > d.eventStart) return toast('Deadline pakowania musi być przed targami', 'error');
     if (d.deadlinePack && d.deadlineGfx && d.deadlinePack < d.deadlineGfx) return toast('Deadline pakowania musi być po graficznym', 'error');
     $('pf-ok').disabled = true;
     try {
@@ -2463,7 +2463,7 @@ function openProjectForm(pid, fairId) {
         const changes = [];
         if (p.deadlineGfx !== d.deadlineGfx) changes.push('deadline graficzny → ' + fmtDateTime(d.deadlineGfx));
         if ((p.deadlinePack || '') !== d.deadlinePack) changes.push('deadline pakowania → ' + fmtDateTime(d.deadlinePack));
-        if (p.eventStart !== d.eventStart) changes.push('start imprezy → ' + fmtDateTime(d.eventStart));
+        if (p.eventStart !== d.eventStart) changes.push('start targów → ' + fmtDateTime(d.eventStart));
         if (p.name !== d.name) changes.push('nazwa → ' + d.name);
         if (teamNames(p.team) !== teamNames(d.team)) changes.push('zespół → ' + teamNames(d.team));
         await DB.update(C_PROJECTS, pid, d);
@@ -4695,7 +4695,7 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
   if (sub) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#cbd5e0'; g.fillText(sub, rx, 70 * sc); }
   g.textAlign = 'left';
   g.fillStyle = '#718096'; g.font = `400 ${22 * sc}px ${PDF_FONT}`;
-  const foot = [p.eventStart ? 'Impreza: ' + fmtDateTime(p.eventStart) : '',
+  const foot = [p.eventStart ? 'Targi: ' + fmtDateTime(p.eventStart) : '',
     'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
   g.fillText(foot, 40 * sc, PH - 28 * sc);
 }
