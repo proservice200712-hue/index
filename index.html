@@ -225,8 +225,8 @@
   #cl-small { font: 600 10px 'Segoe UI', Arial, sans-serif; fill: var(--gray); font-variant-numeric: tabular-nums; }
   .cl-lab { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--dark); text-align: center; margin-top: 4px; }
   .cl-sub { font-size: 0.7rem; color: var(--gray); text-align: center; }
-  #clock-pane.ph-deadline .cl-lab { color: #2f855a; }
-  #clock-pane.ph-pack .cl-lab { color: #b7791f; }
+  #clock-pane.ph-deadline .cl-lab { color: #b7791f; }
+  #clock-pane.ph-pack .cl-lab { color: #2f855a; }
   #clock-pane.ph-event .cl-lab, #clock-pane.ph-event #cl-big { color: #c53030; fill: #c53030; }
   #clock-pane.ph-none #clock-svg { opacity: .45; }
   .cl-legend { display: flex; gap: 8px; font-size: .62rem; color: var(--gray); margin-top: 3px; flex: 0 0 auto; }
@@ -812,9 +812,9 @@
         </defs>
         <g filter="url(#clShadow)">
           <circle cx="60" cy="60" r="47" fill="none" stroke="url(#clTrack)" stroke-width="13"/>
-          <!-- trzy odcinki po kolei: graficzny (zielony), pakowanie (żółty), impreza (czerwony); upływ = przyciemnienie -->
-          <circle id="cl-s1" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
-          <circle id="cl-s2" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clYellow)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <!-- trzy odcinki po kolei: graficzny (żółty), produkcja (zielony), targi (czerwony); upływ = przyciemnienie -->
+          <circle id="cl-s1" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clYellow)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <circle id="cl-s2" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-s3" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clRed)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-past" cx="60" cy="60" r="47" fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <!-- połysk rury -->
@@ -827,7 +827,7 @@
       </svg>
       <div class="cl-lab" id="cl-lab"></div>
       <div class="cl-sub" id="cl-sub"></div>
-      <div class="cl-legend"><span><i style="background:#67b437"></i>grafika</span><span><i style="background:#ecc94b"></i>produkcja</span><span><i style="background:#e53e3e"></i>targi</span></div>
+      <div class="cl-legend"><span><i style="background:#ecc94b"></i>grafika</span><span><i style="background:#67b437"></i>produkcja</span><span><i style="background:#e53e3e"></i>targi</span></div>
     </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
@@ -2397,7 +2397,7 @@ async function sideArchive() {
 }
 
 // =====================================================================
-//  LICZNIKI: deadline graficzny (zielony) → deadline pakowania (żółty) → impreza (czerwony)
+//  LICZNIKI: deadline graficzny (żółty) → produkcja do deadline’u pakowania (zielony) → targi (czerwony)
 // =====================================================================
 const tsOf = v => { if (!v) return null; const t = new Date(v).getTime(); return isNaN(t) ? null : t; };
 function countdownInfo(p, now = Date.now()) {
@@ -5498,9 +5498,9 @@ const TOUR_STEPS = [
       'The same elements as scaled frames with dimension lines — like a Corel index. <b>Click an empty frame</b> to paste a preview of the finished artwork from the clipboard. The <b>Table / Graphic</b> switch is above the list.') },
   { sel: '#clock-pane',
     title: TT('Licznik — bardzo ważny!', 'Лічильник — дуже важливо!', 'Countdown — very important!'),
-    text: TT('<b>Pliki produkcyjne wysyłaj z wyprzedzeniem</b> — po nich jest jeszcze druk i produkcja. Ile czasu zostało: <b style="color:#3e7a1c">zielony</b> — do oddania grafik, <b style="color:#b7791f">żółty</b> — czas produkcji (do pakowania, tydzień przed targami), <b style="color:#c53030">czerwony</b> — do targów.',
-      '<b>Виробничі файли надсилай заздалегідь</b> — після них ще друк і виробництво. Скільки часу лишилося: <b style="color:#3e7a1c">зелений</b> — до здачі графіки, <b style="color:#b7791f">жовтий</b> — час виробництва (до пакування, за тиждень до виставки), <b style="color:#c53030">червоний</b> — до виставки.',
-      '<b>Send production files well in advance</b> — printing and production come after. Time left: <b style="color:#3e7a1c">green</b> — until artwork is due, <b style="color:#b7791f">yellow</b> — production time (until packing, a week before the fair), <b style="color:#c53030">red</b> — until the fair.') },
+    text: TT('<b>Pliki produkcyjne wysyłaj z wyprzedzeniem</b> — po nich jest jeszcze druk i produkcja. Ile czasu zostało: <b style="color:#b7791f">żółty</b> — do oddania grafik, <b style="color:#3e7a1c">zielony</b> — czas produkcji (do pakowania, tydzień przed targami), <b style="color:#c53030">czerwony</b> — do targów.',
+      '<b>Виробничі файли надсилай заздалегідь</b> — після них ще друк і виробництво. Скільки часу лишилося: <b style="color:#b7791f">жовтий</b> — до здачі графіки, <b style="color:#3e7a1c">зелений</b> — час виробництва (до пакування, за тиждень до виставки), <b style="color:#c53030">червоний</b> — до виставки.',
+      '<b>Send production files well in advance</b> — printing and production come after. Time left: <b style="color:#b7791f">yellow</b> — until artwork is due, <b style="color:#3e7a1c">green</b> — production time (until packing, a week before the fair), <b style="color:#c53030">red</b> — until the fair.') },
   { sel: '#logside', before: () => { if (S.tour.logWas == null) S.tour.logWas = logState.open; toggleLog(true); }, after: () => toggleLog(!!S.tour.logWas),
     title: TT('Historia zmian', 'Історія змін', 'Change history'),
     text: TT('Belka po prawej rozsuwa historię: kto, kiedy i co zmienił na stoisku. Liczba na belce to nowe zmiany innych osób.',
@@ -6420,9 +6420,9 @@ function showChapters(photos, els) {
       run: async () => {
         await shMove(...shCenter($('clock-pane')), 900);
         $('clock-pane').classList.add('show-hl');
-        await shSay(TT('Bardzo ważne: licznik czasu. Zielony odcinek to czas na przesłanie plików produkcyjnych. Pliki trzeba wysyłać z wyprzedzeniem, bo po nich jest jeszcze druk i produkcja. Żółty to czas produkcji — do pakowania, tydzień przed targami — a czerwony to same targi.',
-          'Дуже важливо: лічильник часу. Зелений відрізок — час на надсилання виробничих файлів. Файли треба надсилати заздалегідь, бо після них ще друк і виробництво. Жовтий — час виробництва, до пакування за тиждень до виставки, а червоний — сама виставка.',
-          'Very important: the countdown. The green segment is the time to send the production files. Send them well in advance, because printing and production come after. Yellow is production time, until packing a week before the fair, and red is the fair itself.'));
+        await shSay(TT('Bardzo ważne: licznik czasu. Żółty odcinek to czas na przesłanie plików produkcyjnych. Pliki trzeba wysyłać z wyprzedzeniem, bo po nich jest jeszcze druk i produkcja. Zielony to czas produkcji — do pakowania, tydzień przed targami — a czerwony to same targi.',
+          'Дуже важливо: лічильник часу. Жовтий відрізок — час на надсилання виробничих файлів. Файли треба надсилати заздалегідь, бо після них ще друк і виробництво. Зелений — час виробництва, до пакування за тиждень до виставки, а червоний — сама виставка.',
+          'Very important: the countdown. The yellow segment is the time to send the production files. Send them well in advance, because printing and production come after. Green is production time, until packing a week before the fair, and red is the fair itself.'));
         $('clock-pane').classList.remove('show-hl');
       } },
     { est: 13, name: TT('Eksport', 'Експорт', 'Export'),
