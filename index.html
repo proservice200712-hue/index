@@ -578,7 +578,9 @@
   /* alpaka: 2 cm wysokości, przebiega po dole ekranu */
   #alpaca { position: fixed; left: 0; bottom: 2px; height: 2cm; width: 2cm; z-index: 120; pointer-events: none; display: none; }
   #alpaca svg { width: 100%; height: 100%; overflow: visible; }
-  #alpaca:not(.pumpkin) .pk { display: none; } /* strój dyni tylko w październiku (do Halloween) */
+  /* stroje: data-costume (klasy nadpisuje animacja) — październik dynia, grudzień gwiazdor albo renifer Rudolf */
+  #alpaca:not([data-costume="pumpkin"]) .pk, #alpaca:not([data-costume="santa"]) .sa, #alpaca:not([data-costume="rudolph"]) .ru { display: none; }
+  #alpaca .ru-nose { filter: drop-shadow(0 0 2px #ff4d4d) drop-shadow(0 0 5px #ff2d2d); }
   #alpaca.run svg { animation: alpBob .32s ease-in-out infinite; }
   #alpaca .lg { transform-box: fill-box; transform-origin: 50% 8%; }
   #alpaca.run .lf, #alpaca.run .lb2 { animation: alpLeg .32s ease-in-out infinite; }
@@ -881,6 +883,13 @@
         <path d="M29 51 l5 -8 l5 8z M50 51 l5 -8 l5 8z" fill="#ffd34d" stroke-width="1.6"/>
         <path d="M28 61 l5 5 l5 -4 l5 4 l5 -4 l5 4 l5 -5 q-15 12 -30 0z" fill="#ffd34d" stroke-width="1.6"/>
       </g>
+      <!-- gwiazdor: czerwony kubraczek z białym futerkiem i pasem -->
+      <g class="sa">
+        <ellipse cx="45" cy="57" rx="33" ry="21" fill="#d62828"/>
+        <path d="M14 66 q31 12 62 0" fill="none" stroke="#fff" stroke-width="6"/>
+        <rect x="13" y="51" width="64" height="7" fill="#2b2a29" stroke-width="1"/>
+        <rect x="40" y="49" width="11" height="11" rx="1.5" fill="none" stroke="#f6c744" stroke-width="2.4"/>
+      </g>
       <path d="M64 56 q1 -24 6 -38 l15 1 q-3 20 -5 41z" fill="#f8ecd4"/>
       <path d="M66 49 q9 6 17 0" fill="none" stroke="#67b437" stroke-width="6"/>
       <path d="M66 49 q9 6 17 0" fill="none" stroke-width="1.2"/>
@@ -894,6 +903,18 @@
         <path d="M74 3 q1 -5 2 -7 M86 3 q-1 -5 -2 -7" fill="none" stroke="#c4600a" stroke-width="1.6"/>
         <path d="M80 -3 q0 -7 5 -10" fill="none" stroke="#3e7a1c" stroke-width="3.2"/>
         <path d="M84 -11 q7 -3 10 3 q-6 2 -10 -3z" fill="#67b437" stroke-width="1.4"/>
+      </g>
+      <!-- gwiazdor: czapka z pomponem i broda -->
+      <g class="sa">
+        <path d="M66 8 Q70 -15 97 -13 Q90 -5 94 6 Z" fill="#d62828"/>
+        <rect x="63" y="4" width="33" height="7" rx="3.5" fill="#fff"/>
+        <circle cx="99" cy="-12" r="4.5" fill="#fff"/>
+        <path d="M84 27 q4 12 12 6 q6 -2 4 -9 q-8 6 -16 3z" fill="#fff" stroke-width="2"/>
+      </g>
+      <!-- renifer Rudolf: poroże i świecący czerwony nos -->
+      <g class="ru">
+        <path d="M71 5 q-7 -9 -3 -19 M68 -6 q-7 -1 -10 -8 M84 4 q3 -11 11 -16 M92 -8 q5 -1 7 -8" fill="none" stroke="#8b5a2b" stroke-width="3.4"/>
+        <circle class="ru-nose" cx="100" cy="22" r="4.8" fill="#e53e3e" stroke-width="1.5"/>
       </g>
       <rect class="lg lb2" x="33" y="72" width="9" height="30" rx="4.5" fill="#f8ecd4"/>
       <rect class="lg lf2" x="69" y="72" width="9" height="30" rx="4.5" fill="#f8ecd4"/>
@@ -5458,8 +5479,13 @@ document.addEventListener('mouseout', e => { if (e.target.closest && e.target.cl
 //  ALPAKA — co 5 minut dobiega do 1/4 ekranu, mruga i wraca
 // =====================================================================
 // losowo: wybiega z lewej, z prawej albo (w stoisku) spada na spadochronie ze środkowej belki nad zegarem
-// do Halloween (cały październik) alpaka przebrana za dynię; od 1 listopada znowu zwykła
-function alpacaCostume() { const a = $('alpaca'); if (a) a.classList.toggle('pumpkin', new Date().getMonth() === 9); }
+// stroje alpaki (losowane przy każdym wyjściu): październik — dynia (do Halloween),
+// grudzień — gwiazdor, a czasem (ok. co trzecie wyjście) renifer Rudolf; w pozostałe miesiące zwykła
+function alpacaCostume() {
+  const a = $('alpaca'); if (!a) return;
+  const m = new Date().getMonth();
+  a.dataset.costume = m === 9 ? 'pumpkin' : m === 11 ? (Math.random() < 0.33 ? 'rudolph' : 'santa') : '';
+}
 alpacaCostume();
 function runAlpaca() {
   alpacaCostume();
@@ -5485,6 +5511,7 @@ function alpacaRun(a, side) {
 }
 // spadochron: start na belce nad zegarem, łagodne kołysanie w dół, po wylądowaniu ucieka w bok
 function alpacaParachute(a, bar, clock) {
+  alpacaCostume();
   const w = a.offsetWidth || 76, h = a.offsetHeight || 76, W = innerWidth;
   const br = bar.getBoundingClientRect(), cr = clock.getBoundingClientRect();
   const x = clamp(cr.left + cr.width / 2 - w / 2, 10, W - w - 10);
