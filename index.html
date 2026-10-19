@@ -952,7 +952,7 @@ const DEFAULT_TYPES = [
     desc: 'Przestrzenne logo lub litery. Wybierz wykonanie poniżej.',
     variants: [
       { id: 'pcw', name: '3D z PCW', thick: true, color: '#e31e24', icon: 'l3d-pcw', desc: 'Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.' },
-      { id: 'plexi', name: '3D z pleksi', thick: true, color: '#f5c400', glow: true, icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
+      { id: 'plexi', name: '3D z pleksi', thick: true, color: '#e31e24', icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
       { id: 'halo', name: 'Efekt halo', color: '#f5c400', glow: true, icon: 'l3d-halo', desc: 'Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.' },
       { id: 'blok', name: 'Blokowa / 3D print', thick: true, lit: true, color: '#f5c400', glow: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe — frezowane albo drukowane w 3D. Podaj grubość (głębokość) liter.' },
       { id: 'neon', name: 'Neon', color: '#f5c400', glow: true, icon: 'l3d-neon', desc: 'Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.' },
@@ -1745,7 +1745,7 @@ function typeLabel(el) {
 const LIT_OPTS = [['frontlit', 'Frontlit'], ['sidelit', 'Sidelit']];
 const hasLit = el => { const v = variantOf(el); return !!(v && v.lit); };
 const litValues = el => ({ frontlit: hasLit(el) && !!el.frontlit, sidelit: hasLit(el) && !!el.sidelit });
-// kolor elementu: wykonanie może mieć własny kolor (Logo 3D: z PCW czerwony, reszta żółta z białą poświatą)
+// kolor elementu: wykonanie może mieć własny kolor (Logo 3D: z PCW i z pleksi czerwone, reszta żółta z białą poświatą)
 const colorOf = el => { const v = el && variantOf(el); return (v && v.color) || typeById(el && el.typeId).color; };
 const glowOf = el => { const v = el && variantOf(el); return !!(v && v.glow); };
 const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
