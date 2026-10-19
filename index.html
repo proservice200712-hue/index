@@ -5297,8 +5297,10 @@ async function renderIndexA3(stamp) {
     }
     for (const cd of L.out) {
       const { r, d, FW, FH, LM, BM } = cd, bx = M + cd.x, by = y0 + cd.y;
-      // logo 3D: samo logo (miniatura) z wymiarami, bez obrysu ramki; logo z drugim typem (np. + folia) ramkę zachowuje
-      const noFrame = r.el.typeId === 'logo3d' && !hasCombo(r.el);
+      // logo 3D i folia cięta po konturze: sam kształt (miniatura) z wymiarami, bez obrysu ramki;
+      // element z drugim typem (np. logo + folia z druku) ramkę zachowuje, chyba że to też logo / folia po konturze
+      const FRAMELESS = ['logo3d', 'folia-kontur'];
+      const noFrame = FRAMELESS.includes(r.el.typeId) && (!hasCombo(r.el) || FRAMELESS.includes(r.el.combo.typeId));
       drawBadge(g, bx + 24, by + 24, 22, r.color, r.znak);
       g.fillStyle = '#1a202c'; g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
       cd.title.forEach((ln, i) => g.fillText(ln, bx + 54, by + 32 + i * 34));
