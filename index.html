@@ -158,6 +158,9 @@
   .toolbar button { background: transparent; border: none; color: #e2e8f0; padding: 7px 10px; cursor: pointer; font-size: 0.78rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
   .toolbar button:hover { background: rgba(255,255,255,0.1); }
   .toolbar button.on { background: var(--accent); color: var(--dark); }
+  #align-undo { position: fixed; left: 50%; bottom: 60px; transform: translateX(-50%); z-index: 320; display: flex; align-items: center; gap: 12px;
+    background: #1a202c; color: #fff; padding: 8px 10px 8px 16px; box-shadow: 0 6px 24px rgba(0,0,0,.35); font-size: 0.85rem; }
+  #align-undo .btn { color: #fff; border-color: rgba(255,255,255,.4); }
   .toolbar .sep { width: 1px; background: rgba(255,255,255,0.2); margin: 4px 2px; }
   .toolbar .zl { color: #e2e8f0; font-size: 0.75rem; min-width: 46px; display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
   .toolbar kbd { font-family: inherit; font-size: 0.62rem; opacity: .6; border: 1px solid currentColor; padding: 0 3px; }
@@ -782,6 +785,8 @@
         <div class="sep"></div>
         <button onclick="pickPhotos()" title="Dodaj wizki z dysku">＋ <span class="lbl">Wizki</span></button>
         <button onclick="pasteFromClipboard()" title="Wklej obrazek ze schowka">📋 <span class="lbl">Ctrl+V</span></button>
+        <div class="sep"></div>
+        <button onclick="alignMarkers()" id="btn-align" title="Ustaw znaczniki w równych rzędach przy krawędziach wizki — kreski do miejsc bez krzyżowania">⊞ <span class="lbl">Wyrównaj</span></button>
       </div>
       <div id="viewer-empty">
         <div class="big">Przeciągnij tu wizki stoiska</div>
@@ -2954,6 +2959,83 @@ let spaceDown = false;
 const viewer = $('viewer'), stage = $('stage'), stageImgs = $('stage-imgs'), overlay = $('overlay');
 const curPhoto = () => S.photos.find(p => p.id === S.photoId) || null;
 const hasPhotos = () => S.photos.length > 0;
+
+// =====================================================================
+//  WYRÓWNAJ: kółka z literami każdej wizki stają w równych rzędach przy krawędziach
+//  (u góry, u dołu, po bokach — przy krawędzi najbliższej swojemu miejscu), a kreski
+//  prowadzą do miejsc bez krzyżowania. Same zaznaczenia (punkty, obrysy) się nie ruszają.
+// =====================================================================
+function segCross(a, b, c, d) { // odcinki ab i cd przecinają się (poza wspólnym końcem)
+  const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
+}
+function alignPlan(p) {
+  const b = L.map[p.id]; if (!b) return [];
+  const W = b.w, Hh = H0, rs = 15 / (V.fit || 1), gap = 2.6 * rs, m = 1.8 * rs;
+  const items = [];
+  S.elements.forEach(el => locsOf(el).forEach(l => {
+    if (l.photoId !== p.id) return;
+    const [ax, ay] = shapeCenter(l.shape);
+    items.push({ el, loc: l.loc, sh: l.shape, a: [ax * W, ay * Hh] });
+  }));
+  if (!items.length) return [];
+  // krawędź najbliższa miejscu
+  const side = { t: [], b: [], l: [], r: [] };
+  items.forEach(it => { const d = { t: it.a[1], b: Hh - it.a[1], l: it.a[0], r: W - it.a[0] }; side[Object.keys(d).sort((x, y) => d[x] - d[y])[0]].push(it); });
+  // rozstawienie wzdłuż krawędzi: jak najbliżej swojego miejsca, w kolejności, z odstępem
+  const spread = (list, k, lo, hi) => {
+    list.sort((x, y) => x.a[k] - y.a[k]);
+    const n = list.length; if (!n) return [];
+    const g = n > 1 ? Math.min(gap, (hi - lo) / (n - 1)) : gap;
+    const pos = list.map(it => clamp(it.a[k], lo, hi));
+    for (let i = 1; i < n; i++) pos[i] = Math.max(pos[i], pos[i - 1] + g);
+    if (pos[n - 1] > hi) { pos[n - 1] = hi; for (let i = n - 2; i >= 0; i--) pos[i] = Math.min(pos[i], pos[i + 1] - g); }
+    return pos;
+  };
+  const slots = [];
+  // górny rząd omija numer wizki (#1, lewy róg) i ✕ (prawy róg)
+  const tl = Math.max(m, 44 / (V.fit || 1) + rs * 1.2), tr = W - Math.max(m, 24 / (V.fit || 1) + rs * 1.2);
+  spread(side.t, 0, tl, tr).forEach((x, i) => slots.push([side.t[i], [x, m]]));
+  spread(side.b, 0, m, W - m).forEach((x, i) => slots.push([side.b[i], [x, Hh - m]]));
+  spread(side.l, 1, m + gap, Hh - m - gap).forEach((y, i) => slots.push([side.l[i], [m, y]]));
+  spread(side.r, 1, m + gap, Hh - m - gap).forEach((y, i) => slots.push([side.r[i], [W - m, y]]));
+  // bez krzyżowania: zamiana miejsc w rzędzie, gdy dwie kreski się przecinają (łączna długość maleje, więc to się kończy)
+  for (let pass = 0; pass < 400; pass++) {
+    let swapped = false;
+    for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
+      if (segCross(slots[i][0].a, slots[i][1], slots[j][0].a, slots[j][1])) { const t = slots[i][1]; slots[i][1] = slots[j][1]; slots[j][1] = t; swapped = true; }
+    }
+    if (!swapped) break;
+  }
+  return slots.map(([it, s]) => {
+    const near = Math.hypot(s[0] - it.a[0], s[1] - it.a[1]) < 0.9 * rs;
+    const sh = clone(it.sh);
+    if (near) delete sh.lab; else sh.lab = [clamp(s[0] / W, 0, 1), clamp(s[1] / Hh, 0, 1)];
+    return { el: it.el, loc: it.loc, before: it.sh, sh };
+  });
+}
+async function alignMarkers() {
+  if (!S.project || !hasPhotos()) return toast('Najpierw dodaj wizkę', 'error');
+  layoutPhotos();
+  const plan = S.photos.flatMap(alignPlan).filter(x => JSON.stringify(x.before) !== JSON.stringify(x.sh));
+  if (!plan.length) return toast('Znaczniki są już wyrównane', '');
+  try {
+    for (const x of plan) { const el = S.elements.find(e => e.id === x.el.id); if (el) await saveLocShape(el, x.loc, x.sh); }
+  } catch (e) { return toast('Błąd zapisu: ' + e.message, 'error'); }
+  addLog(S.project.id, `Wyrównano znaczniki na wizkach (${plan.length})`);
+  // cofnięcie przez kilka sekund
+  const old = $('align-undo'); if (old) old.remove();
+  const bar = document.createElement('div'); bar.id = 'align-undo';
+  bar.innerHTML = `<span>⊞ Wyrównano ${plan.length} ${plan.length === 1 ? 'znacznik' : plan.length < 5 ? 'znaczniki' : 'znaczników'}</span><button class="btn btn-sm">↶ Cofnij</button>`;
+  document.body.appendChild(bar);
+  const t = setTimeout(() => bar.remove(), 12000);
+  bar.querySelector('button').onclick = async () => {
+    clearTimeout(t); bar.remove();
+    for (const x of plan) { const el = S.elements.find(e => e.id === x.el.id); if (el) await saveLocShape(el, x.loc, x.before); }
+    addLog(S.project.id, 'Cofnięto wyrównanie znaczników');
+    toast('Przywrócono poprzednie ułożenie znaczników', 'success');
+  };
+}
 
 function layoutPhotos() {
   let x = 0; const map = {};
