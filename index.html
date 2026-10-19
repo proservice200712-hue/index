@@ -4529,6 +4529,7 @@ function renderGraph() {
     wrap.style.width = (w + 24) + 'px'; wrap.style.height = (h + 24) + 'px';
   };
   wrap.classList.add('free'); wrap.classList.toggle('moving', S.graphMove); fitWrap();
+  crispGraphThumbs(box);
   box.querySelectorAll('.gc').forEach(c => {
     c.onmouseenter = () => setHover(c.dataset.eid);
     c.onmouseleave = () => setHover(null);
@@ -4705,8 +4706,10 @@ function applyGraphView() {
 function graphZoomAt(cx, cy, f) {
   const r = $('el-scroll').getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
   const ns = clamp(G.s * f, 0.2, 4), k = ns / G.s;
+  const zb = s => s > 2 ? 4 : s > 1 ? 2 : 1, zmiana = zb(ns) !== zb(G.s);
   G.tx = px - (px - G.tx) * k; G.ty = py - (py - G.ty) * k; G.s = ns;
   applyGraphView();
+  if (zmiana) { clearTimeout(G.crispT); G.crispT = setTimeout(() => crispGraphThumbs($('el-scroll')), 250); }
 }
 function graphFit() {
   const box = $('el-scroll'), w = box.querySelector('.gidx'); if (!w) return;
@@ -5095,6 +5098,56 @@ async function exportAllProjects() {
 function loadImg(src) {
   return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('Nie można wczytać zdjęcia')); i.src = src; });
 }
+// zmniejszanie miniatur grafiki: przy mocnym zmniejszeniu przeglądarka rozmywa cienkie linie (logo po konturze bledną),
+// więc każdy piksel wyniku = mieszanka średniej i najciemniejszego piksela ze swojego obszaru — kontury zostają wyraźne.
+// null = nie trzeba (obraz niewiele większy od celu)
+function crispCanvas(img, tw, th) {
+  tw = Math.max(1, Math.round(tw)); th = Math.max(1, Math.round(th));
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  if (!W || !H || (W <= tw * 1.25 && H <= th * 1.25)) return null;
+  const src = document.createElement('canvas'); src.width = W; src.height = H;
+  const sg = src.getContext('2d'); sg.drawImage(img, 0, 0);
+  let sd; try { sd = sg.getImageData(0, 0, W, H).data; } catch (e) { return null; }
+  const out = document.createElement('canvas'); out.width = tw; out.height = th;
+  const og = out.getContext('2d'), od = og.createImageData(tw, th), o = od.data, fx = W / tw, fy = H / th, K = 0.6;
+  for (let y = 0; y < th; y++) {
+    const y0 = Math.floor(y * fy), y1 = Math.max(y0 + 1, Math.min(H, Math.floor((y + 1) * fy)));
+    for (let x = 0; x < tw; x++) {
+      const x0 = Math.floor(x * fx), x1 = Math.max(x0 + 1, Math.min(W, Math.floor((x + 1) * fx)));
+      let r = 0, g = 0, b = 0, a = 0, n = 0, mr = 255, mg = 255, mb = 255, ma = 0, ml = 1e9;
+      for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) {
+        const i = (yy * W + xx) * 4, A = sd[i + 3];
+        r += sd[i]; g += sd[i + 1]; b += sd[i + 2]; a += A; n++;
+        const l = (sd[i] * .3 + sd[i + 1] * .59 + sd[i + 2] * .11) * A / 255 + 255 * (1 - A / 255); // jasność na białym tle
+        if (l < ml) { ml = l; mr = sd[i]; mg = sd[i + 1]; mb = sd[i + 2]; ma = A; }
+      }
+      const j = (y * tw + x) * 4;
+      o[j] = r / n * (1 - K) + mr * K; o[j + 1] = g / n * (1 - K) + mg * K; o[j + 2] = b / n * (1 - K) + mb * K; o[j + 3] = a / n * (1 - K) + ma * K;
+    }
+  }
+  og.putImageData(od, 0, 0);
+  return out;
+}
+// widok Grafika: miniatury w okienkach przeliczone do rozmiaru na ekranie (z uwzględnieniem powiększenia widoku)
+const _crispUrls = new Map(), _crispImgs = new Map();
+async function crispGraphThumbs(root) {
+  const zoom = G.s > 2 ? 4 : G.s > 1 ? 2 : 1, dpr = window.devicePixelRatio || 1;
+  for (const im of (root || document).querySelectorAll('.gc-frame img')) {
+    const url = im.dataset.src || im.getAttribute('src'); if (!url || url.startsWith('blob:')) continue;
+    im.dataset.src = url;
+    const fr = im.parentElement, bw = fr.clientWidth * dpr * zoom, bh = fr.clientHeight * dpr * zoom; if (!bw || !bh) continue;
+    try {
+      if (!_crispImgs.has(url)) _crispImgs.set(url, loadImg(url));
+      const img = await _crispImgs.get(url), s = Math.min(bw / img.width, bh / img.height, 1);
+      const tw = Math.round(img.width * s), th = Math.round(img.height * s), key = url + '|' + tw + 'x' + th;
+      if (!_crispUrls.has(key)) {
+        const cv = crispCanvas(img, tw, th);
+        _crispUrls.set(key, cv ? await new Promise(res => cv.toBlob(b => res(b ? URL.createObjectURL(b) : url), 'image/png')) : url);
+      }
+      if (im.isConnected) im.src = _crispUrls.get(key);
+    } catch (e) { /* zostaje oryginał */ }
+  }
+}
 function fitText(g, s, maxW) {
   s = String(s || '');
   if (g.measureText(s).width <= maxW) return s;
@@ -5308,7 +5361,7 @@ async function renderIndexA3(stamp) {
       const th = thumbs[r.el.id];
       if (th) { // miniatura grafiki mieści się w całości w okienku (wyśrodkowana, bez przycinania)
         const s2 = Math.min(FW / th.width, FH / th.height), dw = th.width * s2, dh = th.height * s2;
-        g.drawImage(th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
+        g.drawImage(crispCanvas(th, dw, dh) || th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
       }
       if (!d) {
         if (!noFrame) { g.setLineDash([12, 8]); g.strokeStyle = '#dd6b20'; g.lineWidth = 3; g.strokeRect(fx, fy, FW, FH); g.setLineDash([]); }
