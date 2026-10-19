@@ -4603,8 +4603,12 @@ function orderLine(e) {
   if (e.notes && !(hasDoor(e) && /^\s*\+?\s*drzwi\s*\.?\s*$/i.test(e.notes))) parts.push(e.notes);
   return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
 }
+// tkanina SEG w zleceniu: Blackback / Lightbox SEG, każda wysłona (też wysłona lightboxa) — obszyta płaską gumką
+const isSegFabric = e => { const t = typeById(e.typeId); return !!((t.seg && e.seg) || (t.wyslona && e.wyslona) || e.backFor); };
+const SEG_NOTE = 'SEG — tkanina obszyta płaską gumką';
 function orderText(list = S.elements) {
-  return orderGroups(list).map(([name, l]) => (name ? name + ':\n' : '') + l.map(orderLine).join('\n')).join('\n\n');
+  const txt = orderGroups(list).map(([name, l]) => (name ? name + ':\n' : '') + l.map(orderLine).join('\n')).join('\n\n');
+  return txt && list.some(isSegFabric) ? txt + '\n\n' + SEG_NOTE : txt; // przypis na końcu, gdy jest jakaś tkanina SEG
 }
 async function copyText(txt) {
   try { await navigator.clipboard.writeText(txt); }
