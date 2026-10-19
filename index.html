@@ -4015,6 +4015,14 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   renderOpts(); refresh();
   setTimeout(() => { const f = $('ed-w'); if (f) f.focus(); }, 40);
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  // wysłona lightboxa: wymiar i ilość idą z lightboxa — tu tylko do podglądu
+  if (editing && editing.backFor) {
+    const lb = S.elements.find(e => e.id === editing.backFor);
+    ['ed-w', 'ed-h', 'ed-q'].forEach(i => { const x = $(i); if (x) { x.disabled = true; x.title = 'Wymiar i ilość zmieniasz w lightboxie'; } });
+    const nb = document.createElement('div'); nb.className = 'hint'; nb.style.cssText = 'margin-top:6px;color:#2b6cb0;font-weight:600';
+    nb.textContent = `🔗 Wysłona powiązana z lightboxem ${lb ? markOf(lb) : ''} — wymiar i ilość zmieniasz w lightboxie, a usunięcie lightboxa usuwa też wysłonę.`;
+    const dims = $('ed-dims'); if (dims) dims.after(nb);
+  }
   m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
   $('ed-ok').onclick = async () => {
     const d = read();
@@ -4075,12 +4083,18 @@ function describeDiff(a, b) {
 }
 async function deleteElement(id) {
   const el = S.elements.find(e => e.id === id); if (!el) return;
-  const ok = await confirmBox(`Usunąć element <b>${markOf(el)}</b> — ${esc(typeLabel(el))}${el.name ? ' (' + esc(el.name) + ')' : ''}?`, 'Usuń');
+  // razem z lightboxem znika jego wysłona, a ze ścianą jej drzwi — mówimy o tym wprost
+  const linked = S.elements.filter(e => e.backFor === id || e.doorFor === id);
+  const extra = linked.map(e => `<div class="hint" style="margin-top:8px;color:#c53030;font-weight:600">⚠ Razem z nim zostanie usunięta ${e.backFor ? 'wysłona' : 'grafika na drzwi'} <b>${esc(markOf(e))}</b>${e.backFor ? ' — ' + esc(backMatName(e)) : ''}.</div>`).join('');
+  const ok = await confirmBox(`Usunąć element <b>${markOf(el)}</b> — ${esc(typeLabel(el))}${el.name ? ' (' + esc(el.name) + ')' : ''}?${extra}`, 'Usuń');
   if (!ok) return;
   await DB.del(pElements(S.project.id), id);
   addLog(S.project.id, `Usunięto element ${markOf(el)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`);
   // razem ze ścianą znikają jej drzwi
-  for (const d of S.elements.filter(e => e.doorFor === id || e.backFor === id)) await DB.del(pElements(S.project.id), d.id);
+  for (const d of S.elements.filter(e => e.doorFor === id || e.backFor === id)) {
+    await DB.del(pElements(S.project.id), d.id);
+    addLog(S.project.id, `Usunięto ${d.backFor ? 'wysłonę' : 'drzwi'} ${markOf(d)} razem z elementem ${markOf(el)}`);
+  }
   if (S.selId === id) S.selId = null;
 }
 function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
