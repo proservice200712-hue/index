@@ -5192,9 +5192,7 @@ async function renderIndexA3(stamp) {
   const [c, g] = newCanvas(PW, PH);
   let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
   pageHeader(g, PW, PH, logo, '', stamp, sc);
-  // logo 3D: znacznik na wizce zostaje, ale bez ramki z wymiarem pod wizkami (to nie grafika do druku);
-  // logo z drugim typem (np. + folia) ramkę zachowuje
-  const allRows = exportRows(), rows = allRows.filter(r => !(r.el.typeId === 'logo3d' && !hasCombo(r.el)));
+  const rows = exportRows();
   // --- wizki obok siebie
   const imgs = [];
   for (const ph of S.photos) { try { imgs.push({ ph, img: await loadImg(ph.url) }); } catch (e) { imgs.push({ ph, img: null }); } }
@@ -5277,7 +5275,7 @@ async function renderIndexA3(stamp) {
   let x = M + (availW - (Hp * sumA + GAP * (imgs.length - 1))) / 2;
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
-    const here = allRows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
+    const here = rows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
     if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, here, Math.max(18, Math.min(30, Hp / 26)));
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
     if (imgs.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + (i + 1), x + 12, top + 29); }
@@ -5299,6 +5297,8 @@ async function renderIndexA3(stamp) {
     }
     for (const cd of L.out) {
       const { r, d, FW, FH, LM, BM } = cd, bx = M + cd.x, by = y0 + cd.y;
+      // logo 3D: samo logo (miniatura) z wymiarami, bez obrysu ramki; logo z drugim typem (np. + folia) ramkę zachowuje
+      const noFrame = r.el.typeId === 'logo3d' && !hasCombo(r.el);
       drawBadge(g, bx + 24, by + 24, 22, r.color, r.znak);
       g.fillStyle = '#1a202c'; g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
       cd.title.forEach((ln, i) => g.fillText(ln, bx + 54, by + 32 + i * 34));
@@ -5309,12 +5309,12 @@ async function renderIndexA3(stamp) {
         g.drawImage(th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
       }
       if (!d) {
-        g.setLineDash([12, 8]); g.strokeStyle = '#dd6b20'; g.lineWidth = 3; g.strokeRect(fx, fy, FW, FH); g.setLineDash([]);
+        if (!noFrame) { g.setLineDash([12, 8]); g.strokeStyle = '#dd6b20'; g.lineWidth = 3; g.strokeRect(fx, fy, FW, FH); g.setLineDash([]); }
         g.fillStyle = '#dd6b20'; g.font = `700 ${FS}px ${PDF_FONT}`; g.fillText('wymiar do ustalenia', fx, fy + FH + 34);
       } else {
-        g.strokeStyle = '#a0aec0'; g.lineWidth = 2; g.strokeRect(fx, fy, FW, FH);
+        if (!noFrame) { g.strokeStyle = '#a0aec0'; g.lineWidth = 2; g.strokeRect(fx, fy, FW, FH); }
         const gb = r.spad, bw = gb ? Math.min(FW / 4, Math.max(6, gb * k)) : 0, bh = gb ? Math.min(FH / 4, Math.max(6, gb * k)) : 0;
-        if (gb) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; g.strokeRect(fx + bw, fy + bh, FW - 2 * bw, FH - 2 * bh); g.setLineDash([]); }
+        if (gb && !noFrame) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; g.strokeRect(fx + bw, fy + bh, FW - 2 * bw, FH - 2 * bh); g.setLineDash([]); }
         const AC = '#4a5568', TXT = '#38a169';
         const ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
         const hDim = (xa, xb, y, mm) => { drawArrowLine(g, xa, y, xb, y, 14, AC, 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 8); g.textAlign = 'left'; };
