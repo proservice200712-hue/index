@@ -632,6 +632,14 @@
   #overlay g.shp.faded:hover { opacity: .75; }
   .eye-btn { color: #4a5568; display: inline-flex; align-items: center; }
   .eye-btn.off { color: #c53030; }
+  .cb-addbtn { margin-top: 10px; }
+  .cb-box { margin-top: 12px; border: 2px dashed #a0aec0; padding: 10px 12px; background: #f7fafc; }
+  .cb-h { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: .8rem; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+  .cb-h .btn { margin-left: auto; }
+  .cb-types { margin-bottom: 8px; }
+  .cb-dims { display: flex; align-items: center; gap: 8px; }
+  .cb-dims input { max-width: 140px; }
+  small.cb-sub { color: #4a5568; }
   .bk-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .bk-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; border: 2px solid var(--line, #e2e8f0); background: #fff; cursor: pointer; text-align: left; border-radius: 10px; }
   .bk-opt:hover { border-color: #67b437; background: #f3faef; }
@@ -1326,6 +1334,8 @@ I18N_PAIRS.push(['✎ zmień znak', '✎ змінити позначку', '✎ 
 I18N_PAIRS.push(['Podświetlenie', 'Підсвічування', 'Lighting']);
 I18N_PAIRS.push(['Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)', 'Сховати: напівпрозорий на візуалізації й пропущений в експорті (таблиця й замовлення без змін)', 'Hide: semi-transparent on the visual and left out of the export (table and order unchanged)'],
   ['Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny', 'Схований: напівпрозорий на візуалізації й пропущений в експорті — клікни, щоб знову був видимий', 'Hidden: semi-transparent on the visual and left out of the export — click to show it again']);
+I18N_PAIRS.push(['🔗 Połącz z drugim typem (np. logo z pleksi + folia)', '🔗 Поєднати з другим типом (напр. логотип з плексу + плівка)', '🔗 Combine with a second type (e.g. plexi logo + foil)'],
+  ['🔗 Drugi typ w tym elemencie', '🔗 Другий тип у цьому елементі', '🔗 Second type in this element'], ['Usuń połączenie', 'Видалити поєднання', 'Remove combination']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -1759,6 +1769,7 @@ function typeLabel(el) {
   if (t.finish) { const f = FINISHES.find(([k]) => k === el.finish); if (f) s += ' · ' + f[2]; }
   if (t.seg && el.seg) s += ' · SEG';
   if (t.wyslona && el.wyslona) s += ' · wysłona · SEG'; // wysłona jest obszywana płaską gumką (SEG)
+  if (hasCombo(el)) s += ' + ' + typeLabel(comboEl(el));
   return s;
 }
 // podświetlenie liter blokowych: Frontlit (świeci lico), Sidelit (świecą boki) — można zaznaczyć oba
@@ -1768,6 +1779,16 @@ const litValues = el => ({ frontlit: hasLit(el) && !!el.frontlit, sidelit: hasLi
 // kolor elementu: wykonanie może mieć własny kolor (Logo 3D: z PCW i z pleksi czerwone, reszta żółta z białą poświatą)
 const colorOf = el => { const v = el && variantOf(el); return (v && v.color) || typeById(el && el.typeId).color; };
 const glowOf = el => { const v = el && variantOf(el); return !!(v && v.glow); };
+// ELEMENT ZŁOŻONY Z DWÓCH TYPÓW (np. logo z pleksi + folia): el.combo = { typeId, variant, thick, laminate, contour, finish, seg, w, h }
+// wymiar drugiego typu pusty = jak element główny; ilość zawsze jak element główny
+const hasCombo = el => !!(el && el.combo && el.combo.typeId);
+const comboEl = el => hasCombo(el) ? { ...el.combo, w: Number(el.combo.w) > 0 ? el.combo.w : el.w, h: Number(el.combo.h) > 0 ? el.combo.h : el.h,
+  qty: el.qty, num: el.num, wyslona: false, door: null, bleedBox: null, bleedOverride: '', doorFor: '', backFor: '', combo: null, planes: [], inside: false } : null;
+const comboClean = c => c && c.typeId ? { typeId: c.typeId, variant: c.variant || '', thick: hasThick(c) && c.thick !== '' && c.thick != null ? Math.max(0, Number(c.thick)) : '',
+  ...togValues(c, c.typeId), seg: !!(typeById(c.typeId).seg && c.seg), w: Number(c.w) > 0 ? Number(c.w) : '', h: Number(c.h) > 0 ? Number(c.h) : '' } : null;
+const comboColor = el => hasCombo(el) ? colorOf(comboEl(el)) : null;
+// tło znaku: element złożony = pół na pół (kolor głównego typu | kolor drugiego)
+const badgeBg = el => hasCombo(el) ? `linear-gradient(90deg, ${colorOf(el)} 50%, ${comboColor(el)} 50%)` : colorOf(el);
 const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
 
 // Spad: z typu; SEG (tkanina Blackback / Lightbox) i wysłona bez spadu, płyta PCW domyślnie bez spadu,
@@ -1978,8 +1999,9 @@ function grossTxt(el) {
   return `${lenPL(g.w)} × ${lenPL(g.h)}` + (dimsMode(el) === 'flat' ? '' : ' (pas)');
 }
 const areaOf = el => {
-  if (isHang(el)) return (planesOf(el) || []).reduce((s, p) => s + p.gw * p.gh, 0) / 1e6 * (Number(el.qty) || 1);
-  const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1);
+  const extra = hasCombo(el) ? areaOf(comboEl(el)) : 0; // element złożony: m² obu typów
+  if (isHang(el)) return (planesOf(el) || []).reduce((s, p) => s + p.gw * p.gh, 0) / 1e6 * (Number(el.qty) || 1) + extra;
+  const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1) + extra;
 };
 
 // Rysunek poglądowy typu (gdy admin nie wgrał jeszcze prawdziwego zdjęcia)
@@ -3033,7 +3055,9 @@ function renderOverlay() {
     // znacznik z literą: pulsuje (faza liczona od zegara, żeby przerysowanie nie szarpało animacją)
     out += `<g class="mk${glowOf(el) ? ' glow' : ''}" data-part="lab" style="animation-delay:-${(performance.now() % 2000 / 1000).toFixed(3)}s">
       <circle class="halo" cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="none" stroke="${col}" stroke-width="${3 * s}"/>
-      <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${col}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
+      <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${col}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>${hasCombo(el) ? `
+      <path d="M${X(b, [cx])} ${+Y([0, cy]) - r} A${r} ${r} 0 0 1 ${X(b, [cx])} ${+Y([0, cy]) + r}Z" fill="${comboColor(el)}"/>
+      <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="none" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>` : ''}
       <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s * wk}" text-anchor="middle" font-size="${(markOf(el).length > 2 ? 9 : markOf(el).length > 1 ? 10.5 : 13) * s * wk}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${markOf(el)}</text>
     </g></g>`;
     // wysłona lightboxa SEG: kółko w kolorze Blackbacku z jej numerem W…, tuż obok znacznika
@@ -3896,6 +3920,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       </div>
       <div class="calc" id="ed-calc"></div>
       <div id="ed-bleedopts"></div>
+      <div id="ed-combo"></div>
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
       ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
@@ -4069,12 +4094,46 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       const all = $('ed-planes').querySelectorAll('[data-pw]'); if (all.length) all[all.length - 1].focus();
     };
   }
+  // element złożony: drugi typ (np. logo z pleksi + folia) z własnymi opcjami i wymiarem
+  const renderCombo = () => {
+    const box = $('ed-combo'); if (!box) return;
+    if (!el.typeId || el.backFor || el.doorFor || isHang(el)) { box.innerHTML = ''; return; }
+    if (!el.combo) {
+      box.innerHTML = `<button type="button" class="btn btn-sm cb-addbtn" id="cb-add">🔗 Połącz z drugim typem (np. logo z pleksi + folia)</button>`;
+      $('cb-add').onclick = () => { el.combo = { typeId: '' }; renderCombo(); refresh(); };
+      return;
+    }
+    const c = el.combo, ct = c.typeId ? typeById(c.typeId) : null;
+    const types = S.types.filter(t => t.id !== el.typeId && t.id !== 'nie-wiem' && t.id !== 'podwieszana');
+    let h = `<div class="cb-box"><div class="cb-h">🔗 Drugi typ w tym elemencie<button type="button" class="btn btn-sm" id="cb-rm" title="Usuń połączenie">✕</button></div>
+      <div class="type-list cb-types">${types.map(t => `<button type="button" class="type-btn ${t.id === c.typeId ? 'on' : ''}" data-ct="${t.id}"><span class="sw" style="background:${t.color}"></span>${esc(t.name)}</button>`).join('')}</div>`;
+    if (ct) {
+      if (ct.variants && ct.variants.length) h += `<div class="var-list">${ct.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === c.variant ? 'on' : ''}" data-cv="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+      if (hasThick(c)) h += `<div class="fld" style="max-width:220px"><label>Grubość [mm]</label><input type="number" min="0" step="1" id="cb-thick" value="${esc(c.thick ?? '')}" placeholder="np. 5"></div>`;
+      TYPE_TOGGLES.filter(([k]) => ct[k]).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-ctog="${k}" ${c[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
+      if (ct.finish) h += `<div class="var-list">${FINISHES.map(([k, n]) => `<button type="button" class="type-btn var-btn ${c.finish === k ? 'on' : ''}" data-cfin="${k}">${n}</button>`).join('')}</div>`;
+      if (ct.seg) h += `<label class="chk seg-chk"><input type="checkbox" id="cb-seg" ${c.seg ? 'checked' : ''}> <span>SEG</span></label>`;
+      h += `<div class="fld" style="margin-top:8px"><label>Wymiar drugiego typu [${UNIT()}] — puste = jak element</label>
+        <div class="cb-dims"><input type="number" min="0" step="${unitStep()}" id="cb-w" value="${esc(c.w ? fromMM(c.w) : '')}" placeholder="szerokość"> ×
+        <input type="number" min="0" step="${unitStep()}" id="cb-h" value="${esc(c.h ? fromMM(c.h) : '')}" placeholder="wysokość"></div></div>
+        <div class="calc" id="cb-calc"></div>`;
+    }
+    box.innerHTML = h + '</div>';
+    $('cb-rm').onclick = () => { el.combo = null; renderCombo(); refresh(); };
+    box.querySelectorAll('[data-ct]').forEach(b => b.onclick = () => { el.combo = { typeId: b.dataset.ct, w: c.w || '', h: c.h || '' }; renderCombo(); refresh(); });
+    box.querySelectorAll('[data-cv]').forEach(b => b.onclick = () => { c.variant = b.dataset.cv; renderCombo(); refresh(); });
+    box.querySelectorAll('[data-ctog]').forEach(i => i.addEventListener('change', () => { c[i.dataset.ctog] = i.checked; refresh(); }));
+    box.querySelectorAll('[data-cfin]').forEach(b => b.onclick = () => { c.finish = c.finish === b.dataset.cfin ? '' : b.dataset.cfin; renderCombo(); refresh(); });
+    const cs = $('cb-seg'); if (cs) cs.addEventListener('change', () => { c.seg = cs.checked; refresh(); });
+    const th = $('cb-thick'); if (th) th.addEventListener('input', () => { c.thick = th.value; refresh(); });
+    ['w', 'h'].forEach(k => { const i = $('cb-' + k); if (i) i.addEventListener('input', () => { c[k] = toMM(i.value) || ''; refresh(); }); });
+  };
   const refresh = () => {
     const t = el.typeId ? typeById(el.typeId) : null, v = t ? variantOf(el) : null;
     $('ed-prev').innerHTML = t
       ? `<div class="pimg">${exampleHtml(t, v)}</div><div class="ptxt"><b>${esc(v ? t.name + ' — ' + v.name : t.name)}</b>${esc(v && v.desc ? v.desc : t.desc || '')}</div>`
       : `<div class="pimg" style="color:var(--gray);font-size:.85rem;text-align:center;padding:20px">Wybierz typ po lewej —<br>tu pokaże się przykład, jak to wygląda.</div><div class="ptxt">Nie wiesz? Wybierz „Nie wiem — do ustalenia" i opisz element w uwagach.</div>`;
-    $('ed-badge').style.background = t ? colorOf(el) : '#67b437';
+    $('ed-badge').style.background = t ? badgeBg(el) : '#67b437';
     const cur = read();
     // podgląd ściany z drzwiami
     const dp = $('ed-door-prev');
@@ -4100,12 +4159,17 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? bleedTxt(g.b) + '</b> / stronę' : 'brak</b>'}`
       : `${dimsMode(cur) === 'flat' && !isHang(cur) ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${g.box ? bleedCell(cur, g) + ' ' + UNIT() + '</b> <span style="color:var(--gray)">(lewy/prawy/góra/dół)</span><b>' : bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>${needsSplit(cur) ? `<div class="split-line">${splitBadge(cur)} ${SPLIT_TXT}</div>` : ''}`;
+    const cc = $('cb-calc'), ce = comboEl(cur);
+    if (cc) cc.innerHTML = !ce ? '' : hasDims(ce)
+      ? `${esc(typeLabel(ce))}: druk <b>${grossTxt(ce)} ${UNIT()}</b> · spad ${bleedTxt(grossOf(ce).b)} · <b>${numPL(areaOf(ce))} m²</b>${needsSplit(ce) ? `<div class="split-line">${splitBadge(ce)} ${SPLIT_TXT}</div>` : ''}`
+      : '<span class="tag-warn">Wymiar do ustalenia</span>';
   };
   m.el.querySelectorAll('.type-list .type-btn').forEach(b => b.onclick = () => {
     if (el.typeId !== b.dataset.t) { el.variant = ''; el.thick = ''; el.seg = false; el.wyslona = false; Object.assign(el, togReset()); }
     el.typeId = b.dataset.t;
+    if (el.combo && el.combo.typeId === el.typeId) el.combo = null; // ten sam typ dwa razy nie ma sensu
     m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
-    renderOpts(); refresh();
+    renderOpts(); renderCombo(); refresh();
   });
   ['ed-w', 'ed-d', 'ed-h', 'ed-q'].forEach(id => { const i = $(id); if (i) i.addEventListener('input', refresh); });
   // szerokość: działanie liczone od razu; po wyjściu z pola widać wynik, wyliczenie zostaje zapamiętane
@@ -4120,7 +4184,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const v = wIn.value;
     if (isCalc(v) && Number.isFinite(calcEval(v))) { wIn.value = numIn(calcEval(v)); wIn.classList.remove('bad'); refresh(); }
   });
-  renderOpts(); refresh();
+  renderOpts(); renderCombo(); refresh();
   setTimeout(() => { const f = $('ed-w'); if (f) f.focus(); }, 40);
   m.el.querySelector('[data-c]').onclick = () => m.close();
   // zmiana znaku z nagłówka okna (klik w znak albo „zmień znak”)
@@ -4153,7 +4217,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
@@ -4165,7 +4229,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         m.close();
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
@@ -4648,11 +4712,11 @@ function renderElements() {
     </tr></thead><tbody>${rows.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'} ${isAlert(e) ? 'alert' : ''}" ${isAlert(e) ? `title="Zmienione przez ${esc(userLabel(e.updatedBy || e.createdBy))} — kliknij, aby oznaczyć jako widziane"` : ''}>
-        <td><span class="badge${glowOf(e) ? ' glow' : ''}" style="background:${colorOf(e)}">${markOf(e)}</span></td>
+        <td><span class="badge${glowOf(e) ? ' glow' : ''}" style="background:${badgeBg(e)}">${markOf(e)}</span></td>
         <td><span class="tdot" style="background:${colorOf(e)}"></span>${esc(typeLabel(e))}</td>
-        <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
+        <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}${hasCombo(e) ? `<br><small class="cb-sub">+ ${hasDims(comboEl(e)) ? netTxt(comboEl(e)) : '?'}</small>` : ''}</td>
         <td class="num" ${e.bleedBox ? 'title="spad: lewy / prawy / góra / dół"' : ''}>${bleedCell(e, g)}</td>
-        <td class="dims">${dims ? (isHang(e) ? planesTxt(e, '<br>') : grossTxt(e) + splitBadge(e)) : ''}</td>
+        <td class="dims">${dims ? (isHang(e) ? planesTxt(e, '<br>') : grossTxt(e) + splitBadge(e)) : ''}${hasCombo(e) ? `<br><small class="cb-sub">+ ${hasDims(comboEl(e)) ? grossTxt(comboEl(e)) + splitBadge(comboEl(e)) : '?'}</small>` : ''}</td>
         <td class="num">${e.qty || 1}</td>
         <td class="num">${dims ? numPL(areaOf(e)) : ''}</td>
         <td class="notes" title="${esc(notesOf(e))}">${esc(notesOf(e))}</td>
@@ -4766,10 +4830,19 @@ function orderLine(e) {
   if (needsSplit(e)) parts.push('dzielony (krótszy bok ponad 150 cm)');
   // uwaga typu „drzwi” / „+drzwi” przy ścianie z ustawionymi drzwiami nic nie dodaje — drzwi są w wyliczeniu i jako osobny element
   if (e.notes && !(hasDoor(e) && /^\s*\+?\s*drzwi\s*\.?\s*$/i.test(e.notes))) parts.push(e.notes);
-  return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
+  let line = `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
+  // element złożony: drugi typ w osobnej linii pod spodem
+  if (hasCombo(e)) {
+    const c = comboEl(e), ct = typeById(c.typeId);
+    const cp = [hasDims(c) ? `${grossTxt(c)} ${UNIT()}` : 'wymiar do ustalenia', `${c.qty || 1} szt.`, typeLabel(c) + (ct.transfer ? ' + transfer' : '')];
+    if (ct.seg && c.seg) cp.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
+    if (needsSplit(c)) cp.push('dzielony (krótszy bok ponad 150 cm)');
+    line += `\n   + ${cp.join(', ')}`;
+  }
+  return line;
 }
 // tkanina SEG w zleceniu: Blackback / Lightbox SEG, każda wysłona (też wysłona lightboxa) — obszyta płaską gumką
-const isSegFabric = e => { const t = typeById(e.typeId); return !!((t.seg && e.seg) || (t.wyslona && e.wyslona) || e.backFor); };
+const isSegFabric = e => { const t = typeById(e.typeId); return !!((t.seg && e.seg) || (t.wyslona && e.wyslona) || e.backFor || (hasCombo(e) && isSegFabric(comboEl(e)))); };
 const SEG_NOTE = 'SEG — tkanina obszyta płaską gumką';
 function orderText(list = S.elements) {
   const txt = orderGroups(list).map(([name, l]) => (name ? name + ':\n' : '') + l.map(orderLine).join('\n')).join('\n\n');
@@ -4797,7 +4870,7 @@ function copyOrder() {
     // nagłówek grupy (wysłony, podwieszenia) = przełącznik całej grupy naraz
     $('ord-list').innerHTML = groups.map(([name, l], gi) => `<div class="ord-g">${name ? `<label class="ord-gh"><input type="checkbox" data-ogrp="${gi}" ${l.every(e => !off.has(e.id)) ? 'checked' : ''} title="Zaznacz / odznacz całą grupę"> ${esc(name)} <span class="ord-gn">${l.filter(e => !off.has(e.id)).length}/${l.length}</span></label>` : ''}
       ${l.map(e => `<label class="ord-it ${off.has(e.id) ? 'off' : ''}"><input type="checkbox" data-oid="${e.id}" ${off.has(e.id) ? '' : 'checked'}>
-        <span class="badge" style="background:${colorOf(e)}">${markOf(e)}</span>
+        <span class="badge" style="background:${badgeBg(e)}">${markOf(e)}</span>
         <span>${esc(typeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
     $('ord-txt').textContent = orderText(sel()) || '(nic nie zaznaczono)';
     $('ord-cnt').textContent = `${sel().length} z ${S.elements.length} el.`;
@@ -5018,6 +5091,7 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
     }
     if (glowOf(r.el)) { g.save(); g.shadowColor = '#fff'; g.shadowBlur = br * 1.1; g.fillStyle = '#fff'; g.beginPath(); g.arc(ix + cx * iw, iy + cy * ih, br * 1.02, 0, Math.PI * 2); g.fill(); g.restore(); }
     drawBadge(g, ix + cx * iw, iy + cy * ih, br, r.color, r.znak);
+    if (hasCombo(r.el)) { const bx = ix + cx * iw, by = iy + cy * ih; g.save(); g.beginPath(); g.rect(bx, by - br * 2, br * 2, br * 4); g.clip(); drawBadge(g, bx, by, br, comboColor(r.el), r.znak); g.restore(); }
     // wysłona lightboxa: mniejsze kółko Blackbacku obok
     const bk = isLbSeg(r.el) && rows.find(x => x.el.backFor === r.el.id);
     if (bk) drawBadge(g, ix + cx * iw + br * 1.85, iy + cy * ih, br * 0.8, typeById('blackback').color, bk.znak);
