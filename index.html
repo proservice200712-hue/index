@@ -5192,7 +5192,9 @@ async function renderIndexA3(stamp) {
   const [c, g] = newCanvas(PW, PH);
   let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
   pageHeader(g, PW, PH, logo, '', stamp, sc);
-  const rows = exportRows();
+  // logo 3D: znacznik na wizce zostaje, ale bez ramki z wymiarem pod wizkami (to nie grafika do druku);
+  // logo z drugim typem (np. + folia) ramkę zachowuje
+  const allRows = exportRows(), rows = allRows.filter(r => !(r.el.typeId === 'logo3d' && !hasCombo(r.el)));
   // --- wizki obok siebie
   const imgs = [];
   for (const ph of S.photos) { try { imgs.push({ ph, img: await loadImg(ph.url) }); } catch (e) { imgs.push({ ph, img: null }); } }
@@ -5275,7 +5277,7 @@ async function renderIndexA3(stamp) {
   let x = M + (availW - (Hp * sumA + GAP * (imgs.length - 1))) / 2;
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
-    const here = rows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
+    const here = allRows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
     if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, here, Math.max(18, Math.min(30, Hp / 26)));
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
     if (imgs.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + (i + 1), x + 12, top + 29); }
