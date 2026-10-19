@@ -579,7 +579,12 @@
   #alpaca { position: fixed; left: 0; bottom: 2px; height: 2cm; width: 2cm; z-index: 120; pointer-events: none; display: none; }
   #alpaca svg { width: 100%; height: 100%; overflow: visible; }
   /* stroje: data-costume (klasy nadpisuje animacja) — październik dynia, grudzień gwiazdor albo renifer Rudolf */
-  #alpaca:not([data-costume="pumpkin"]) .pk, #alpaca:not([data-costume="santa"]) .sa, #alpaca:not([data-costume="rudolph"]) .ru { display: none; }
+  #alpaca:not([data-costume="pumpkin"]) .pk, #alpaca:not([data-costume="santa"]) .sa, #alpaca:not([data-costume="rudolph"]) .ru,
+  #alpaca:not([data-costume="ghostface"]) .gf, #alpaca:not([data-costume="jason"]) .jn, #alpaca:not([data-costume="freddy"]) .fk,
+  #alpaca:not([data-costume="dracula"]) .dr, #alpaca:not([data-costume="elf"]) .el { display: none; }
+  /* maski zasłaniają oczy i policzki alpaki */
+  #alpaca[data-costume="ghostface"] .eye, #alpaca[data-costume="ghostface"] .eyehl, #alpaca[data-costume="ghostface"] .blush,
+  #alpaca[data-costume="jason"] .eye, #alpaca[data-costume="jason"] .eyehl, #alpaca[data-costume="jason"] .blush { display: none; }
   #alpaca .ru-nose { filter: drop-shadow(0 0 2px #ff4d4d) drop-shadow(0 0 5px #ff2d2d); }
   #alpaca.run svg { animation: alpBob .32s ease-in-out infinite; }
   #alpaca .lg { transform-box: fill-box; transform-origin: 50% 8%; }
@@ -883,6 +888,34 @@
         <path d="M29 51 l5 -8 l5 8z M50 51 l5 -8 l5 8z" fill="#ffd34d" stroke-width="1.6"/>
         <path d="M28 61 l5 5 l5 -4 l5 4 l5 -4 l5 4 l5 -5 q-15 12 -30 0z" fill="#ffd34d" stroke-width="1.6"/>
       </g>
+      <!-- Ghostface (Krzyk): czarna peleryna z postrzępionym dołem -->
+      <g class="gf">
+        <path d="M11 58 q2 -24 34 -24 q32 0 34 24 l-4 14 l-6 -5 l-5 7 l-6 -6 l-6 7 l-6 -7 l-6 7 l-6 -7 l-6 6 l-5 -7 l-6 5z" fill="#141414"/>
+      </g>
+      <!-- Jason (Piątek trzynastego): oliwkowa kurtka z zamkiem -->
+      <g class="jn">
+        <ellipse cx="45" cy="57" rx="33" ry="21" fill="#4b5a37"/>
+        <path d="M58 38 l0 38" fill="none" stroke="#2c3520" stroke-width="2"/>
+        <path d="M20 50 q6 -4 10 1 M64 50 q6 -4 10 1" fill="none" stroke="#2c3520" stroke-width="2"/>
+      </g>
+      <!-- Freddy Krueger: sweter w czerwono-zielone pasy -->
+      <g class="fk">
+        <ellipse cx="45" cy="57" rx="33" ry="21" fill="#b3261e"/>
+        <g stroke="none"><polygon points="24.8,41.0 23.4,41.8 22.1,42.7 20.9,43.5 19.9,44.3 18.9,45.2 18.1,46.0 71.9,46.0 71.1,45.2 70.1,44.3 69.1,43.5 67.9,42.7 66.6,41.8 65.2,41.0" fill="#2f6b2f"/><polygon points="14.6,51.0 14.2,51.8 13.9,52.7 13.7,53.5 13.5,54.3 13.3,55.2 13.2,56.0 76.8,56.0 76.7,55.2 76.5,54.3 76.3,53.5 76.1,52.7 75.8,51.8 75.4,51.0" fill="#2f6b2f"/><polygon points="13.8,61.0 14.1,61.8 14.4,62.7 14.8,63.5 15.3,64.3 15.8,65.2 16.4,66.0 73.6,66.0 74.2,65.2 74.7,64.3 75.2,63.5 75.6,62.7 75.9,61.8 76.2,61.0" fill="#2f6b2f"/><polygon points="21.6,71.0 22.8,71.8 24.2,72.7 25.8,73.5 27.6,74.3 29.6,75.2 32.1,76.0 57.9,76.0 60.4,75.2 62.4,74.3 64.2,73.5 65.8,72.7 67.2,71.8 68.4,71.0" fill="#2f6b2f"/></g>
+        <ellipse cx="45" cy="57" rx="33" ry="21" fill="none"/>
+      </g>
+      <!-- Drakula: czarna peleryna z czerwoną podszewką -->
+      <g class="dr">
+        <ellipse cx="45" cy="57" rx="35" ry="23" fill="#121212"/>
+        <path d="M13 64 q32 14 64 0" fill="none" stroke="#b3001b" stroke-width="5"/>
+      </g>
+      <!-- elf: zielony kubraczek z czerwonym kołnierzem w ząbki i pasem -->
+      <g class="el">
+        <ellipse cx="45" cy="57" rx="33" ry="21" fill="#2e8b57"/>
+        <rect x="13" y="54" width="64" height="6" fill="#6b4423" stroke-width="1"/>
+        <rect x="41" y="52" width="9" height="10" rx="1.5" fill="none" stroke="#f6c744" stroke-width="2.2"/>
+        <path d="M17 74 l5 -6 l5 6 l5 -6 l5 6 l5 -6 l5 6 l5 -6 l5 6 l5 -6 l5 6" fill="none" stroke="#c53030" stroke-width="3"/>
+      </g>
       <!-- gwiazdor: czerwony kubraczek z białym futerkiem i pasem -->
       <g class="sa">
         <ellipse cx="45" cy="57" rx="33" ry="21" fill="#d62828"/>
@@ -911,6 +944,41 @@
         <circle cx="99" cy="-12" r="4.5" fill="#fff"/>
         <path d="M84 27 q4 12 12 6 q6 -2 4 -9 q-8 6 -16 3z" fill="#fff" stroke-width="2"/>
       </g>
+      <!-- Ghostface: kaptur i biała maska z wydłużonymi oczami i ustami -->
+      <g class="gf">
+        <path d="M64 56 q1 -24 6 -38 l15 1 q-3 20 -5 41z" fill="#141414"/>
+        <ellipse cx="81" cy="15" rx="20" ry="17" fill="#141414"/>
+        <ellipse cx="89" cy="20" rx="9.5" ry="13.5" fill="#f4f4f4" transform="rotate(-14 89 20)" stroke-width="1.6"/>
+        <ellipse cx="85.5" cy="15" rx="2.3" ry="4.4" fill="#141414" stroke="none" transform="rotate(-18 85.5 15)"/>
+        <ellipse cx="93" cy="13.5" rx="2.1" ry="4.2" fill="#141414" stroke="none" transform="rotate(-8 93 13.5)"/>
+        <ellipse cx="91.5" cy="27" rx="2.4" ry="5" fill="#141414" stroke="none" transform="rotate(-10 91.5 27)"/>
+      </g>
+      <!-- Jason: maska hokejowa z czerwonymi znakami i otworkami -->
+      <g class="jn">
+        <ellipse cx="88" cy="19" rx="12" ry="13" fill="#efe8d2" stroke-width="1.8"/>
+        <ellipse cx="84" cy="15" rx="2.6" ry="2" fill="#2b2a29" stroke="none"/><ellipse cx="93" cy="14.5" rx="2.6" ry="2" fill="#2b2a29" stroke="none"/>
+        <path d="M86 7 l2 3 l2 -3 M80 21 l2 -2 l1 3 M95 21 l2 -2 l1 3" fill="none" stroke="#c53030" stroke-width="1.6"/>
+        <g fill="#2b2a29" stroke="none"><circle cx="85" cy="25" r=".9"/><circle cx="88" cy="26" r=".9"/><circle cx="91" cy="25" r=".9"/><circle cx="88" cy="29" r=".9"/><circle cx="88" cy="20" r=".9"/></g>
+      </g>
+      <!-- Freddy: brązowy kapelusz -->
+      <g class="fk">
+        <path d="M70 8 q0 -12 10 -13 q10 1 10 13z" fill="#6b4423"/>
+        <path d="M70 5 q10 2 20 0" fill="none" stroke="#3b2414" stroke-width="2.4"/>
+        <ellipse cx="80" cy="8" rx="17" ry="3.6" fill="#6b4423"/>
+      </g>
+      <!-- Drakula: postawiony kołnierz, zaczesane włosy i kły -->
+      <g class="dr">
+        <path d="M60 46 L54 27 L70 40z M86 45 L95 28 L80 40z" fill="#121212" stroke="#b3001b" stroke-width="1.6"/>
+        <path d="M66 12 q14 -11 28 0 q-7 -2 -14 6 q-7 -8 -14 -6z" fill="#121212" stroke-width="1.6"/>
+        <path d="M89 28 l1.5 4.5 l1.5 -4.5z M94 28 l1.5 4.5 l1.5 -4.5z" fill="#fff" stroke-width="1"/>
+      </g>
+      <!-- elf: zielona czapka z pasiastym brzegiem i dzwoneczkiem -->
+      <g class="el">
+        <path d="M66 8 Q72 -18 101 -6 Q90 -2 94 6Z" fill="#2e8b57"/>
+        <rect x="63" y="4" width="33" height="7" rx="3.5" fill="#c53030"/>
+        <path d="M68 4.5 l3 6 M75 4.5 l3 6 M82 4.5 l3 6 M89 4.5 l3 6" fill="none" stroke="#fff" stroke-width="2.2"/>
+        <circle cx="101" cy="-6" r="3.6" fill="#f6c744"/>
+      </g>
       <!-- renifer Rudolf: poroże i świecący czerwony nos -->
       <g class="ru">
         <path d="M71 5 q-7 -9 -3 -19 M68 -6 q-7 -1 -10 -8 M84 4 q3 -11 11 -16 M92 -8 q5 -1 7 -8" fill="none" stroke="#8b5a2b" stroke-width="3.4"/>
@@ -921,8 +989,8 @@
       <path d="M90 27 q3 3 6 0" fill="none" stroke-width="2"/>
     </g>
     <circle class="eye" cx="84" cy="15" r="2.6" fill="#3b2f2f"/>
-    <circle cx="85" cy="14" r=".9" fill="#fff"/>
-    <circle cx="87" cy="21" r="2.6" fill="#f4a3a3"/>
+    <circle class="eyehl" cx="85" cy="14" r=".9" fill="#fff"/>
+    <circle class="blush" cx="87" cy="21" r="2.6" fill="#f4a3a3"/>
   </svg>
 </div>
 <input type="file" id="file-generic" accept="image/*" class="hidden">
@@ -5518,12 +5586,15 @@ document.addEventListener('mouseout', e => { if (e.target.closest && e.target.cl
 //  ALPAKA — co 5 minut dobiega do 1/4 ekranu, mruga i wraca
 // =====================================================================
 // losowo: wybiega z lewej, z prawej albo (w stoisku) spada na spadochronie ze środkowej belki nad zegarem
-// stroje alpaki (losowane przy każdym wyjściu): październik — dynia (do Halloween),
-// grudzień — gwiazdor, a czasem (ok. co trzecie wyjście) renifer Rudolf; w pozostałe miesiące zwykła
+// stroje alpaki (losowane przy każdym wyjściu): październik (do Halloween) — dynia albo postacie z horrorów
+// (Ghostface z „Krzyku”, Jason z „Piątku trzynastego”, Freddy Krueger, Drakula);
+// grudzień — gwiazdor, renifer Rudolf albo elf; w pozostałe miesiące zwykła
+const pickW = list => { let r = Math.random() * list.reduce((a, [, w]) => a + w, 0); for (const [v, w] of list) { if ((r -= w) < 0) return v; } return list[0][0]; };
 function alpacaCostume() {
   const a = $('alpaca'); if (!a) return;
   const m = new Date().getMonth();
-  a.dataset.costume = m === 9 ? 'pumpkin' : m === 11 ? (Math.random() < 0.33 ? 'rudolph' : 'santa') : '';
+  a.dataset.costume = m === 9 ? pickW([['pumpkin', 30], ['ghostface', 17.5], ['jason', 17.5], ['freddy', 17.5], ['dracula', 17.5]])
+    : m === 11 ? pickW([['santa', 45], ['rudolph', 30], ['elf', 25]]) : '';
 }
 alpacaCostume();
 function runAlpaca() {
