@@ -352,6 +352,9 @@
   .side-foot { padding: 8px 10px; border-top: 1px solid var(--line); font-size: 0.78rem; margin: 0; }
 
   /* ---------- menu łukowe (styl gry strategicznej): zielone z białą obwódką, prostokąty ---------- */
+  /* Logo 3D (poza PCW): żółty znacznik z białą poświatą */
+  #overlay g.mk.glow { filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 6px #fff) drop-shadow(0 0 10px rgba(255,255,255,.85)); }
+  .badge.glow { box-shadow: 0 0 0 1px rgba(0,0,0,.15), 0 0 6px 2px rgba(255,236,150,.9); }
   #arc-back { position: fixed; inset: 0; z-index: 140; background: radial-gradient(circle at center, rgba(10,14,22,0) 0, rgba(10,14,22,.12) 100%); }
   #arc { position: fixed; z-index: 150; width: 0; height: 0; font-family: 'Segoe UI', Arial, sans-serif; }
   #arc.closing { animation: arcOut .18s ease-in forwards; }
@@ -948,12 +951,12 @@ const DEFAULT_TYPES = [
   { id: 'logo3d', order: 7, name: 'Logo 3D', color: '#f07d00', bleed: 0, icon: 'l3d-pcw',
     desc: 'Przestrzenne logo lub litery. Wybierz wykonanie poniżej.',
     variants: [
-      { id: 'pcw', name: '3D z PCW', thick: true, icon: 'l3d-pcw', desc: 'Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.' },
-      { id: 'plexi', name: '3D z pleksi', thick: true, icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
-      { id: 'halo', name: 'Efekt halo', icon: 'l3d-halo', desc: 'Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.' },
-      { id: 'blok', name: 'Blokowa / 3D print', thick: true, lit: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe — frezowane albo drukowane w 3D. Podaj grubość (głębokość) liter.' },
-      { id: 'neon', name: 'Neon', icon: 'l3d-neon', desc: 'Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.' },
-      { id: 'cnc-led', name: 'CNC + podświetlenie', icon: 'l3d-cnc', desc: 'Litery frezowane CNC z podświetleniem LED (świecące lico).' },
+      { id: 'pcw', name: '3D z PCW', thick: true, color: '#e31e24', icon: 'l3d-pcw', desc: 'Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.' },
+      { id: 'plexi', name: '3D z pleksi', thick: true, color: '#f5c400', glow: true, icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
+      { id: 'halo', name: 'Efekt halo', color: '#f5c400', glow: true, icon: 'l3d-halo', desc: 'Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.' },
+      { id: 'blok', name: 'Blokowa / 3D print', thick: true, lit: true, color: '#f5c400', glow: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe — frezowane albo drukowane w 3D. Podaj grubość (głębokość) liter.' },
+      { id: 'neon', name: 'Neon', color: '#f5c400', glow: true, icon: 'l3d-neon', desc: 'Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.' },
+      { id: 'cnc-led', name: 'CNC + podświetlenie', color: '#f5c400', glow: true, icon: 'l3d-cnc', desc: 'Litery frezowane CNC z podświetleniem LED (świecące lico).' },
     ] },
   { id: 'nie-wiem', order: 99, name: 'Nie wiem — do ustalenia', color: '#7f8c8d', bleed: 0, icon: 'other',
     desc: 'Wybierz, gdy nie wiesz, z czego ma być element. Opisz go w uwagach — ustalimy to z Tobą.' },
@@ -1742,6 +1745,9 @@ function typeLabel(el) {
 const LIT_OPTS = [['frontlit', 'Frontlit'], ['sidelit', 'Sidelit']];
 const hasLit = el => { const v = variantOf(el); return !!(v && v.lit); };
 const litValues = el => ({ frontlit: hasLit(el) && !!el.frontlit, sidelit: hasLit(el) && !!el.sidelit });
+// kolor elementu: wykonanie może mieć własny kolor (Logo 3D: z PCW czerwony, reszta żółta z białą poświatą)
+const colorOf = el => { const v = el && variantOf(el); return (v && v.color) || typeById(el && el.typeId).color; };
+const glowOf = el => { const v = el && variantOf(el); return !!(v && v.glow); };
 const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
 
 // Spad: z typu; SEG (tkanina Blackback / Lightbox) i wysłona bez spadu, płyta PCW domyślnie bez spadu,
@@ -2981,7 +2987,7 @@ function renderOverlay() {
   for (const mk of marks) {
     const el = mk.el, b = L.map[mk.photoId], loc = mk.loc;
     const sh = liveShape && liveShape.eid === el.id && (liveShape.loc ?? -1) === loc ? liveShape.shape : mk.shape;
-    const t = typeById(el.typeId), sel = el.id === S.selId, hov = el.id === S.hoverId;
+    const t = typeById(el.typeId), col = colorOf(el), sel = el.id === S.selId, hov = el.id === S.hoverId;
     const selHere = sel && (S.selLoc ?? -1) === loc; // uchwyty tylko przy wskazanym miejscu
     const [ax, ay] = shapeCenter(sh), [cx, cy] = labPos(sh);
     const wk = isWys(el) ? 0.8 : 1; // wysłony: znacznik o 20% mniejszy
@@ -2993,21 +2999,21 @@ function renderOverlay() {
       const len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len;
       const hl = 9 * s, hw = 3.6 * s, bx = x2 - ux * hl, by = y2 - uy * hl;
       out += `<line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="#fff" stroke-opacity=".85" stroke-width="${3 * s}" stroke-linecap="round"/>
-        <line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${t.color}" stroke-width="${1.4 * s}" stroke-linecap="round"/>
-        <polygon points="${x2},${y2} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}" fill="${t.color}" stroke="#fff" stroke-width="${.8 * s}" stroke-linejoin="round"/>`;
-      if (selHere) out += `<circle class="hdl anc" data-eid="${el.id}" data-loc="${loc}" cx="${x2}" cy="${y2}" r="${6 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"><title>Przeciągnij, aby zmienić miejsce, którego dotyczy znacznik</title></circle>`;
+        <line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${col}" stroke-width="${1.4 * s}" stroke-linecap="round"/>
+        <polygon points="${x2},${y2} ${bx - uy * hw},${by + ux * hw} ${bx + uy * hw},${by - ux * hw}" fill="${col}" stroke="#fff" stroke-width="${.8 * s}" stroke-linejoin="round"/>`;
+      if (selHere) out += `<circle class="hdl anc" data-eid="${el.id}" data-loc="${loc}" cx="${x2}" cy="${y2}" r="${6 * s}" fill="#fff" stroke="${col}" stroke-width="${2 * s}"><title>Przeciągnij, aby zmienić miejsce, którego dotyczy znacznik</title></circle>`;
     }
     if (sh.kind !== 'point') {
       const pts = shapePolyPts(sh);
-      out += `<polygon points="${P(b, pts)}" fill="${t.color}" fill-opacity="${sel || hov ? 0.35 : 0.2}" stroke="${t.color}" stroke-width="${(sel ? 3.5 : 2.2) * s}" stroke-linejoin="round"/>
+      out += `<polygon points="${P(b, pts)}" fill="${col}" fill-opacity="${sel || hov ? 0.35 : 0.2}" stroke="${col}" stroke-width="${(sel ? 3.5 : 2.2) * s}" stroke-linejoin="round"/>
         ${sel ? `<polygon points="${P(b, pts)}" fill="none" stroke="#fff" stroke-width="${1.2 * s}" stroke-dasharray="${6 * s} ${5 * s}"/>` : ''}`;
     } else if (sel) {
-      out += `<circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r + 7 * s}" fill="${t.color}" fill-opacity=".25" stroke="${t.color}" stroke-width="${2 * s}"/>`;
+      out += `<circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r + 7 * s}" fill="${col}" fill-opacity=".25" stroke="${col}" stroke-width="${2 * s}"/>`;
     }
     // znacznik z literą: pulsuje (faza liczona od zegara, żeby przerysowanie nie szarpało animacją)
-    out += `<g class="mk" data-part="lab" style="animation-delay:-${(performance.now() % 2000 / 1000).toFixed(3)}s">
-      <circle class="halo" cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="none" stroke="${t.color}" stroke-width="${3 * s}"/>
-      <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
+    out += `<g class="mk${glowOf(el) ? ' glow' : ''}" data-part="lab" style="animation-delay:-${(performance.now() % 2000 / 1000).toFixed(3)}s">
+      <circle class="halo" cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="none" stroke="${col}" stroke-width="${3 * s}"/>
+      <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${col}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
       <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s * wk}" text-anchor="middle" font-size="${(markOf(el).length > 2 ? 9 : markOf(el).length > 1 ? 10.5 : 13) * s * wk}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${markOf(el)}</text>
     </g></g>`;
     // wysłona lightboxa SEG: kółko w kolorze Blackbacku z jej numerem W…, tuż obok znacznika
@@ -3366,7 +3372,7 @@ function renderArcPanel() {
   const t = typeById(tid), v = ARC.typeId ? variantOf(ARC) : null;
   const preview = !ARC.typeId;
   const fresh = k => { const f = !ARC.shown.has(k); if (!preview) ARC.shown.add(k); return f ? ' ap-in' : ''; };
-  let h = `<div class="ap-h${fresh('h' + tid + (v ? v.id : ''))}"><span class="gem" style="background:${t.color}"></span>${esc(v ? t.name + ' — ' + v.name : t.name)}</div>
+  let h = `<div class="ap-h${fresh('h' + tid + (v ? v.id : ''))}"><span class="gem" style="background:${(v && v.color) || t.color}"></span>${esc(v ? t.name + ' — ' + v.name : t.name)}</div>
     <div class="ap-img">${exampleHtml(t, v)}</div>
     <div class="ap-desc">${esc(v && v.desc ? v.desc : t.desc || '')}</div>`;
   if (preview) h += `<div class="ap-hint">Kliknij albo naciśnij ${ARC.items.findIndex(x => x.id === tid) + 1}, aby wybrać</div>`;
@@ -3438,7 +3444,7 @@ function renderArcMore(panel, preview) {
     <div class="ap-desc">To miejsce to kolejna sztuka elementu, który już jest na liście. Wybierz go — dostanie tu drugi znacznik, a liczba sztuk wzrośnie.</div>`;
   if (preview) h += `<div class="ap-hint">Kliknij albo naciśnij ${ARC.items.length}, aby wybrać · skrót: Shift + klik przy zaznaczonym elemencie</div>`;
   else h += `<div class="ap-sec ap-in"><div class="ap-lab">Element</div>${S.elements.map((e, i) =>
-    `<button type="button" class="ap-opt" data-more="${e.id}"><span class="k">${i < 9 ? i + 1 : '·'}</span><span class="gem" style="background:${typeById(e.typeId).color}"></span>${esc(markOf(e))} — ${esc(typeLabel(e))}${e.name ? ' (' + esc(e.name) + ')' : ''}</button>`).join('')}</div>`;
+    `<button type="button" class="ap-opt" data-more="${e.id}"><span class="k">${i < 9 ? i + 1 : '·'}</span><span class="gem" style="background:${colorOf(e)}"></span>${esc(markOf(e))} — ${esc(typeLabel(e))}${e.name ? ' (' + esc(e.name) + ')' : ''}</button>`).join('')}</div>`;
   panel.innerHTML = h;
   panel.classList.remove('hidden');
   const btn = ARC.root.querySelector('.arc-btn[data-t="__more"]');
@@ -3811,7 +3817,7 @@ document.addEventListener('pointerdown', ev => {
   const el = S.elements.find(e => e.id === eid); if (!el) return;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.id = 'thread-svg';
-  svg.innerHTML = `<path id="thr-p" fill="none" stroke="${typeById(el.typeId).color}" stroke-width="3" stroke-dasharray="7 4"/><circle id="thr-c" r="9" fill="${typeById(el.typeId).color}" stroke="#fff" stroke-width="2"/><text id="thr-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle" dy="4">${esc(markOf(el))}</text>`;
+  svg.innerHTML = `<path id="thr-p" fill="none" stroke="${colorOf(el)}" stroke-width="3" stroke-dasharray="7 4"/><circle id="thr-c" r="9" fill="${colorOf(el)}" stroke="#fff" stroke-width="2"/><text id="thr-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle" dy="4">${esc(markOf(el))}</text>`;
   document.body.appendChild(svg);
   const move = e => {
     const x = e.clientX, y = e.clientY, sag = Math.min(120, Math.hypot(x - x0, y - y0) * 0.25);
@@ -3846,7 +3852,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   renderOverlay();
   const m = openModal({
     onClose: () => { pendingShape = null; renderOverlay(); },
-    title: `<span class="badge" style="background:${editing ? typeById(el.typeId).color : '#67b437'}" id="ed-badge">${lab}</span> <span id="ed-tlab">${editing ? 'Element ' + lab : 'Nowy element ' + lab}</span>${editing && !editing.doorFor && !editing.backFor ? ' <button type="button" class="ed-rn" id="ed-rn" title="Zmień znak elementu">✎ zmień znak</button>' : ''}
+    title: `<span class="badge" style="background:${editing ? colorOf(el) : '#67b437'}" id="ed-badge">${lab}</span> <span id="ed-tlab">${editing ? 'Element ' + lab : 'Nowy element ' + lab}</span>${editing && !editing.doorFor && !editing.backFor ? ' <button type="button" class="ed-rn" id="ed-rn" title="Zmień znak elementu">✎ zmień znak</button>' : ''}
       <span style="font-weight:400;font-size:.8rem;opacity:.75">· ${(editing ? editing.photoId : photoId) ? 'wizka #' + photoNo(editing ? editing.photoId : photoId) : 'bez zaznaczenia'}</span>`,
     wide: true,
     body: `
@@ -4048,7 +4054,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-prev').innerHTML = t
       ? `<div class="pimg">${exampleHtml(t, v)}</div><div class="ptxt"><b>${esc(v ? t.name + ' — ' + v.name : t.name)}</b>${esc(v && v.desc ? v.desc : t.desc || '')}</div>`
       : `<div class="pimg" style="color:var(--gray);font-size:.85rem;text-align:center;padding:20px">Wybierz typ po lewej —<br>tu pokaże się przykład, jak to wygląda.</div><div class="ptxt">Nie wiesz? Wybierz „Nie wiem — do ustalenia" i opisz element w uwagach.</div>`;
-    $('ed-badge').style.background = t ? t.color : '#67b437';
+    $('ed-badge').style.background = t ? colorOf(el) : '#67b437';
     const cur = read();
     // podgląd ściany z drzwiami
     const dp = $('ed-door-prev');
@@ -4329,8 +4335,8 @@ function renderGraph() {
       ${e.thumb ? `<img src="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>`;
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : isHang(e) ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · ${(planesOf(e) || []).length} pł. do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
-    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${t.color};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
-      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(t.color, lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
+    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
+      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
@@ -4621,8 +4627,8 @@ function renderElements() {
     </tr></thead><tbody>${list.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
       return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'} ${isAlert(e) ? 'alert' : ''}" ${isAlert(e) ? `title="Zmienione przez ${esc(userLabel(e.updatedBy || e.createdBy))} — kliknij, aby oznaczyć jako widziane"` : ''}>
-        <td><span class="badge" style="background:${t.color}">${markOf(e)}</span></td>
-        <td><span class="tdot" style="background:${t.color}"></span>${esc(typeLabel(e))}</td>
+        <td><span class="badge${glowOf(e) ? ' glow' : ''}" style="background:${colorOf(e)}">${markOf(e)}</span></td>
+        <td><span class="tdot" style="background:${colorOf(e)}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
         <td class="num" ${e.bleedBox ? 'title="spad: lewy / prawy / góra / dół"' : ''}>${bleedCell(e, g)}</td>
         <td class="dims">${dims ? (isHang(e) ? planesTxt(e, '<br>') : grossTxt(e) + splitBadge(e)) : ''}</td>
@@ -4760,7 +4766,7 @@ function copyOrder() {
     // nagłówek grupy (wysłony, podwieszenia) = przełącznik całej grupy naraz
     $('ord-list').innerHTML = groups.map(([name, l], gi) => `<div class="ord-g">${name ? `<label class="ord-gh"><input type="checkbox" data-ogrp="${gi}" ${l.every(e => !off.has(e.id)) ? 'checked' : ''} title="Zaznacz / odznacz całą grupę"> ${esc(name)} <span class="ord-gn">${l.filter(e => !off.has(e.id)).length}/${l.length}</span></label>` : ''}
       ${l.map(e => `<label class="ord-it ${off.has(e.id) ? 'off' : ''}"><input type="checkbox" data-oid="${e.id}" ${off.has(e.id) ? '' : 'checked'}>
-        <span class="badge" style="background:${typeById(e.typeId).color}">${markOf(e)}</span>
+        <span class="badge" style="background:${colorOf(e)}">${markOf(e)}</span>
         <span>${esc(typeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
     $('ord-txt').textContent = orderText(sel()) || '(nic nie zaznaczono)';
     $('ord-cnt').textContent = `${sel().length} z ${S.elements.length} el.`;
@@ -4857,7 +4863,7 @@ function exportRows() {
     return { znak: markOf(e), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
       w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
       net: netTxt(e), gross: grossTxt(e), spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
-      qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: t.color, el: e };
+      qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: colorOf(e), el: e };
   });
 }
 function exportCsv(name) {
@@ -4973,6 +4979,7 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
       g.beginPath(); g.moveTo(x2, y2); g.lineTo(bx - uy * hl * .4, by + ux * hl * .4); g.lineTo(bx + uy * hl * .4, by - ux * hl * .4); g.closePath();
       g.fillStyle = r.color; g.fill(); g.lineWidth = br * .06; g.strokeStyle = '#fff'; g.stroke();
     }
+    if (glowOf(r.el)) { g.save(); g.shadowColor = '#fff'; g.shadowBlur = br * 1.1; g.fillStyle = '#fff'; g.beginPath(); g.arc(ix + cx * iw, iy + cy * ih, br * 1.02, 0, Math.PI * 2); g.fill(); g.restore(); }
     drawBadge(g, ix + cx * iw, iy + cy * ih, br, r.color, r.znak);
     // wysłona lightboxa: mniejsze kółko Blackbacku obok
     const bk = isLbSeg(r.el) && rows.find(x => x.el.backFor === r.el.id);
