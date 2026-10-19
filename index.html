@@ -622,6 +622,8 @@
   #tour-tip .tt-dots i { width: 7px; height: 7px; border-radius: 50% !important; background: #cbd5e0; }
   #tour-tip .tt-dots i.on { background: #67b437; }
   #tour-tip .tt-ro { margin-top: 10px; font-size: .75rem; color: #718096; }
+  .ed-rn { margin-left: 8px; background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.35); font-size: .72rem; padding: 2px 8px; cursor: pointer; font-weight: 600; }
+  .ed-rn:hover { background: rgba(103,180,55,.55); }
   .bk-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .bk-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; border: 2px solid var(--line, #e2e8f0); background: #fff; cursor: pointer; text-align: left; border-radius: 10px; }
   .bk-opt:hover { border-color: #67b437; background: #f3faef; }
@@ -1083,10 +1085,16 @@ function openModal({ title, body, footer = '', wide = false, onClose }) {
 function confirmBox(text, okLabel = 'Tak', danger = true) {
   return new Promise(res => {
     const m = openModal({ title: 'Potwierdź', body: `<div style="line-height:1.5">${text}</div>`,
-      footer: `<button class="btn" data-no>Anuluj</button><button class="btn ${danger ? 'btn-red' : 'btn-solid'}" data-yes>${okLabel}</button>`,
+      footer: `<span class="hint" style="margin-right:auto">Enter / Delete = ${okLabel}</span><button class="btn" data-no>Anuluj</button><button class="btn ${danger ? 'btn-red' : 'btn-solid'}" data-yes>${okLabel}</button>`,
       onClose: () => res(false) });
     m.el.querySelector('[data-no]').onclick = () => m.close();
-    m.el.querySelector('[data-yes]').onclick = () => { m.onYes = true; m.el.remove(); modalStack = modalStack.filter(x => x !== m); res(true); };
+    // Enter albo Delete potwierdza (np. usunięcie); nasłuch dopiero po otwarciu okna, żeby nie złapać klawisza, który je otworzył
+    const onKey = e => {
+      if (!m.el.isConnected) { document.removeEventListener('keydown', onKey, true); return; }
+      if ((e.key === 'Enter' || e.key === 'Delete') && !e.repeat) { e.preventDefault(); e.stopPropagation(); m.el.querySelector('[data-yes]').click(); }
+    };
+    setTimeout(() => document.addEventListener('keydown', onKey, true), 0);
+    m.el.querySelector('[data-yes]').onclick = () => { document.removeEventListener('keydown', onKey, true); m.onYes = true; m.el.remove(); modalStack = modalStack.filter(x => x !== m); res(true); };
   });
 }
 function download(name, blob) {
@@ -1291,6 +1299,9 @@ I18N_PAIRS.push(['produkcja', 'виробництво', 'production'],
 I18N_PAIRS.push(['Whiteback', 'Whiteback', 'Whiteback'], ['Blackback z odwróconym szyciem', 'Blackback зі зворотним швом', 'Blackback with reversed stitching'],
   ['wysłona z tkaniny Whiteback', 'вислона з тканини Whiteback', 'backing made of Whiteback fabric'], ['wysłona z Blackbacku szyta odwrotnie', 'вислона з Blackback, зшита навпаки', 'Blackback backing, stitched reversed'],
   ['Wysłona za lightboxem', 'Вислона за лайтбоксом', 'Backing behind the lightbox'], ['Bez wysłony', 'Без вислони', 'No backing'], ['Nie wybrano — zapytam przy zapisie.', 'Не вибрано — запитаю під час збереження.', 'Not chosen — I’ll ask when saving.']);
+I18N_PAIRS.push(['✎ zmień znak', '✎ змінити позначку', '✎ change mark'], ['Zmień znak elementu', 'Змінити позначку елемента', 'Change element mark'],
+  ['Kliknij, aby zmienić znak', 'Клікни, щоб змінити позначку', 'Click to change the mark'], ['Gdy ten znak ma już inny element, zamienią się znakami.', 'Якщо цю позначку вже має інший елемент, вони поміняються позначками.', 'If another element already has this mark, they will swap marks.'],
+  ['Zmień', 'Змінити', 'Change']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -2860,6 +2871,30 @@ function photoAt(sx, sy) {
 }
 function normIn(pid, sx, sy) { const b = L.map[pid]; return [clamp((sx - b.x) / b.w, 0, 1), clamp(sy / H0, 0, 1)]; }
 const toNorm = (e, pid) => normIn(pid, ...toStage(e));
+// bez przycinania do wizki — znacznik przeciągany nad inną wizkę jedzie za kursorem
+function normRaw(pid, sx, sy) { const b = L.map[pid]; return [(sx - b.x) / b.w, sy / H0]; }
+// kursor nad inną wizką niż ta, na której jest przeciągany znacznik?
+function overOther(e, pid) { const [sx, sy] = toStage(e), over = photoAt(sx, sy); return over && over !== pid ? over : null; }
+// przeniesienie miejsca elementu na inną wizkę: punkt w miejscu upuszczenia (znak od razu odsunięty), obrys przesunięty w całości
+async function moveLocToPhoto(el, loc, fromPid, pid, orig, q) {
+  const bo = L.map[fromPid], bn = L.map[pid];
+  let sh;
+  if (orig.kind === 'point') sh = autoLab({ kind: 'point', pts: [q] }, pid);
+  else {
+    const [cx, cy] = shapeCenter(orig), k = bo && bn ? bo.w / bn.w : 1;
+    sh = { kind: orig.kind, pts: orig.pts.map(p => [clamp(q[0] + (p[0] - cx) * k, 0, 1), clamp(q[1] + (p[1] - cy), 0, 1)]) };
+  }
+  let upd;
+  if (loc == null || loc < 0) upd = { shape: sh, photoId: pid };
+  else { const extra = clone(el.extra || []); if (!extra[loc]) return; extra[loc] = { ...extra[loc], photoId: pid, shape: sh }; upd = { extra }; }
+  const prj = S.project.id;
+  await DB.update(pElements(prj), el.id, { ...upd, updatedAt: nowIso(), updatedBy: S.me.id });
+  // wysłona lightboxa jedzie razem z lightboxem
+  const bk = (loc == null || loc < 0) && isLbSeg(el) && backOf(el);
+  if (bk) await DB.update(pElements(prj), bk.id, { photoId: pid, shape: clone(sh), updatedAt: nowIso(), updatedBy: S.me.id });
+  addLog(prj, `Przeniesiono znacznik ${markOf(el)} z wizki #${photoNo(fromPid)} na wizkę #${photoNo(pid)}`, el.id);
+  setCurrentPhoto(pid); selectElement(el.id, false, loc);
+}
 function centerOn(pid, nx, ny) {
   const b = L.map[pid]; if (!b) return;
   const r = viewer.getBoundingClientRect();
@@ -3100,24 +3135,28 @@ viewer.addEventListener('pointermove', e => {
     V.tx = act.tx + e.clientX - act.x; V.ty = act.ty + e.clientY - act.y; applyView(); return;
   }
   if (act.mode === 'move') {
-    const q = toNorm(e, act.pid);
+    const cross = overOther(e, act.pid); // nad inną wizką: znacznik jedzie za kursorem, po puszczeniu przenosi się na nią
+    const q = cross ? normRaw(act.pid, ...toStage(e)) : toNorm(e, act.pid);
     let dx = q[0] - act.start[0], dy = q[1] - act.start[1];
     const pts = shapePolyPts(act.orig);
-    // nie wyjeżdżamy poza wizkę
-    dx = clamp(dx, -Math.min(...pts.map(p => p[0])), 1 - Math.max(...pts.map(p => p[0])));
-    dy = clamp(dy, -Math.min(...pts.map(p => p[1])), 1 - Math.max(...pts.map(p => p[1])));
+    // na tej samej wizce nie wyjeżdżamy poza nią
+    if (!cross) {
+      dx = clamp(dx, -Math.min(...pts.map(p => p[0])), 1 - Math.max(...pts.map(p => p[0])));
+      dy = clamp(dy, -Math.min(...pts.map(p => p[1])), 1 - Math.max(...pts.map(p => p[1])));
+    }
     const moved = { kind: act.orig.kind, pts: act.orig.pts.map(p => [p[0] + dx, p[1] + dy]) };
-    if (act.orig.lab) moved.lab = [clamp(act.orig.lab[0] + dx, 0, 1), clamp(act.orig.lab[1] + dy, 0, 1)];
+    if (act.orig.lab) moved.lab = cross ? [act.orig.lab[0] + dx, act.orig.lab[1] + dy] : [clamp(act.orig.lab[0] + dx, 0, 1), clamp(act.orig.lab[1] + dy, 0, 1)];
     liveShape = { eid: act.eid, loc: act.loc, shape: moved };
     act.changed = Math.abs(dx) + Math.abs(dy) > 0.0005;
     renderOverlay(); return;
   }
   if (act.mode === 'label' || act.mode === 'anchor') {
-    const q = toNorm(e, act.pid), dx = q[0] - act.start[0], dy = q[1] - act.start[1];
+    const cross = overOther(e, act.pid), cl = v => cross ? v : clamp(v, 0, 1);
+    const q = cross ? normRaw(act.pid, ...toStage(e)) : toNorm(e, act.pid), dx = q[0] - act.start[0], dy = q[1] - act.start[1];
     const sh = clone(act.orig);
-    if (act.mode === 'label') { const [lx, ly] = labPos(act.orig); sh.lab = [clamp(lx + dx, 0, 1), clamp(ly + dy, 0, 1)]; }
-    else if (sh.kind === 'point') sh.pts = [[clamp(sh.pts[0][0] + dx, 0, 1), clamp(sh.pts[0][1] + dy, 0, 1)]];
-    else { sh.pts = sh.pts.map(p => [clamp(p[0] + dx, 0, 1), clamp(p[1] + dy, 0, 1)]); }
+    if (act.mode === 'label') { const [lx, ly] = labPos(act.orig); sh.lab = [cl(lx + dx), cl(ly + dy)]; }
+    else if (sh.kind === 'point') sh.pts = [[cl(sh.pts[0][0] + dx), cl(sh.pts[0][1] + dy)]];
+    else { sh.pts = sh.pts.map(p => [cl(p[0] + dx), cl(p[1] + dy)]); }
     liveShape = { eid: act.eid, loc: act.loc, shape: sh };
     act.changed = Math.abs(dx) + Math.abs(dy) > 0.0005;
     renderOverlay(); return;
@@ -3156,6 +3195,17 @@ function endPointer(e) {
   }
   if (['move', 'handle', 'label', 'anchor'].includes(a.mode) && liveShape) {
     const sh = liveShape.shape, eid = a.eid;
+    if (a.mode !== 'handle' && a.changed) {
+      const [dsx, dsy] = toStage(e), drop = photoAt(dsx, dsy);
+      if (drop && drop !== a.pid) {
+        const el = S.elements.find(x => x.id === eid);
+        liveShape = null; renderOverlay();
+        if (el) moveLocToPhoto(el, a.loc, a.pid, drop, a.orig, normIn(drop, dsx, dsy)).catch(err => toast('Błąd zapisu: ' + err.message, 'error'));
+        return;
+      }
+      sh.pts = sh.pts.map(p => [clamp(p[0], 0, 1), clamp(p[1], 0, 1)]);
+      if (sh.lab) sh.lab = [clamp(sh.lab[0], 0, 1), clamp(sh.lab[1], 0, 1)];
+    }
     if (sh.kind === 'rect') { const r = rectNorm(sh.pts); sh.pts = [[r.x1, r.y1], [r.x2, r.y2]]; }
     // znacznik upuszczony z powrotem na swoje miejsce = bez kreski
     if (sh.lab) {
@@ -3413,13 +3463,25 @@ function arcCalc() {
   c.innerHTML = hasDims(e) ? `druk <b>${grossTxt(e)} ${UNIT()}</b> · spad ${bleedTxt(g.b)} · <b>${numPL(areaOf(e))} m²</b>${needsSplit(e) ? `<div class="split-line">${splitBadge(e)} ${SPLIT_TXT}</div>` : ''}`
     : `<span class="w">wymiar do ustalenia</span> · spad ${bleedTxt(g.b)}`;
 }
+// nowy znacznik od razu odsunięty od miejsca, żeby było widać strzałkę: kierunek z największym odstępem od innych znaczników tej wizki
+function autoLab(shape, pid) {
+  if (!shape || !L.map[pid] || shape.lab) return shape;
+  const b = L.map[pid], [cx, cy] = shapeCenter(shape), dy = 0.08, dx = dy * H0 / b.w;
+  const others = S.elements.flatMap(e => locsOf(e).filter(l => l.photoId === pid && l.shape).map(l => labPos(l.shape)));
+  const cand = [[1, -1], [-1, -1], [1, 1], [-1, 1], [1.4, 0], [-1.4, 0], [0, -1.4], [0, 1.4]]
+    .map(([kx, ky]) => [cx + kx * dx, cy + ky * dy]).filter(([x, y]) => x > 0.03 && x < 0.97 && y > 0.04 && y < 0.96);
+  if (!cand.length) return shape;
+  const room = ([x, y]) => Math.min(0.5, ...others.map(([ox, oy]) => Math.hypot((x - ox) * b.w, (y - oy) * H0) / H0));
+  const best = cand.reduce((a, c) => room(c) > room(a) + 1e-9 ? c : a, cand[0]);
+  return { ...clone(shape), lab: best };
+}
 async function arcSave() {
   if (!ARC || !ARC.typeId || ARC.typeId === '__more') return;
   if (arcSteps().some(st => !st.done)) return;
   const d = arcEl(), pid = S.project.id, num = nextNum();
   d.wnum = wysNumFor(d);
   const lab = markOf({ ...d, num });
-  const rec = { num, ...d, photoId: ARC.photoId, shape: ARC.shape, createdAt: nowIso(), createdBy: S.me.id };
+  const rec = { num, ...d, photoId: ARC.photoId, shape: autoLab(ARC.shape, ARC.photoId), createdAt: nowIso(), createdBy: S.me.id };
   const go = ARC.root.querySelector('.ap-go'); if (go) go.disabled = true;
   try {
     const newId = await DB.add(pElements(pid), rec);
@@ -3768,7 +3830,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   renderOverlay();
   const m = openModal({
     onClose: () => { pendingShape = null; renderOverlay(); },
-    title: `<span class="badge" style="background:${editing ? typeById(el.typeId).color : '#67b437'}" id="ed-badge">${lab}</span> ${editing ? 'Element ' + lab : 'Nowy element ' + lab}
+    title: `<span class="badge" style="background:${editing ? typeById(el.typeId).color : '#67b437'}" id="ed-badge">${lab}</span> <span id="ed-tlab">${editing ? 'Element ' + lab : 'Nowy element ' + lab}</span>${editing && !editing.doorFor && !editing.backFor ? ' <button type="button" class="ed-rn" id="ed-rn" title="Zmień znak elementu">✎ zmień znak</button>' : ''}
       <span style="font-weight:400;font-size:.8rem;opacity:.75">· ${(editing ? editing.photoId : photoId) ? 'wizka #' + photoNo(editing ? editing.photoId : photoId) : 'bez zaznaczenia'}</span>`,
     wide: true,
     body: `
@@ -4015,6 +4077,15 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   renderOpts(); refresh();
   setTimeout(() => { const f = $('ed-w'); if (f) f.focus(); }, 40);
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  // zmiana znaku z nagłówka okna (klik w znak albo „zmień znak”)
+  if (editing && !editing.doorFor && !editing.backFor) {
+    const go = async () => {
+      const r = await renameMark(editing.id); if (!r) return;
+      Object.assign(el, r); const nm = markOf({ ...editing, ...r });
+      $('ed-badge').textContent = nm; $('ed-tlab').textContent = 'Element ' + nm;
+    };
+    $('ed-rn').onclick = go; $('ed-badge').style.cursor = 'pointer'; $('ed-badge').title = 'Kliknij, aby zmienić znak'; $('ed-badge').onclick = go;
+  }
   // wysłona lightboxa: wymiar i ilość idą z lightboxa — tu tylko do podglądu
   if (editing && editing.backFor) {
     const lb = S.elements.find(e => e.id === editing.backFor);
@@ -4080,6 +4151,43 @@ function describeDiff(a, b) {
   if (bleedOf(a) !== bleedOf(b)) ch.push(`spad → ${bleedTxt(bleedOf(b))}`);
   if (JSON.stringify(a.bleedBox || null) !== JSON.stringify(b.bleedBox || null)) ch.push(b.bleedBox ? `spady lewy/prawy/góra/dół → ${bleedCell(b, {})} ${UNIT()}` : 'spady jednakowe ze wszystkich stron');
   return ch.join(', ');
+}
+// zmiana znaku: A → F (litery), 4 → 7 (numeracja 1, 2, 3), W2 → W5 (wysłony); gdy znak jest zajęty — elementy zamieniają się znakami
+const lettersToNum = t => [...t].reduce((n, c) => n * 26 + (c.charCodeAt(0) - 64), 0);
+function renameMark(id) {
+  const el = S.elements.find(e => e.id === id); if (!el || el.doorFor || el.backFor) return Promise.resolve(null);
+  const wys = isWys(el), cur = markOf(el), pid = S.project.id;
+  const fmt = wys ? 'W1, W2, W3…' : S.project.numbering === '123' ? '1, 2, 3…' : 'A, B, C…';
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    const m = openModal({ title: `Zmień znak elementu ${esc(cur)}`,
+      body: `<div class="fld"><label>Nowy znak (${fmt})</label><input type="text" id="rn-v" value="${esc(cur)}" maxlength="6" style="text-transform:uppercase;font-weight:700;font-size:1.1rem;max-width:160px"></div>
+        <div class="hint">Gdy ten znak ma już inny element, zamienią się znakami.</div>`,
+      footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="rn-ok">Zmień</button>`, onClose: () => fin(null) });
+    const inp = $('rn-v'); setTimeout(() => { inp.focus(); inp.select(); }, 40);
+    m.el.querySelector('[data-c]').onclick = () => m.close();
+    const ok = async () => {
+      const v = inp.value.trim().toUpperCase().replace(/\s+/g, '');
+      let n = 0;
+      if (wys) { const x = v.match(/^W?(\d+)$/); n = x ? parseInt(x[1], 10) : 0; }
+      else if (/^\d+$/.test(v)) n = parseInt(v, 10);
+      else if (/^[A-Z]{1,3}$/.test(v)) n = lettersToNum(v);
+      if (!(n > 0)) return toast(`Wpisz znak w postaci ${fmt}`, 'error');
+      const key = wys ? 'wnum' : 'num', old = Number(el[key]) || 0;
+      if (n === old) { m.close(); return; }
+      const other = S.elements.find(e => e.id !== id && !e.doorFor && (wys ? isWys(e) : !isWys(e) && !e.backFor) && Number(e[key]) === n);
+      $('rn-ok').disabled = true;
+      try {
+        await DB.update(pElements(pid), id, { [key]: n, updatedAt: nowIso(), updatedBy: S.me.id });
+        if (other) await DB.update(pElements(pid), other.id, { [key]: old || nextNum(), updatedAt: nowIso(), updatedBy: S.me.id });
+        const nm = markOf({ ...el, [key]: n });
+        addLog(pid, `Zmieniono znak elementu ${cur} → ${nm}${other ? ` (zamiana z elementem, który miał ${nm})` : ''}`, id);
+        fin({ [key]: n }); m.close();
+      } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('rn-ok').disabled = false; }
+    };
+    $('rn-ok').onclick = ok;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
+  });
 }
 async function deleteElement(id) {
   const el = S.elements.find(e => e.id === id); if (!el) return;
