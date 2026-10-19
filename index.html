@@ -5152,30 +5152,57 @@ async function renderIndexA3(stamp) {
     const notes = (!d ? 40 : dimsMode(r.el) !== 'flat' ? 36 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
     return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes, title, nlines, head };
   };
-  const layout = k => {
-    let cx = 0, cy = 0, rowH = 0; const out = [];
-    for (const r of rows) {
+  // okienka w rzędach (kolejność: alfabetycznie albo od najwyższych — co lepiej wypełnia arkusz)
+  const layout = (k, order = rows) => {
+    if (order === 'sky') return skyline(k);
+    let cx = 0, cy = 0, rowH = 0, row = []; const out = [], lines = [];
+    for (const r of order) {
       const cd = cardOf(r, k);
-      if (cx > 0 && cx + cd.w > areaW) { cx = 0; cy += rowH + GY; rowH = 0; }
-      out.push({ ...cd, x: cx, y: cy }); cx += cd.w + GX; rowH = Math.max(rowH, cd.h);
+      if (cx > 0 && cx + cd.w > areaW) { lines.push({ items: row, y: cy, h: rowH, w: cx - GX }); cx = 0; cy += rowH + GY; rowH = 0; row = []; }
+      const it = { ...cd, x: cx, y: cy }; out.push(it); row.push(it); cx += cd.w + GX; rowH = Math.max(rowH, cd.h);
     }
-    return { out, h: cy + rowH };
+    if (row.length) lines.push({ items: row, y: cy, h: rowH, w: cx - GX });
+    return { out, lines, h: cy + rowH };
+  };
+  // układ „skyline”: każde okienko (od najwyższych) w najwyżej położonym wolnym miejscu, w które się mieści —
+  // niskie okienka wchodzą w lukę obok wysokich (zamiast pustego pola pod rzędem)
+  const skyline = k => {
+    const cards = [...rows].map(r => cardOf(r, k)).sort((a, b) => b.h - a.h || b.w - a.w), out = [];
+    for (const cd of cards) {
+      const xs = [0, ...out.map(o => o.x + o.w + GX)].filter(x => x + cd.w <= areaW + 0.5);
+      let best = null;
+      for (const x of (xs.length ? xs : [0])) {
+        const y = out.filter(o => o.x < x + cd.w + GX && x < o.x + o.w + GX).reduce((m, o) => Math.max(m, o.y + o.h + GY), 0);
+        if (!best || y < best.y - 0.5 || (Math.abs(y - best.y) <= 0.5 && x < best.x)) best = { x, y };
+      }
+      out.push({ ...cd, x: best.x, y: best.y });
+    }
+    return { out, lines: null, h: out.reduce((m, o) => Math.max(m, o.y + o.h), 0) };
   };
   // największa skala, przy której rozpiska mieści się w wysokości areaH (wyszukiwanie połówkowe)
-  const fitCards = areaH => {
-    let lo = 0.0002, hi = Math.min(areaH / maxH, areaW / maxW);
-    if (layout(hi).h <= areaH) return hi;
-    for (let i = 0; i < 32; i++) { const mid = (lo + hi) / 2; if (layout(mid).h <= areaH) lo = mid; else hi = mid; }
+  const fitCards = (areaH, order) => {
+    // szerokość: ramka + miejsce na pionowe wymiary po lewej (do 104 px) i margines — okienko nie może wyjść za arkusz
+    let lo = 0.0002, hi = Math.min(areaH / maxH, (areaW - 120) / maxW);
+    if (layout(hi, order).h <= areaH) return hi;
+    for (let i = 0; i < 32; i++) { const mid = (lo + hi) / 2; if (layout(mid, order).h <= areaH) lo = mid; else hi = mid; }
     return lo;
   };
-  // wysokość pasa z wizkami: przy wielu elementach trochę niższy, żeby rozpiska nie skurczyła się do minimum
-  const maxHp = imgs.length ? Math.min(PH * (hasCards ? 0.44 : 0.8), (availW - GAP * (imgs.length - 1)) / sumA) : 0;
-  let Hp = maxHp, k = 0;
+  // rozmiar wizek i kolejność okienek: wariant, który najlepiej wypełnia arkusz (wizki + okienka),
+  // z lekką premią za większe wizki; wizki mogą zmaleć do ok. 40%, żeby rozpiska była pełna
+  const maxHp = imgs.length ? Math.min(PH * (hasCards ? 0.5 : 0.8), (availW - GAP * (imgs.length - 1)) / sumA) : 0;
+  const totalH = PH - 70 - top;
+  const byHeight = [...rows].sort((a, b) => (b.w !== '' ? b.bh : 0) - (a.w !== '' ? a.bh : 0));
+  let Hp = maxHp, k = 0, order = rows;
   if (hasCards) {
-    const cands = imgs.length ? [1, 0.88, 0.76, 0.64].map(f => maxHp * f) : [0];
-    const ks = cands.map(h => fitCards(PH - 70 - (top + h + 50)));
-    const best = Math.max(...ks), pick = ks.findIndex(v => v >= best * 0.8);
-    Hp = cands[pick]; k = ks[pick];
+    const fs = imgs.length ? [1, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64, 0.58, 0.52, 0.46, 0.4] : [0];
+    let best = -1;
+    for (const f of fs) for (const ord of [rows, byHeight, 'sky']) {
+      const h = maxHp * f, areaH = totalH - (h ? h + 50 : 0), kk = fitCards(areaH, ord);
+      const L = layout(kk, ord), cardsA = L.out.reduce((a, cd) => a + cd.w * cd.h, 0);
+      const fill = (h * (h ? sumA : 0) + cardsA) / (availW * totalH);
+      const score = fill + 0.22 * (maxHp ? h / maxHp : 0) + (ord === rows ? 0.015 : 0);
+      if (score > best) { best = score; Hp = h; k = kk; order = ord; }
+    }
   }
   let x = M + (availW - (Hp * sumA + GAP * (imgs.length - 1))) / 2;
   imgs.forEach((o, i) => {
@@ -5187,7 +5214,19 @@ async function renderIndexA3(stamp) {
     x += w + GAP;
   });
   if (hasCards) {
-    const y0 = top + Hp + 50, L = layout(k);
+    const y0 = top + (Hp ? Hp + 50 : 0), L = layout(k, order);
+    // reszta miejsca rozłożona równo: w rzędzie między okienkami, w pionie między rzędami (bez przesady w ostatnim, krótkim rzędzie)
+    const freeV = Math.max(0, totalH - (Hp ? Hp + 50 : 0) - L.h), dV = L.lines && L.lines.length > 1 ? Math.min(freeV / L.lines.length, 160) : Math.min(freeV / 2, 120);
+    if (L.lines) L.lines.forEach((ln, li) => {
+      const n = ln.items.length, freeH = areaW - ln.w;
+      const last = li === L.lines.length - 1, dH = n > 1 ? Math.min(freeH / (n - 1), last ? GX * 3 : freeH) : 0;
+      ln.items.forEach((it, i) => { it.x += i * dH; it.y += li * dV + dV / 2; });
+    });
+    else { // skyline: wolne miejsce rozciągnięte proporcjonalnie w poziomie i w pionie
+      const R = L.out.reduce((m, o) => Math.max(m, o.x + o.w), 0), mx = Math.max(1, ...L.out.map(o => o.x)), my = Math.max(1, ...L.out.map(o => o.y));
+      const freeX = Math.max(0, areaW - R), freeY = Math.min(freeV, 120 * Math.max(1, L.out.length / 4));
+      L.out.forEach(o => { o.x += o.x / mx * freeX; o.y += o.y / my * freeY + Math.min(freeV - freeY, 40) / 2; });
+    }
     for (const cd of L.out) {
       const { r, d, FW, FH, LM, BM } = cd, bx = M + cd.x, by = y0 + cd.y;
       drawBadge(g, bx + 24, by + 24, 22, r.color, r.znak);
