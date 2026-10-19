@@ -5368,21 +5368,35 @@ async function renderIndexA3(stamp) {
     return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes, title, nlines, head };
   };
   // okienka w rzędach (kolejność: alfabetycznie albo od najwyższych — co lepiej wypełnia arkusz)
-  const layout = (k, order = rows) => {
-    if (order === 'sky') return skyline(k);
+  // okienka po kolei (A, B, C… / 1, 2, 3…) w rzędach; obs = blok wizek u góry — rzędy obok niego go omijają
+  const layout = (k, order = rows, obs = null) => {
+    if (order === 'sky') return skyline(k, obs);
     let cx = 0, cy = 0, rowH = 0, row = []; const out = [], lines = [];
+    const obsB = obs ? obs.h + GY : 0;
+    const hits = (x, w) => obs && cy < obsB && x < obs.x + obs.w + GX && x + w + GX > obs.x; // okienko weszłoby na wizki
+    const newRow = () => {
+      if (row.length) lines.push({ items: row, y: cy, h: rowH, w: cx - GX });
+      cy = row.length ? cy + rowH + GY : Math.max(cy, obsB); // pusty rząd obok wizek = schodzimy pod wizki
+      cx = 0; rowH = 0; row = [];
+    };
     for (const r of order) {
       const cd = cardOf(r, k);
-      if (cx > 0 && cx + cd.w > areaW) { lines.push({ items: row, y: cy, h: rowH, w: cx - GX }); cx = 0; cy += rowH + GY; rowH = 0; row = []; }
+      for (let guard = 0; guard < 50; guard++) {
+        if (hits(cx, cd.w)) cx = Math.max(cx, obs.x + obs.w + GX);
+        const fits = cx + cd.w <= areaW + 0.5 && !hits(cx, cd.w);
+        if (fits || (cx === 0 && !row.length && cy >= obsB)) break; // za szerokie na pusty rząd — i tak tu (skala to poprawi)
+        newRow();
+      }
       const it = { ...cd, x: cx, y: cy }; out.push(it); row.push(it); cx += cd.w + GX; rowH = Math.max(rowH, cd.h);
     }
     if (row.length) lines.push({ items: row, y: cy, h: rowH, w: cx - GX });
-    return { out, lines, h: cy + rowH };
+    return { out, lines, h: Math.max(cy + rowH, obs ? obs.h : 0) };
   };
   // układ „skyline”: każde okienko (od najwyższych) w najwyżej położonym wolnym miejscu, w które się mieści —
   // niskie okienka wchodzą w lukę obok wysokich (zamiast pustego pola pod rzędem)
-  const skyline = k => {
-    const cards = [...rows].map(r => cardOf(r, k)).sort((a, b) => b.h - a.h || b.w - a.w), out = [];
+  // obs = blok wizek stojący u góry obok okienek (x, w, h) — okienka omijają go i wypełniają miejsce obok
+  const skyline = (k, obs = null) => {
+    const cards = [...rows].map(r => cardOf(r, k)).sort((a, b) => b.h - a.h || b.w - a.w), out = obs ? [{ x: obs.x, y: 0, w: obs.w, h: obs.h, obs: true }] : [];
     for (const cd of cards) {
       const xs = [0, ...out.map(o => o.x + o.w + GX)].filter(x => x + cd.w <= areaW + 0.5);
       let best = null;
@@ -5392,14 +5406,14 @@ async function renderIndexA3(stamp) {
       }
       out.push({ ...cd, x: best.x, y: best.y });
     }
-    return { out, lines: null, h: out.reduce((m, o) => Math.max(m, o.y + o.h), 0) };
+    return { out: out.filter(o => !o.obs), lines: null, h: out.reduce((m, o) => Math.max(m, o.y + o.h), 0) };
   };
   // największa skala, przy której rozpiska mieści się w wysokości areaH (wyszukiwanie połówkowe)
-  const fitCards = (areaH, order) => {
+  const fitCards = (areaH, order, obs = null) => {
     // szerokość: ramka + miejsce na pionowe wymiary po lewej (do 104 px) i margines — okienko nie może wyjść za arkusz
     let lo = 0.0002, hi = Math.min(areaH / maxH, (areaW - 120) / maxW);
-    if (layout(hi, order).h <= areaH) return hi;
-    for (let i = 0; i < 32; i++) { const mid = (lo + hi) / 2; if (layout(mid, order).h <= areaH) lo = mid; else hi = mid; }
+    if (layout(hi, order, obs).h <= areaH) return hi;
+    for (let i = 0; i < 32; i++) { const mid = (lo + hi) / 2; if (layout(mid, order, obs).h <= areaH) lo = mid; else hi = mid; }
     return lo;
   };
   // rozmiar wizek i kolejność okienek: wariant, który najlepiej wypełnia arkusz (wizki + okienka),
@@ -5407,19 +5421,35 @@ async function renderIndexA3(stamp) {
   const maxHp = imgs.length ? Math.min(PH * (hasCards ? 0.5 : 0.8), (availW - GAP * (imgs.length - 1)) / sumA) : 0;
   const totalH = PH - 70 - top;
   const byHeight = [...rows].sort((a, b) => (b.w !== '' ? b.bh : 0) - (a.w !== '' ? a.bh : 0));
-  let Hp = maxHp, k = 0, order = rows;
+  let Hp = maxHp, k = 0, order = rows, side = null; // side = blok wizek z okienkami obok (zamiast pasa wizek nad okienkami)
+  const photoW = h => h * sumA + GAP * (imgs.length - 1);
   if (hasCards) {
     const fs = imgs.length ? [1, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64, 0.58, 0.52, 0.46, 0.4] : [0];
     let best = -1;
-    for (const f of fs) for (const ord of [rows, byHeight, 'sky']) {
+    const kRef = fitCards(totalH, rows) || 1; // największa możliwa skala okienek (bez wizek) — do oceny czytelności
+    for (const f of fs) for (const ord of [rows]) { // zawsze po kolei: A, B, C… / 1, 2, 3…
       const h = maxHp * f, areaH = totalH - (h ? h + 50 : 0), kk = fitCards(areaH, ord);
       const L = layout(kk, ord), cardsA = L.out.reduce((a, cd) => a + cd.w * cd.h, 0);
       const fill = (h * (h ? sumA : 0) + cardsA) / (availW * totalH);
-      const score = fill + 0.22 * (maxHp ? h / maxHp : 0) + (ord === rows ? 0.015 : 0);
-      if (score > best) { best = score; Hp = h; k = kk; order = ord; }
+      const score = fill + 0.22 * (maxHp ? h / maxHp : 0) + 0.35 * kk / kRef + (ord === rows ? 0.015 : 0);
+      if (score > best) { best = score; Hp = h; k = kk; order = ord; side = null; }
+    }
+    // wizki obok okienek: większa wizka u góry z lewej / z prawej / na środku, okienka wypełniają miejsce obok i pod nią
+    if (imgs.length) {
+      const maxHs = Math.min(totalH * 0.78, (availW - GAP * (imgs.length - 1)) / sumA);
+      for (const f of [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.45]) for (const pos of ['L', 'R', 'C']) {
+        const h = maxHs * f, w = photoW(h);
+        if (w > availW - 300) continue; // obok wizki musi zostać miejsce na okienka
+        const obs = { x: pos === 'L' ? 0 : pos === 'R' ? availW - w : (availW - w) / 2, w, h: h + 50 };
+        const kk = fitCards(totalH, rows, obs), L = layout(kk, rows, obs), cardsA = L.out.reduce((a, cd) => a + cd.w * cd.h, 0);
+        const fill = (h * sumA + cardsA) / (availW * totalH);
+        // większa wizka i czytelne (duże) okienka — w równowadze
+        const r0 = maxHp ? Math.min(1.4, h / maxHp) : 0, score = fill + 0.22 * r0 + 0.35 * kk / kRef - (pos === 'C' ? 0.06 : 0); // wizka z boku: kolejność czyta się wierszami bez przeskoków
+        if (score > best) { best = score; Hp = h; k = kk; order = rows; side = obs; }
+      }
     }
   }
-  let x = M + (availW - (Hp * sumA + GAP * (imgs.length - 1))) / 2;
+  let x = M + (side ? side.x : (availW - photoW(Hp)) / 2);
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
     const here = rows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
@@ -5429,10 +5459,14 @@ async function renderIndexA3(stamp) {
     x += w + GAP;
   });
   if (hasCards) {
-    const y0 = top + (Hp ? Hp + 50 : 0), L = layout(k, order);
+    const y0 = top + (side ? 0 : Hp ? Hp + 50 : 0), L = layout(k, order, side);
     // reszta miejsca rozłożona równo: w rzędzie między okienkami, w pionie między rzędami (bez przesady w ostatnim, krótkim rzędzie)
-    const freeV = Math.max(0, totalH - (Hp ? Hp + 50 : 0) - L.h), dV = L.lines && L.lines.length > 1 ? Math.min(freeV / L.lines.length, 160) : Math.min(freeV / 2, 120);
-    if (L.lines) L.lines.forEach((ln, li) => {
+    const freeV = Math.max(0, totalH - (side ? 0 : Hp ? Hp + 50 : 0) - L.h), dV = L.lines && L.lines.length > 1 ? Math.min(freeV / L.lines.length, 160) : Math.min(freeV / 2, 120);
+    if (side) { // wizki obok okienek: rzędy rozsunięte tylko w pionie (w poziomie weszłyby na wizki)
+      const n = L.lines.length, dV2 = n > 1 ? Math.min(freeV / n, 120) : Math.min(freeV / 2, 80);
+      L.lines.forEach((ln, li) => ln.items.forEach(it => { it.y += li * dV2 + dV2 / 2; }));
+    }
+    else if (L.lines) L.lines.forEach((ln, li) => {
       const n = ln.items.length, freeH = areaW - ln.w;
       const last = li === L.lines.length - 1, dH = n > 1 ? Math.min(freeH / (n - 1), last ? GX * 3 : freeH) : 0;
       ln.items.forEach((it, i) => { it.x += i * dH; it.y += li * dV + dV / 2; });
