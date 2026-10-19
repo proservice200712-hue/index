@@ -627,6 +627,8 @@
   #tour-tip .tt-ro { margin-top: 10px; font-size: .75rem; color: #718096; }
   .ed-rn { margin-left: 8px; background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.35); font-size: .72rem; padding: 2px 8px; cursor: pointer; font-weight: 600; }
   .ed-rn:hover { background: rgba(103,180,55,.55); }
+  table.el tr.rowhid td { opacity: .45; }
+  table.el tr.hid-sum td { text-align: center; color: #718096; font-size: .8rem; padding: 8px; background: #f7fafc; }
   .bk-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .bk-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; border: 2px solid var(--line, #e2e8f0); background: #fff; cursor: pointer; text-align: left; border-radius: 10px; }
   .bk-opt:hover { border-color: #67b437; background: #f3faef; }
@@ -1306,6 +1308,8 @@ I18N_PAIRS.push(['✎ zmień znak', '✎ змінити позначку', '✎ 
   ['Kliknij, aby zmienić znak', 'Клікни, щоб змінити позначку', 'Click to change the mark'], ['Gdy ten znak ma już inny element, zamienią się znakami.', 'Якщо цю позначку вже має інший елемент, вони поміняються позначками.', 'If another element already has this mark, they will swap marks.'],
   ['Zmień', 'Змінити', 'Change']);
 I18N_PAIRS.push(['Podświetlenie', 'Підсвічування', 'Lighting']);
+I18N_PAIRS.push(['Ukryj w tabeli (zostaje na wizce, w zleceniu i eksporcie)', 'Сховати в таблиці (лишається на візуалізації, у замовленні й експорті)', 'Hide in the table (stays on the visual, in the order and export)'],
+  ['Pokaż w tabeli', 'Показати в таблиці', 'Show in the table'], ['Ukryte w tabeli:', 'Сховані в таблиці:', 'Hidden in the table:'], ['pokaż', 'показати', 'show'], ['schowaj', 'сховати', 'hide']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -4622,11 +4626,14 @@ function renderElements() {
       : 'Zacznij od dodania wizek stoiska — przeciągnij je w górną część ekranu albo wklej (Ctrl+V).'}</div>`;
     return;
   }
+  // elementy ukryte w tabeli (tblHidden): zwinięte pod tabelą, „pokaż” wyświetla je wyszarzone
+  const hiddenN = list.filter(e => e.tblHidden).length;
+  const rows = S.showHiddenRows ? list : list.filter(e => !e.tblHidden);
   $('el-scroll').innerHTML = `<table class="el"><thead><tr>
       <th>Znak</th><th>Typ</th><th class="c">Netto [${UNIT()}]</th><th class="c">Spad</th><th class="c">Do druku [${UNIT()}]</th><th class="c">Szt.</th><th class="c">m²</th><th>Uwagi</th><th class="c">Kto</th><th></th>
-    </tr></thead><tbody>${list.map(e => {
+    </tr></thead><tbody>${rows.map(e => {
       const t = typeById(e.typeId), g = grossOf(e), dims = hasDims(e);
-      return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'} ${isAlert(e) ? 'alert' : ''}" ${isAlert(e) ? `title="Zmienione przez ${esc(userLabel(e.updatedBy || e.createdBy))} — kliknij, aby oznaczyć jako widziane"` : ''}>
+      return `<tr data-eid="${e.id}" class="${e.id === S.selId ? 'sel' : ''} ${dims ? '' : 'nodim'} ${isAlert(e) ? 'alert' : ''} ${e.tblHidden ? 'rowhid' : ''}" ${isAlert(e) ? `title="Zmienione przez ${esc(userLabel(e.updatedBy || e.createdBy))} — kliknij, aby oznaczyć jako widziane"` : ''}>
         <td><span class="badge${glowOf(e) ? ' glow' : ''}" style="background:${colorOf(e)}">${markOf(e)}</span></td>
         <td><span class="tdot" style="background:${colorOf(e)}"></span>${esc(typeLabel(e))}</td>
         <td class="dims">${dims ? netTxt(e) : 'do ustalenia'}</td>
@@ -4640,10 +4647,12 @@ function renderElements() {
           ${e.shape ? '' : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
           ${!isAdmin() ? '' : axLinked(e) ? axBadge(e)
             : e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
+          <button title="${e.tblHidden ? 'Pokaż w tabeli' : 'Ukryj w tabeli (zostaje na wizce, w zleceniu i eksporcie)'}" onclick="event.stopPropagation();toggleRowHidden('${e.id}')">${e.tblHidden ? '👁' : '🙈'}</button>
           <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
           <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
       </tr>`;
-    }).join('')}</tbody>
+    }).join('')}${hiddenN ? `<tr class="hid-sum"><td colspan="10">🙈 Ukryte w tabeli: <b>${hiddenN}</b> —
+      <button type="button" class="btn btn-sm" onclick="event.stopPropagation();S.showHiddenRows=!S.showHiddenRows;renderElements()">${S.showHiddenRows ? 'schowaj' : 'pokaż'}</button></td></tr>` : ''}</tbody>
     </table>`;
   $('el-scroll').querySelectorAll('tr[data-eid]').forEach(tr => {
     tr.onclick = () => selectElement(tr.dataset.eid);
@@ -4651,6 +4660,13 @@ function renderElements() {
     tr.onmouseenter = () => setHover(tr.dataset.eid);
     tr.onmouseleave = () => setHover(null);
   });
+}
+
+// ukrycie / pokazanie elementu w tabeli (zapisane w stoisku — widzą to wszyscy; wizka, zlecenie i eksport bez zmian)
+async function toggleRowHidden(id) {
+  const el = S.elements.find(e => e.id === id); if (!el || !S.project) return;
+  await DB.update(pElements(S.project.id), id, { tblHidden: !el.tblHidden });
+  if (!el.tblHidden) toast(`Element ${markOf(el)} ukryty w tabeli — „pokaż” pod tabelą`);
 }
 
 // =====================================================================
