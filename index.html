@@ -1310,8 +1310,8 @@ I18N_PAIRS.push(['✎ zmień znak', '✎ змінити позначку', '✎ 
   ['Kliknij, aby zmienić znak', 'Клікни, щоб змінити позначку', 'Click to change the mark'], ['Gdy ten znak ma już inny element, zamienią się znakami.', 'Якщо цю позначку вже має інший елемент, вони поміняються позначками.', 'If another element already has this mark, they will swap marks.'],
   ['Zmień', 'Змінити', 'Change']);
 I18N_PAIRS.push(['Podświetlenie', 'Підсвічування', 'Lighting']);
-I18N_PAIRS.push(['Zrób półprzezroczysty na wizce (w tabeli, zleceniu i eksporcie bez zmian)', 'Зробити напівпрозорим на візуалізації (у таблиці, замовленні й експорті без змін)', 'Make semi-transparent on the visual (table, order and export unchanged)'],
-  ['Półprzezroczysty na wizce — kliknij, aby był znów widoczny', 'Напівпрозорий на візуалізації — клікни, щоб знову був видимий', 'Semi-transparent on the visual — click to make it visible again']);
+I18N_PAIRS.push(['Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)', 'Сховати: напівпрозорий на візуалізації й пропущений в експорті (таблиця й замовлення без змін)', 'Hide: semi-transparent on the visual and left out of the export (table and order unchanged)'],
+  ['Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny', 'Схований: напівпрозорий на візуалізації й пропущений в експорті — клікни, щоб знову був видимий', 'Hidden: semi-transparent on the visual and left out of the export — click to show it again']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -4647,7 +4647,7 @@ function renderElements() {
           ${e.shape ? '' : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
           ${!isAdmin() ? '' : axLinked(e) ? axBadge(e)
             : e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
-          <button class="eye-btn${e.tblHidden ? ' off' : ''}" title="${e.tblHidden ? 'Półprzezroczysty na wizce — kliknij, aby był znów widoczny' : 'Zrób półprzezroczysty na wizce (w tabeli, zleceniu i eksporcie bez zmian)'}" onclick="event.stopPropagation();toggleRowHidden('${e.id}')">${eyeIcon(!e.tblHidden)}</button>
+          <button class="eye-btn${e.tblHidden ? ' off' : ''}" title="${e.tblHidden ? 'Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny' : 'Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)'}" onclick="event.stopPropagation();toggleRowHidden('${e.id}')">${eyeIcon(!e.tblHidden)}</button>
           <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
           <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
       </tr>`;
@@ -4874,8 +4874,14 @@ function openExportDialog() {
   };
   sync();
 }
+// element ukryty okiem (tblHidden) nie idzie do eksportu — razem z nim wysłona jego lightboxa i drzwi jego ściany
+function hiddenInExport(e) {
+  if (e.tblHidden) return true;
+  const main = (e.backFor || e.doorFor) && S.elements.find(x => x.id === (e.backFor || e.doorFor));
+  return !!(main && main.tblHidden);
+}
 function exportRows() {
-  return S.elements.map(e => {
+  return S.elements.filter(e => !hiddenInExport(e)).map(e => {
     const t = typeById(e.typeId), g = grossOf(e);
     return { znak: markOf(e), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
       w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
