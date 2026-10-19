@@ -622,6 +622,13 @@
   #tour-tip .tt-dots i { width: 7px; height: 7px; border-radius: 50% !important; background: #cbd5e0; }
   #tour-tip .tt-dots i.on { background: #67b437; }
   #tour-tip .tt-ro { margin-top: 10px; font-size: .75rem; color: #718096; }
+  .bk-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .bk-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; border: 2px solid var(--line, #e2e8f0); background: #fff; cursor: pointer; text-align: left; border-radius: 10px; }
+  .bk-opt:hover { border-color: #67b437; background: #f3faef; }
+  .bk-opt b { font-size: 1rem; }
+  .bk-opt small { color: #718096; }
+  .bk-dot { width: 22px; height: 22px; border-radius: 50% !important; background: #2b2a29; border: 2px solid #fff; box-shadow: 0 0 0 1px #2b2a29; }
+  .bk-opt[data-mat="whiteback"] .bk-dot { background: #fff; box-shadow: 0 0 0 1px #a0aec0; }
   .split-warn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 5px; border-radius: 50% !important; background: #e53e3e; color: #fff;
     font: 800 .7rem/1 'Segoe UI', Arial, sans-serif; vertical-align: middle; cursor: help; animation: scDot 1.4s infinite; }
   .split-line { margin-top: 4px; color: #c53030; font-weight: 600; }
@@ -1281,6 +1288,9 @@ I18N_PAIRS.push(['produkcja', 'виробництво', 'production'],
   ['Wydruk na folii (z laminatem lub bez): krótszy bok do druku ma ponad 150 cm — będzie musiał być dzielony na pasy', 'Друк на плівці (з ламінатом чи без): коротший бік до друку понад 150 см — його доведеться ділити на смуги', 'Foil print (with or without laminate): the shorter print side is over 150 cm — it will have to be split into strips'],
   ['wydruk na folii — krótszy bok ponad 150 cm, będzie dzielony', 'друк на плівці — коротший бік понад 150 см, буде ділитися', 'foil print — shorter side over 150 cm, will be split'],
   ['dzielony (krótszy bok ponad 150 cm)', 'ділиться (коротший бік понад 150 см)', 'split (shorter side over 150 cm)']);
+I18N_PAIRS.push(['Whiteback', 'Whiteback', 'Whiteback'], ['Blackback z odwróconym szyciem', 'Blackback зі зворотним швом', 'Blackback with reversed stitching'],
+  ['wysłona z tkaniny Whiteback', 'вислона з тканини Whiteback', 'backing made of Whiteback fabric'], ['wysłona z Blackbacku szyta odwrotnie', 'вислона з Blackback, зшита навпаки', 'Blackback backing, stitched reversed'],
+  ['Wysłona za lightboxem', 'Вислона за лайтбоксом', 'Backing behind the lightbox'], ['Bez wysłony', 'Без вислони', 'No backing'], ['Nie wybrano — zapytam przy zapisie.', 'Не вибрано — запитаю під час збереження.', 'Not chosen — I’ll ask when saving.']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -1704,6 +1714,7 @@ function wysNumFor(d, selfId) {
 const notesOf = el => { const t = typeById(el.typeId);
   return [t.seg && el.seg ? 'SEG' : '', t.wyslona && el.wyslona ? 'Wysłona' : '', needsSplit(el) ? '! ' + SPLIT_TXT : '', el.notes || ''].filter(Boolean).join(' · '); };
 function typeLabel(el) {
+  if (el.backFor) return 'Wysłona lightboxa · ' + (backMatName(el) || 'materiał do ustalenia') + ' · SEG';
   const t = typeById(el.typeId), v = variantOf(el);
   let s = t.name;
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
@@ -1711,7 +1722,7 @@ function typeLabel(el) {
   TYPE_TOGGLES.forEach(([k, , lab]) => { if (t[k] && el[k]) s += ' · ' + lab; });
   if (t.finish) { const f = FINISHES.find(([k]) => k === el.finish); if (f) s += ' · ' + f[2]; }
   if (t.seg && el.seg) s += ' · SEG';
-  if (t.wyslona && el.wyslona) s += ' · wysłona';
+  if (t.wyslona && el.wyslona) s += ' · wysłona · SEG'; // wysłona jest obszywana płaską gumką (SEG)
   return s;
 }
 const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
@@ -1816,6 +1827,73 @@ async function syncDoorElement(mainId, main) {
   if (main.shape && main.photoId) { const [cx, cy] = shapeCenter(main.shape); rec.shape = { kind: 'point', pts: [[clamp(cx + 0.05, 0, 1), clamp(cy + 0.05, 0, 1)]] }; }
   const id = await DB.add(pElements(pid), rec);
   addLog(pid, `Dodano drzwi do ściany ${markOf(main)} — grafika na drzwi ${grossTxt(rec)} ${UNIT()}`, id);
+}
+// =====================================================================
+//  WYSŁONA DO LIGHTBOXA SEG: osobny, powiązany element (jak drzwi przy ścianie) — wysłona W…,
+//  wymiar i ilość jak lightbox, materiał: Whiteback albo Blackback z odwróconym szyciem.
+//  Przy zapisie lightboxa SEG pytamy raz, czy jest potrzebna (lightbox.backAsked).
+// =====================================================================
+const BACK_MATS = [['whiteback', 'Whiteback', 'wysłona z tkaniny Whiteback'], ['blackback-rev', 'Blackback z odwróconym szyciem', 'wysłona z Blackbacku szyta odwrotnie']];
+const backMatName = el => (BACK_MATS.find(([k]) => k === el.backMat) || [])[1] || '';
+const isLbSeg = el => !!(el && el.typeId === 'lightbox' && el.seg);
+const backOf = lb => lb && S.elements.find(e => e.backFor === lb.id);
+// pytanie po zapisie: najpierw „czy potrzebna?”, po „Tak” nowe okno z dwoma materiałami. Wynik: 'none' | materiał | null (zamknięte)
+function askBackMat(lb) {
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    const q = openModal({ title: `Lightbox SEG ${esc(markOf(lb))} — wysłona`,
+      body: `<div style="line-height:1.55">Czy do lightboxa <b>${esc(markOf(lb))}</b> potrzebna jest <b>wysłona</b>?
+        <div class="hint" style="margin-top:6px">Wymiar wysłony będzie taki sam jak lightboxa${hasDims(lb) ? `: <b>${esc(netTxt(lb))} ${UNIT()}</b>` : ''}.</div></div>`,
+      footer: `<button class="btn" data-no>Nie</button><button class="btn btn-solid" data-yes>Tak</button>`, onClose: () => fin(null) });
+    q.el.querySelector('[data-no]').onclick = () => { fin('none'); q.close(); };
+    q.el.querySelector('[data-yes]').onclick = () => {
+      done = true; q.close(); done = false;
+      const m = openModal({ title: `Wysłona do lightboxa ${esc(markOf(lb))}`,
+        body: `<div class="hint" style="margin-bottom:10px">Wybierz materiał wysłony — wymiar${hasDims(lb) ? ` <b>${esc(netTxt(lb))} ${UNIT()}</b>` : ''} jak lightbox.</div>
+          <div class="bk-opts">${BACK_MATS.map(([k, n, d]) => `<button type="button" class="bk-opt" data-mat="${k}"><span class="bk-dot"></span><b>${n}</b><small>${d}</small></button>`).join('')}</div>`,
+        footer: `<button class="btn" data-c>Anuluj</button>`, onClose: () => fin(null) });
+      m.el.querySelector('[data-c]').onclick = () => m.close();
+      m.el.querySelectorAll('[data-mat]').forEach(b => b.onclick = () => { fin(b.dataset.mat); m.close(); });
+    };
+  });
+}
+// po zapisie lightboxa: utworzenie / zmiana / usunięcie wysłony; sel: '' = zapytaj (raz), 'skip' = nie pytaj teraz, 'none', materiał
+async function applyLightboxBack(lbId, lb, sel) {
+  const pid = S.project && S.project.id; if (!pid || !lbId) return;
+  lb = { ...lb, id: lbId };
+  let back = S.elements.find(e => e.backFor === lbId);
+  if (!isLbSeg(lb)) {
+    if (back) { await DB.del(pElements(pid), back.id); addLog(pid, `Usunięto wysłonę ${markOf(back)} — lightbox ${markOf(lb)} nie jest już SEG`, lbId); }
+    return;
+  }
+  if (sel === 'skip') return;
+  if (!sel && !back) {
+    if (lb.backAsked) return;
+    sel = await askBackMat(lb);
+    if (sel === null) return; // okno zamknięte bez odpowiedzi — zapytamy przy następnym zapisie
+    await DB.update(pElements(pid), lbId, { backAsked: true });
+    back = S.elements.find(e => e.backFor === lbId);
+  }
+  if (!sel && back) sel = back.backMat;
+  if (sel === 'none') {
+    if (back) { await DB.del(pElements(pid), back.id); addLog(pid, `Usunięto wysłonę ${markOf(back)} lightboxa ${markOf(lb)}`, lbId); }
+    if (!lb.backAsked) await DB.update(pElements(pid), lbId, { backAsked: true });
+    return;
+  }
+  const dims = { w: lb.w, h: lb.h, qty: Math.max(1, Number(lb.qty) || 1), photoId: lb.photoId || '', shape: lb.shape ? clone(lb.shape) : null, backMat: sel };
+  if (back) {
+    const ch = ['w', 'h', 'qty', 'photoId', 'backMat'].some(k => String(back[k] ?? '') !== String(dims[k] ?? '')) || JSON.stringify(back.shape || null) !== JSON.stringify(dims.shape);
+    if (ch) {
+      await DB.update(pElements(pid), back.id, { ...dims, updatedAt: nowIso(), updatedBy: S.me.id });
+      if (back.backMat !== sel) addLog(pid, `Wysłona ${markOf(back)} lightboxa ${markOf(lb)} → ${backMatName({ backMat: sel })}`, back.id);
+    }
+    return;
+  }
+  const rec = { typeId: 'blackback', variant: '', seg: false, wyslona: true, wnum: wysNumFor({ typeId: 'blackback', wyslona: true }), num: nextNum(),
+    backFor: lbId, name: '', notes: '', thick: '', laminate: false, contour: false, finish: '', ...dims, createdAt: nowIso(), createdBy: S.me.id };
+  const id = await DB.add(pElements(pid), rec);
+  if (!lb.backAsked) await DB.update(pElements(pid), lbId, { backAsked: true });
+  addLog(pid, `Dodano wysłonę W${rec.wnum} do lightboxa ${markOf(lb)} — ${backMatName(rec)}${hasDims(rec) ? ', ' + netTxt(rec) + ' ' + UNIT() : ''}`, id);
 }
 // spady do wyboru (Blackback standard i Folia): automatyczne z typu, jeden dla wszystkich stron albo różne z każdej strony
 // pola powiązania z Archiwum X do zapisu; zdjęcie z archiwum trafia na miniaturę tylko przy nowym wyborze
@@ -2855,7 +2933,8 @@ function renderOverlay() {
       <text x="${b.x + b.w - 12 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${14 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">✕</text></g>`;
   });
   const marks = [];
-  S.elements.forEach(el => locsOf(el).forEach(l => { if (L.map[l.photoId]) marks.push({ el, ...l }); }));
+  // wysłona lightboxa nie ma własnego znacznika — rysujemy ją obok znacznika lightboxa
+  S.elements.forEach(el => { if (!el.backFor) locsOf(el).forEach(l => { if (L.map[l.photoId]) marks.push({ el, ...l }); }); });
   // zaznaczony na końcu (na wierzchu)
   marks.sort((a, b) => (a.el.id === S.selId) - (b.el.id === S.selId));
   for (const mk of marks) {
@@ -2890,6 +2969,14 @@ function renderOverlay() {
       <circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r}" fill="${t.color}" stroke="#fff" stroke-width="${(sel ? 3 : 2) * s}"/>
       <text x="${X(b, [cx])}" y="${Y([0, cy])}" dy="${4.6 * s * wk}" text-anchor="middle" font-size="${(markOf(el).length > 2 ? 9 : markOf(el).length > 1 ? 10.5 : 13) * s * wk}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${markOf(el)}</text>
     </g></g>`;
+    // wysłona lightboxa SEG: kółko w kolorze Blackbacku z jej numerem W…, tuż obok znacznika
+    const bk = (loc ?? -1) < 0 && isLbSeg(el) && backOf(el);
+    if (bk) {
+      const rb = 15 * s * 0.8, bx = +X(b, [cx]) + r + rb + 3 * s, by = +Y([0, cy]), bc = typeById('blackback').color;
+      out += `<g class="bk" data-back="${bk.id}" style="cursor:pointer"><title>Wysłona ${esc(markOf(bk))} — ${esc(backMatName(bk))} (kliknij, aby edytować)</title>
+        <circle cx="${bx}" cy="${by}" r="${rb}" fill="${bc}" stroke="#fff" stroke-width="${2 * s}"/>
+        <text x="${bx}" y="${by}" dy="${4.6 * s * 0.8}" text-anchor="middle" font-size="${(markOf(bk).length > 2 ? 9 : 10.5) * s * 0.8}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${esc(markOf(bk))}</text></g>`;
+    }
     if (selHere && tool === 'point' && sh.kind !== 'point') {
       shapePolyPts(sh).forEach((q, i) => {
         out += `<rect class="hdl" data-h="${i}" data-eid="${el.id}" data-loc="${loc}" x="${+X(b, q) - 5 * s}" y="${+Y(q) - 5 * s}" width="${10 * s}" height="${10 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"/>`;
@@ -2954,6 +3041,9 @@ viewer.addEventListener('pointerdown', e => {
     }
     act = null; renderOverlay(); updateHint(); return;
   }
+  // znacznik wysłony obok lightboxa: klik otwiera jej okno
+  const bkn = e.target.closest('.bk');
+  if (bkn) { act = null; openElementDialog({ id: bkn.dataset.back }); return; }
   // narzędzie „Zaznacz kliknięciem"
   const h = e.target.closest('.hdl');
   const g = e.target.closest('.shp');
@@ -3336,6 +3426,7 @@ async function arcSave() {
     addLog(pid, `Dodano element ${lab} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
     closeArcMenu();
     S.selId = newId; renderOverlay();
+    if (isLbSeg(rec)) applyLightboxBack(newId, rec, '');
   } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); if (go) go.disabled = false; }
 }
 function arcKey(e) {
@@ -3669,6 +3760,8 @@ function openElementDialog({ id, shape, photoId, turbo }) {
   const editing = id ? S.elements.find(e => e.id === id) : null;
   if (id && !editing) return;
   const el = editing ? clone(editing) : { typeId: '', name: '', w: '', h: '', qty: 1, notes: '', num: nextNum() };
+  // wysłona lightboxa SEG: wybór w oknie ('' = jeszcze nie zdecydowano — pytanie przy zapisie)
+  { const bk = editing && backOf(editing); el.backSel = bk ? bk.backMat : editing && editing.backAsked ? 'none' : ''; }
   const lab = editing ? markOf(editing) : markOf(el);
   const types = S.types;
   pendingShape = editing ? null : (shape ? { shape, photoId } : null);
@@ -3758,6 +3851,10 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         <button type="button" class="type-btn var-btn ${mount === 'std' ? 'on' : ''}" data-mount="std">Standard</button>
         <button type="button" class="type-btn var-btn ${mount === 'seg' ? 'on' : ''}" data-mount="seg">SEG <span class="qtip" data-tip="${esc('SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami')}">?</span></button>
         ${t.wyslona ? `<button type="button" class="type-btn var-btn ${mount === 'wys' ? 'on' : ''}" data-mount="wys">Wysłona</button>` : ''}</div></div>`;
+      if (t.id === 'lightbox' && el.seg) h += `<div class="fld"><label>Wysłona za lightboxem</label><div class="var-list">
+        <button type="button" class="type-btn var-btn ${el.backSel === 'none' ? 'on' : ''}" data-backsel="none">Bez wysłony</button>
+        ${BACK_MATS.map(([k, n]) => `<button type="button" class="type-btn var-btn ${el.backSel === k ? 'on' : ''}" data-backsel="${k}">${n}</button>`).join('')}</div>
+        ${el.backSel ? '' : '<div class="hint">Nie wybrano — zapytam przy zapisie.</div>'}</div>`;
     }
     if (t && DOOR_TYPES.includes(t.id) && !el.doorFor) {
       const dr = el.door || (el.door = { on: false, from: 'left', dist: '', size: 'h2480' });
@@ -3814,6 +3911,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const bla = $('ed-bl-all'); if (bla) bla.addEventListener('input', () => { el.bleedAll = toMM(bla.value); refresh(); });
     $('ed-bleedopts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
+    $('ed-opts').querySelectorAll('[data-backsel]').forEach(b => b.onclick = () => { el.backSel = b.dataset.backsel; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
       el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
       $('ed-badge').textContent = isWys(el) ? 'W' + wysNumFor(el, editing ? editing.id : null) : numMark(editing && !isWys(editing) ? el.num : nextNum(editing && editing.id)); // od razu widać W1 / literę
@@ -3940,6 +4038,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         if (diff) addLog(pid, `Element ${markOf({ ...editing, ...fields })}: ${diff}`, editing.id);
         if (hasDoor({ ...editing, ...fields }) || S.elements.some(e => e.doorFor === editing.id)) await syncDoorElement(editing.id, { ...editing, ...fields });
         m.close();
+        if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
         const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
@@ -3952,6 +4051,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         addLog(pid, `Dodano element ${markOf({ ...d, num: el.num })} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
         m.close();
         S.selId = newId;
+        if (isLbSeg(rec)) applyLightboxBack(newId, rec, turbo && !el.backSel ? 'skip' : el.backSel);
         if (turbo) { setTimeout(() => openElementDialog({ shape: null, photoId: '', turbo: true }), 60); return; }
       }
     } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('ed-ok').disabled = false; }
@@ -3980,7 +4080,7 @@ async function deleteElement(id) {
   await DB.del(pElements(S.project.id), id);
   addLog(S.project.id, `Usunięto element ${markOf(el)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`);
   // razem ze ścianą znikają jej drzwi
-  for (const d of S.elements.filter(e => e.doorFor === id)) await DB.del(pElements(S.project.id), d.id);
+  for (const d of S.elements.filter(e => e.doorFor === id || e.backFor === id)) await DB.del(pElements(S.project.id), d.id);
   if (S.selId === id) S.selId = null;
 }
 function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
@@ -4482,6 +4582,8 @@ function orderLine(e) {
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
   if (e.wExpr) parts.push('szerokość: ' + wCalcTxt(e));
+  if (isLbSeg(e) && backOf(e)) parts.push(`z wysłoną ${markOf(backOf(e))} (${backMatName(backOf(e))})`);
+  if (e.backFor) { const lb = S.elements.find(x => x.id === e.backFor); if (lb) parts.push(`wysłona do lightboxa ${markOf(lb)}`); }
   if (needsSplit(e)) parts.push('dzielony (krótszy bok ponad 150 cm)');
   // uwaga typu „drzwi” / „+drzwi” przy ścianie z ustawionymi drzwiami nic nie dodaje — drzwi są w wyliczeniu i jako osobny element
   if (e.notes && !(hasDoor(e) && /^\s*\+?\s*drzwi\s*\.?\s*$/i.test(e.notes))) parts.push(e.notes);
@@ -4706,14 +4808,14 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
   g.drawImage(img, ix, iy, iw, ih);
   g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.strokeRect(ix, iy, iw, ih);
   for (const r of rows) {
-    if (!r.el.shape || r.el.shape.kind === 'point') continue;
+    if (!r.el.shape || r.el.shape.kind === 'point' || r.el.backFor) continue;
     const pts = shapePolyPts(r.el.shape);
     g.beginPath(); pts.forEach((q, j) => { const x = ix + q[0] * iw, y = iy + q[1] * ih; j ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
     g.globalAlpha = 0.22; g.fillStyle = r.color; g.fill(); g.globalAlpha = 1;
     g.lineWidth = br * 0.2; g.strokeStyle = r.color; g.lineJoin = 'round'; g.stroke();
   }
   for (const r of rows) {
-    if (!r.el.shape) continue;
+    if (!r.el.shape || r.el.backFor) continue;
     const [cx, cy] = labPos(r.el.shape);
     if (r.el.shape.lab) {
       const [ax, ay] = shapeCenter(r.el.shape);
@@ -4726,6 +4828,9 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
       g.fillStyle = r.color; g.fill(); g.lineWidth = br * .06; g.strokeStyle = '#fff'; g.stroke();
     }
     drawBadge(g, ix + cx * iw, iy + cy * ih, br, r.color, r.znak);
+    // wysłona lightboxa: mniejsze kółko Blackbacku obok
+    const bk = isLbSeg(r.el) && rows.find(x => x.el.backFor === r.el.id);
+    if (bk) drawBadge(g, ix + cx * iw + br * 1.85, iy + cy * ih, br * 0.8, typeById('blackback').color, bk.znak);
   }
 }
 // INDEX A3 (poziomo): u góry wizki obok siebie, pod nimi rozpiska graficzna jak w widoku „Grafika"
