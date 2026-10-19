@@ -384,7 +384,7 @@
     background: linear-gradient(180deg, #2f3a4f, #1b2130 55%, #121621); transition: background .15s, color .15s; }
   #arc .arc-btn .nm { overflow: hidden; text-overflow: ellipsis; }
   #arc .k { flex: 0 0 auto; min-width: 17px; height: 17px; display: inline-flex; align-items: center; justify-content: center; font-size: .64rem; font-weight: 800; color: #fff; background: #67b437; box-shadow: 0 0 0 1px #fff; }
-  #arc .arc-btn[data-t="__more"] .in { font-style: italic; }
+  #arc .arc-btn[data-t="__more"] .in, #arc .arc-btn[data-t="__view"] .in { font-style: italic; }
   #arc .gem { flex: 0 0 auto; width: 10px; height: 10px; transform: rotate(45deg); box-shadow: 0 0 0 1.5px #fff; }
   #arc .arc-btn:hover { background: #8fd65e; }
   #arc .arc-btn:hover .in { background: linear-gradient(180deg, #3b4a66, #263048 55%, #182033); }
@@ -1297,7 +1297,7 @@ const I18N_PAIRS = [
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
   ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
-  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Mat', 'Мат', 'Matte'], ['Połysk', 'Глянець', 'Gloss'], ['mat', 'мат', 'matte'], ['połysk', 'глянець', 'gloss'], ['Wykończenie', 'Оздоблення', 'Finish'], ['Kolejna sztuka…', 'Ще одна штука…', 'Another piece…'], ['Kolejna sztuka', 'Ще одна штука', 'Another piece'], ['Element', 'Елемент', 'Element'],
+  ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Mat', 'Мат', 'Matte'], ['Połysk', 'Глянець', 'Gloss'], ['mat', 'мат', 'matte'], ['połysk', 'глянець', 'gloss'], ['Wykończenie', 'Оздоблення', 'Finish'], ['Kolejna sztuka…', 'Ще одна штука…', 'Another piece…'], ['Ten sam element…', 'Той самий елемент…', 'Same element…'], ['Ten sam element', 'Той самий елемент', 'Same element'], ['Kolejna sztuka', 'Ще одна штука', 'Another piece'], ['Element', 'Елемент', 'Element'],
   ['To miejsce to kolejna sztuka elementu, który już jest na liście. Wybierz go — dostanie tu drugi znacznik, a liczba sztuk wzrośnie.', 'Це місце — ще одна штука елемента, який вже є у списку. Виберіть його — він отримає тут другу мітку, а кількість штук зросте.', 'This spot is another piece of an element already on the list. Pick it — it gets a second marker here and the quantity goes up.'], ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
   ['Nazwa elementu (opcjonalnie)', 'Назва елемента (необов’язково)', 'Element name (optional)'], ['nazwa (opcjonalnie)', 'назва (необов’язково)', 'name (optional)'],
   ['np. ściana tylna, lada, kaseton nad wejściem', 'напр. задня стіна, стійка, короб над входом', 'e.g. back wall, counter, sign above the entrance'], ['Zlecenie', 'Замовлення', 'Order'],
@@ -1795,10 +1795,17 @@ function elOrder(list) {
     return (isWys(A) - isWys(B)) || (isWys(A) ? (A.wnum || 0) - (B.wnum || 0) : (A.num || 0) - (B.num || 0)) || (!!a.doorFor - !!b.doorFor); });
 }
 // Miejsca elementu na wizkach: pierwsze (shape / photoId) i kolejne sztuki w innych miejscach (extra).
-// loc = -1 to pierwsze miejsce, 0, 1, 2… to kolejne.
+// loc = -1 to pierwsze miejsce, 0, 1, 2… to kolejne. extra z view: true = ta sama sztuka pokazana jeszcze raz
+// (np. na drugiej wizce, dla czytelności) — nie liczy się do ilości.
 const locsOf = el => [{ loc: -1, photoId: el.photoId, shape: el.shape }]
-  .concat((el.extra || []).map((x, i) => ({ loc: i, photoId: x.photoId, shape: x.shape })))
+  .concat((el.extra || []).map((x, i) => ({ loc: i, photoId: x.photoId, shape: x.shape, view: !!x.view })))
   .filter(l => l.shape && l.photoId);
+const pieceLocs = ls => ls.filter(l => !l.view).length; // miejsca, które są osobnymi sztukami
+// zapis listy miejsc: pierwsze = sztuka (nie „widok”), reszta w extra (z zachowaniem view)
+const locsToFields = rest => {
+  const i = Math.max(0, rest.findIndex(l => !l.view)), ls = [rest[i], ...rest.filter((_, j) => j !== i)];
+  return { photoId: ls[0].photoId, shape: ls[0].shape, extra: ls.slice(1).map(l => l.view ? { photoId: l.photoId, shape: l.shape, view: true } : { photoId: l.photoId, shape: l.shape }) };
+};
 const locShape = (el, loc) => loc == null || loc < 0 ? el.shape : ((el.extra || [])[loc] || {}).shape;
 const locPhoto = (el, loc) => loc == null || loc < 0 ? el.photoId : ((el.extra || [])[loc] || {}).photoId;
 // zapis zmienionego kształtu jednego miejsca
@@ -1808,18 +1815,20 @@ function saveLocShape(el, loc, sh) {
   else { const extra = clone(el.extra || []); if (!extra[loc]) return Promise.resolve(); extra[loc].shape = sh; el.extra = extra; upd = { extra }; }
   return DB.update(pElements(S.project.id), el.id, { ...upd, updatedAt: nowIso(), updatedBy: S.me.id });
 }
-// kolejna sztuka w innym miejscu: drugi znacznik, ilość co najmniej tyle, ile miejsc
-async function addLocation(eid, photoId, shape) {
+// kolejna sztuka w innym miejscu: drugi znacznik, ilość co najmniej tyle, ile miejsc;
+// view = ta sama sztuka, tylko drugi znacznik (ilość bez zmian)
+async function addLocation(eid, photoId, shape, view = false) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project) return;
   const pid = S.project.id;
   if (!el.shape) { // element bez zaznaczenia — to jego pierwsze miejsce
     await DB.update(pElements(pid), eid, { shape, photoId, updatedAt: nowIso(), updatedBy: S.me.id });
     addLog(pid, `Zaznaczono element ${markOf(el)} na wizce #${photoNo(photoId)}`, eid);
   } else {
-    const extra = clone(el.extra || []); extra.push({ photoId, shape });
-    const places = 1 + extra.length, qty = Math.max(Number(el.qty) || 1, places);
+    const extra = clone(el.extra || []); extra.push(view ? { photoId, shape, view: true } : { photoId, shape });
+    const places = 1 + extra.filter(x => !x.view).length, qty = Math.max(Number(el.qty) || 1, places);
     await DB.update(pElements(pid), eid, { extra, qty, updatedAt: nowIso(), updatedBy: S.me.id });
-    addLog(pid, `Element ${markOf(el)}: kolejne miejsce na wizce #${photoNo(photoId)} (miejsc: ${places})` + (qty !== (Number(el.qty) || 1) ? `, ilość → ${qty} szt.` : ''), eid);
+    if (view) addLog(pid, `Element ${markOf(el)}: drugi znacznik tej samej sztuki na wizce #${photoNo(photoId)} (ilość bez zmian)`, eid);
+    else addLog(pid, `Element ${markOf(el)}: kolejne miejsce na wizce #${photoNo(photoId)} (miejsc: ${places})` + (qty !== (Number(el.qty) || 1) ? `, ilość → ${qty} szt.` : ''), eid);
   }
   selectElement(eid, false, el.shape ? (el.extra || []).length : -1);
 }
@@ -1829,9 +1838,8 @@ async function removeLocation(eid, loc) {
   const locs = locsOf(el);
   if (locs.length <= 1) return deleteElement(eid);
   const rest = locs.filter(l => l.loc !== (loc == null ? -1 : loc));
-  const qty = (Number(el.qty) || 1) === locs.length ? Math.max(1, rest.length) : (Number(el.qty) || 1);
-  await DB.update(pElements(S.project.id), eid, { photoId: rest[0].photoId, shape: rest[0].shape,
-    extra: rest.slice(1).map(l => ({ photoId: l.photoId, shape: l.shape })), qty, updatedAt: nowIso(), updatedBy: S.me.id });
+  const qty = (Number(el.qty) || 1) === pieceLocs(locs) ? Math.max(1, pieceLocs(rest)) : (Number(el.qty) || 1);
+  await DB.update(pElements(S.project.id), eid, { ...locsToFields(rest), qty, updatedAt: nowIso(), updatedBy: S.me.id });
   addLog(S.project.id, `Element ${markOf(el)}: usunięto jedno z miejsc (zostało: ${rest.length})`, eid);
   S.selLoc = -1;
 }
@@ -2901,7 +2909,7 @@ async function deletePhoto(id) {
   for (const e of touched) {
     const rest = locsOf(e).filter(l => l.photoId !== id);
     if (!rest.length) { await DB.del(pElements(pid), e.id); continue; }
-    await DB.update(pElements(pid), e.id, { photoId: rest[0].photoId, shape: rest[0].shape, extra: rest.slice(1).map(l => ({ photoId: l.photoId, shape: l.shape })) });
+    await DB.update(pElements(pid), e.id, locsToFields(rest));
   }
   await DB.del(pPhotos(pid), id);
   addLog(pid, `Usunięto wizkę #${no}` + (n ? ` (i ${n} el.)` : ''));
@@ -3254,7 +3262,7 @@ viewer.addEventListener('pointerdown', e => {
   }
   // tło: krótkie kliknięcie = nowy element w tym miejscu (Shift = kolejne miejsce zaznaczonego elementu),
   // przeciągnięcie = przesuwanie widoku
-  act = { mode: 'tap', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty, at: toStage(e), shift: e.shiftKey };
+  act = { mode: 'tap', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty, at: toStage(e), shift: e.shiftKey, alt: e.altKey };
 });
 viewer.addEventListener('pointermove', e => {
   if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -3333,7 +3341,7 @@ function endPointer(e) {
     const pid = photoAt(a.at[0], a.at[1]);
     if (!pid) { if (S.selId) selectElement(null); return; }
     setCurrentPhoto(pid);
-    if (a.shift && S.selId && !assignTo) { addLocation(S.selId, pid, { kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }); return; }
+    if (a.shift && S.selId && !assignTo) { addLocation(S.selId, pid, { kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }, a.alt); return; }
     if (S.selId && !assignTo) { selectElement(null); return; } // pierwsze kliknięcie obok tylko odznacza
     onShapeDrawn({ kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }, pid);
     return;
@@ -3424,7 +3432,7 @@ function openArcMenu(shape, photoId) {
   pendingShape = { shape, photoId }; renderOverlay();
   const [px, py] = stageToClient(photoId, shapeCenter(shape));
   // ostatnia pozycja: to miejsce to kolejna sztuka elementu, który już jest na liście
-  const types = S.elements.length ? S.types.concat([{ id: '__more', name: 'Kolejna sztuka…', color: '#ffffff' }]) : S.types, n = types.length;
+  const types = S.elements.length ? S.types.concat([{ id: '__more', name: 'Kolejna sztuka…', color: '#ffffff' }, { id: '__view', name: 'Ten sam element…', color: '#ffffff' }]) : S.types, n = types.length;
   const R = Math.max(110, (n - 1) * ARC_STEP / 2 + 34);
   const need = R + 16 + ARC_BTN_W + 20 + ARC_PANEL_W + 12;
   const dir = px + need <= innerWidth - 8 || innerWidth - px >= px ? 1 : -1;
@@ -3501,7 +3509,7 @@ function renderArcPanel() {
   if (!ARC) return;
   const panel = ARC.root.querySelector('.arc-panel');
   const tid = ARC.typeId || ARC.hoverT; if (!tid) { panel.classList.add('hidden'); return; }
-  if (tid === '__more') return renderArcMore(panel, !ARC.typeId);
+  if (tid === '__more' || tid === '__view') return renderArcMore(panel, !ARC.typeId, tid === '__view');
   const t = typeById(tid), v = ARC.typeId ? variantOf(ARC) : null;
   const preview = !ARC.typeId;
   const fresh = k => { const f = !ARC.shown.has(k); if (!preview) ARC.shown.add(k); return f ? ' ap-in' : ''; };
@@ -3571,16 +3579,20 @@ function renderArcPanel() {
   const first = panel.querySelector('.ap-thick input') || panel.querySelector('.ap-form input[data-f]');
   if (first && !panel.contains(document.activeElement)) setTimeout(() => first.focus({ preventScroll: true }), 220);
 }
-// panel „Kolejna sztuka": lista istniejących elementów
-function renderArcMore(panel, preview) {
-  let h = `<div class="ap-h"><span class="gem" style="background:#fff"></span>Kolejna sztuka</div>
+// panel „Kolejna sztuka” / „Ten sam element”: lista istniejących elementów
+function renderArcMore(panel, preview, view) {
+  const tid = view ? '__view' : '__more', nr = ARC.items.findIndex(t => t.id === tid) + 1;
+  let h = view ? `<div class="ap-h"><span class="gem" style="background:#fff"></span>Ten sam element</div>
+    <div class="ap-desc">To ta sama sztuka, widoczna też tutaj (np. na drugiej wizce). Wybierz element — dostanie tu drugi znacznik dla czytelności, liczba sztuk się nie zmieni.</div>`
+    : `<div class="ap-h"><span class="gem" style="background:#fff"></span>Kolejna sztuka</div>
     <div class="ap-desc">To miejsce to kolejna sztuka elementu, który już jest na liście. Wybierz go — dostanie tu drugi znacznik, a liczba sztuk wzrośnie.</div>`;
-  if (preview) h += `<div class="ap-hint">Kliknij albo naciśnij ${ARC.items.length}, aby wybrać · skrót: Shift + klik przy zaznaczonym elemencie</div>`;
+  if (preview) h += view ? `<div class="ap-hint">Kliknij albo naciśnij ${nr}, aby wybrać · skrót: Shift + Alt + klik przy zaznaczonym elemencie</div>`
+    : `<div class="ap-hint">Kliknij albo naciśnij ${nr}, aby wybrać · skrót: Shift + klik przy zaznaczonym elemencie</div>`;
   else h += `<div class="ap-sec ap-in"><div class="ap-lab">Element</div>${S.elements.map((e, i) =>
     `<button type="button" class="ap-opt" data-more="${e.id}"><span class="k">${i < 9 ? i + 1 : '·'}</span><span class="gem" style="background:${colorOf(e)}"></span>${esc(markOf(e))} — ${esc(typeLabel(e))}${e.name ? ' (' + esc(e.name) + ')' : ''}</button>`).join('')}</div>`;
   panel.innerHTML = h;
   panel.classList.remove('hidden');
-  const btn = ARC.root.querySelector('.arc-btn[data-t="__more"]');
+  const btn = ARC.root.querySelector(`.arc-btn[data-t="${tid}"]`);
   const oy = parseFloat(ARC.root.style.top), ph = panel.offsetHeight;
   panel.style.top = clamp(parseFloat(btn.style.top) - 40, -oy + 8, innerHeight - oy - ph - 8) + 'px';
   panel.style.left = ARC.panelLeft + 'px';
@@ -3591,9 +3603,9 @@ function renderArcMore(panel, preview) {
 }
 async function arcAddMore(eid) {
   if (!ARC) return;
-  const { shape, photoId } = ARC;
+  const { shape, photoId } = ARC, view = ARC.typeId === '__view';
   closeArcMenu();
-  await addLocation(eid, photoId, shape);
+  await addLocation(eid, photoId, shape, view);
 }
 function arcPickOpt(step, o) {
   if (!ARC) return;
@@ -3626,7 +3638,7 @@ function autoLab(shape, pid) {
   return { ...clone(shape), lab: best };
 }
 async function arcSave() {
-  if (!ARC || !ARC.typeId || ARC.typeId === '__more') return;
+  if (!ARC || !ARC.typeId || ARC.typeId === '__more' || ARC.typeId === '__view') return;
   if (arcSteps().some(st => !st.done)) return;
   const d = arcEl(), pid = S.project.id, num = nextNum();
   d.wnum = wysNumFor(d);
@@ -3649,7 +3661,7 @@ function arcKey(e) {
   e.preventDefault();
   const k = +e.key;
   if (!ARC.typeId) { const t = ARC.items[k - 1]; if (t) arcPickType(t.id); return; }
-  if (ARC.typeId === '__more') { const el = S.elements[k - 1]; if (el) arcAddMore(el.id); return; }
+  if (ARC.typeId === '__more' || ARC.typeId === '__view') { const el = S.elements[k - 1]; if (el) arcAddMore(el.id); return; }
   const st = arcSteps().find(x => !x.done);
   if (st && st.opts[k - 1]) arcPickOpt(st.key, st.opts[k - 1].id);
 }
