@@ -3583,7 +3583,12 @@ if (window.ResizeObserver) new ResizeObserver(() => { if (S.project && hasPhotos
 // =====================================================================
 //  ELEMENTY: okno opisu, lista
 // =====================================================================
-function nextNum(exceptId) { return S.elements.filter(e => !isWys(e) && !e.doorFor && e.id !== exceptId).reduce((m, e) => Math.max(m, e.num || 0), 0) + 1; }
+// najniższy wolny znak: po usunięciu „1” (albo „A”) następny nowy element dostaje znowu „1” — kolejność bez dziur
+function nextNum(exceptId) {
+  const used = new Set(S.elements.filter(e => !isWys(e) && !e.doorFor && !e.backFor && e.id !== exceptId).map(e => Number(e.num) || 0));
+  let n = 1; while (used.has(n)) n++;
+  return n;
+}
 // =====================================================================
 //  TURBO (administrator): 1) elementy wpisywane jeden po drugim bez klikania w wizkę
 //  (typ, wymiar, Enter = następny), 2) potem nitka 🧵 z listy przeciągana na wizkę.
