@@ -578,6 +578,7 @@
   /* alpaka: 2 cm wysokości, przebiega po dole ekranu */
   #alpaca { position: fixed; left: 0; bottom: 2px; height: 2cm; width: 2cm; z-index: 120; pointer-events: none; display: none; }
   #alpaca svg { width: 100%; height: 100%; overflow: visible; }
+  #alpaca:not(.pumpkin) .pk { display: none; } /* strój dyni tylko w październiku (do Halloween) */
   #alpaca.run svg { animation: alpBob .32s ease-in-out infinite; }
   #alpaca .lg { transform-box: fill-box; transform-origin: 50% 8%; }
   #alpaca.run .lf, #alpaca.run .lb2 { animation: alpLeg .32s ease-in-out infinite; }
@@ -865,6 +866,13 @@
       <rect class="lg lf" x="61" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
       <circle cx="13" cy="58" r="7" fill="#f8ecd4"/>
       <path d="M16 72 q-9 -13 4 -22 q2 -12 16 -10 q7 -10 19 -3 q13 -6 17 7 q11 5 6 18 q-1 11 -15 10 q-8 8 -21 2 q-12 6 -21 -1 q-9 1 -5 -1z" fill="#f8ecd4"/>
+      <!-- przebranie za dynię (tylko w październiku, do Halloween) -->
+      <g class="pk">
+        <ellipse cx="45" cy="57" rx="34" ry="23" fill="#f28c1b"/>
+        <path d="M45 34 q-15 23 0 46 M45 34 q15 23 0 46 M27 38 q-9 19 2 39 M63 38 q9 19 -2 39" fill="none" stroke="#c4600a" stroke-width="2"/>
+        <path d="M29 51 l5 -8 l5 8z M50 51 l5 -8 l5 8z" fill="#ffd34d" stroke-width="1.6"/>
+        <path d="M28 61 l5 5 l5 -4 l5 4 l5 -4 l5 4 l5 -5 q-15 12 -30 0z" fill="#ffd34d" stroke-width="1.6"/>
+      </g>
       <path d="M64 56 q1 -24 6 -38 l15 1 q-3 20 -5 41z" fill="#f8ecd4"/>
       <path d="M66 49 q9 6 17 0" fill="none" stroke="#67b437" stroke-width="6"/>
       <path d="M66 49 q9 6 17 0" fill="none" stroke-width="1.2"/>
@@ -873,6 +881,12 @@
       <ellipse cx="80" cy="18" rx="15" ry="11" fill="#f8ecd4"/>
       <ellipse cx="93" cy="23" rx="8" ry="6.5" fill="#fff6e6"/>
       <circle cx="72" cy="7" r="4.5" fill="#fff6e6"/><circle cx="78" cy="5" r="4" fill="#fff6e6"/>
+      <g class="pk">
+        <path d="M65 8 q15 -14 30 0 q-15 6 -30 0z" fill="#f28c1b"/>
+        <path d="M74 3 q1 -5 2 -7 M86 3 q-1 -5 -2 -7" fill="none" stroke="#c4600a" stroke-width="1.6"/>
+        <path d="M80 -3 q0 -7 5 -10" fill="none" stroke="#3e7a1c" stroke-width="3.2"/>
+        <path d="M84 -11 q7 -3 10 3 q-6 2 -10 -3z" fill="#67b437" stroke-width="1.4"/>
+      </g>
       <rect class="lg lb2" x="33" y="72" width="9" height="30" rx="4.5" fill="#f8ecd4"/>
       <rect class="lg lf2" x="69" y="72" width="9" height="30" rx="4.5" fill="#f8ecd4"/>
       <path d="M90 27 q3 3 6 0" fill="none" stroke-width="2"/>
@@ -5370,7 +5384,11 @@ document.addEventListener('mouseout', e => { if (e.target.closest && e.target.cl
 //  ALPAKA — co 5 minut dobiega do 1/4 ekranu, mruga i wraca
 // =====================================================================
 // losowo: wybiega z lewej, z prawej albo (w stoisku) spada na spadochronie ze środkowej belki nad zegarem
+// do Halloween (cały październik) alpaka przebrana za dynię; od 1 listopada znowu zwykła
+function alpacaCostume() { const a = $('alpaca'); if (a) a.classList.toggle('pumpkin', new Date().getMonth() === 9); }
+alpacaCostume();
 function runAlpaca() {
+  alpacaCostume();
   const a = $('alpaca'); if (!a || !a.animate || document.hidden || a.dataset.busy) return;
   const bar = $('split-h'), clock = $('clock-pane'), r = Math.random();
   const para = S.project && bar && clock && bar.offsetParent && clock.offsetParent && clock.getBoundingClientRect().width > 0;
