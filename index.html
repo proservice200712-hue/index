@@ -951,7 +951,7 @@ const DEFAULT_TYPES = [
       { id: 'pcw', name: '3D z PCW', thick: true, icon: 'l3d-pcw', desc: 'Litery wycięte z płyty PCW, oklejone lub malowane. Podaj grubość płyty.' },
       { id: 'plexi', name: '3D z pleksi', thick: true, icon: 'l3d-plexi', desc: 'Litery wycięte z pleksi (plexi). Podaj grubość.' },
       { id: 'halo', name: 'Efekt halo', icon: 'l3d-halo', desc: 'Litery odsunięte od ściany i podświetlone od tyłu — świecąca poświata wokół logo.' },
-      { id: 'blok', name: 'Blokowa / 3D print', thick: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe — frezowane albo drukowane w 3D. Podaj grubość (głębokość) liter.' },
+      { id: 'blok', name: 'Blokowa / 3D print', thick: true, lit: true, icon: 'l3d-blok', desc: 'Pełne, masywne litery bryłowe — frezowane albo drukowane w 3D. Podaj grubość (głębokość) liter.' },
       { id: 'neon', name: 'Neon', icon: 'l3d-neon', desc: 'Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.' },
       { id: 'cnc-led', name: 'CNC + podświetlenie', icon: 'l3d-cnc', desc: 'Litery frezowane CNC z podświetleniem LED (świecące lico).' },
     ] },
@@ -1302,6 +1302,7 @@ I18N_PAIRS.push(['Whiteback', 'Whiteback', 'Whiteback'], ['Blackback z odwrócon
 I18N_PAIRS.push(['✎ zmień znak', '✎ змінити позначку', '✎ change mark'], ['Zmień znak elementu', 'Змінити позначку елемента', 'Change element mark'],
   ['Kliknij, aby zmienić znak', 'Клікни, щоб змінити позначку', 'Click to change the mark'], ['Gdy ten znak ma już inny element, zamienią się znakami.', 'Якщо цю позначку вже має інший елемент, вони поміняються позначками.', 'If another element already has this mark, they will swap marks.'],
   ['Zmień', 'Змінити', 'Change']);
+I18N_PAIRS.push(['Podświetlenie', 'Підсвічування', 'Lighting']);
 const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
@@ -1730,12 +1731,17 @@ function typeLabel(el) {
   let s = t.name;
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
   if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
+  if (hasLit(el)) { const l = LIT_OPTS.filter(([k]) => el[k]).map(x => x[1]); if (l.length) s += ' · ' + l.join(' + '); }
   TYPE_TOGGLES.forEach(([k, , lab]) => { if (t[k] && el[k]) s += ' · ' + lab; });
   if (t.finish) { const f = FINISHES.find(([k]) => k === el.finish); if (f) s += ' · ' + f[2]; }
   if (t.seg && el.seg) s += ' · SEG';
   if (t.wyslona && el.wyslona) s += ' · wysłona · SEG'; // wysłona jest obszywana płaską gumką (SEG)
   return s;
 }
+// podświetlenie liter blokowych: Frontlit (świeci lico), Sidelit (świecą boki) — można zaznaczyć oba
+const LIT_OPTS = [['frontlit', 'Frontlit'], ['sidelit', 'Sidelit']];
+const hasLit = el => { const v = variantOf(el); return !!(v && v.lit); };
+const litValues = el => ({ frontlit: hasLit(el) && !!el.frontlit, sidelit: hasLit(el) && !!el.sidelit });
 const typeUndecided = el => el.typeId === 'nie-wiem' || (!variantOf(el) && (typeById(el.typeId).variants || []).length > 0);
 
 // Spad: z typu; SEG (tkanina Blackback / Lightbox) i wysłona bez spadu, płyta PCW domyślnie bez spadu,
@@ -3318,6 +3324,7 @@ function openArcMenu(shape, photoId) {
   document.body.appendChild(root);
   ARC = { root, back, dir, panelLeft: (R + 16 + ARC_BTN_W + 20) * dir, shape, photoId, items: types, typeId: '', variant: '', seg: null, thick: '', w: '', h: '', d: '', qty: 1, notes: '', shown: new Set(), hoverT: null };
   root.querySelectorAll('.arc-btn').forEach(b => {
+    b.tabIndex = -1;
     b.onclick = () => arcPickType(b.dataset.t);
     b.onmouseenter = () => { if (!ARC.typeId) { ARC.hoverT = b.dataset.t; renderArcPanel(); } };
     b.onmouseleave = () => { if (!ARC.typeId && ARC.hoverT === b.dataset.t) { ARC.hoverT = null; root.querySelector('.arc-panel').classList.add('hidden'); } };
@@ -3371,7 +3378,8 @@ function renderArcPanel() {
       h += `<div class="ap-sec${fresh('s' + st.key)}"><div class="ap-lab">${st.label}</div>${st.opts.map(o =>
         `<button type="button" class="ap-opt${o.on ? ' on' : ''}" data-step="${st.key}" data-o="${o.id}"><span class="k">${ready && !st.done ? k++ : '·'}</span>${esc(o.name)}${o.tip ? `<span class="qtip" data-tip="${esc(o.tip)}">?</span>` : ''}</button>` +
         // wykonanie z grubością: pole od razu pod wybranym przyciskiem
-        (o.on && vv0 && vv0.thick ? `<div class="ap-thick"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 30"></div>` : '')).join('')}</div>`;
+        (o.on && vv0 && vv0.thick ? `<div class="ap-thick"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 30"></div>` : '') +
+        (o.on && vv0 && vv0.lit ? `<div class="ap-thick ap-lits">${LIT_OPTS.map(([k, n]) => `<button type="button" class="ap-opt ap-lit${ARC[k] ? ' on' : ''}" data-lit="${k}"><span class="k">${ARC[k] ? '✓' : ''}</span>${n}</button>`).join('')}</div>` : '')).join('')}</div>`;
       if (!st.done) { ready = false; break; }
     }
     if (ready && !t.variants && (t.thick || t.finish || TYPE_TOGGLES.some(([k]) => t[k]))) {
@@ -3413,6 +3421,9 @@ function renderArcPanel() {
   panel.querySelectorAll('.sz-wrap > input').forEach(i => sizeButton(i, true));
   panel.querySelectorAll('.ap-opt[data-step]').forEach(b => b.onclick = () => arcPickOpt(b.dataset.step, b.dataset.o));
   panel.querySelectorAll('.ap-tog').forEach(b => b.onclick = () => { ARC[b.dataset.tog] = !ARC[b.dataset.tog]; renderArcPanel(); });
+  panel.querySelectorAll('.ap-lit').forEach(b => b.onclick = () => { ARC[b.dataset.lit] = !ARC[b.dataset.lit]; renderArcPanel(); });
+  // Tab chodzi tylko po polach (grubość → szerokość → wysokość…), przyciski obsługuje mysz i cyfry
+  panel.querySelectorAll('button:not(.ap-go)').forEach(b => { b.tabIndex = -1; });
   panel.querySelectorAll('.ap-fin').forEach(b => b.onclick = () => { ARC.finish = ARC.finish === b.dataset.fin ? '' : b.dataset.fin; renderArcPanel(); });
   panel.querySelectorAll('[data-f]').forEach(i => i.addEventListener('input', () => { ARC[i.dataset.f] = i.value; arcCalc(); }));
   const go = panel.querySelector('.ap-go'); if (go) go.onclick = arcSave;
@@ -3454,7 +3465,7 @@ function arcPickOpt(step, o) {
 function arcEl() {
   const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
   const vv = variantOf(ARC), m = dimsMode(ARC);
-  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', ...togValues(ARC, ARC.typeId), wyslona: typeById(ARC.typeId).wyslona ? !!ARC.wyslona : false,
+  return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', ...togValues(ARC, ARC.typeId), ...litValues(ARC), wyslona: typeById(ARC.typeId).wyslona ? !!ARC.wyslona : false,
     w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: String(ARC.name || '').trim() };
 }
 function arcCalc() {
@@ -3908,6 +3919,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       h += `<div class="fld"><label>${t.id === 'podwieszana' ? 'Kształt konstrukcji' : 'Wykonanie'}</label>
         <div class="var-list">${t.variants.map(x => `<button type="button" class="type-btn var-btn ${x.id === el.variant ? 'on' : ''}" data-v="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>`;
     }
+    if (t && hasLit(el)) h += `<div class="fld"><label>Podświetlenie</label>${LIT_OPTS.map(([k, n]) => `<label class="chk seg-chk" style="display:inline-flex;margin-right:16px"><input type="checkbox" data-lit="${k}" ${el[k] ? 'checked' : ''}> <span>${n}</span></label>`).join('')}</div>`;
     if (t && hasThick(el)) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
     if (t) TYPE_TOGGLES.filter(([k]) => t[k]).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
     if (t && t.finish) h += `<div class="fld"><label>Wykończenie</label><div class="var-list">${FINISHES.map(([k, name]) =>
@@ -3978,6 +3990,9 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const bla = $('ed-bl-all'); if (bla) bla.addEventListener('input', () => { el.bleedAll = toMM(bla.value); refresh(); });
     $('ed-bleedopts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
+    // Tab z grubości od razu do szerokości
+    if (th) th.addEventListener('keydown', e => { if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); $('ed-w').focus(); $('ed-w').select(); } });
+    $('ed-opts').querySelectorAll('input[data-lit]').forEach(i => i.addEventListener('change', () => { el[i.dataset.lit] = i.checked; refresh(); }));
     $('ed-opts').querySelectorAll('[data-backsel]').forEach(b => b.onclick = () => { el.backSel = b.dataset.backsel; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
       el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
@@ -4112,7 +4127,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
@@ -4124,7 +4139,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         m.close();
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
-        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
