@@ -214,6 +214,7 @@
   .gc-frame:hover { background: #f7fafc; color: var(--gray); }
   .gc-frame.drag { outline: 3px dashed var(--accent); outline-offset: 2px; }
   .gc-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .gc-pl { position: absolute; top: 0; box-sizing: border-box; border-right: 1px solid #cbd5e0; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-weight: 700; overflow: hidden; }
   .gc-frame .x { position: absolute; right: 0; top: 0; width: 18px; height: 18px; background: rgba(229,62,62,.9); color: #fff; font-size: .7rem; display: none; align-items: center; justify-content: center; z-index: 2; }
   .gc-frame:hover .x { display: flex; }
   .gc-frame.nodim { border: 1.5px dashed var(--orange); }
@@ -547,6 +548,12 @@
   .exp-prev img { max-width: 100%; max-height: 220px; border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,.12); background: #fff; }
   .exp-txt { font-size: 0.72rem; background: var(--bg); border: 1px solid var(--line); padding: 8px; max-width: 100%; overflow-x: auto; margin: 0; }
   #ed-planes { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .pl-srow { display: flex; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px dotted var(--line); font-size: .85rem; flex-wrap: wrap; }
+  .pl-srow > b { min-width: 64px; }
+  .pl-srow > span { flex: 1 1 220px; }
+  .pl-th { height: 34px; max-width: 90px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
+  .pl-total { display: flex; gap: 10px; padding: 8px 0 2px; font-size: .88rem; border-top: 2px solid var(--dark); margin-top: 4px; flex-wrap: wrap; }
+  .pl-total > b { min-width: 64px; }
   #ed-planes .pl-lab { font-size: 0.72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; }
   .pl-row { display: flex; align-items: center; gap: 8px; }
   .pl-row b { min-width: 34px; }
@@ -1076,7 +1083,7 @@ const DEFAULT_TYPES = [
   { id: 'pcw', order: 3, name: 'Płyta PCW', color: '#e31e24', bleed: 0, icon: 'board', thick: true, contour: true,
     desc: 'Sztywna płyta z grafiką — tablice, panele, elementy wieszane lub montowane na ścianie.' },
   { id: 'blackback', order: 4, name: 'Baner Blackback', color: '#2b2a29', bleed: 100, icon: 'banner', seg: true, wyslona: true,
-    desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia).' },
+    whiteback: true, desc: 'Baner nieprzepuszczający światła, naciągany lub wieszany (np. ścianka, kaseton bez podświetlenia). Opcja: biały tył.' },
   { id: 'lightbox', order: 5, name: 'Lightbox (podświetlany)', color: '#f5c400', bleed: 100, icon: 'light', seg: true,
     desc: 'Grafika na tkaninie podświetlana od tyłu — rama aluminiowa ze światłem LED.' },
   { id: 'podwieszana', order: 6, name: 'Konstrukcja podwieszana', color: '#8e44ad', bleed: 0, icon: 'hang-ring',
@@ -1815,11 +1822,13 @@ function normalizeEl(e) {
   return e;
 }
 // przełączniki opcji typu: [pole, napis w opcjach, dopisek w nazwie]
-const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze']];
+const TYPE_TOGGLES = [['laminate', 'Laminat', 'laminat'], ['contour', 'Cięcie po konturze', 'cięcie po konturze'], ['whiteback', 'Biały tył (Whiteback)', 'biały tył']];
+// Blackback z białym tyłem (nie dotyczy wysłony — ta ma własny materiał)
+const isWhiteBack = e => !!e && e.typeId === 'blackback' && !!e.whiteback && !e.wyslona;
 // wartości przełączników do zapisu: tylko te, które dany typ ma
 // wykończenie folii: mat albo połysk (można nie wybierać)
 const FINISHES = [['mat', 'Mat', 'mat'], ['polysk', 'Połysk', 'połysk']];
-const togValues = (src, typeId) => ({ ...Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, typeById(typeId)[k] ? !!src[k] : false])),
+const togValues = (src, typeId) => ({ ...Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, typeById(typeId)[k] && !(k === 'whiteback' && src.wyslona) ? !!src[k] : false])),
   finish: typeById(typeId).finish && FINISHES.some(([k]) => k === src.finish) ? src.finish : '' });
 const togReset = () => ({ ...Object.fromEntries(TYPE_TOGGLES.map(([k]) => [k, false])), finish: '' });
 const variantOf = el => (typeById(el.typeId).variants || []).find(v => v.id === el.variant) || null;
@@ -1918,7 +1927,7 @@ function typeLabel(el) {
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
   if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
   if (hasLit(el)) { const l = LIT_OPTS.filter(([k]) => el[k]).map(x => x[1]); if (l.length) s += ' · ' + l.join(' + '); }
-  TYPE_TOGGLES.forEach(([k, , lab]) => { if (t[k] && el[k]) s += ' · ' + lab; });
+  TYPE_TOGGLES.forEach(([k, , lab]) => { if (t[k] && el[k] && !(k === 'whiteback' && el.wyslona)) s += ' · ' + lab; });
   if (t.finish) { const f = FINISHES.find(([k]) => k === el.finish); if (f) s += ' · ' + f[2]; }
   if (t.seg && el.seg) s += ' · SEG';
   if (t.wyslona && el.wyslona) s += ' · wysłona · SEG'; // wysłona jest obszywana płaską gumką (SEG)
@@ -1972,14 +1981,49 @@ function planeBase(el) {
   const pl = (el.planes || []).map(p => [Number(p.w), Number(p.h)]).filter(([w, h]) => w > 0 && h > 0);
   return pl.length ? pl : (W > 0 && H > 0 ? [[W, H]] : []);
 }
+// Spady konstrukcji podwieszanej (zadruk zewnętrzny): „Bez spadów”, „Skarpeta” (boki 1,5 cm, góra i dół 2,5 cm) albo indywidualne
+// (hbMode: none | sock | custom; hbSides {l,r,t,b} w mm). Starsze elementy bez hbMode: jeden spad z typu, z każdej strony.
+const HANG_SOCK = { l: 15, r: 15, t: 25, b: 25 };
+const HANG_MODES = [['none', 'Bez spadów'], ['sock', 'Skarpeta'], ['custom', 'Indywidualne']];
+function hangBleed(el) {
+  if (el.hbMode === 'none') return { l: 0, r: 0, t: 0, b: 0 };
+  if (el.hbMode === 'sock') return { ...HANG_SOCK };
+  if (el.hbMode === 'custom') { const x = el.hbSides || {}; return { l: Number(x.l) || 0, r: Number(x.r) || 0, t: Number(x.t) || 0, b: Number(x.b) || 0 }; }
+  const b = bleedOf(el); return { l: b, r: b, t: b, b: b };
+}
+const hangBleedAny = k => !!(k.l || k.r || k.t || k.b);
+function hangBleedShort(el) {
+  const k = hangBleed(el);
+  if (!hangBleedAny(k)) return 'brak';
+  return k.l === k.r && k.t === k.b && k.l === k.t ? `${lenPL(k.l)} ${UNIT()}` : `L/P/G/D ${lenPL(k.l)}/${lenPL(k.r)}/${lenPL(k.t)}/${lenPL(k.b)} ${UNIT()}`;
+}
 function planesOf(el) {
   if (!isHang(el)) return null;
-  const b = bleedOf(el), mark = markOf(el), base = planeBase(el);
-  const out = base.map(([w, h], i) => ({ label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b, gw: w + 2 * b, gh: h + 2 * b }));
-  if (el.inside) base.forEach(([w, h], i) => out.push({ label: mark + (base.length + i + 1), side: 'inside', w, h, b: 0, gw: w, gh: h }));
+  const k = hangBleed(el), mark = markOf(el), base = planeBase(el), th = el.pthumbs || [], zero = { l: 0, r: 0, t: 0, b: 0 };
+  const out = base.map(([w, h], i) => ({ label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb: k, gw: w + k.l + k.r, gh: h + k.t + k.b, thumb: th[i] || '' }));
+  if (el.inside) base.forEach(([w, h], i) => out.push({ label: mark + (base.length + i + 1), side: 'inside', w, h, b: 0, bb: zero, gw: w, gh: h, thumb: th[base.length + i] || '' }));
   return out;
 }
 const planeName = p => p.label + (p.side ? ' ' + p.side : '');
+// pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
+const hangFields = d => isHang(d)
+  ? { hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
+      pthumbs: (d.pthumbs || []).slice(0, (planesOf(d) || []).length) }
+  : { hbMode: '', hbSides: null, pthumbs: [] };
+// obrazek ze schowka (null, gdy brak / brak zgody)
+async function clipboardImageFile() {
+  if (!navigator.clipboard || !navigator.clipboard.read) return null;
+  try {
+    for (const item of await navigator.clipboard.read()) {
+      const type = item.types.find(t => t.startsWith('image/'));
+      if (type) { const b = await item.getType(type); return new File([b], 'podglad.' + (type.split('/')[1] || 'png'), { type }); }
+    }
+  } catch (e) { /* brak zgody na schowek */ }
+  return null;
+}
+function chooseImageFile() {
+  return new Promise(res => { const fi = $('file-generic'); fi.onchange = () => { const f = fi.files[0]; fi.value = ''; res(f || null); }; fi.click(); });
+}
 const planesTxt = (el, sep = ' · ') => (planesOf(el) || []).map(p => `${planeName(p)} ${lenPL(p.gw)} × ${lenPL(p.gh)}`).join(sep);
 const hasDims = el => isHang(el) ? planeBase(el).length > 0 : Number(el.w) > 0 && Number(el.h) > 0;
 // =====================================================================
@@ -2171,6 +2215,11 @@ function grossOf(el) {
   const b = bleedOf(el);
   if (!hasDims(el)) return { w: 0, h: 0, b };
   const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
+  // konstrukcja podwieszana: płaszczyzny zewnętrzne obok siebie (każda ze swoim spadem)
+  if (isHang(el)) {
+    const pl = (planesOf(el) || []).filter(p => p.side !== 'inside'), k = hangBleed(el);
+    return { w: pl.reduce((a, p) => a + p.gw, 0), h: Math.max(0, ...pl.map(p => p.gh)), b: Math.max(k.l, k.r, k.t, k.b) };
+  }
   // grafika na drzwi: spady różne z każdej strony (lewy / prawy / góra / dół)
   if (el.bleedBox) { const k = el.bleedBox; return { w: W + k.l + k.r, h: H + k.t + k.b, b: Math.max(k.l, k.r, k.t, k.b), box: k }; }
   if (isHang(el) && m === 'flat') { const [w, h] = planeBase(el)[0]; return { w: w + 2 * b, h: h + 2 * b, b }; }
@@ -3753,10 +3802,10 @@ function renderArcPanel() {
         (o.on && vv0 && vv0.lit ? `<div class="ap-thick ap-lits">${LIT_OPTS.map(([k, n]) => `<button type="button" class="ap-opt ap-lit${ARC[k] ? ' on' : ''}" data-lit="${k}"><span class="k">${ARC[k] ? '✓' : ''}</span>${n}</button>`).join('')}</div>` : '')).join('')}</div>`;
       if (!st.done) { ready = false; break; }
     }
-    if (ready && !t.variants && (t.thick || t.finish || TYPE_TOGGLES.some(([k]) => t[k]))) {
+    if (ready && !t.variants && (t.thick || t.finish || TYPE_TOGGLES.some(([k]) => t[k] && !(k === 'whiteback' && ARC.wyslona)))) {
       h += `<div class="ap-sec${fresh('opts' + t.id)}"><div class="ap-lab">Opcje</div>
         ${t.thick ? `<div class="ap-thick" style="margin-left:0"><label>Grubość [mm]</label><input type="number" min="0" step="1" data-f="thick" value="${esc(ARC.thick)}" placeholder="np. 5"></div>` : ''}
-        ${TYPE_TOGGLES.filter(([k]) => t[k]).map(([k, name]) => `<button type="button" class="ap-opt ap-tog${ARC[k] ? ' on' : ''}" data-tog="${k}"><span class="k">${ARC[k] ? '✓' : ''}</span>${name}</button>`).join('')}
+        ${TYPE_TOGGLES.filter(([k]) => t[k] && !(k === 'whiteback' && ARC.wyslona)).map(([k, name]) => `<button type="button" class="ap-opt ap-tog${ARC[k] ? ' on' : ''}" data-tog="${k}"><span class="k">${ARC[k] ? '✓' : ''}</span>${name}</button>`).join('')}
         ${t.finish ? FINISHES.map(([k, name]) => `<button type="button" class="ap-opt ap-fin${ARC.finish === k ? ' on' : ''}" data-fin="${k}"><span class="k">${ARC.finish === k ? '✓' : ''}</span>${name}</button>`).join('') : ''}</div>`;
     }
     if (ready) {
@@ -4241,6 +4290,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         <div class="hint" id="ed-dims-hint"></div>
         <div class="hint w-calc" id="ed-wcalc"></div>
         <div id="ed-planes" class="hidden"></div>
+        <div id="ed-plsum"></div>
       </div>
       <div class="calc" id="ed-calc"></div>
       <div id="ed-bleedopts"></div>
@@ -4298,7 +4348,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     }
     if (t && hasLit(el)) h += `<div class="fld"><label>Podświetlenie</label>${LIT_OPTS.map(([k, n]) => `<label class="chk seg-chk" style="display:inline-flex;margin-right:16px"><input type="checkbox" data-lit="${k}" ${el[k] ? 'checked' : ''}> <span>${n}</span></label>`).join('')}</div>`;
     if (t && hasThick(el)) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
-    if (t) TYPE_TOGGLES.filter(([k]) => t[k]).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
+    if (t) TYPE_TOGGLES.filter(([k]) => t[k] && !(k === 'whiteback' && el.wyslona)).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
     if (t && t.finish) h += `<div class="fld"><label>Wykończenie</label><div class="var-list">${FINISHES.map(([k, name]) =>
       `<button type="button" class="type-btn var-btn ${el.finish === k ? 'on' : ''}" data-fin="${k}">${name}</button>`).join('')}</div></div>`;
     if (t && t.seg) {
@@ -4346,6 +4396,13 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         ${bm === 'sides' ? `<div class="bleed-row">${BLEED_SIDES.map(([k, n]) => `<span class="bl-i">${n} <input type="number" data-bl="${k}" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedSides[k]))}"></span>`).join('')} <span>${UNIT()}</span></div>` : ''}</div>`;
     }
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, bez spadu)</span></span></label>`;
+    if (t && t.id === 'podwieszana') {
+      if (!el.hbMode) { const k0 = hangBleed(el); el.hbMode = hangBleedAny(k0) ? 'custom' : 'none'; if (el.hbMode === 'custom') el.hbSides = { ...k0 }; }
+      hb = `<div class="fld bleed-fld" style="margin-top:12px"><label>Spady (zadruk zewnętrzny)</label><div class="var-list">
+        ${HANG_MODES.map(([id, n]) => `<button type="button" class="type-btn var-btn ${el.hbMode === id ? 'on' : ''}" data-hmode="${id}">${n}${id === 'sock' ? ` · boki ${lenPL(HANG_SOCK.l)}, góra/dół ${lenPL(HANG_SOCK.t)} ${UNIT()}` : ''}</button>`).join('')}</div>
+        ${el.hbMode === 'custom' ? `<div class="bleed-row">${BLEED_SIDES.map(([k2, n]) => `<span class="bl-i">${n} <input type="number" data-hb="${k2}" min="0" step="${unitStep()}" value="${esc(fromMM((el.hbSides || {})[k2] || 0))}"></span>`).join('')} <span>${UNIT()}</span></div>` : ''}
+        ${el.hbMode !== 'none' ? '<div class="hint">Spad dotyczy zadruku zewnętrznego; zadruk wewnątrz zostaje bez spadu.</div>' : ''}</div>`;
+    }
     $('ed-opts').innerHTML = h;
     $('ed-bleedopts').innerHTML = hb;
     $('ed-doorslot').innerHTML = hd;
@@ -4366,6 +4423,12 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
+    $('ed-bleedopts').querySelectorAll('[data-hmode]').forEach(b => b.onclick = () => {
+      const k = hangBleed(el); el.hbMode = b.dataset.hmode;
+      if (el.hbMode === 'custom' && !el.hbSides) el.hbSides = { ...k };
+      renderOpts(); refresh();
+    });
+    $('ed-bleedopts').querySelectorAll('input[data-hb]').forEach(i => i.addEventListener('input', () => { el.hbSides = el.hbSides || { l: 0, r: 0, t: 0, b: 0 }; el.hbSides[i.dataset.hb] = toMM(i.value); refresh(); }));
     const bla = $('ed-bl-all'); if (bla) bla.addEventListener('input', () => { el.bleedAll = toMM(bla.value); refresh(); });
     $('ed-bleedopts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
@@ -4375,6 +4438,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     $('ed-opts').querySelectorAll('[data-backsel]').forEach(b => b.onclick = () => { el.backSel = b.dataset.backsel; renderOpts(); refresh(); });
     $('ed-opts').querySelectorAll('[data-mount]').forEach(b => b.onclick = () => {
       el.seg = b.dataset.mount === 'seg'; el.wyslona = b.dataset.mount === 'wys';
+      if (el.wyslona) el.whiteback = false;
       $('ed-badge').textContent = isWys(el) ? 'W' + wysNumFor(el, editing ? editing.id : null) : numMark(editing && !isWys(editing) ? el.num : nextNum(editing && editing.id)); // od razu widać W1 / literę
       renderOpts(); refresh();
     });
@@ -4405,6 +4469,31 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
       : 'Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".');
   };
+  // wymiar każdej płaszczyzny (netto → do druku) pod polami + łączny wymiar na samym dole; przy każdej płaszczyźnie własny podgląd
+  function renderPlaneSum() {
+    const box = $('ed-plsum'); if (!box) return;
+    const cur = read();
+    if (!isHang(cur) || !hasDims(cur)) { box.innerHTML = ''; return; }
+    const pls = planesOf(cur);
+    const sw = pls.reduce((a, q) => a + q.w, 0), mh = Math.max(...pls.map(q => q.h)), gw = pls.reduce((a, q) => a + q.gw, 0), gh = Math.max(...pls.map(q => q.gh));
+    const area = pls.reduce((a, q) => a + q.gw * q.gh, 0) / 1e6;
+    box.innerHTML = `<label class="pl-lab" style="margin-top:10px">Wymiary płaszczyzn</label>` + pls.map((q, i) => `
+      <div class="pl-srow"><b>${esc(planeName(q))}</b><span>${lenPL(q.w)} × ${lenPL(q.h)} → do druku <b>${lenPL(q.gw)} × ${lenPL(q.gh)}</b> ${UNIT()}${q.side === 'inside' ? '' : hangBleedAny(q.bb) ? ' · ze spadem' : ''}</span>
+        ${q.thumb ? `<img class="pl-th" src="${esc(q.thumb)}" alt=""><button type="button" class="btn btn-sm" data-ptrm="${i}" title="Usuń podgląd">✕</button>`
+          : `<button type="button" class="btn btn-sm" data-ptb="${i}" title="Wklej podgląd tej płaszczyzny ze schowka (albo wybierz plik)">🖼 Wklej podgląd</button>`}</div>`).join('') +
+      `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
+    box.querySelectorAll('[data-ptb]').forEach(b => b.onclick = async () => {
+      const i = +b.dataset.ptb, file = await clipboardImageFile() || await chooseImageFile();
+      if (!file) return;
+      b.disabled = true;
+      try {
+        const { url } = await storeImage(file, 900);
+        const th = el.pthumbs || []; while (th.length < i) th.push(''); th[i] = url; el.pthumbs = th;
+      } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
+      renderPlaneSum();
+    });
+    box.querySelectorAll('[data-ptrm]').forEach(b => b.onclick = () => { const th = el.pthumbs || []; th[+b.dataset.ptrm] = ''; el.pthumbs = th; renderPlaneSum(); });
+  }
   // płaszczyzny konstrukcji (inny kształt): wymiary w mm w el.planes, pola w bieżącej jednostce
   function renderPlanes() {
     const mk = markOf({ ...el, num: editing && !isWys(editing) ? el.num : nextNum(editing && editing.id) });
@@ -4416,7 +4505,15 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       '<button type="button" class="btn btn-sm" id="ed-pl-add">+ Dodaj płaszczyznę</button>';
     $('ed-planes').querySelectorAll('[data-pw]').forEach(i => i.addEventListener('input', () => { el.planes[+i.dataset.pw].w = toMM(i.value); refresh(); }));
     $('ed-planes').querySelectorAll('[data-ph]').forEach(i => i.addEventListener('input', () => { el.planes[+i.dataset.ph].h = toMM(i.value); refresh(); }));
-    $('ed-planes').querySelectorAll('[data-prm]').forEach(b => b.onclick = () => { el.planes.splice(+b.dataset.prm, 1); renderPlanes(); refresh(); });
+    $('ed-planes').querySelectorAll('[data-prm]').forEach(b => b.onclick = () => {
+      const i = +b.dataset.prm, ok = q => Number(q.w) > 0 && Number(q.h) > 0, nb = el.planes.filter(ok).length;
+      if (ok(el.planes[i])) { // podgląd płaszczyzny (zewnętrznej i wewnętrznej) znika razem z nią
+        const vi = el.planes.slice(0, i).filter(ok).length, th = el.pthumbs || [];
+        if (el.inside) th.splice(vi + nb, 1);
+        th.splice(vi, 1); el.pthumbs = th;
+      }
+      el.planes.splice(i, 1); renderPlanes(); refresh();
+    });
     $('ed-pl-add').onclick = () => {
       el.planes.push({ w: '', h: '' }); renderPlanes(); refresh();
       const all = $('ed-planes').querySelectorAll('[data-pw]'); if (all.length) all[all.length - 1].focus();
@@ -4488,8 +4585,9 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const g = grossOf(cur);
     $('ed-calc').innerHTML = !t ? 'Wybierz typ, aby policzyć wymiar do druku.'
       : !hasDims(cur) ? `<span class="tag-warn">Wymiar do ustalenia</span> · spad dla tego typu: <b>${g.b ? bleedTxt(g.b) + '</b> / stronę' : 'brak</b>'}`
-      : `${dimsMode(cur) === 'flat' && !isHang(cur) ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${g.box ? bleedCell(cur, g) + ' ' + UNIT() + '</b> <span style="color:var(--gray)">(lewy/prawy/góra/dół)</span><b>' : bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
+      : `${dimsMode(cur) === 'flat' && !isHang(cur) ? 'Netto' : 'Konstrukcja'} <b>${netTxt(cur)} ${UNIT()}</b> · spad <b>${g.box ? bleedCell(cur, g) + ' ' + UNIT() + '</b> <span style="color:var(--gray)">(lewy/prawy/góra/dół)</span><b>' : isHang(cur) ? hangBleedShort(cur) : bleedTxt(g.b)}</b> → do druku <b>${grossTxt(cur)} ${UNIT()}</b>
          · ${cur.qty} szt. · <b>${numPL(areaOf(cur))} m²</b>${needsSplit(cur) ? `<div class="split-line">${splitBadge(cur)} ${SPLIT_TXT}</div>` : ''}`;
+    renderPlaneSum();
     const cc = $('cb-calc'), ce = comboEl(cur);
     if (cc) cc.innerHTML = !ce ? '' : hasDims(ce)
       ? `${esc(typeLabel(ce))}: druk <b>${grossTxt(ce)} ${UNIT()}</b> · spad ${bleedTxt(grossOf(ce).b)} · <b>${numPL(areaOf(ce))} m²</b>${needsSplit(ce) ? `<div class="split-line">${splitBadge(ce)} ${SPLIT_TXT}</div>` : ''}`
@@ -4548,7 +4646,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
@@ -4560,7 +4658,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         m.close();
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
-        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
@@ -4725,7 +4823,7 @@ function renderGraph() {
   const maxH = Math.max(1, ...withD.map(e => grossOf(e).h)), maxW = Math.max(1, ...withD.map(e => grossOf(e).w));
   const k = Math.min(avail / maxH, 320 / maxW);
   const cards = S.elements.map(e => {
-    const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = grossOf(e);
+    const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
     // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
     const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
     const FW = dims ? Math.max(8, fw0 * up) : 120, FH = dims ? Math.max(8, fh0 * up) : 80;
@@ -4755,9 +4853,17 @@ function renderGraph() {
       }
     }
     const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - 2 * bw, FH - 2 * bh)}</svg>` : '';
+    // konstrukcja podwieszana: płaszczyzny zewnętrzne obok siebie (szerokość i wysokość wg wymiaru do druku); klik w płaszczyznę wkleja jej podgląd
+    const hpl = isHang(e) && dims ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [];
+    const showCells = hpl.length > 0 && !(e.thumb && !hpl.some(q => q.thumb));
+    let cells = '';
+    if (showCells) {
+      const tw = hpl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hpl.map(q => q.gh)); let cx = 0;
+      cells = hpl.map((q, i) => { const c = `<div class="gc-pl" data-pl="${i}" title="${esc(planeName(q))} — kliknij, aby wkleić podgląd tej płaszczyzny" style="left:${(cx / tw * 100).toFixed(3)}%;width:${(q.gw / tw * 100).toFixed(3)}%;height:${(q.gh / mh * 100).toFixed(3)}%">${q.thumb ? `<img src="${esc(q.thumb)}" alt="" draggable="false">` : '<span>+</span>'}</div>`; cx += q.gw; return c; }).join('');
+    }
     const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
         title="Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">
-      ${e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>`;
+      ${cells || (e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika')}</div>`;
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : isHang(e) ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · ${(planesOf(e) || []).length} pł. do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
@@ -4868,6 +4974,8 @@ function renderGraph() {
       if (S.graphMove) return; // w trybie przesuwania klik nie wkleja grafiki
       const rm = e.target.closest('[data-rm]');
       if (rm) { e.stopPropagation(); removeThumb(eid); return; }
+      const pc = e.target.closest('[data-pl]');
+      if (pc) { e.stopPropagation(); pastePlaneThumb(eid, +pc.dataset.pl); return; }
       e.stopPropagation(); pasteThumb(eid);
     };
     f.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); f.classList.add('drag'); } });
@@ -4907,6 +5015,20 @@ async function setThumb(eid, file) {
     const { url } = await storeImage(file, 900);
     await DB.update(pElements(S.project.id), eid, { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
     addLog(S.project.id, `Dodano grafikę (miniaturę) do elementu ${markOf(el)}`, eid);
+  } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
+  t.remove();
+}
+// podgląd jednej płaszczyzny konstrukcji podwieszanej (kolejność jak w planesOf: zewnętrzne, potem wewnętrzne)
+async function pastePlaneThumb(eid, idx) {
+  const el = S.elements.find(x => x.id === eid); if (!el || !S.project || !isHang(el)) return;
+  selectElement(eid, false);
+  const file = await clipboardImageFile() || await chooseImageFile(); if (!file) return;
+  const t = toast('Wgrywanie podglądu płaszczyzny…', '', 60000);
+  try {
+    const { url } = await storeImage(file, 900);
+    const th = [...(el.pthumbs || [])]; while (th.length < idx) th.push(''); th[idx] = url;
+    await DB.update(pElements(S.project.id), eid, { pthumbs: th, updatedAt: nowIso(), updatedBy: S.me.id });
+    addLog(S.project.id, `Dodano podgląd płaszczyzny ${(planesOf(el) || [])[idx] ? planeName(planesOf(el)[idx]) : idx + 1} elementu ${markOf(el)}`, eid);
   } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
   t.remove();
 }
@@ -5147,12 +5269,13 @@ function renderLog() {
 const dateStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
 // Zlecenie: każdy element w osobnej linii — znak: wymiar do druku, sztuki, typ (+ dopisek przy SEG)
-// grupy zlecenia: zwykłe elementy, wysłony (Blackback) i konstrukcje podwieszane osobno
+// grupy zlecenia: zwykłe elementy, Blackback z białym tyłem, wysłony (Blackback) i konstrukcje podwieszane osobno
 function orderGroups(list) {
   const all = [...list].sort((a, b) => { const ka = ordKey(a), kb = ordKey(b); return (ka[0] - kb[0]) || (ka[1] - kb[1]); });
   const wys = e => typeById(e.typeId).wyslona && e.wyslona;
   return [
-    ['', all.filter(e => !wys(e) && !isHang(e))],
+    ['', all.filter(e => !wys(e) && !isHang(e) && !isWhiteBack(e))],
+    ['Blackback — biały tył', all.filter(e => isWhiteBack(e) && !isHang(e))],
     ['Blackback — wysłony', all.filter(wys).sort((a, b) => (a.wnum || 0) - (b.wnum || 0))],
     ['Konstrukcje podwieszane', all.filter(isHang)],
   ].filter(([, l]) => l.length);
@@ -5164,7 +5287,8 @@ function orderLine(e) {
     if (e.inside) head.push('zadruk zewnątrz i wewnątrz');
     if (e.notes) head.push(e.notes);
     return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${head.join(', ')}` +
-      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${p.b ? '' : ' (bez spadu)'}`).join('');
+      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${p.side === 'inside' || !hangBleedAny(p.bb) ? ' (bez spadu)' : ` (spad ${hangBleedShort(e)})`}`).join('') +
+      (() => { const pl = planesOf(e) || []; return pl.length > 1 ? `\n   razem (płaszczyzny obok siebie): ${lenPL(pl.reduce((a, p) => a + p.gw, 0))} × ${lenPL(Math.max(...pl.map(p => p.gh)))} ${UNIT()} · ${numPL(pl.reduce((a, p) => a + p.gw * p.gh, 0) / 1e6)} m²` : ''; })();
   }
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
@@ -5508,6 +5632,8 @@ async function renderIndexA3(stamp) {
   // --- rozpiska: wspólna skala dla wszystkich okienek, możliwie największa (proporcje między elementami zostają)
   const thumbs = {};
   for (const r of rows) if (r.el.thumb) { try { thumbs[r.el.id] = await loadImg(r.el.thumb); } catch (e) {} }
+  const pthumbs = {}; // konstrukcje podwieszane: podgląd każdej płaszczyzny zewnętrznej
+  for (const r of rows) if (isHang(r.el)) for (const [i, q] of (planesOf(r.el) || []).filter(q => q.side !== 'inside').entries()) if (q.thumb) { try { pthumbs[r.el.id + '#' + i] = await loadImg(q.thumb); } catch (e) {} }
   const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24;
   const withD = rows.filter(r => r.w !== '');
   const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
@@ -5645,7 +5771,16 @@ async function renderIndexA3(stamp) {
       cd.title.forEach((ln, i) => g.fillText(ln, bx + 54, by + 32 + i * 34));
       const fx = bx + LM, fy = by + cd.head;
       const th = thumbs[r.el.id];
-      if (th) { // miniatura grafiki mieści się w całości w okienku (wyśrodkowana, bez przycinania)
+      const hpl = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [];
+      if (hpl.length && hpl.some((q, i) => pthumbs[r.el.id + '#' + i])) { // płaszczyzny obok siebie, każda z własnym podglądem
+        const tw = hpl.reduce((a2, q) => a2 + q.gw, 0), sk = FW / tw; let cx = fx;
+        hpl.forEach((q, i) => {
+          const im = pthumbs[r.el.id + '#' + i], cw = q.gw * sk, ch = q.gh * sk;
+          if (im) { const s3 = Math.min(cw / im.width, ch / im.height), dw3 = im.width * s3, dh3 = im.height * s3; g.drawImage(crispCanvas(im, dw3, dh3) || im, cx + (cw - dw3) / 2, fy + (ch - dh3) / 2, dw3, dh3); }
+          g.strokeStyle = '#cbd5e0'; g.lineWidth = 1.5; g.strokeRect(cx, fy, cw, ch);
+          cx += cw;
+        });
+      } else if (th) { // miniatura grafiki mieści się w całości w okienku (wyśrodkowana, bez przycinania)
         const s2 = Math.min(FW / th.width, FH / th.height), dw = th.width * s2, dh = th.height * s2;
         g.drawImage(crispCanvas(th, dw, dh) || th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
       }
