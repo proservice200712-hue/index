@@ -4827,7 +4827,10 @@ function renderGraph() {
     // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
     const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
     const FW = dims ? Math.max(8, fw0 * up) : 120, FH = dims ? Math.max(8, fh0 * up) : 80;
-    const bw = dims && g.b ? Math.min(FW / 4, Math.max(3, g.b * k)) : 0, bh = dims && g.b ? Math.min(FH / 4, Math.max(3, g.b * k)) : 0;
+    // spad z każdej strony (grafika na drzwi: lewy / prawy / góra / dół różne); reszta — jeden spad dookoła
+    const bx = dims ? (g.box || (g.b ? { l: g.b, r: g.b, t: g.b, b: g.b } : null)) : null, sx = g.w ? FW / g.w : k, sy = g.h ? FH / g.h : k;
+    const bw = bx ? Math.min(FW / 4, Math.max(3, bx.l * sx)) : 0, bwR = bx ? Math.min(FW / 4, Math.max(3, bx.r * sx)) : 0;
+    const bh = bx ? Math.min(FH / 4, Math.max(3, bx.t * sy)) : 0, bhB = bx ? Math.min(FH / 4, Math.max(3, bx.b * sy)) : 0;
     const LM = !dims ? 0 : g.b ? 56 : 32, BM = !dims ? 0 : g.b ? 44 : 24;
     const W = LM + FW + 4, H = FH + BM;
     let svg = '';
@@ -4840,19 +4843,22 @@ function renderGraph() {
       };
       const ext = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a0aec0" stroke-width=".8"/>`;
       svg += `<rect x="${LM}" y="0" width="${FW}" height="${FH}" fill="none" stroke="#a0aec0"/>`;
-      if (g.b) {
-        svg += `<rect x="${LM + bw}" y="${bh}" width="${FW - 2 * bw}" height="${FH - 2 * bh}" fill="none" stroke="#f4a6b4" stroke-dasharray="4 3"/>`;
+      if (bx) {
+        svg += `<rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#f4a6b4" stroke-dasharray="4 3"/>`;
         // netto (wewnątrz spadu) i do druku (całość)
-        svg += ext(LM + bw, FH, LM + bw, FH + 18) + ext(LM + FW - bw, FH, LM + FW - bw, FH + 18) + L(LM + bw, FH + 16, LM + FW - bw, FH + 16, cm(g.w - 2 * g.b));
+        svg += ext(LM + bw, FH, LM + bw, FH + 18) + ext(LM + FW - bwR, FH, LM + FW - bwR, FH + 18) + L(LM + bw, FH + 16, LM + FW - bwR, FH + 16, cm(g.w - bx.l - bx.r));
         svg += ext(LM, FH, LM, FH + 40) + ext(LM + FW, FH, LM + FW, FH + 40) + L(LM, FH + 38, LM + FW, FH + 38, cm(g.w));
-        svg += ext(LM, bh, LM - 22, bh) + ext(LM, FH - bh, LM - 22, FH - bh) + L(LM - 20, bh, LM - 20, FH - bh, cm(g.h - 2 * g.b), true);
+        svg += ext(LM, bh, LM - 22, bh) + ext(LM, FH - bhB, LM - 22, FH - bhB) + L(LM - 20, bh, LM - 20, FH - bhB, cm(g.h - bx.t - bx.b), true);
         svg += ext(LM, 0, LM - 46, 0) + ext(LM, FH, LM - 46, FH) + L(LM - 44, 0, LM - 44, FH, cm(g.h), true);
       } else {
         svg += ext(LM, FH, LM, FH + 20) + ext(LM + FW, FH, LM + FW, FH + 20) + L(LM, FH + 18, LM + FW, FH + 18, cm(g.w));
         svg += ext(LM, 0, LM - 24, 0) + ext(LM, FH, LM - 24, FH) + L(LM - 22, 0, LM - 22, FH, cm(g.h), true);
       }
     }
-    const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - 2 * bw, FH - 2 * bh)}</svg>` : '';
+    const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - bw - bwR, FH - bh - bhB)}</svg>` : '';
+    // Blackback standard / Folia: na grafice drzwi ramka w miejscu drzwi — sam przerywany kontur, bez wypełnienia
+    const doorFrame = e.doorFor && dims && bx && !(e.seg || e.wyslona)
+      ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#3182ce" stroke-width="1.8" stroke-dasharray="7 4"/></svg>` : '';
     // konstrukcja podwieszana: płaszczyzny zewnętrzne obok siebie (szerokość i wysokość wg wymiaru do druku); klik w płaszczyznę wkleja jej podgląd
     const hpl = isHang(e) && dims ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [];
     const showCells = hpl.length > 0 && !(e.thumb && !hpl.some(q => q.thumb));
@@ -4868,7 +4874,7 @@ function renderGraph() {
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
-      <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}</div>
+      <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}${doorFrame}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
   box.classList.add('gnav');
@@ -5806,16 +5812,20 @@ async function renderIndexA3(stamp) {
         g.fillStyle = '#dd6b20'; g.font = `700 ${FS}px ${PDF_FONT}`; g.fillText('wymiar do ustalenia', fx, fy + FH + 34);
       } else {
         if (!noFrame) { g.strokeStyle = '#a0aec0'; g.lineWidth = 2; g.strokeRect(fx, fy, FW, FH); }
-        const gb = r.spad, bw = gb ? Math.min(FW / 4, Math.max(6, gb * k)) : 0, bh = gb ? Math.min(FH / 4, Math.max(6, gb * k)) : 0;
-        if (gb && !noFrame) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; g.strokeRect(fx + bw, fy + bh, FW - 2 * bw, FH - 2 * bh); g.setLineDash([]); }
+        const gb = isHang(r.el) ? 0 : r.spad;
+        const bx2 = gb ? (r.el.bleedBox || { l: gb, r: gb, t: gb, b: gb }) : null, skx = r.bw ? FW / r.bw : k, sky = r.bh ? FH / r.bh : k;
+        const bw = bx2 ? Math.min(FW / 4, Math.max(6, bx2.l * skx)) : 0, bwR = bx2 ? Math.min(FW / 4, Math.max(6, bx2.r * skx)) : 0;
+        const bh = bx2 ? Math.min(FH / 4, Math.max(6, bx2.t * sky)) : 0, bhB = bx2 ? Math.min(FH / 4, Math.max(6, bx2.b * sky)) : 0;
+        const doorStd = !!(r.el.doorFor && r.el.bleedBox && !(r.el.seg || r.el.wyslona)); // drzwi Blackback standard / Folia: kontur w miejscu drzwi
+        if (gb && !noFrame) { g.setLineDash(doorStd ? [14, 9] : [10, 7]); g.strokeStyle = doorStd ? '#3182ce' : '#f4a6b4'; g.lineWidth = doorStd ? 3 : 2; g.strokeRect(fx + bw, fy + bh, FW - bw - bwR, FH - bh - bhB); g.setLineDash([]); }
         const AC = '#4a5568', TXT = '#38a169';
         const ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
         const hDim = (xa, xb, y, mm) => { drawArrowLine(g, xa, y, xb, y, 14, AC, 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 8); g.textAlign = 'left'; };
         const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 14, AC, 2); g.save(); g.translate(x - 8, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
         if (gb) {
-          ext(fx + bw, fy + FH, fx + bw, fy + FH + 40); ext(fx + FW - bw, fy + FH, fx + FW - bw, fy + FH + 40); hDim(fx + bw, fx + FW - bw, fy + FH + 36, r.bw - 2 * gb);
+          ext(fx + bw, fy + FH, fx + bw, fy + FH + 40); ext(fx + FW - bwR, fy + FH, fx + FW - bwR, fy + FH + 40); hDim(fx + bw, fx + FW - bwR, fy + FH + 36, r.bw - bx2.l - bx2.r);
           ext(fx, fy + FH, fx, fy + FH + 86); ext(fx + FW, fy + FH, fx + FW, fy + FH + 86); hDim(fx, fx + FW, fy + FH + 82, r.bw);
-          ext(fx, fy + bh, fx - 50, fy + bh); ext(fx, fy + FH - bh, fx - 50, fy + FH - bh); vDim(fy + bh, fy + FH - bh, fx - 46, r.bh - 2 * gb);
+          ext(fx, fy + bh, fx - 50, fy + bh); ext(fx, fy + FH - bhB, fx - 50, fy + FH - bhB); vDim(fy + bh, fy + FH - bhB, fx - 46, r.bh - bx2.t - bx2.b);
           ext(fx, fy, fx - 104, fy); ext(fx, fy + FH, fx - 104, fy + FH); vDim(fy, fy + FH, fx - 100, r.bh);
         } else {
           ext(fx, fy + FH, fx, fy + FH + 44); ext(fx + FW, fy + FH, fx + FW, fy + FH + 44); hDim(fx, fx + FW, fy + FH + 40, r.bw);
