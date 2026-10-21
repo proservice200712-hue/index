@@ -214,6 +214,7 @@
   .gc-frame:hover { background: #f7fafc; color: var(--gray); }
   .gc-frame.drag { outline: 3px dashed var(--accent); outline-offset: 2px; }
   .gc-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .gc-qty { position: absolute; top: 0; font-weight: 800; font-size: 1.05rem; color: var(--dark); line-height: 1; padding: 3px 6px; border: 1.5px solid var(--dark); background: #fff; white-space: nowrap; }
   .gc-pl { position: absolute; top: 0; box-sizing: border-box; border-right: 1px solid #cbd5e0; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-weight: 700; overflow: hidden; }
   .gc-frame .x { position: absolute; right: 0; top: 0; width: 18px; height: 18px; background: rgba(229,62,62,.9); color: #fff; font-size: .7rem; display: none; align-items: center; justify-content: center; z-index: 2; }
   .gc-frame:hover .x { display: flex; }
@@ -4834,7 +4835,7 @@ function renderGraph() {
     const bw = bx ? Math.min(FW / 4, Math.max(3, bx.l * sx)) : 0, bwR = bx ? Math.min(FW / 4, Math.max(3, bx.r * sx)) : 0;
     const bh = bx ? Math.min(FH / 4, Math.max(3, bx.t * sy)) : 0, bhB = bx ? Math.min(FH / 4, Math.max(3, bx.b * sy)) : 0;
     const LM = !dims ? 0 : g.b ? 56 : 32, BM = !dims ? 0 : g.b ? 44 : 24;
-    const W = LM + FW + 4, H = FH + BM;
+    const W = LM + FW + 4, H = FH + BM, QW = (e.qty || 1) > 1 ? 46 : 0; // miejsce na „×3” obok miniatury
     let svg = '';
     if (dims) {
       const L = (x1, y1, x2, y2, txt, vert) => {
@@ -4874,9 +4875,9 @@ function renderGraph() {
       ${cells || (e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika')}</div>`;
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : isHang(e) ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · ${(planesOf(e) || []).length} pł. do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
-    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
+    return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W + QW, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
-      <div class="gc-body" style="width:${W}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}${doorFrame}</div>
+      <div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}${doorFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${e.qty} szt.">×${e.qty}</div>` : ''}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
   box.classList.add('gnav');
@@ -5672,7 +5673,8 @@ async function renderIndexA3(stamp) {
     const fw0 = r.bw * k, fh0 = r.bh * k, up = d && Math.max(fw0, fh0) < MINF * 2 ? MINF * 2 / Math.max(fw0, fh0) : 1; // proporcje bez zmian
     const FW = d ? Math.max(6, fw0 * up) : 160, FH = d ? Math.max(6, fh0 * up) : 100;
     const LM = !d ? 0 : gb ? 104 : 60, BM = !d ? 0 : gb ? 88 : 48;
-    const w = Math.max(LM + FW + 10, 230);
+    const qw = (r.qty || 1) > 1 ? 90 : 0;
+    const w = Math.max(LM + FW + 10 + qw, 230);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
     const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), w - 56, 3);
     g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
@@ -5800,6 +5802,10 @@ async function renderIndexA3(stamp) {
       g.fillStyle = '#1a202c'; g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
       cd.title.forEach((ln, i) => g.fillText(ln, bx + 54, by + 32 + i * 34));
       const fx = bx + LM, fy = by + cd.head;
+      if ((r.qty || 1) > 1) { // ilość obok miniatury: „×3”
+        g.fillStyle = '#1a202c'; g.font = `800 ${FS * 1.5}px ${PDF_FONT}`; const qt = '×' + r.qty, qwid = g.measureText(qt).width + 22;
+        g.lineWidth = 3; g.strokeStyle = '#1a202c'; g.strokeRect(fx + FW + 14, fy, qwid, FS * 1.5 + 18); g.fillText(qt, fx + FW + 25, fy + FS * 1.5 + 4);
+      }
       const th = thumbs[r.el.id];
       const hpl = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [];
       if (hpl.length && hpl.some((q, i) => pthumbs[r.el.id + '#' + i])) { // płaszczyzny obok siebie, każda z własnym podglądem
