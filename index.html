@@ -4208,7 +4208,6 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         <div class="type-prev" id="ed-prev"></div>
       </div>
       <div id="ed-opts"></div>
-      <div class="fld"><label>Nazwa elementu (opcjonalnie)</label><input type="text" id="ed-name" value="${esc(el.name || '')}" placeholder="np. ściana tylna, lada, kaseton nad wejściem"></div>
       <div class="fld"><label id="ed-dims-lab">2. Wymiar widoczny (netto)</label>
         <div class="row-dims" id="ed-dims">
           <div class="fld" style="margin:0"><input type="text" inputmode="decimal" autocomplete="off" id="ed-w" value="${esc(numIn(fromMM(el.w)))}" placeholder="szerokość [${UNIT()}]" title="Można wpisać działanie, np. 99,2x2+8 — pokażę wynik, a wyliczenie zapamiętam"></div>
@@ -4222,7 +4221,9 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       </div>
       <div class="calc" id="ed-calc"></div>
       <div id="ed-bleedopts"></div>
+      <div id="ed-doorslot"></div>
       <div id="ed-combo"></div>
+      <div class="fld" style="margin-top:12px"><label>Nazwa elementu (opcjonalnie)</label><input type="text" id="ed-name" value="${esc(el.name || '')}" placeholder="np. ściana tylna, lada, kaseton nad wejściem"></div>
       <div class="fld" style="margin-top:12px"><label>Uwagi</label><textarea id="ed-notes" placeholder="Wszystko, co pomoże nam zrozumieć element">${esc(el.notes || '')}</textarea></div>`,
     footer: `${editing ? `<button class="btn btn-red" id="ed-del" style="margin-right:auto">Usuń</button>
       ${editing.shape ? '' : '<button class="btn" id="ed-assign">Zaznacz na wizce</button>'}
@@ -4288,10 +4289,11 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         ${BACK_MATS.map(([k, n]) => `<button type="button" class="type-btn var-btn ${el.backSel === k ? 'on' : ''}" data-backsel="${k}">${n}</button>`).join('')}</div>
         ${el.backSel ? '' : '<div class="hint">Nie wybrano — zapytam przy zapisie.</div>'}</div>`;
     }
+    let hd = '';
     if (t && DOOR_TYPES.includes(t.id) && !el.doorFor) {
       const dr = el.door || (el.door = { on: false, from: 'left', dist: '', size: 'h2480' });
       const sys = el.seg || el.wyslona;
-      h += `<div class="door-fld"><label class="chk seg-chk"><input type="checkbox" id="ed-door" ${dr.on ? 'checked' : ''}> <span>Drzwi w ścianie</span></label>
+      hd += `<div class="door-fld" style="margin-top:12px"><label class="chk seg-chk"><input type="checkbox" id="ed-door" ${dr.on ? 'checked' : ''}> <span>Drzwi w ścianie</span></label>
         ${dr.on ? `<div class="door-opts">
           ${sys ? `<div class="var-list"><button type="button" class="type-btn var-btn ${dr.size !== 'h1984' ? 'on' : ''}" data-dsize="h2480">drzwi ${lenPL(992)} × ${lenPL(2480)}</button><button type="button" class="type-btn var-btn ${dr.size === 'h1984' ? 'on' : ''}" data-dsize="h1984">drzwi ${lenPL(992)} × ${lenPL(1984)}</button></div>
             <div class="hint">SEG / wysłona: grafika na drzwi bez spadu.</div>`
@@ -4323,6 +4325,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, bez spadu)</span></span></label>`;
     $('ed-opts').innerHTML = h;
     $('ed-bleedopts').innerHTML = hb;
+    $('ed-doorslot').innerHTML = hd;
     const axp = $('ed-axpick'); if (axp) axp.onclick = () => openAxPicker(pick => {
       const line = axApplyPick(el, pick);
       $('ed-w').value = numIn(fromMM(el.w)); el.wExpr = ''; $('ed-h').value = fromMM(el.h); $('ed-q').value = el.qty || 1;
