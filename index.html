@@ -192,7 +192,7 @@
   /* nawigacja w widoku Grafika */
   .el-scroll.gnav { overflow: hidden; position: relative; cursor: grab; touch-action: none; }
   .el-scroll.gnav.panning { cursor: grabbing; }
-  .gstage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  .gstage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
   .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: grab; touch-action: none; }
   .gidx.moving .gc-frame:hover { background: #fff; color: var(--mid); }
   .gidx.moving .gc { animation: gcWiggle .3s ease-in-out infinite alternate; transform-origin: 50% 40%; }
@@ -2085,12 +2085,12 @@ async function makeDoorTexture(main, door) {
   const cropX = ox + p.x - bb.l, cropY = oy + H - p.h - bb.t;               // lewy górny róg wycinka w układzie grafiki ściany [mm]
   const asp = img.width / img.height, fa = g.w / g.h;
   const iw = asp > fa ? g.w : g.h * asp, ih = asp > fa ? g.w / asp : g.h, ix = (g.w - iw) / 2, iy = (g.h - ih) / 2;
-  const sc = 900 / Math.max(Dw, Dh), c = document.createElement('canvas');
+  const sc = 1800 / Math.max(Dw, Dh), c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(Dw * sc)); c.height = Math.max(1, Math.round(Dh * sc));
   const cg = c.getContext('2d'); cg.fillStyle = '#fff'; cg.fillRect(0, 0, c.width, c.height);
   cg.imageSmoothingQuality = 'high';
   cg.drawImage(img, (ix - cropX) * sc, (iy - cropY) * sc, iw * sc, ih * sc);
-  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.94));
 }
 async function doorThumbFor(mainId) {
   const main = S.elements.find(e => e.id === mainId), door = S.elements.find(e => e.doorFor === mainId);
@@ -3030,7 +3030,7 @@ function thumbUrl(url, w = 200, h = 140) {
 function pickPhotos() { $('file-photos').click(); }
 $('file-photos').onchange = e => { addPhotoFiles([...e.target.files]); e.target.value = ''; };
 
-async function prepareImage(file, maxSide, quality = 0.9) {
+async function prepareImage(file, maxSide, quality = 0.9, png = false) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('To nie jest obrazek')); i.src = url; });
@@ -3039,7 +3039,7 @@ async function prepareImage(file, maxSide, quality = 0.9) {
     w = Math.round(w * k); h = Math.round(h * k);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
-    const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', quality));
+    const blob = await new Promise(res => png && w * h <= 6e6 ? c.toBlob(res, 'image/png') : c.toBlob(res, 'image/jpeg', quality));
     return { blob, w, h };
   } finally { URL.revokeObjectURL(url); }
 }
@@ -3052,11 +3052,13 @@ async function uploadToCloudinary(blob, name) {
   return (await r.json()).secure_url;
 }
 const blobToDataUrl = b => new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
-async function storeImage(file, maxSide) {
-  const { blob, w, h } = await prepareImage(file, DEMO ? Math.min(maxSide, 1400) : maxSide, DEMO ? 0.8 : 0.9);
-  const url = DEMO ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, (file.name || 'wizka').replace(/\.\w+$/, '') + '.jpg');
+async function storeImage(file, maxSide, opts = {}) {
+  const { blob, w, h } = await prepareImage(file, DEMO ? Math.min(maxSide, 1400) : maxSide, opts.q || (DEMO ? 0.8 : 0.9), !!opts.png && !DEMO);
+  const url = DEMO ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, (file.name || 'wizka').replace(/\.\w+$/, '') + (blob.type === 'image/png' ? '.png' : '.jpg'));
   return { url, w, h };
 }
+// miniatury grafik (element, płaszczyzna): zachowujemy jakość wklejonego obrazka
+const storeThumb = file => storeImage(file, 2400, { q: 0.94, png: file.type === 'image/png' });
 let uploading = 0;
 async function addPhotoFiles(files) {
   const pid = S.project && S.project.id; if (!pid) return;
@@ -4487,7 +4489,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
       if (!file) return;
       b.disabled = true;
       try {
-        const { url } = await storeImage(file, 900);
+        const { url } = await storeThumb(file);
         const th = el.pthumbs || []; while (th.length < i) th.push(''); th[i] = url; el.pthumbs = th;
       } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
       renderPlaneSum();
@@ -5020,7 +5022,7 @@ async function setThumb(eid, file) {
   const el = S.elements.find(x => x.id === eid); if (!el || !S.project) return;
   const t = toast('Wgrywanie miniatury…', '', 60000);
   try {
-    const { url } = await storeImage(file, 900);
+    const { url } = await storeThumb(file);
     await DB.update(pElements(S.project.id), eid, { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
     addLog(S.project.id, `Dodano grafikę (miniaturę) do elementu ${markOf(el)}`, eid);
   } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
@@ -5033,7 +5035,7 @@ async function pastePlaneThumb(eid, idx) {
   const file = await clipboardImageFile() || await chooseImageFile(); if (!file) return;
   const t = toast('Wgrywanie podglądu płaszczyzny…', '', 60000);
   try {
-    const { url } = await storeImage(file, 900);
+    const { url } = await storeThumb(file);
     const th = [...(el.pthumbs || [])]; while (th.length < idx) th.push(''); th[idx] = url;
     await DB.update(pElements(S.project.id), eid, { pthumbs: th, updatedAt: nowIso(), updatedBy: S.me.id });
     addLog(S.project.id, `Dodano podgląd płaszczyzny ${(planesOf(el) || [])[idx] ? planeName(planesOf(el)[idx]) : idx + 1} elementu ${markOf(el)}`, eid);
@@ -5508,7 +5510,10 @@ function crispCanvas(img, tw, th) {
   const sg = src.getContext('2d'); sg.drawImage(img, 0, 0);
   let sd; try { sd = sg.getImageData(0, 0, W, H).data; } catch (e) { return null; }
   const out = document.createElement('canvas'); out.width = tw; out.height = th;
-  const og = out.getContext('2d'), od = og.createImageData(tw, th), o = od.data, fx = W / tw, fy = H / th, K = 0.6;
+  // cienkie kontury na białym tle (logo z Corela) wymagają podbicia najciemniejszego piksela; zdjęcia — czyste uśrednienie (bez ciemnienia i szumu)
+  let biale = 0, probki = 0;
+  for (let i = 0; i < sd.length; i += 4 * 97) { probki++; if (sd[i + 3] < 12 || (sd[i] > 244 && sd[i + 1] > 244 && sd[i + 2] > 244)) biale++; }
+  const og = out.getContext('2d'), od = og.createImageData(tw, th), o = od.data, fx = W / tw, fy = H / th, K = biale / Math.max(1, probki) > 0.55 ? 0.6 : 0;
   for (let y = 0; y < th; y++) {
     const y0 = Math.floor(y * fy), y1 = Math.max(y0 + 1, Math.min(H, Math.floor((y + 1) * fy)));
     for (let x = 0; x < tw; x++) {
@@ -5605,7 +5610,9 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
     'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
   g.fillText(foot, 40 * sc, PH - 28 * sc);
 }
-function newCanvas(PW, PH) { const c = document.createElement('canvas'); c.width = PW; c.height = PH; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); return [c, g]; }
+// płótno o rozmiarze logicznym PW × PH, rysowane w Q-krotnej rozdzielczości (ostry tekst i miniatury w PDF / druku)
+const EXP_Q = 2;
+function newCanvas(PW, PH, Q = 1) { const c = document.createElement('canvas'); c.width = PW * Q; c.height = PH * Q; const g = c.getContext('2d'); g.scale(Q, Q); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.imageSmoothingQuality = 'high'; return [c, g]; }
 // wizka z kształtami, strzałkami i literami
 function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
   g.drawImage(img, ix, iy, iw, ih);
@@ -5641,7 +5648,7 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
 // INDEX A3 (poziomo): u góry wizki obok siebie, pod nimi rozpiska graficzna jak w widoku „Grafika"
 async function renderIndexA3(stamp) {
   const PW = 2976, PH = 2104, sc = 1.25, M = 50; // A3 ~180 dpi
-  const [c, g] = newCanvas(PW, PH);
+  const [c, g] = newCanvas(PW, PH, EXP_Q);
   let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
   pageHeader(g, PW, PH, logo, '', stamp, sc);
   const rows = exportRows();
@@ -5799,13 +5806,13 @@ async function renderIndexA3(stamp) {
         const tw = hpl.reduce((a2, q) => a2 + q.gw, 0), sk = FW / tw; let cx = fx;
         hpl.forEach((q, i) => {
           const im = pthumbs[r.el.id + '#' + i], cw = q.gw * sk, ch = q.gh * sk;
-          if (im) { const s3 = Math.min(cw / im.width, ch / im.height), dw3 = im.width * s3, dh3 = im.height * s3; g.drawImage(crispCanvas(im, dw3, dh3) || im, cx + (cw - dw3) / 2, fy + (ch - dh3) / 2, dw3, dh3); }
+          if (im) { const s3 = Math.min(cw / im.width, ch / im.height), dw3 = im.width * s3, dh3 = im.height * s3; g.drawImage(crispCanvas(im, dw3 * EXP_Q, dh3 * EXP_Q) || im, cx + (cw - dw3) / 2, fy + (ch - dh3) / 2, dw3, dh3); }
           g.strokeStyle = '#cbd5e0'; g.lineWidth = 1.5; g.strokeRect(cx, fy, cw, ch);
           cx += cw;
         });
       } else if (th) { // miniatura grafiki mieści się w całości w okienku (wyśrodkowana, bez przycinania)
         const s2 = Math.min(FW / th.width, FH / th.height), dw = th.width * s2, dh = th.height * s2;
-        g.drawImage(crispCanvas(th, dw, dh) || th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
+        g.drawImage(crispCanvas(th, dw * EXP_Q, dh * EXP_Q) || th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
       }
       if (!d) {
         if (!noFrame) { g.setLineDash([12, 8]); g.strokeStyle = '#dd6b20'; g.lineWidth = 3; g.strokeRect(fx, fy, FW, FH); g.setLineDash([]); }
@@ -5856,7 +5863,7 @@ async function renderTableA4(stamp) {
   let idx = 0, pageNo = 0, done = false;
   while (!done) {
     pageNo++;
-    const [c, g] = newCanvas(PW, PH); pages.push(c);
+    const [c, g] = newCanvas(PW, PH, EXP_Q); pages.push(c);
     pageHeader(g, PW, PH, logo, `Tabela ${pageNo} / ${total}`, stamp, 1);
     g.fillStyle = '#1a202c'; g.font = `700 32px ${PDF_FONT}`;
     g.fillText(`Lista elementów (${rows.length})`, 40, 175);
@@ -5915,7 +5922,7 @@ function printPages(canvases, size) {
   d.open();
   d.write(`<!doctype html><html><head><title>${esc(S.project.name)} — INDEX</title><style>@page{size:${size} landscape;margin:0}html,body{margin:0;padding:0}
     img{display:block;width:100%;height:100vh;object-fit:contain;page-break-after:always;break-after:page}img:last-child{page-break-after:auto;break-after:auto}</style></head><body>
-    ${canvases.map(c => `<img src="${c.toDataURL('image/jpeg', 0.92)}">`).join('')}</body></html>`);
+    ${canvases.map(c => `<img src="${c.toDataURL('image/jpeg', 0.95)}">`).join('')}</body></html>`);
   d.close();
   const go = () => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('Nie udało się otworzyć drukowania: ' + e.message, 'error'); } setTimeout(() => fr.remove(), 60000); };
   const imgs = [...d.images];
@@ -5935,7 +5942,7 @@ async function exportDoc(w, mode, v) {
     } else {
       const fmt = w === 'a3' ? [420, 297] : [297, 210];
       const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: w === 'a3' ? 'a3' : 'a4', compress: true });
-      pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, fmt[0], fmt[1]); });
+      pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, fmt[0], fmt[1]); });
       pdf.save(fileBase(v) + (w === 'a3' ? '.pdf' : '_tabela.pdf'));
       if (v > (Number(p.indexVersion) || 0)) await DB.update(C_PROJECTS, p.id, { indexVersion: v });
       addLog(p.id, w === 'a3' ? `Wyeksportowano index v${v} (A3, PDF)` : `Wyeksportowano tabelę elementów v${v} (A4, PDF)`);
