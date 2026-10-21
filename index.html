@@ -78,8 +78,8 @@
   .cd.ph-deadline .cd-lab { background: var(--accent); color: #fff; }
   .cd.ph-pack { border-color: #ecc94b; }
   .cd.ph-pack .cd-lab { background: #ecc94b; color: var(--dark); }
-  .cd.ph-event { border-color: var(--red); }
-  .cd.ph-event .cd-lab { background: var(--red); color: #fff; }
+  .cd.ph-event { border-color: #4a5568; }
+  .cd.ph-event .cd-lab { background: #4a5568; color: #fff; }
   .cd.ph-live .cd-lab { background: var(--green); color: #fff; }
   .cd.ph-done, .cd.ph-none { opacity: .7; }
 
@@ -230,7 +230,18 @@
   .cl-sub { font-size: 0.7rem; color: var(--gray); text-align: center; }
   #clock-pane.ph-deadline .cl-lab { color: #b7791f; }
   #clock-pane.ph-pack .cl-lab { color: #2f855a; }
-  #clock-pane.ph-event .cl-lab, #clock-pane.ph-event #cl-big { color: #c53030; fill: #c53030; }
+  #clock-pane.ph-event .cl-lab, #clock-pane.ph-event #cl-big { color: #4a5568; fill: #4a5568; }
+  /* ostatnie 3 dni do terminu: napisy na zegarze łagodnie migają */
+  @keyframes urgBlink { 0%, 100% { opacity: 1; } 50% { opacity: .22; } }
+  #clock-pane.urgent #cl-big, #clock-pane.urgent #cl-small, #clock-pane.urgent .cl-lab, #clock-pane.urgent .cl-sub { animation: urgBlink 1.2s ease-in-out infinite; }
+  .cd.urgent .cd-val { animation: urgBlink 1.2s ease-in-out infinite; }
+  /* pasek postępu pod nazwą targów: to samo co zegar — grafika (żółty), produkcja (zielony → czerwony), targi (ciemnoszary) */
+  .fair-row .fgrow { flex: 1 1 auto; min-width: 0; }
+  .fbar { position: relative; height: 7px; margin: 6px 4px 2px 0; background: #1a1a19; }
+  .fbar .fb-s { position: absolute; top: 0; bottom: 0; }
+  .fbar .fb-past { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,.62); }
+  .fbar .fb-knob { position: absolute; top: -2px; width: 3px; height: 11px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 0 1px #1a202c; }
+  .fbar.urgent { animation: urgBlink 1.2s ease-in-out infinite; }
   #clock-pane.ph-none #clock-svg { opacity: .45; }
   .cl-legend { display: flex; gap: 8px; font-size: .62rem; color: var(--gray); margin-top: 3px; flex: 0 0 auto; }
   .cl-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 3px; vertical-align: 0; }
@@ -340,6 +351,11 @@
   .hdr-team { display: inline-flex; gap: 3px; flex: 0 0 auto; cursor: pointer; }
   .hdr-team:empty { display: none; }
   .hdr-team .avatar-sm { width: 28px; height: 28px; font-size: 0.7rem; }
+  /* zalogowany użytkownik: zielona obwódka na awatarze (przerwa w kolorze tła) */
+  .avatar-sm.on, .avatar.on { box-shadow: 0 0 0 2px var(--ring-gap, #fff), 0 0 0 4px #38a169; }
+  header .avatar-sm, header .avatar { --ring-gap: var(--dark); }
+  .hdr-team { gap: 7px; padding: 0 3px; }
+  .la.live .la-n::before { content: '●'; color: #38a169; margin-right: 5px; font-size: .7em; vertical-align: 1px; }
   .team-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
   .tchip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 3px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-size: .8rem; }
   .tchip:hover { border-color: var(--gray); }
@@ -828,17 +844,17 @@
       <svg id="clock-svg" viewBox="0 0 120 120" aria-hidden="true">
         <defs>
           <linearGradient id="clTrack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4846"/><stop offset=".5" stop-color="#1F1E1D"/><stop offset="1" stop-color="#0E0E0D"/></linearGradient>
-          <linearGradient id="clGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B6E88F"/><stop offset=".5" stop-color="#67B437"/><stop offset="1" stop-color="#3E7A1C"/></linearGradient>
+          <linearGradient id="clGreen" x1="0" y1="0" x2="1" y2="1"><stop id="clG0" offset="0" stop-color="#B6E88F"/><stop id="clG1" offset=".5" stop-color="#67B437"/><stop id="clG2" offset="1" stop-color="#3E7A1C"/></linearGradient>
           <linearGradient id="clYellow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF3B0"/><stop offset=".5" stop-color="#F6C744"/><stop offset="1" stop-color="#B7791F"/></linearGradient>
-          <linearGradient id="clRed" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FEB2B2"/><stop offset=".5" stop-color="#E53E3E"/><stop offset="1" stop-color="#822727"/></linearGradient>
+          <linearGradient id="clGray" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#B8BEC8"/><stop offset=".5" stop-color="#6B7280"/><stop offset="1" stop-color="#3B414D"/></linearGradient>
           <filter id="clShadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".35"/></filter>
         </defs>
         <g filter="url(#clShadow)">
           <circle cx="60" cy="60" r="47" fill="none" stroke="url(#clTrack)" stroke-width="13"/>
-          <!-- trzy odcinki po kolei: graficzny (żółty), produkcja (zielony), targi (czerwony); upływ = przyciemnienie -->
+          <!-- trzy odcinki po kolei: graficzny (żółty), produkcja (zielony → czerwony na ostatnie 9 dni), targi (ciemnoszary); upływ = przyciemnienie -->
           <circle id="cl-s1" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clYellow)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-s2" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGreen)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
-          <circle id="cl-s3" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clRed)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
+          <circle id="cl-s3" class="cl-seg" cx="60" cy="60" r="47" fill="none" stroke="url(#clGray)" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <circle id="cl-past" cx="60" cy="60" r="47" fill="none" stroke="#fff" stroke-opacity=".62" stroke-width="13" transform="rotate(-90 60 60)" pathLength="100" stroke-dasharray="0 100"/>
           <!-- połysk rury -->
           <circle cx="60" cy="60" r="51" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="2"/>
@@ -850,7 +866,7 @@
       </svg>
       <div class="cl-lab" id="cl-lab"></div>
       <div class="cl-sub" id="cl-sub"></div>
-      <div class="cl-legend"><span><i style="background:#ecc94b"></i>grafika</span><span><i style="background:#67b437"></i>produkcja</span><span><i style="background:#e53e3e"></i>targi</span></div>
+      <div class="cl-legend"><span><i style="background:#ecc94b"></i>grafika</span><span><i id="cl-leg-prod" style="background:#67b437"></i>produkcja</span><span><i style="background:#6b7280"></i>targi</span></div>
     </div>
   </div>
   <input type="file" id="file-photos" accept="image/*" multiple class="hidden">
@@ -1093,6 +1109,7 @@ const nowIso = () => new Date().toISOString();
 const clone = o => JSON.parse(JSON.stringify(o));
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function letterOf(n) { let s = ''; n = n | 0; while (n > 0) { n--; s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26); } return s || '?'; }
+function lettersToNum(t) { return [...t].reduce((n, c) => n * 26 + (c.charCodeAt(0) - 64), 0); }
 function fmtDate(d) { if (!d) return '—'; const x = new Date(d); if (isNaN(x)) return '—'; return `${pad(x.getDate())}.${pad(x.getMonth()+1)}.${x.getFullYear()}`; }
 function fmtDateTime(d) { if (!d) return '—'; const x = new Date(d); if (isNaN(x)) return '—'; return `${fmtDate(x)} ${pad(x.getHours())}:${pad(x.getMinutes())}`; }
 function fmtShort(d) { const x = new Date(d); return `${pad(x.getDate())}.${pad(x.getMonth()+1)} ${pad(x.getHours())}:${pad(x.getMinutes())}`; }
@@ -1602,9 +1619,31 @@ const userLabel = id => { const u = userById(id); return u ? u.login : (id || '?
 function avatarInner(u) {
   return u && u.avatar ? `<img src="${esc(thumbUrl(u.avatar, 160, 160))}" alt="">` : esc((u ? u.login : '?').slice(0, 3));
 }
+// obecność: każdy zalogowany co minutę odnawia znacznik seenAt w swoim koncie; „zalogowany” = widziany w ostatnich 2,5 min
+const PRESENCE_MS = 150000;
+function isOnline(id) {
+  if (S.me && S.me.id === id) return true;
+  const u = userById(id), t = u && u.seenAt ? Date.parse(u.seenAt) : 0;
+  return !!t && Date.now() - t < PRESENCE_MS;
+}
 function avatarSm(id) {
-  const u = userById(id);
-  return `<span class="avatar-sm" style="background:${u ? u.color : '#718096'}" title="${esc(u ? u.name || u.login : id)}">${u ? avatarInner(u) : esc(userLabel(id).slice(0, 3))}</span>`;
+  const u = userById(id), on = isOnline(id);
+  return `<span class="avatar-sm${on ? ' on' : ''}" style="background:${u ? u.color : '#718096'}" title="${esc(u ? u.name || u.login : id)}${on ? ' — zalogowany' : ''}">${u ? avatarInner(u) : esc(userLabel(id).slice(0, 3))}</span>`;
+}
+let presenceTimer = null;
+async function presenceBeat(off) {
+  if (!S.me || DEMO || S.tour) return;
+  try { await DB.set(C_USERS, S.me.id, { login: S.me.login, seenAt: off ? '' : nowIso() }, true); } catch (e) { /* bez sieci — spróbujemy za minutę */ }
+}
+function refreshPresence() {
+  if (S.me && S.project && $('hdr-pteam') && !$('hdr-project').classList.contains('hidden')) $('hdr-pteam').innerHTML = teamHtml(S.project);
+  if (S.me) renderMyAvatar(); else renderLoginAvatars();
+}
+function startPresence() {
+  presenceBeat();
+  clearInterval(presenceTimer);
+  presenceTimer = setInterval(() => { presenceBeat(); refreshPresence(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) presenceBeat(); });
 }
 // w samouczku i pokazie z lektorką widać interfejs zwykłego użytkownika (bez Turbo, Zlecenia, Archiwum X)
 const isAdmin = () => !!(S.me && S.me.admin) && (!S.tour || !!S.tour.pro);
@@ -1615,7 +1654,7 @@ function renderLoginAvatars() {
   const team = S.users.filter(u => u.admin && u.passHash).sort((a, b) => seedIdx(a) - seedIdx(b)); // Krzysztof, Dima, …
   const cur = $('login-user').value.trim().toLowerCase();
   $('login-team').innerHTML = team.map(u => `
-    <button type="button" class="la ${findLoginUser(cur) === u ? 'on' : ''}" onclick="pickLoginUser('${u.id}')">
+    <button type="button" class="la ${findLoginUser(cur) === u ? 'on' : ''} ${isOnline(u.id) ? 'live' : ''}" onclick="pickLoginUser('${u.id}')" title="${isOnline(u.id) ? 'zalogowany' : ''}">
       <span class="la-c" style="background:${u.color}">${avatarInner(u)}</span><span class="la-n">${esc(u.name || u.login)}</span></button>`).join('');
 }
 function pickLoginUser(id) {
@@ -1655,11 +1694,14 @@ function enterApp(u) {
   startTypesSub();
   startFairsSub();
   startProjectsSub();
+  startPresence();
   const pid = new URLSearchParams(location.search).get('p');
   if (pid) openProject(pid); else goHome();
 }
-function logout() {
+async function logout() {
   try { localStorage.removeItem('INDEX_SESSION'); } catch (e) {}
+  clearInterval(presenceTimer);
+  await Promise.race([presenceBeat(true), new Promise(r => setTimeout(r, 700))]); // znika zielona obwódka od razu
   location.href = location.pathname + (MODE_QS ? '?' + MODE_QS : '');
 }
 function toggleUserMenu(ev) {
@@ -1700,7 +1742,8 @@ function renderMyAvatar() {
   const av = $('avatar');
   av.innerHTML = avatarInner(S.me);
   av.style.background = S.me.color;
-  av.title = S.me.name || S.me.login;
+  av.classList.add('on');
+  av.title = (S.me.name || S.me.login) + ' — zalogowany';
 }
 function pickAvatar() {
   const inp = $('file-generic');
@@ -1788,16 +1831,22 @@ const isWys = el => !!(typeById(el.typeId).wyslona && el.wyslona);
 const numMark = n => S.project && S.project.numbering === '123' ? String(n | 0 || '?') : letterOf(n);
 // drzwi w ścianie dostają znak ściany z dopiskiem: A → A1, 1 → 1a (znak kończący się cyfrą dostaje literę)
 const doorMark = m => m + (/\d$/.test(m) ? 'a' : '1');
+// znak własny elementu (pole mark): litery + cyfry (A1, B2, AB12) albo cyfry + litery (1A, 1B, 12C); zwykły znak = z numeru
+const MARK_RX = /^(?:([A-Z]{1,3})(\d{1,3})|(\d{1,3})([A-Z]{1,3}))$/;
+const customMark = el => el && !isWys(el) && !el.doorFor && el.mark && MARK_RX.test(el.mark) ? el.mark : '';
 const markOf = el => {
   if (el && el.doorFor) { const w = S.elements.find(e => e.id === el.doorFor); if (w && !w.doorFor) return doorMark(markOf(w)); }
-  return isWys(el) && el.wnum ? 'W' + el.wnum : numMark(el.num);
+  return isWys(el) && el.wnum ? 'W' + el.wnum : customMark(el) || numMark(el.num);
 };
+// klucz kolejności: zwykły znak [numer, 0]; A1 → [A, 1]; 1A → [1, A] — znaki własne wchodzą między zwykłe (A < A1 < A2 < B)
+const ordKey = e => { const m = customMark(e) && e.mark.match(MARK_RX); return m ? (m[1] ? [lettersToNum(m[1]), +m[2]] : [+m[3], lettersToNum(m[4])]) : [Number(e.num) || 0, 0]; };
 // kolejność elementów: litery / numery, wysłony na końcu, drzwi zaraz za swoją ścianą
 function elOrder(list) {
   const byId = new Map(list.map(e => [e.id, e]));
   const base = e => (e.doorFor && byId.get(e.doorFor)) || e;
   return list.sort((a, b) => { const A = base(a), B = base(b);
-    return (isWys(A) - isWys(B)) || (isWys(A) ? (A.wnum || 0) - (B.wnum || 0) : (A.num || 0) - (B.num || 0)) || (!!a.doorFor - !!b.doorFor); });
+    const ka = ordKey(A), kb = ordKey(B);
+    return (isWys(A) - isWys(B)) || (isWys(A) ? (A.wnum || 0) - (B.wnum || 0) : (ka[0] - kb[0]) || (ka[1] - kb[1])) || (!!a.doorFor - !!b.doorFor); });
 }
 // Miejsca elementu na wizkach: pierwsze (shape / photoId) i kolejne sztuki w innych miejscach (extra).
 // loc = -1 to pierwsze miejsce, 0, 1, 2… to kolejne. extra z view: true = ta sama sztuka pokazana jeszcze raz
@@ -1965,14 +2014,55 @@ function doorSvg(el, x0, y0, nw, nh) {
   const x = x0 + p.x * sx, w = p.w * sx, h = p.h * sy, y = y0 + nh - h;
   let o = `<defs><marker id="dArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2b6cb0"/></marker></defs>
     <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(49,130,206,.28)" stroke="${p.fits ? '#3182ce' : '#e53e3e'}" stroke-width="1.2" stroke-dasharray="4 2"/>`;
-  const yy = y + Math.min(h / 2, 14), left = p.left <= p.right;
-  const ax = left ? x0 : x + w, bx = left ? x : x0 + nw, val = left ? p.left : p.right;
-  // liczba zawsze nad swoją strzałką; wąska szczelina — liczba nad drzwiami, nad tą szczeliną
-  const narrow = Math.abs(bx - ax) < 34, tx = (ax + bx) / 2, ty = narrow ? Math.max(y0 + 9, y - 3) : yy - 3;
-  if (val > 0) o += `<line x1="${ax}" y1="${yy}" x2="${bx}" y2="${yy}" stroke="#2b6cb0" stroke-width="1" marker-start="url(#dArrow)" marker-end="url(#dArrow)"/>
+  const yy = y + Math.min(h / 2, 14);
+  // odległość od obu boków (od lewej i od prawej krawędzi ściany): liczba zawsze nad swoją strzałką;
+  // wąska szczelina — liczba nad drzwiami, nad tą szczeliną
+  const gap = (ax, bx, val) => {
+    if (!(val > 0)) return '';
+    const narrow = Math.abs(bx - ax) < 34, tx = (ax + bx) / 2, ty = narrow ? Math.max(y0 + 9, y - 3) : yy - 3;
+    return `<line x1="${ax}" y1="${yy}" x2="${bx}" y2="${yy}" stroke="#2b6cb0" stroke-width="1" marker-start="url(#dArrow)" marker-end="url(#dArrow)"/>
     <text x="${tx}" y="${ty}" text-anchor="middle" fill="#2b6cb0" font-size="10" font-weight="700">${lenPL(val)}</text>`;
+  };
+  o += gap(x0, x, p.left) + gap(x + w, x0 + nw, p.right);
   o += `<text x="${x + w / 2}" y="${y + h - 4}" text-anchor="middle" fill="#2b6cb0" font-size="9">drzwi</text>`;
   return o;
+}
+// tekstura drzwi: wycinek grafiki ściany (jej miniatury) w miejscu drzwi, razem ze spadami grafiki na drzwi.
+// Obraz ściany leży w okienku jak na kafelku (object-fit: contain); drzwi stoją na dole ściany.
+// Z grafiką drzwi wgraną ręcznie (albo z Corela) nic się nie dzieje — nadpisywana jest tylko tekstura zrobiona tutaj.
+const doorCropKey = (m, d) => [m.thumb, m.w, m.h, JSON.stringify(m.door || null), m.bleedOverride, JSON.stringify(m.bleedBox || null), m.seg, m.wyslona, d.w, d.h, JSON.stringify(d.bleedBox || null)].join('|');
+async function makeDoorTexture(main, door) {
+  const img = await loadImg(main.thumb);
+  const g = grossOf(main), W = Number(main.w), H = Number(main.h), p = doorPos(main), bb = door.bleedBox || { l: 0, r: 0, t: 0, b: 0 };
+  const ox = g.box ? g.box.l : g.b, oy = g.box ? g.box.t : g.b;            // netto ściany w obrębie grafiki do druku
+  const Dw = Number(door.w) + bb.l + bb.r, Dh = Number(door.h) + bb.t + bb.b;
+  const cropX = ox + p.x - bb.l, cropY = oy + H - p.h - bb.t;               // lewy górny róg wycinka w układzie grafiki ściany [mm]
+  const asp = img.width / img.height, fa = g.w / g.h;
+  const iw = asp > fa ? g.w : g.h * asp, ih = asp > fa ? g.w / asp : g.h, ix = (g.w - iw) / 2, iy = (g.h - ih) / 2;
+  const sc = 900 / Math.max(Dw, Dh), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(Dw * sc)); c.height = Math.max(1, Math.round(Dh * sc));
+  const cg = c.getContext('2d'); cg.fillStyle = '#fff'; cg.fillRect(0, 0, c.width, c.height);
+  cg.imageSmoothingQuality = 'high';
+  cg.drawImage(img, (ix - cropX) * sc, (iy - cropY) * sc, iw * sc, ih * sc);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
+}
+async function doorThumbFor(mainId) {
+  const main = S.elements.find(e => e.id === mainId), door = S.elements.find(e => e.doorFor === mainId);
+  if (!main || !door || !main.thumb || !hasDoor(main) || !hasDims(main) || !Number(door.w) || !Number(door.h)) return;
+  if (door.thumb && door.thumb !== door.thumbAuto) return; // własna grafika drzwi
+  const key = doorCropKey(main, door); if (door.thumb && door.thumbKey === key) return;
+  const blob = await makeDoorTexture(main, door);
+  const url = DEMO ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, 'drzwi.jpg');
+  await DB.update(pElements(S.project.id), door.id, { thumb: url, thumbAuto: url, thumbKey: key, updatedAt: nowIso(), updatedBy: S.me.id });
+  addLog(S.project.id, `Grafika drzwi ${markOf(door)} — wycinek z grafiki ściany ${markOf(main)}`, door.id);
+}
+let doorThumbRun = false;
+async function autoDoorThumbs() {
+  if (doorThumbRun || S.tour || !S.project || !S.me) return;
+  doorThumbRun = true;
+  try { for (const d of S.elements.filter(e => e.doorFor)) await doorThumbFor(d.doorFor); }
+  catch (e) { console.warn('tekstura drzwi:', e); }
+  finally { doorThumbRun = false; }
 }
 // powiązany element „Drzwi — A”: tworzony / zmieniany / usuwany razem ze ścianą
 async function syncDoorElement(mainId, main) {
@@ -2292,8 +2382,8 @@ function renderSide() {
     return `<div class="fair-row ${sel && sel.kind === 'fair' && sel.id === f.id ? 'sel' : ''} ${f.archived ? 'arch' : ''}" ${adm && real ? `draggable="true" data-kind="fair" data-id="${f.id}" data-group="fairs"` : ''}
         onclick="sideClickFair('${f.id}')" ${adm && real ? `ondblclick="openFairForm('${f.id}')"` : ''}>
         <span class="car">${open ? '▾' : '▸'}</span>
-        <div style="min-width:0"><div class="fn">${esc(f.name)}${f.archived ? '<span class="arch-tag">archiwum</span>' : ''}</div>
-          ${real ? `<div class="fm">${esc([f.city, fairDates(f)].filter(Boolean).join(' · ') || 'brak terminów')}</div>` : ''}</div>
+        <div class="fgrow"><div class="fn">${esc(f.name)}${f.archived ? '<span class="arch-tag">archiwum</span>' : ''}</div>
+          ${real ? `<div class="fm">${esc([f.city, fairDates(f)].filter(Boolean).join(' · ') || 'brak terminów')}</div>${f.archived ? '' : fairBar(f)}` : ''}</div>
         <span class="fc" title="Liczba stoisk">${list.length}</span>
         ${real ? `<button class="add" title="Nowe stoisko na tych targach" onclick="event.stopPropagation(); openProjectForm(null, '${f.id}')">+</button>` : ''}
         ${adm && real ? `<button class="ed" title="Edytuj targi" onclick="event.stopPropagation(); openFairForm('${f.id}')">✎</button>` : ''}
@@ -2556,11 +2646,32 @@ function fmtLeft(ms) {
 }
 function countdownHtml(p, compact) {
   const c = countdownInfo(p);
-  return `<span class="cd ph-${c.phase}" data-cd="${p.id}">
+  return `<span class="cd ph-${c.phase}${isUrgent(c) ? ' urgent' : ''}" data-cd="${p.id}">
     <span class="cd-lab">${c.label}</span>
     ${c.target ? `<span class="cd-val">${fmtLeft(c.target - Date.now())}</span>` : ''}
     ${c.next && !compact ? `<span class="cd-next">${c.next}</span>` : ''}
     ${c.next && compact && !c.target ? `<span class="cd-next">${c.next}</span>` : ''}</span>`;
+}
+// kolor odcinka „produkcja”: zielony, a gdy do deadline'u pakowania zostaje 9 dni — płynnie czerwienieje (czerwony od 3 dni)
+const GREEN_STOPS = ['#B6E88F', '#67B437', '#3E7A1C'], RED_STOPS = ['#FEB2B2', '#E53E3E', '#822727'];
+const URG_FAR = 9, URG_NEAR = 3;
+const urgencyT = ms => clamp((URG_FAR * 864e5 - ms) / ((URG_FAR - URG_NEAR) * 864e5), 0, 1); // 0 = zielony, 1 = czerwony
+function mixHex(a, b, t) {
+  const pa = [1, 3, 5].map(i => parseInt(a.substr(i, 2), 16)), pb = [1, 3, 5].map(i => parseInt(b.substr(i, 2), 16));
+  return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+const prodUrgency = p => { const pk = tsOf(packOf(p)); return pk ? urgencyT(pk - Date.now()) : 0; };
+const isUrgent = c => !!c.target && c.target - Date.now() > 0 && c.target - Date.now() <= URG_NEAR * 864e5;
+// pasek postępu (jak zegar): pod nazwą targów w panelu bocznym
+function fairBar(f) {
+  const c = clockInfo(f); if (!c.segs) return '';
+  const [a, b] = c.segs, tp = prodUrgency(f), left = c.target ? c.target - Date.now() : null;
+  const seg = (x0, x1, bg) => `<i class="fb-s" style="left:${x0.toFixed(2)}%;width:${Math.max(0, x1 - x0 - (x1 - x0 > 3 ? .6 : 0)).toFixed(2)}%;background:${bg}"></i>`;
+  const tip = left != null ? `${c.label}: ${fmtLeft(left)}` : c.label;
+  return `<div class="fbar${isUrgent(c) ? ' urgent' : ''}" data-fid="${f.id}" title="${esc(tip)}">${seg(0, a, '#ecc94b')}${seg(a, b, mixHex('#67b437', '#e53e3e', tp))}${seg(b, 100, '#6b7280')}<i class="fb-past" style="width:${c.now.toFixed(2)}%"></i><i class="fb-knob" style="left:${c.now.toFixed(2)}%"></i></div>`;
+}
+function refreshFairBars() {
+  document.querySelectorAll('.fbar[data-fid]').forEach(el => { const f = fairById(el.dataset.fid); if (f) el.outerHTML = fairBar(f) || ''; });
 }
 // zegar-butla w dolnym panelu projektu: całe kółko = od założenia stoiska do startu imprezy,
 // podzielone na trzy odcinki; biała gałka = teraz, część za nią przyciemniona
@@ -2577,7 +2688,11 @@ function updateClock() {
   const p = S.project, pane = $('clock-pane');
   if (!p || !pane) return;
   const c = clockInfo(p), left = c.target ? c.target - Date.now() : 0;
-  pane.className = 'ph-' + (c.segs ? c.phase : 'none');
+  pane.className = 'ph-' + (c.segs ? c.phase : 'none') + (isUrgent(c) ? ' urgent' : '');
+  const tp = prodUrgency(p);                                  // produkcja: zielony → czerwony przy zbliżaniu deadline'u pakowania
+  GREEN_STOPS.forEach((g, i) => $('clG' + i).setAttribute('stop-color', mixHex(g, RED_STOPS[i], tp)));
+  $('cl-leg-prod').style.background = mixHex('#67b437', '#e53e3e', tp);
+  $('cl-lab').style.color = c.phase === 'pack' ? mixHex('#2f855a', '#c53030', tp) : '';
   const seg = (id, a, b) => {
     const el = $(id), gap = b - a > 1.5 ? 0.6 : 0, len = Math.max(0, b - a - gap);
     el.setAttribute('stroke-dasharray', `${len.toFixed(2)} ${(100 - len).toFixed(2)}`);
@@ -2610,10 +2725,13 @@ setInterval(() => {
     if (!p) return;
     const c = countdownInfo(p);
     if (!el.classList.contains('ph-' + c.phase)) { el.outerHTML = countdownHtml(p, !!el.closest('.proj-card')); return; }
+    el.classList.toggle('urgent', isUrgent(c));
     const v = el.querySelector('.cd-val');
     if (v && c.target) v.textContent = fmtLeft(c.target - Date.now());
   });
+  if (++barTick % 30 === 0) refreshFairBars();
 }, 1000);
+let barTick = 0;
 
 // =====================================================================
 //  PROJEKT — formularz (admin)
@@ -2770,6 +2888,7 @@ async function openProject(pid) {
     S.elements = elOrder(rows.map(normalizeEl));
     if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
     renderOverlay(); renderElements(); syncProjectStats(); updateHint();
+    autoDoorThumbs();
   }));
   S.unsubProject.push(DB.sub(pLog(pid), rows => {
     S.log = rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
@@ -4446,36 +4565,46 @@ function describeDiff(a, b) {
   return ch.join(', ');
 }
 // zmiana znaku: A → F (litery), 4 → 7 (numeracja 1, 2, 3), W2 → W5 (wysłony); gdy znak jest zajęty — elementy zamieniają się znakami
-const lettersToNum = t => [...t].reduce((n, c) => n * 26 + (c.charCodeAt(0) - 64), 0);
 function renameMark(id) {
   const el = S.elements.find(e => e.id === id); if (!el || el.doorFor || el.backFor) return Promise.resolve(null);
   const wys = isWys(el), cur = markOf(el), pid = S.project.id;
-  const fmt = wys ? 'W1, W2, W3…' : S.project.numbering === '123' ? '1, 2, 3…' : 'A, B, C…';
+  const fmt = wys ? 'W1, W2, W3…' : S.project.numbering === '123' ? '1, 2, 3… albo 1A, 1B, 1C…' : 'A, B, C… albo A1, B2…';
   return new Promise(res => {
     let done = false; const fin = v => { if (!done) { done = true; res(v); } };
     const m = openModal({ title: `Zmień znak elementu ${esc(cur)}`,
-      body: `<div class="fld"><label>Nowy znak (${fmt})</label><input type="text" id="rn-v" value="${esc(cur)}" maxlength="6" style="text-transform:uppercase;font-weight:700;font-size:1.1rem;max-width:160px"></div>
+      body: `<div class="fld"><label>Nowy znak (${fmt})</label><input type="text" id="rn-v" value="${esc(cur)}" maxlength="8" style="text-transform:uppercase;font-weight:700;font-size:1.1rem;max-width:160px"></div>
         <div class="hint">Gdy ten znak ma już inny element, zamienią się znakami.</div>`,
       footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="rn-ok">Zmień</button>`, onClose: () => fin(null) });
     const inp = $('rn-v'); setTimeout(() => { inp.focus(); inp.select(); }, 40);
     m.el.querySelector('[data-c]').onclick = () => m.close();
     const ok = async () => {
       const v = inp.value.trim().toUpperCase().replace(/\s+/g, '');
-      let n = 0;
+      let n = 0, mk = '';
       if (wys) { const x = v.match(/^W?(\d+)$/); n = x ? parseInt(x[1], 10) : 0; }
       else if (/^\d+$/.test(v)) n = parseInt(v, 10);
       else if (/^[A-Z]{1,3}$/.test(v)) n = lettersToNum(v);
-      if (!(n > 0)) return toast(`Wpisz znak w postaci ${fmt}`, 'error');
-      const key = wys ? 'wnum' : 'num', old = Number(el[key]) || 0;
-      if (n === old) { m.close(); return; }
-      const other = S.elements.find(e => e.id !== id && !e.doorFor && (wys ? isWys(e) : !isWys(e) && !e.backFor) && Number(e[key]) === n);
+      else if (MARK_RX.test(v)) mk = v;                       // znak własny: A1, B2 / 1A, 1B
+      if (!(n > 0 || mk)) return toast(`Wpisz znak w postaci ${fmt}`, 'error');
+      const old = Number(wys ? el.wnum : el.num) || 0, nm = mk || (wys ? 'W' + n : numMark(n));
+      if (nm === cur) { m.close(); return; }
+      // znak już zajęty: inny element o tym samym znaku (znaków drzwi i wysłon nie zajmujemy)
+      const holder = S.elements.find(e => e.id !== id && markOf(e) === nm);
+      if (holder && (holder.doorFor || holder.backFor)) return toast(`Znak ${nm} ma już ${holder.doorFor ? 'grafika na drzwi' : 'wysłona'} — wybierz inny`, 'error');
+      // zwykły numer zajęty przez element ze znakiem własnym: zamieniają się numerami (znaki własne zostają)
+      const numHolder = !mk && !wys && !holder ? S.elements.find(e => e.id !== id && !isWys(e) && !e.doorFor && !e.backFor && Number(e.num) === n) : null;
       $('rn-ok').disabled = true;
       try {
-        await DB.update(pElements(pid), id, { [key]: n, updatedAt: nowIso(), updatedBy: S.me.id });
-        if (other) await DB.update(pElements(pid), other.id, { [key]: old || nextNum(), updatedAt: nowIso(), updatedBy: S.me.id });
-        const nm = markOf({ ...el, [key]: n });
-        addLog(pid, `Zmieniono znak elementu ${cur} → ${nm}${other ? ` (zamiana z elementem, który miał ${nm})` : ''}`, id);
-        fin({ [key]: n }); m.close();
+        const now = { updatedAt: nowIso(), updatedBy: S.me.id };
+        const other = holder || numHolder || null;
+        let mine, theirs = null;
+        if (wys) { mine = { wnum: n }; if (holder) theirs = { wnum: old || nextNum() }; }
+        else if (holder) { mine = { num: Number(holder.num) || 0, mark: holder.mark || '' }; theirs = { num: Number(el.num) || 0, mark: el.mark || '' }; } // zamiana znaków: cała para (numer, znak własny)
+        else if (mk) mine = { mark: mk };
+        else { mine = { num: n, mark: '' }; if (numHolder) theirs = { num: Number(el.num) || nextNum() }; }
+        await DB.update(pElements(pid), id, { ...mine, ...now });
+        if (other && theirs) await DB.update(pElements(pid), other.id, { ...theirs, ...now });
+        addLog(pid, `Zmieniono znak elementu ${cur} → ${nm}${holder ? ` (zamiana z elementem, który miał ${nm})` : ''}`, id);
+        fin(mine); m.close();
       } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('rn-ok').disabled = false; }
     };
     $('rn-ok').onclick = ok;
@@ -4599,7 +4728,7 @@ function renderGraph() {
     const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - 2 * bw, FH - 2 * bh)}</svg>` : '';
     const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
         title="Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">
-      ${e.thumb ? `<img src="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>`;
+      ${e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>`;
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : isHang(e) ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · ${(planesOf(e) || []).length} pł. do druku</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
@@ -4747,7 +4876,7 @@ async function setThumb(eid, file) {
   const t = toast('Wgrywanie miniatury…', '', 60000);
   try {
     const { url } = await storeImage(file, 900);
-    await DB.update(pElements(S.project.id), eid, { thumb: url, updatedAt: nowIso(), updatedBy: S.me.id });
+    await DB.update(pElements(S.project.id), eid, { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
     addLog(S.project.id, `Dodano grafikę (miniaturę) do elementu ${markOf(el)}`, eid);
   } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
   t.remove();
@@ -4755,7 +4884,7 @@ async function setThumb(eid, file) {
 async function removeThumb(eid) {
   const el = S.elements.find(x => x.id === eid); if (!el) return;
   if (!await confirmBox(`Usunąć miniaturę grafiki z elementu <b>${markOf(el)}</b>?`, 'Usuń')) return;
-  await DB.update(pElements(S.project.id), eid, { thumb: '', updatedAt: nowIso(), updatedBy: S.me.id });
+  await DB.update(pElements(S.project.id), eid, { thumb: '', thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
   addLog(S.project.id, `Usunięto miniaturę grafiki z elementu ${markOf(el)}`, eid);
 }
 // okienka znów w automatycznym układzie
@@ -4991,7 +5120,7 @@ const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
 // Zlecenie: każdy element w osobnej linii — znak: wymiar do druku, sztuki, typ (+ dopisek przy SEG)
 // grupy zlecenia: zwykłe elementy, wysłony (Blackback) i konstrukcje podwieszane osobno
 function orderGroups(list) {
-  const all = [...list].sort((a, b) => (a.num || 0) - (b.num || 0));
+  const all = [...list].sort((a, b) => { const ka = ordKey(a), kb = ordKey(b); return (ka[0] - kb[0]) || (ka[1] - kb[1]); });
   const wys = e => typeById(e.typeId).wyslona && e.wyslona;
   return [
     ['', all.filter(e => !wys(e) && !isHang(e))],
@@ -5227,7 +5356,7 @@ const _crispUrls = new Map(), _crispImgs = new Map();
 async function crispGraphThumbs(root) {
   const zoom = G.s > 2 ? 4 : G.s > 1 ? 2 : 1, dpr = window.devicePixelRatio || 1;
   for (const im of (root || document).querySelectorAll('.gc-frame img')) {
-    const url = im.dataset.src || im.getAttribute('src'); if (!url || url.startsWith('blob:')) continue;
+    const url = im.dataset.src || im.getAttribute('src'); if (!url || url.startsWith('blob:') || /\.svg(\?|$)/i.test(url)) continue; // wektor (SVG) jest ostry sam
     im.dataset.src = url;
     const fr = im.parentElement, bw = fr.clientWidth * dpr * zoom, bh = fr.clientHeight * dpr * zoom; if (!bw || !bh) continue;
     try {
@@ -7355,7 +7484,7 @@ window.addEventListener('load', async () => {
   $('login-btn').disabled = false;
   DB.sub(C_USERS, rows => {
     S.users = mergeUsers(rows);
-    if (S.me) { const me = userById(S.me.id); if (me) { S.me = me; renderMyAvatar(); } }
+    if (S.me) { const me = userById(S.me.id); if (me) { S.me = me; renderMyAvatar(); } refreshPresence(); }
     else renderLoginAvatars();
   });
   // zapamiętana sesja
