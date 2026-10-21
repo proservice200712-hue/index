@@ -4877,6 +4877,8 @@ function renderGraph() {
 `;
   if (G.key !== S.project.id) { G.key = S.project.id; G.s = 1; G.tx = 0; G.ty = 0; }
   applyGraphView();
+  // układ automatyczny wypełnia całą szerokość widoku (po powiększeniu / pomniejszeniu też): szerokość zawijania liczona w jednostkach okienek
+  $('gstage').style.width = Math.max(240, Math.floor(box.clientWidth / G.s)) + 'px';
   // okienka bez zapisanej pozycji układają się same; potem wszystkie dostają pozycję absolutną (da się je przesuwać)
   const wrap = box.querySelector('.gidx');
   const flow = [...wrap.querySelectorAll('.gc:not(.abs)')].map(c => [c, c.offsetLeft, c.offsetTop]);
@@ -5041,6 +5043,7 @@ async function removeThumb(eid) {
 // okienka znów w automatycznym układzie
 async function graphAutoLayout() {
   await saveGpos(S.elements.filter(x => x.gpos).map(e => ({ id: e.id, gpos: null })));
+  setTimeout(graphFit, 120);                         // i od razu dopasowanie do szerokości
 }
 // Wyrównaj: okienka zostają mniej więcej tam, gdzie je postawiono, ale nachodzące
 // na siebie rozsuwamy (w prawo albo w dół — krótszą drogą) na równy odstęp
@@ -5087,7 +5090,21 @@ function graphZoomAt(cx, cy, f) {
 }
 function graphFit() {
   const box = $('el-scroll'), w = box.querySelector('.gidx'); if (!w) return;
-  const bw = box.clientWidth, bh = box.clientHeight, ww = w.offsetWidth, wh = w.offsetHeight;
+  const bw = box.clientWidth, bh = box.clientHeight;
+  // układ automatyczny: największa skala, przy której okienka ułożone w rzędach na całej szerokości mieszczą się na ekranie
+  if (!S.elements.some(e => e.gpos)) {
+    const cards = [...w.querySelectorAll('.gc')].map(c => [c.offsetWidth, c.offsetHeight]);
+    const sim = W => { let x = 16, y = 12, rh = 0; for (const [cw, ch] of cards) { if (x > 16 && x + cw > W - 16) { y += rh + 18; x = 16; rh = 0; } x += cw + 34; rh = Math.max(rh, ch); } return y + rh + 16; };
+    let best = 0.2;
+    for (let sc = 1.5; sc >= 0.2; sc -= 0.02) if (sim(bw / sc) * sc <= bh - 20) { best = sc; break; }
+    G.s = Math.round(best * 100) / 100;
+    renderGraph();                                   // układ od nowa dla nowej szerokości
+    const w2 = box.querySelector('.gidx');
+    G.tx = Math.max(10, (bw - (w2 ? w2.offsetWidth : 0) * G.s) / 2); G.ty = 10;
+    applyGraphView();
+    return;
+  }
+  const ww = w.offsetWidth, wh = w.offsetHeight;
   G.s = clamp(Math.min((bw - 20) / ww, (bh - 20) / wh), 0.2, 1.5);
   G.tx = Math.max(10, (bw - ww * G.s) / 2); G.ty = 10;
   applyGraphView();
