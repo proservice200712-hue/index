@@ -5565,6 +5565,22 @@ async function wallDrawing(main) {
   g.fillStyle = 'rgba(49,130,206,.28)'; g.fillRect(dx, dy, dw, dh);
   g.setLineDash([6, 3]); g.strokeStyle = p.fits ? '#3182ce' : '#e53e3e'; g.lineWidth = 1.8; g.strokeRect(dx, dy, dw, dh); g.setLineDash([]);
   g.fillStyle = '#2b6cb0'; g.font = `600 13px ${F}`; g.textAlign = 'center'; g.fillText('drzwi', dx + dw / 2, dy + dh - 8);
+  // grafika na drzwi do druku: drzwi + spady (standard 30 / 30 / 20 / 10; za blisko krawędzi — przesunięte); SEG / wysłona bez spadu
+  const bb = doorBleed(main);
+  if (bb && bb.l + bb.r + bb.t + bb.b > 0) {
+    const bx = dx - bb.l * s, by = dy - bb.t * s, bw2 = dw + (bb.l + bb.r) * s, bh2 = dh + (bb.t + bb.b) * s;
+    g.fillStyle = 'rgba(213,63,140,.07)'; g.fillRect(bx, by, bw2, bh2);
+    g.setLineDash([5, 3]); g.strokeStyle = '#d53f8c'; g.lineWidth = 1.5; g.strokeRect(bx, by, bw2, bh2); g.setLineDash([]);
+    // napisy na jasnym tle — czytelne także na ciemnej grafice ściany
+    const lab = (t, cx, cy, font) => {
+      g.font = font; const tw = g.measureText(t).width;
+      g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(cx - tw / 2 - 4, cy - 12, tw + 8, 16);
+      g.fillStyle = '#b83280'; g.textAlign = 'center'; g.fillText(t, cx, cy);
+    };
+    const ly = Math.max(y0 + 30, by - 6);
+    lab(`do druku ${lenPL(p.w + bb.l + bb.r)} × ${lenPL(p.h + bb.t + bb.b)}`, bx + bw2 / 2, ly - 16, `700 12px ${F}`);
+    lab(`spad L ${lenPL(bb.l)} · P ${lenPL(bb.r)} · G ${lenPL(bb.t)} · D ${lenPL(bb.b)}`, bx + bw2 / 2, ly, `400 11px ${F}`);
+  }
   const AC = '#4a5568', ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
   const hDim = (xa, xb, y, mm, col = '#1a202c') => { if (!(xb - xa > 1)) return; drawArrowLine(g, xa, y, xb, y, 8, AC, 1.2); g.fillStyle = col; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 5); };
   const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 8, AC, 1.2); g.save(); g.translate(x - 6, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = '#1a202c'; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
@@ -5888,6 +5904,9 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
     g.fillStyle = '#1a202c'; g.fillText(stamp, rx - 22 * sc, by + bh / 2 + 11 * sc);
     rx -= bw + 30 * sc;
   }
+  // kto przygotował (KG — pełne imię i nazwisko; „przygotował” w języku strony)
+  const prep = S.me && S.me.login === 'KG' ? TT('przygotował', 'підготував', 'prepared by') + ': Krzysztof Gólecki' : '';
+  if (prep) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#e2e8f0'; g.fillText(prep, rx, 70 * sc); rx -= g.measureText(prep).width + 40 * sc; }
   if (sub) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#cbd5e0'; g.fillText(sub, rx, 70 * sc); }
   g.textAlign = 'left';
   g.fillStyle = '#718096'; g.font = `400 ${22 * sc}px ${PDF_FONT}`;
