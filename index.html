@@ -5510,7 +5510,7 @@ function orderLine(e) {
 const isSegFabric = e => { const t = typeById(e.typeId); return !!((t.seg && e.seg) || (t.wyslona && e.wyslona) || e.backFor || (hasCombo(e) && isSegFabric(comboEl(e)))); };
 const SEG_NOTE = 'SEG — tkanina obszyta płaską gumką';
 function orderText(list = S.elements) {
-  const txt = orderGroups(list).map(([name, l]) => (name ? name + ':\n' : '') + l.map(orderLine).join('\n')).join('\n\n');
+  const txt = orderGroups(list).map(([name, l]) => (name ? name + ':\n' : '') + l.map(orderLine).join('\n\n')).join('\n\n'); // pusta linijka między elementami
   return txt && list.some(isSegFabric) ? txt + '\n\n' + SEG_NOTE : txt; // przypis na końcu, gdy jest jakaś tkanina SEG
 }
 async function copyText(txt) {
