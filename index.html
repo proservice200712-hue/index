@@ -2071,13 +2071,14 @@ function doorPos(el) {
   const x = d.from === 'right' ? W - dist - dw : dist;
   return { std, w: dw, h: dh, x, left: x, right: W - x - dw, fits: W > 0 && x >= 0 && x + dw <= W && dh <= H };
 }
-// spady grafiki na drzwi (standard): razem zawsze 2 × 30 na boki — brakujące po jednej stronie idzie na drugą
+// spady grafiki na drzwi (standard): razem zawsze 2 × 30 na boki — brakujące po jednej stronie idzie na drugą;
+// miejsce na spad z boku = odległość do krawędzi ściany + spad ściany (grafika drzwi może wejść w spad ściany)
 function doorBleed(el) {
   const p = doorPos(el);
   if (!p.std) return null;
-  const all = 2 * DOOR_STD.side;
-  let l = Math.min(DOOR_STD.side, Math.max(0, p.left)), r = all - l;
-  if (r > Math.max(0, p.right)) { r = Math.max(0, p.right); l = Math.min(Math.max(0, p.left), all - r); }
+  const all = 2 * DOOR_STD.side, wb = bleedOf(el), roomL = Math.max(0, p.left) + wb, roomR = Math.max(0, p.right) + wb;
+  let l = Math.min(DOOR_STD.side, roomL), r = all - l;
+  if (r > roomR) { r = roomR; l = Math.min(roomL, all - r); }
   return { l, r, t: DOOR_STD.top, b: DOOR_STD.bottom };
 }
 // prostokąt drzwi + wymiar od bliższej krawędzi, w układzie netto ściany (x0, y0, szer., wys. w px)
