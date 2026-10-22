@@ -5573,7 +5573,9 @@ async function wallDrawing(main) {
   const W = Number(main.w), H = Number(main.h), p = doorPos(main), gr = grossOf(main);
   // cała ściana do druku (netto + spad ściany) z grafiką; na niej kontur netto, drzwi i spady grafiki na drzwi
   const wb = gr.box || { l: gr.b || 0, r: gr.b || 0, t: gr.b || 0, b: gr.b || 0 };
-  const Q = 2, LM = 70, TM = 44, RM = 84, BM = 92, F = `Segoe UI, Arial, sans-serif`;
+  // grafika na drzwi do druku: drzwi + spady (standard 30 / 30 / 20 / 10; za blisko krawędzi — przesunięte); SEG / wysłona bez spadu
+  const bb = doorBleed(main), dbOn = !!(bb && bb.l + bb.r + bb.t + bb.b > 0);
+  const Q = 2, LM = 70, TM = 44, RM = dbOn ? 150 : 84, BM = dbOn ? 162 : 92, F = `Segoe UI, Arial, sans-serif`;
   const s = Math.min(520 / gr.w, 340 / gr.h), rw = W * s, rh = H * s, gw = gr.w * s, gh = gr.h * s;
   const CW = Math.round(Math.max(330, LM + gw + RM)), CH = Math.round(TM + gh + BM);
   const c = document.createElement('canvas'); c.width = CW * Q; c.height = CH * Q;
@@ -5601,31 +5603,45 @@ async function wallDrawing(main) {
   g.fillStyle = 'rgba(49,130,206,.28)'; g.fillRect(dx, dy, dw, dh);
   g.setLineDash([6, 3]); g.strokeStyle = p.fits ? '#3182ce' : '#e53e3e'; g.lineWidth = 1.8; g.strokeRect(dx, dy, dw, dh); g.setLineDash([]);
   g.fillStyle = '#2b6cb0'; g.font = `600 13px ${F}`; g.textAlign = 'center'; g.fillText('drzwi', dx + dw / 2, dy + dh - 8);
-  // grafika na drzwi do druku: drzwi + spady (standard 30 / 30 / 20 / 10; za blisko krawędzi — przesunięte); SEG / wysłona bez spadu
-  const bb = doorBleed(main);
-  if (bb && bb.l + bb.r + bb.t + bb.b > 0) {
-    const bx = dx - bb.l * s, by = dy - bb.t * s, bw2 = dw + (bb.l + bb.r) * s, bh2 = dh + (bb.t + bb.b) * s;
+  // obrys grafiki na drzwi do druku (wymiary i spady — liniami wymiarowymi niżej)
+  const bx = dbOn ? dx - bb.l * s : dx, by = dbOn ? dy - bb.t * s : dy, bw2 = dbOn ? dw + (bb.l + bb.r) * s : dw, bh2 = dbOn ? dh + (bb.t + bb.b) * s : dh;
+  if (dbOn) {
     g.fillStyle = 'rgba(213,63,140,.07)'; g.fillRect(bx, by, bw2, bh2);
     g.setLineDash([5, 3]); g.strokeStyle = '#d53f8c'; g.lineWidth = 1.5; g.strokeRect(bx, by, bw2, bh2); g.setLineDash([]);
-    // napisy na jasnym tle — czytelne także na ciemnej grafice ściany
-    const lab = (t, cx, cy, font) => {
-      g.font = font; const tw = g.measureText(t).width;
-      g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(cx - tw / 2 - 4, cy - 12, tw + 8, 16);
-      g.fillStyle = '#b83280'; g.textAlign = 'center'; g.fillText(t, cx, cy);
-    };
-    const ly = Math.max(y0 + 30, by - 6);
-    lab(`do druku ${lenPL(p.w + bb.l + bb.r)} × ${lenPL(p.h + bb.t + bb.b)}`, bx + bw2 / 2, ly - 16, `700 12px ${F}`);
-    lab(`spad L ${lenPL(bb.l)} · P ${lenPL(bb.r)} · G ${lenPL(bb.t)} · D ${lenPL(bb.b)}`, bx + bw2 / 2, ly, `400 11px ${F}`);
   }
   const AC = '#4a5568', ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
   const hDim = (xa, xb, y, mm, col = '#1a202c') => { if (!(xb - xa > 1)) return; drawArrowLine(g, xa, y, xb, y, 8, AC, 1.2); g.fillStyle = col; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 5); };
-  const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 8, AC, 1.2); g.save(); g.translate(x - 6, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = '#1a202c'; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
+  const vDim = (ya, yb, x, mm, col = '#1a202c') => { if (!(yb - ya > 1)) return; drawArrowLine(g, x, ya, x, yb, 8, AC, 1.2); g.save(); g.translate(x - 6, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = col; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
+  // krótki odcinek (spad): strzałki, a liczba obok odcinka, gdy się w nim nie mieści
+  const hSeg = (xa, xb, y, mm, col, side) => {
+    if (!(mm > 0) || !(xb - xa > 0.5)) return;
+    if (xb - xa >= 34) return hDim(xa, xb, y, mm, col);
+    drawArrowLine(g, xa, y, xb, y, Math.min(6, (xb - xa) / 2), AC, 1.2);
+    g.fillStyle = col; g.font = `600 13px ${F}`; g.textAlign = side === 'l' ? 'right' : 'left'; g.fillText(lenPL(mm), side === 'l' ? xa - 4 : xb + 4, y + 5); g.textAlign = 'left';
+  };
+  const vSeg = (ya, yb, x, mm, col) => {
+    if (!(mm > 0) || !(yb - ya > 0.5)) return;
+    if (yb - ya >= 34) return vDim(ya, yb, x, mm, col);
+    drawArrowLine(g, x, ya, x, yb, Math.min(6, (yb - ya) / 2), AC, 1.2);
+    g.fillStyle = col; g.font = `600 13px ${F}`; g.textAlign = 'left'; g.fillText(lenPL(mm), x + 5, (ya + yb) / 2 + 5);
+  };
   const yb1 = gy + gh + 28, yb2 = gy + gh + 62; // wiersz 1: od lewej / drzwi / od prawej; wiersz 2: cała ściana (netto)
   [x0, dx, dx + dw, x0 + rw].forEach(x => ext(x, y0 + rh, x, yb1 + 4));
   hDim(x0, dx, yb1, p.left, '#2b6cb0'); hDim(dx, dx + dw, yb1, p.w); hDim(dx + dw, x0 + rw, yb1, p.right, '#2b6cb0');
   ext(x0, y0 + rh, x0, yb2 + 4); ext(x0 + rw, y0 + rh, x0 + rw, yb2 + 4); hDim(x0, x0 + rw, yb2, W);
   ext(x0, y0, gx - 34, y0); ext(x0, y0 + rh, gx - 34, y0 + rh); vDim(y0, y0 + rh, gx - 30, H);           // wysokość ściany
   ext(x0 + rw, dy, gx + gw + 34, dy); ext(x0 + rw, y0 + rh, gx + gw + 34, y0 + rh); vDim(dy, y0 + rh, gx + gw + 30, p.h); // wysokość drzwi
+  // grafika na drzwi do druku (różowe): spady lewy / prawy, cała szerokość; po prawej spad górny / dolny i cała wysokość
+  if (dbOn) {
+    const PK = '#b83280', yb3 = gy + gh + 98, yb4 = gy + gh + 132, xv3 = gx + gw + 66, xv4 = gx + gw + 108;
+    [bx, dx, dx + dw, bx + bw2].forEach(x => ext(x, by + bh2, x, yb4 + 4));
+    hSeg(bx, dx, yb3, bb.l, PK, 'l'); hSeg(dx + dw, bx + bw2, yb3, bb.r, PK, 'r');
+    hDim(bx, bx + bw2, yb4, p.w + bb.l + bb.r, PK);
+    [by, dy, dy + dh, by + bh2].forEach(y => ext(bx + bw2, y, xv4 + 4, y));
+    vSeg(by, dy, xv3, bb.t, PK); vSeg(dy + dh, by + bh2, xv3, bb.b, PK);
+    vDim(by, by + bh2, xv4, p.h + bb.t + bb.b, PK);
+    g.fillStyle = PK; g.font = `600 12px ${F}`; g.textAlign = 'left'; g.fillText('różowe — grafika na drzwi do druku (ze spadem)', 10, CH - 6);
+  }
   g.fillStyle = '#718096'; g.font = `400 12px ${F}`; g.textAlign = 'right'; g.fillText(UNIT(), CW - 8, CH - 6);
   return { u: c.toDataURL('image/png'), w: CW };
 }
