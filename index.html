@@ -5468,12 +5468,14 @@ const fileBase = v => `${safeName(S.project.name)}_Index_v${v}_${dateStamp()}`;
 // Zlecenie: każdy element w osobnej linii — znak: wymiar do druku, sztuki, typ (+ dopisek przy SEG)
 // grupy zlecenia: zwykłe elementy, Blackback z białym tyłem, wysłony (Blackback) i konstrukcje podwieszane osobno
 function orderGroups(list) {
-  const all = [...list].sort((a, b) => { const ka = ordKey(a), kb = ordKey(b); return (ka[0] - kb[0]) || (ka[1] - kb[1]); });
+  // drzwi zawsze tuż pod swoją ścianą: klucz kolejności bierzemy ze ściany, drzwi dopiero po niej
+  const baseOf = e => (e.doorFor && S.elements.find(x => x.id === e.doorFor)) || e;
+  const all = [...list].sort((a, b) => { const ka = ordKey(baseOf(a)), kb = ordKey(baseOf(b)); return (ka[0] - kb[0]) || (ka[1] - kb[1]) || (!!a.doorFor - !!b.doorFor); });
   const wys = e => typeById(e.typeId).wyslona && e.wyslona;
   return [
     ['', all.filter(e => !wys(e) && !isHang(e) && !isWhiteBack(e))],
     ['Blackback — biały tył', all.filter(e => isWhiteBack(e) && !isHang(e))],
-    ['Blackback — wysłony', all.filter(wys).sort((a, b) => (a.wnum || 0) - (b.wnum || 0))],
+    ['Blackback — wysłony', all.filter(wys).sort((a, b) => ((baseOf(a).wnum || 0) - (baseOf(b).wnum || 0)) || (!!a.doorFor - !!b.doorFor))],
     ['Konstrukcje podwieszane', all.filter(isHang)],
   ].filter(([, l]) => l.length);
 }
