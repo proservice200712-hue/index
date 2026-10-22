@@ -4759,7 +4759,16 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     nb.textContent = `🔗 Wysłona powiązana z lightboxem ${lb ? markOf(lb) : ''} — wymiar i ilość zmieniasz w lightboxie, a usunięcie lightboxa usuwa też wysłonę.`;
     const dims = $('ed-dims'); if (dims) dims.after(nb);
   }
-  m.el.querySelector('.modal-b').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); $('ed-ok').click(); } });
+  // Enter zapisuje i zamyka okno — z pola, z przycisku wyboru (typ, mocowanie…) i gdy nic nie jest zaznaczone; w uwagach Enter = nowy wiersz (Ctrl+Enter zapisuje)
+  const enterSave = e => {
+    if (!m.el.isConnected) { document.removeEventListener('keydown', enterSave, true); return; }
+    if (e.key !== 'Enter' || e.repeat || e.isComposing || modalStack[modalStack.length - 1] !== m || !$('ed-ok') || $('ed-ok').disabled) return;
+    const t = e.target;
+    if (t.tagName === 'TEXTAREA' && !(e.ctrlKey || e.metaKey)) return;
+    if (t.tagName === 'BUTTON' && !t.classList.contains('type-btn') && !t.closest('#ed-opts')) return;
+    e.preventDefault(); e.stopPropagation(); $('ed-ok').click();
+  };
+  document.addEventListener('keydown', enterSave, true);
   $('ed-ok').onclick = async () => {
     const d = read();
     // inny kształt: w / h = pierwsza płaszczyzna (zgodność ze starszymi widokami i eksportem)
