@@ -5461,11 +5461,21 @@ function renderLog() {
       bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
     });
   }
+  // belka między wizkami a elementami: wizki rosną i maleją razem z polem (to samo przybliżenie
+  // względem „Dopasuj”, ten sam punkt na środku) — w górę mniejszy widok, w dół większy
   drag($('split-h'), e => {
     const r = $('screen-project').getBoundingClientRect();
     const h = clamp(e.clientY - r.top, 120, r.height - 110);
+    if (!hasPhotos()) { root.style.setProperty('--top-h', h + 'px'); return; }
+    const TB = 48, r0 = viewer.getBoundingClientRect(); // TB: miejsce na pasek narzędzi (jak w fitView)
+    const z = V.scale / (V.fit || V.scale), cx0 = r0.width / 2, cy0 = TB + (r0.height - TB) / 2;
+    const sx = (cx0 - V.tx) / V.scale, sy = (cy0 - V.ty) / V.scale;
     root.style.setProperty('--top-h', h + 'px');
-    if (hasPhotos()) applyView();
+    const r1 = viewer.getBoundingClientRect();
+    V.fit = Math.min(r1.width / L.W, (r1.height - TB) / H0) * 0.95;
+    V.scale = V.fit * z;
+    V.tx = r1.width / 2 - sx * V.scale; V.ty = TB + (r1.height - TB) / 2 - sy * V.scale;
+    applyView();
   }, () => { try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
   drag($('split-v'), e => {
     const r = $('logside').getBoundingClientRect();
