@@ -2225,7 +2225,7 @@ const SPLIT_MM = 1500;
 const needsSplit = el => el.typeId === 'folia-laminat' && hasDims(el) && Math.min(grossOf(el).w, grossOf(el).h) > SPLIT_MM;
 const SPLIT_TXT = 'wydruk na folii — krótszy bok ponad 150 cm, będzie dzielony';
 const splitBadge = el => needsSplit(el) ? `<span class="split-warn" title="Wydruk na folii (z laminatem lub bez): krótszy bok do druku ma ponad 150 cm — będzie musiał być dzielony na pasy">!</span>` : '';
-const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat' || el.typeId === 'pcw');
+const sideBleedOk = el => !el.doorFor && ((el.typeId === 'blackback' && !el.seg && !el.wyslona) || el.typeId === 'folia-laminat' || el.typeId === 'pcw' || (el.typeId === 'lightbox' && !el.backFor));
 const BLEED_SIDES = [['l', 'lewy'], ['r', 'prawy'], ['t', 'góra'], ['b', 'dół']];
 const bleedCell = (el, g) => el.bleedBox ? `${lenPL(el.bleedBox.l)}/${lenPL(el.bleedBox.r)}/${lenPL(el.bleedBox.t)}/${lenPL(el.bleedBox.b)}` : (g.b ? bleedTxt(g.b) : '—');
 
