@@ -214,6 +214,7 @@
   .gc-frame:hover { background: #f7fafc; color: var(--gray); }
   .gc-frame.drag { outline: 3px dashed var(--accent); outline-offset: 2px; }
   .gc-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  #viewer.copying { cursor: copy; }
   .mark-menu { position: fixed; z-index: 400; min-width: 230px; padding: 4px 0; }
   .mark-menu .mm-h { padding: 6px 12px; font-size: .72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
   .mark-menu button { display: block; width: 100%; text-align: left; padding: 7px 12px; background: none; border: none; cursor: pointer; font-size: .88rem; font-weight: 700; color: var(--dark); }
@@ -514,6 +515,8 @@
   #turbo-bar span { color: var(--gray); }
   .turbo-tag { font-size: 0.78rem; font-weight: 700; color: #b7791f; }
   .row-act .thread { cursor: grab; touch-action: none; }
+  .row-act .cut { position: relative; }
+  .row-act .cut::after { content: ''; position: absolute; left: 3px; right: 3px; top: 50%; border-top: 2px solid #c53030; transform: rotate(-42deg); }
   #thread-svg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 500; pointer-events: none; }
   #thread-svg.ok path { stroke-dasharray: none; }
   #ax-frame { position: fixed; inset: 0; z-index: 2500; background: rgba(26, 32, 44, 0.55); display: flex; flex-direction: column; align-items: center; padding: 16px; }
@@ -3318,14 +3321,14 @@ function normRaw(pid, sx, sy) { const b = L.map[pid]; return [(sx - b.x) / b.w, 
 // kursor nad inną wizką niż ta, na której jest przeciągany znacznik?
 function overOther(e, pid) { const [sx, sy] = toStage(e), over = photoAt(sx, sy); return over && over !== pid ? over : null; }
 // przeniesienie miejsca elementu na inną wizkę: punkt w miejscu upuszczenia (znak od razu odsunięty), obrys przesunięty w całości
-async function moveLocToPhoto(el, loc, fromPid, pid, orig, q) {
+function shapeOnPhoto(orig, fromPid, pid, q) {
   const bo = L.map[fromPid], bn = L.map[pid];
-  let sh;
-  if (orig.kind === 'point') sh = autoLab({ kind: 'point', pts: [q] }, pid);
-  else {
-    const [cx, cy] = shapeCenter(orig), k = bo && bn ? bo.w / bn.w : 1;
-    sh = { kind: orig.kind, pts: orig.pts.map(p => [clamp(q[0] + (p[0] - cx) * k, 0, 1), clamp(q[1] + (p[1] - cy), 0, 1)]) };
-  }
+  if (orig.kind === 'point') return autoLab({ kind: 'point', pts: [q] }, pid);
+  const [cx, cy] = shapeCenter(orig), k = bo && bn ? bo.w / bn.w : 1;
+  return { kind: orig.kind, pts: orig.pts.map(p => [clamp(q[0] + (p[0] - cx) * k, 0, 1), clamp(q[1] + (p[1] - cy), 0, 1)]) };
+}
+async function moveLocToPhoto(el, loc, fromPid, pid, orig, q) {
+  const sh = shapeOnPhoto(orig, fromPid, pid, q);
   let upd;
   if (loc == null || loc < 0) upd = { shape: sh, photoId: pid };
   else { const extra = clone(el.extra || []); if (!extra[loc]) return; extra[loc] = { ...extra[loc], photoId: pid, shape: sh }; upd = { extra }; }
@@ -3393,6 +3396,7 @@ function shapeCenter(sh) {
 
 // --- rysowanie nakładki ---
 let liveShape = null; // {eid, shape} podczas przeciągania
+let suppressCtx = false; // prawy przycisk użyty jako „kopiuj” w trakcie przeciągania — bez menu kontekstowego
 let pendingShape = null; // narysowany kształt czekający na opis w oknie
 function renderOverlay() {
   if (!hasPhotos()) { overlay.innerHTML = ''; return; }
@@ -3416,7 +3420,7 @@ function renderOverlay() {
   marks.sort((a, b) => (a.el.id === S.selId) - (b.el.id === S.selId));
   for (const mk of marks) {
     const el = mk.el, b = L.map[mk.photoId], loc = mk.loc;
-    const sh = liveShape && liveShape.eid === el.id && (liveShape.loc ?? -1) === loc ? liveShape.shape : mk.shape;
+    const sh = liveShape && !liveShape.copy && liveShape.eid === el.id && (liveShape.loc ?? -1) === loc ? liveShape.shape : mk.shape;
     const t = typeById(el.typeId), col = colorOf(el), sel = el.id === S.selId, hov = el.id === S.hoverId;
     const selHere = sel && (S.selLoc ?? -1) === loc; // uchwyty tylko przy wskazanym miejscu
     const [ax, ay] = shapeCenter(sh), [cx, cy] = labPos(sh);
@@ -3461,6 +3465,14 @@ function renderOverlay() {
         out += `<rect class="hdl" data-h="${i}" data-eid="${el.id}" data-loc="${loc}" x="${+X(b, q) - 5 * s}" y="${+Y(q) - 5 * s}" width="${10 * s}" height="${10 * s}" fill="#fff" stroke="${t.color}" stroke-width="${2 * s}"/>`;
       });
     }
+  }
+  // podczas kopiowania przeciągnięciem: duch kopii w miejscu kursora (oryginał zostaje na swoim miejscu)
+  if (liveShape && liveShape.copy && L.map[liveShape.pid]) {
+    const b = L.map[liveShape.pid], sh = liveShape.shape, lel = S.elements.find(x => x.id === liveShape.eid), col = lel ? colorOf(lel) : '#67b437';
+    const [gx, gy] = labPos(sh);
+    if (sh.kind !== 'point' && liveShape.mode === 'move') out += `<polygon points="${P(b, shapePolyPts(sh))}" fill="${col}" fill-opacity=".3" stroke="${col}" stroke-width="${2.5 * s}" stroke-dasharray="${6 * s} ${4 * s}" style="pointer-events:none"/>`;
+    out += `<g style="pointer-events:none"><circle cx="${X(b, [gx])}" cy="${Y([0, gy])}" r="${15 * s}" fill="${col}" fill-opacity=".7" stroke="#fff" stroke-width="${2 * s}" stroke-dasharray="${4 * s} ${3 * s}"/>
+      <text x="${X(b, [gx])}" y="${Y([0, gy])}" dy="${5 * s}" text-anchor="middle" font-size="${15 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">⧉</text></g>`;
   }
   if (pendingShape && L.map[pendingShape.photoId]) {
     const b = L.map[pendingShape.photoId], sh = pendingShape.shape;
@@ -3578,6 +3590,8 @@ viewer.addEventListener('pointermove', e => {
   if (act.mode === 'pan') {
     V.tx = act.tx + e.clientX - act.x; V.ty = act.ty + e.clientY - act.y; applyView(); return;
   }
+  // jak w Corelu: trzymasz lewy przycisk, przeciągasz znacznik i naciskasz prawy = oryginał zostaje, w miejscu upuszczenia powstaje kopia
+  if ((act.mode === 'move' || act.mode === 'label') && (e.buttons & 2) && !act.copy) { act.copy = true; suppressCtx = true; setTimeout(() => { suppressCtx = false; }, 6000); viewer.classList.add('copying'); }
   if (act.mode === 'move') {
     const cross = overOther(e, act.pid); // nad inną wizką: znacznik jedzie za kursorem, po puszczeniu przenosi się na nią
     const q = cross ? normRaw(act.pid, ...toStage(e)) : toNorm(e, act.pid);
@@ -3590,7 +3604,7 @@ viewer.addEventListener('pointermove', e => {
     }
     const moved = { kind: act.orig.kind, pts: act.orig.pts.map(p => [p[0] + dx, p[1] + dy]) };
     if (act.orig.lab) moved.lab = cross ? [act.orig.lab[0] + dx, act.orig.lab[1] + dy] : [clamp(act.orig.lab[0] + dx, 0, 1), clamp(act.orig.lab[1] + dy, 0, 1)];
-    liveShape = { eid: act.eid, loc: act.loc, shape: moved };
+    liveShape = { eid: act.eid, loc: act.loc, shape: moved, pid: act.pid, copy: !!act.copy, mode: 'move' };
     act.changed = Math.abs(dx) + Math.abs(dy) > 0.0005;
     renderOverlay(); return;
   }
@@ -3601,7 +3615,7 @@ viewer.addEventListener('pointermove', e => {
     if (act.mode === 'label') { const [lx, ly] = labPos(act.orig); sh.lab = [cl(lx + dx), cl(ly + dy)]; }
     else if (sh.kind === 'point') sh.pts = [[cl(sh.pts[0][0] + dx), cl(sh.pts[0][1] + dy)]];
     else { sh.pts = sh.pts.map(p => [cl(p[0] + dx), cl(p[1] + dy)]); }
-    liveShape = { eid: act.eid, loc: act.loc, shape: sh };
+    liveShape = { eid: act.eid, loc: act.loc, shape: sh, pid: act.pid, copy: !!act.copy, mode: act.mode };
     act.changed = Math.abs(dx) + Math.abs(dy) > 0.0005;
     renderOverlay(); return;
   }
@@ -3623,7 +3637,7 @@ viewer.addEventListener('pointermove', e => {
 });
 function endPointer(e) {
   pointers.delete(e.pointerId);
-  viewer.classList.remove('panning');
+  viewer.classList.remove('panning', 'copying');
   const a = act;
   if (a && a.mode === 'pinch') { if (pointers.size < 2) act = null; return; }
   act = null;
@@ -3635,6 +3649,24 @@ function endPointer(e) {
     if (a.shift && S.selId && !assignTo) { addLocation(S.selId, pid, { kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }, a.alt); return; }
     if (S.selId && !assignTo) { selectElement(null); return; } // pierwsze kliknięcie obok tylko odznacza
     onShapeDrawn({ kind: 'point', pts: [normIn(pid, a.at[0], a.at[1])] }, pid);
+    return;
+  }
+  if ((a.mode === 'move' || a.mode === 'label') && a.copy) { // kopia przeciągnięciem: oryginał bez zmian, nowy element w miejscu upuszczenia
+    const lv = liveShape; liveShape = null; renderOverlay();
+    let place = null;
+    if (lv && a.changed) {
+      const [dsx, dsy] = toStage(e), drop = photoAt(dsx, dsy), toPid = drop || a.pid;
+      let sh0;
+      if (drop && drop !== a.pid) sh0 = shapeOnPhoto(a.orig, a.pid, drop, normIn(drop, dsx, dsy));
+      else { // cały znacznik przesunięty o tyle, o ile przeciągnięto literę / obrys
+        const [lx0, ly0] = labPos(a.orig), [lx1, ly1] = labPos(lv.shape), ddx = lx1 - lx0, ddy = ly1 - ly0;
+        sh0 = clone(a.orig); sh0.pts = sh0.pts.map(q => [q[0] + ddx, q[1] + ddy]); if (sh0.lab) sh0.lab = [sh0.lab[0] + ddx, sh0.lab[1] + ddy];
+      }
+      sh0.pts = sh0.pts.map(p => [clamp(p[0], 0, 1), clamp(p[1], 0, 1)]);
+      if (sh0.lab) sh0.lab = [clamp(sh0.lab[0], 0, 1), clamp(sh0.lab[1], 0, 1)];
+      place = { photoId: toPid, shape: sh0 };
+    }
+    copyElement(a.eid, place, a.loc);
     return;
   }
   if (['move', 'handle', 'label', 'anchor'].includes(a.mode) && liveShape) {
@@ -3676,6 +3708,7 @@ viewer.addEventListener('dblclick', e => {
   if (g) openElementDialog({ id: g.dataset.eid });
 });
 viewer.addEventListener('contextmenu', e => {
+  if (suppressCtx || act) { e.preventDefault(); suppressCtx = false; return; } // PPM jako „kopiuj” przy przeciąganiu
   if (draft) { e.preventDefault(); cancelDraft(); return; }
   // prawy klawisz na znaczniku: małe menu — skopiuj / sklonuj / usuń
   const g = e.target.closest && e.target.closest('#overlay [data-eid]');
@@ -3697,7 +3730,7 @@ function openMarkMenu(x, y, eid, loc) {
   m.className = 'menu mark-menu';
   m.innerHTML = `<div class="mm-h">${esc(markOf(el))} · ${esc(typeLabel(el))}</div>
     <button type="button" data-mm="copy">⧉ Skopiuj<small>nowy, osobny element (kolejna litera) z tymi samymi danymi</small></button>
-    <button type="button" data-mm="clone">⊕ Sklonuj<small>drugi znacznik tego samego elementu (ilość bez zmian)</small></button>
+    ${locsOf(el).length ? '<button type="button" data-mm="clone">⊕ Sklonuj<small>drugi znacznik tego samego elementu (ilość bez zmian)</small></button>' : ''}
     <button type="button" data-mm="del" class="mm-del">✕ Usuń${locsOf(el).length > 1 ? '<small>tylko ten znacznik</small>' : ''}</button>`;
   document.body.appendChild(m);
   const r = m.getBoundingClientRect();
@@ -3708,19 +3741,21 @@ function openMarkMenu(x, y, eid, loc) {
   document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { closeMarkMenu(); document.removeEventListener('keydown', esc1); } });
   m.querySelectorAll('[data-mm]').forEach(b => b.onclick = async () => {
     const act = b.dataset.mm; closeMarkMenu();
-    if (act === 'copy') await copyElement(eid);
+    if (act === 'copy') await copyElement(eid, null, loc);
     else if (act === 'clone') await cloneElementPiece(eid, loc);
     else if (locsOf(el).length > 1) removeLocation(eid, loc); else deleteElement(eid);
   });
 }
 // Skopiuj: nowy element o tych samych danych (typ, wymiary, uwagi, drzwi…), znacznik tuż obok oryginału
-async function copyElement(eid) {
+async function copyElement(eid, place = null, loc = -1) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project) return;
+  if (!place && loc >= 0 && locShape(el, loc)) place = { photoId: locPhoto(el, loc), shape: shiftShape(locShape(el, loc), 0.035, 0.035) };
   const pid = S.project.id, rec = clone(el);
   ['id', 'num', 'wnum', 'mark', 'backFor', 'doorFor', 'backAsked', 'thumbAuto', 'thumbKey', 'gpos', 'extra', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'src', 'tblHidden'].forEach(k => delete rec[k]);
   rec.num = nextNum();
   if (isWys(rec)) rec.wnum = wysNumFor(rec, null);
-  rec.shape = el.shape ? shiftShape(el.shape, 0.035, 0.035) : null;
+  if (place) { rec.shape = place.shape; rec.photoId = place.photoId; }
+  else rec.shape = el.shape ? shiftShape(el.shape, 0.035, 0.035) : null;
   rec.createdAt = nowIso(); rec.createdBy = S.me.id;
   try {
     const newId = await DB.add(pElements(pid), rec);
@@ -4845,6 +4880,16 @@ async function deleteElement(id) {
   }
   if (S.selId === id) S.selId = null;
 }
+// zerwanie linku: znacznik znika z wizek, element zostaje w tabeli (wymiary, ilość, uwagi) i znów ma nitkę 🧵 do zlinkowania
+async function unlinkElement(id) {
+  const el = S.elements.find(e => e.id === id); if (!el || !S.project || !el.shape) return;
+  const n = locsOf(el).length;
+  const ok = await confirmBox(`Zerwać link elementu <b>${markOf(el)}</b> z wizką? Znacznik${n > 1 ? 'i (' + n + ')' : ''} zniknie z wizki, element zostanie w tabeli i będzie można go zlinkować od nowa nitką 🧵.`, 'Zerwij link');
+  if (!ok) return;
+  await DB.update(pElements(S.project.id), id, { shape: null, photoId: '', extra: [], updatedAt: nowIso(), updatedBy: S.me.id });
+  addLog(S.project.id, `Zerwano link elementu ${markOf(el)} z wizką (element bez zaznaczenia)`, id);
+  if (S.selId === id) selectElement(null);
+}
 function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
 // poly = rysowanie wielokątem (zmiana zaznaczenia punktowego na obrys albo obrys od nowa); loc = które miejsce elementu
 function startAssign(eid, poly = false, loc = -1) {
@@ -5017,6 +5062,7 @@ function renderGraph() {
   box.querySelectorAll('.gc').forEach(c => {
     c.onmouseenter = () => setHover(c.dataset.eid);
     c.onmouseleave = () => setHover(null);
+    c.oncontextmenu = ev => { ev.preventDefault(); openMarkMenu(ev.clientX, ev.clientY, c.dataset.eid, -1); };
   });
   box.querySelectorAll('.gc-ed').forEach(b => {
     b.onpointerdown = e => e.stopPropagation();
@@ -5329,7 +5375,7 @@ function renderElements() {
         <td class="notes" title="${esc(notesOf(e))}">${esc(notesOf(e))}</td>
         <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
-          ${e.shape ? '' : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
+          ${e.shape ? (isAdmin() && !e.doorFor && !e.backFor ? `<button class="cut" title="Zerwij link: element zostaje w tabeli bez zaznaczenia na wizce, nitka 🧵 pozwoli go zlinkować od nowa" onclick="event.stopPropagation();unlinkElement('${e.id}')">🧵</button>` : '') : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
           ${!isAdmin() ? '' : axLinked(e) ? axBadge(e)
             : e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
           <button class="eye-btn${e.tblHidden ? ' off' : ''}" title="${e.tblHidden ? 'Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny' : 'Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)'}" onclick="event.stopPropagation();toggleRowHidden('${e.id}')">${eyeIcon(!e.tblHidden)}</button>
@@ -5343,6 +5389,7 @@ function renderElements() {
     tr.ondblclick = () => openElementDialog({ id: tr.dataset.eid });
     tr.onmouseenter = () => setHover(tr.dataset.eid);
     tr.onmouseleave = () => setHover(null);
+    tr.oncontextmenu = ev => { ev.preventDefault(); openMarkMenu(ev.clientX, ev.clientY, tr.dataset.eid, -1); };
   });
 }
 
