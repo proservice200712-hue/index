@@ -9,6 +9,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
+    /* kursor łapki: ciemny z białą obwódką — widoczny także na białym tle (systemowa łapka jest biała) */
+    --cur-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24'%3E%3Cg fill='%23fff' stroke='%23fff' stroke-width='2.6' stroke-linejoin='round'%3E%3Crect x='6.2' y='5' width='2.6' height='9' rx='1.3'/%3E%3Crect x='9' y='3' width='2.6' height='11' rx='1.3'/%3E%3Crect x='11.8' y='3.5' width='2.6' height='10.5' rx='1.3'/%3E%3Crect x='14.6' y='5.5' width='2.6' height='8.5' rx='1.3'/%3E%3Crect x='3.2' y='9.5' width='2.6' height='7.5' rx='1.3' transform='rotate(-35 4.5 13.2)'/%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c' stroke='%23fff' stroke-width='.9'%3E%3Crect x='3.2' y='9.5' width='2.6' height='7.5' rx='1.3' transform='rotate(-35 4.5 13.2)'/%3E%3Crect x='6.2' y='5' width='2.6' height='9' rx='1.3'/%3E%3Crect x='9' y='3' width='2.6' height='11' rx='1.3'/%3E%3Crect x='11.8' y='3.5' width='2.6' height='10.5' rx='1.3'/%3E%3Crect x='14.6' y='5.5' width='2.6' height='8.5' rx='1.3'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='7' y='12' width='9.4' height='7.6' rx='2.6'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+    --cur-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24'%3E%3Cg fill='%23fff' stroke='%23fff' stroke-width='2.6' stroke-linejoin='round'%3E%3Crect x='6.2' y='9' width='2.6' height='5' rx='1.3'/%3E%3Crect x='9' y='8' width='2.6' height='6' rx='1.3'/%3E%3Crect x='11.8' y='8.5' width='2.6' height='5.5' rx='1.3'/%3E%3Crect x='14.6' y='9.5' width='2.6' height='4.5' rx='1.3'/%3E%3Crect x='4.2' y='11.5' width='2.6' height='5' rx='1.3' transform='rotate(-50 5.5 14)'/%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c' stroke='%23fff' stroke-width='.9'%3E%3Crect x='4.2' y='11.5' width='2.6' height='5' rx='1.3' transform='rotate(-50 5.5 14)'/%3E%3Crect x='6.2' y='9' width='2.6' height='5' rx='1.3'/%3E%3Crect x='9' y='8' width='2.6' height='6' rx='1.3'/%3E%3Crect x='11.8' y='8.5' width='2.6' height='5.5' rx='1.3'/%3E%3Crect x='14.6' y='9.5' width='2.6' height='4.5' rx='1.3'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='7' y='12' width='9.4' height='7.6' rx='2.6'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
     --dark: #1a202c;
     --dark2: #2d3748;
     --gray: #4a5568;
@@ -137,10 +140,10 @@
   #pane-top { flex: 0 0 var(--top-h); min-height: 120px; display: flex; flex-direction: column; background: #e2e5e9; position: relative; }
 
   /* wszystkie wizki obok siebie na jednym płótnie */
-  #viewer { flex: 1 1 auto; position: relative; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+  #viewer { flex: 1 1 auto; position: relative; overflow: hidden; touch-action: none; cursor: var(--cur-grab); user-select: none; }
   #viewer.t-point { cursor: crosshair; }
   #viewer.t-poly { cursor: crosshair; }
-  #viewer.panning { cursor: grabbing; }
+  #viewer.panning { cursor: var(--cur-grabbing); }
   #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
   #stage-imgs img { position: absolute; top: 0; display: block; pointer-events: none; -webkit-user-drag: none; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,0.18); }
   #overlay { position: absolute; left: 0; top: 0; overflow: visible; }
@@ -190,10 +193,10 @@
   .gc-h .gc-q, .gc-h .gc-ed { flex: 0 0 auto; margin-top: 2px; }
   .gc-h .gc-sub { display: block; font-size: .78rem; font-weight: 400; color: var(--gray); margin-top: 2px; }
   /* nawigacja w widoku Grafika */
-  .el-scroll.gnav { overflow: hidden; position: relative; cursor: grab; touch-action: none; }
-  .el-scroll.gnav.panning { cursor: grabbing; }
+  .el-scroll.gnav { overflow: hidden; position: relative; cursor: var(--cur-grab); touch-action: none; }
+  .el-scroll.gnav.panning { cursor: var(--cur-grabbing); }
   .gstage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-  .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: grab; touch-action: none; }
+  .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: var(--cur-grab); touch-action: none; }
   .gidx.moving .gc-frame:hover { background: #fff; color: var(--mid); }
   .gidx.moving .gc { animation: gcWiggle .3s ease-in-out infinite alternate; transform-origin: 50% 40%; }
   .gidx.moving .gc:nth-child(2n) { animation-delay: -.15s; animation-duration: .34s; }
@@ -201,7 +204,7 @@
   .gidx.moving .gc.dragging { animation: none; }
   .gidx.sorting .gc:not(.dragging) { transition: left .22s ease, top .22s ease; }
   @keyframes gcWiggle { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
-  .gc.dragging .gc-h { cursor: grabbing; }
+  .gc.dragging .gc-h { cursor: var(--cur-grabbing); }
   .gc-ed { background: none; border: 1.5px solid var(--line); color: var(--gray); cursor: pointer; width: 24px; height: 24px; font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; }
   .gc-ed:hover { border-color: var(--dark); color: var(--dark); background: var(--bg); }
   .gc-h .gc-t { font-family: Bahnschrift, 'Segoe UI', Arial, sans-serif; font-size: 1rem; font-weight: 600; letter-spacing: .2px; color: var(--dark); }
@@ -333,7 +336,7 @@
   #side-tree { flex: 1 1 auto; overflow-y: auto; padding: 4px 0; }
   .fair-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 6px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid #edf2f7; }
   .fair-row:hover, .stand-row:hover { background: var(--bg); }
-  .fair-row[draggable="true"], .stand-row[draggable="true"] { cursor: grab; }
+  .fair-row[draggable="true"], .stand-row[draggable="true"] { cursor: var(--cur-grab); }
   .dragging-row { opacity: .4; }
   .drop-before { box-shadow: inset 0 3px 0 var(--accent); }
   .drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
@@ -514,7 +517,7 @@
   #turbo-bar { display: flex; align-items: center; gap: 10px; padding: 7px 12px; background: #fffbea; border-bottom: 2px solid #f6c90e; font-size: 0.82rem; flex-wrap: wrap; }
   #turbo-bar span { color: var(--gray); }
   .turbo-tag { font-size: 0.78rem; font-weight: 700; color: #b7791f; }
-  .row-act .thread { cursor: grab; touch-action: none; }
+  .row-act .thread { cursor: var(--cur-grab); touch-action: none; }
   /* stałe „szuflady” na ikony: archiwum X, nitka, ⌖, oko, edycja, usuń — ikony w kolumnie zawsze równo pod sobą */
   .row-act { white-space: nowrap; }
   .row-act .ra { display: inline-block; width: 26px; text-align: center; vertical-align: middle; }
