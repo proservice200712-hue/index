@@ -4542,8 +4542,8 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const axb = $('ed-ax'); if (axb) axb.onclick = () => { const md = modalStack.find(x => x.el === axb.closest('.modal-back')); if (md) md.close(); openArchiwumDialog(editing.id); };
     const ins = $('ed-inside'); if (ins) ins.addEventListener('change', () => { el.inside = ins.checked; refresh(); });
     const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
-    $('ed-opts').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
-    $('ed-opts').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
+    $('ed-doorslot').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
+    $('ed-doorslot').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
