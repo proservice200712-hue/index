@@ -515,6 +515,11 @@
   #turbo-bar span { color: var(--gray); }
   .turbo-tag { font-size: 0.78rem; font-weight: 700; color: #b7791f; }
   .row-act .thread { cursor: grab; touch-action: none; }
+  /* stałe „szuflady” na ikony: archiwum X, nitka, ⌖, oko, edycja, usuń — ikony w kolumnie zawsze równo pod sobą */
+  .row-act { white-space: nowrap; }
+  .row-act .ra { display: inline-block; width: 26px; text-align: center; vertical-align: middle; }
+  .row-act .ra-ax { width: 58px; }
+  .row-act .ra button { padding: 2px 3px; }
   .row-act .cut { position: relative; }
   .row-act .cut::after { content: ''; position: absolute; left: 3px; right: 3px; top: 50%; border-top: 2px solid #c53030; transform: rotate(-42deg); }
   #thread-svg { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 500; pointer-events: none; }
@@ -5390,12 +5395,13 @@ function renderElements() {
         <td class="notes" title="${esc(notesOf(e))}">${esc(notesOf(e))}</td>
         <td class="c">${avatarSm(e.updatedBy || e.createdBy)}</td>
         <td class="row-act">
-          ${e.shape ? (isAdmin() && !e.doorFor && !e.backFor ? `<button class="cut" title="Zerwij link: element zostaje w tabeli bez zaznaczenia na wizce, nitka 🧵 pozwoli go zlinkować od nowa" onclick="event.stopPropagation();unlinkElement('${e.id}')">🧵</button>` : '') : `${isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : ''}<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}
-          ${!isAdmin() ? '' : axLinked(e) ? axBadge(e)
-            : e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}
-          <button class="eye-btn${e.tblHidden ? ' off' : ''}" title="${e.tblHidden ? 'Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny' : 'Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)'}" onclick="event.stopPropagation();toggleRowHidden('${e.id}')">${eyeIcon(!e.tblHidden)}</button>
-          <button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button>
-          <button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></td>
+          <span class="ra ra-ax">${!isAdmin() ? '' : axLinked(e) ? axBadge(e)
+            : e.typeId === 'logo3d' ? `<button title="Wpisz do Archiwum X jako eksponat" onclick="event.stopPropagation();openArchiwumDialog('${e.id}')">🗄</button>` : ''}</span>
+          <span class="ra">${e.shape ? (isAdmin() && !e.doorFor && !e.backFor ? `<button class="cut" title="Zerwij link: element zostaje w tabeli bez zaznaczenia na wizce, nitka 🧵 pozwoli go zlinkować od nowa" onclick="event.stopPropagation();unlinkElement('${e.id}')">🧵</button>` : '') : (isAdmin() ? `<button class="thread" data-thread="${e.id}" title="Przeciągnij nitkę na miejsce na wizce">🧵</button>` : '')}</span>
+          <span class="ra">${e.shape ? '' : `<button title="Zaznacz na wizce" onclick="event.stopPropagation();startAssign('${e.id}')">⌖</button>`}</span>
+          <span class="ra"><button class="eye-btn${e.tblHidden ? ' off' : ''}" title="${e.tblHidden ? 'Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny' : 'Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)'}" onclick="event.stopPropagation();toggleRowHidden('${e.id}')">${eyeIcon(!e.tblHidden)}</button></span>
+          <span class="ra"><button title="Edytuj" onclick="event.stopPropagation();openElementDialog({id:'${e.id}'})">✎</button></span>
+          <span class="ra"><button title="Usuń" onclick="event.stopPropagation();deleteElement('${e.id}')">✕</button></span></td>
       </tr>`;
     }).join('')}</tbody>
     </table>`;
