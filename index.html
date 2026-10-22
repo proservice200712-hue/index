@@ -251,7 +251,7 @@
   .fbar .fb-s { position: absolute; top: 0; bottom: 0; }
   .fbar .fb-past { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,.62); }
   .fbar .fb-knob { position: absolute; top: -2px; width: 3px; height: 11px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 0 1px #1a202c; }
-  .fbar.urgent { animation: urgBlink 2.4s ease-in-out infinite; }
+  /* pasek pod targami nie miga (miga tylko zegar w stoisku) */
   #clock-pane.ph-none #clock-svg { opacity: .45; }
   .cl-legend { display: flex; gap: 8px; font-size: .62rem; color: var(--gray); margin-top: 3px; flex: 0 0 auto; }
   .cl-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 3px; vertical-align: 0; }
@@ -2398,6 +2398,7 @@ function startFairsSub() {
   if (fairsUnsub) return;
   fairsUnsub = DB.sub(C_FAIRS, rows => {
     S.fairs = rows;
+    autoArchiveFairs();
     renderSide();
     if (!$('screen-home').classList.contains('hidden')) renderHome();
   });
@@ -2690,6 +2691,28 @@ async function sideDelete() {
     if (S.project && stands.some(p => p.id === S.project.id)) goHome(); else renderSide();
   } catch (e) { toast('Błąd usuwania: ' + e.message, 'error'); }
 }
+// po zakończeniu targów (koniec imprezy, a bez końca — dzień po starcie) targi same idą do archiwum,
+// a z nimi ich stoiska. Raz: przywrócone ręcznie z archiwum już tam nie wracają (autoArchiveDone).
+let autoArchBusy = false;
+async function autoArchiveFairs() {
+  if (autoArchBusy || !isAdmin() || DEMO || (S.tour && S.tour.show) || S.practice) return;
+  const now = Date.now();
+  const done = S.fairs.filter(f => !f.archived && !f.autoArchiveDone && tsOf(f.eventStart)
+    && now > (tsOf(f.eventEnd) || tsOf(f.eventStart) + 864e5));
+  if (!done.length) return;
+  autoArchBusy = true;
+  try {
+    for (const f of done) {
+      await DB.update(C_FAIRS, f.id, { archived: true, autoArchiveDone: true, updatedAt: nowIso() });
+      for (const p of S.projects.filter(x => x.fairId === f.id && !x.archived)) {
+        await DB.update(C_PROJECTS, p.id, { archived: true, updatedAt: nowIso() });
+        addLog(p.id, `Targi „${f.name}” zakończone — stoisko przeniesione do archiwum`);
+      }
+    }
+    toast(`Zakończone targi w archiwum: ${done.map(f => f.name).join(', ')}`, 'success', 6000);
+  } catch (e) { console.warn('autoarchiwum', e); }
+  finally { autoArchBusy = false; }
+}
 async function sideArchive() {
   const t = sideTarget(); if (!t || !isAdmin()) return;
   const arch = !t.obj.archived;
@@ -2697,7 +2720,11 @@ async function sideArchive() {
     if (t.kind === 'stand') {
       await DB.update(C_PROJECTS, t.id, { archived: arch, updatedAt: nowIso() });
       addLog(t.id, arch ? 'Stoisko przeniesione do archiwum' : 'Stoisko przywrócone z archiwum');
-    } else await DB.update(C_FAIRS, t.id, { archived: arch, updatedAt: nowIso() });
+    } else {
+      await DB.update(C_FAIRS, t.id, { archived: arch, updatedAt: nowIso() });
+      // targi razem ze stoiskami: archiwum i przywrócenie dotyczą też ich stoisk
+      for (const p of S.projects.filter(x => x.fairId === t.id && !!x.archived !== arch)) await DB.update(C_PROJECTS, p.id, { archived: arch, updatedAt: nowIso() });
+    }
     if (arch && !S.showArch) S.sideSel = null;
     toast(arch ? `„${t.obj.name}" w archiwum` + (S.showArch ? '' : ' (widać po zaznaczeniu „Pokaż archiwum")') : `„${t.obj.name}" przywrócone`, 'success', 4500);
     renderSide();
@@ -6422,14 +6449,13 @@ document.addEventListener('mouseout', e => { if (e.target.closest && e.target.cl
 //  ALPAKA — co 5 minut dobiega do 1/4 ekranu, mruga i wraca
 // =====================================================================
 // losowo: wybiega z lewej, z prawej albo (w stoisku) spada na spadochronie ze środkowej belki nad zegarem
-// stroje alpaki (losowane przy każdym wyjściu): październik (do Halloween) — dynia albo postacie z horrorów
-// (Ghostface z „Krzyku”, Jason z „Piątku trzynastego”, Freddy Krueger, Drakula);
-// grudzień — gwiazdor, renifer Rudolf albo elf; w pozostałe miesiące zwykła
+// stroje alpaki (losowane przy każdym wyjściu): październik (do Halloween) — dynia
+// (postacie z horrorów były mało czytelne); grudzień — gwiazdor, renifer Rudolf albo elf; w pozostałe miesiące zwykła
 const pickW = list => { let r = Math.random() * list.reduce((a, [, w]) => a + w, 0); for (const [v, w] of list) { if ((r -= w) < 0) return v; } return list[0][0]; };
 function alpacaCostume() {
   const a = $('alpaca'); if (!a) return;
   const m = new Date().getMonth();
-  a.dataset.costume = m === 9 ? pickW([['pumpkin', 30], ['ghostface', 17.5], ['jason', 17.5], ['freddy', 17.5], ['dracula', 17.5]])
+  a.dataset.costume = m === 9 ? 'pumpkin'
     : m === 11 ? pickW([['santa', 45], ['rudolph', 30], ['elf', 25]]) : '';
 }
 alpacaCostume();
