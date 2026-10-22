@@ -558,6 +558,9 @@
   .ord-it.off { opacity: .45; }
   .ord-it input { width: 16px; height: 16px; flex: 0 0 auto; }
   .ord-prev label { font-size: 0.72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; }
+  .ord-doc { font-size: 0.8rem; line-height: 1.45; background: var(--bg); border: 1px solid var(--line); padding: 10px; max-height: 56vh; overflow-y: auto; margin-top: 4px; }
+  .ord-doc img { display: block; max-width: 100%; height: auto; }
+  .ord-pic { margin-right: 10px; font-size: .82rem; }
   .ord-prev pre { white-space: pre-wrap; font-family: inherit; font-size: 0.8rem; background: var(--bg); border: 1px solid var(--line); padding: 10px; max-height: 56vh; overflow-y: auto; margin-top: 4px; }
   @media (max-width: 760px) { .ord-wrap { grid-template-columns: 1fr; } }
   .exp-prev { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; min-height: 40px; }
@@ -5527,6 +5530,84 @@ function orderText(list = S.elements) {
   const txt = orderGroups(list).map(([name, l]) => (name ? name + ':\n' : '') + l.map(orderLine).join('\n\n')).join('\n\n'); // pusta linijka między elementami
   return txt && list.some(isSegFabric) ? txt + '\n\n' + SEG_NOTE : txt; // przypis na końcu, gdy jest jakaś tkanina SEG
 }
+// rysunek ściany z drzwiami do zlecenia: grafika ściany (gdy jest podgląd), drzwi, wymiary od lewej i od prawej, wymiar ściany i drzwi
+async function wallDrawing(main) {
+  if (!hasDoor(main) || !hasDims(main)) return null;
+  const W = Number(main.w), H = Number(main.h), p = doorPos(main), gr = grossOf(main);
+  const Q = 2, LM = 70, TM = 44, RM = 84, BM = 92, F = `Segoe UI, Arial, sans-serif`;
+  const s = Math.min(520 / W, 340 / H), rw = W * s, rh = H * s, CW = Math.round(Math.max(330, LM + rw + RM)), CH = Math.round(TM + rh + BM);
+  const c = document.createElement('canvas'); c.width = CW * Q; c.height = CH * Q;
+  const g = c.getContext('2d'); g.scale(Q, Q); g.fillStyle = '#fff'; g.fillRect(0, 0, CW, CH); g.imageSmoothingQuality = 'high';
+  const x0 = LM, y0 = TM;
+  g.fillStyle = '#1a202c'; g.font = `700 17px ${F}`; g.textAlign = 'left';
+  g.fillText(`${markOf(main)} — ${typeLabel(main)}`, 10, 24);
+  g.fillStyle = '#f7fafc'; g.fillRect(x0, y0, rw, rh);
+  if (main.thumb) { // grafika ściany: wycinek w obrębie netto (jak tekstura drzwi)
+    try {
+      const img = await loadImg(main.thumb), ox = gr.box ? gr.box.l : gr.b, oy = gr.box ? gr.box.t : gr.b;
+      const asp = img.width / img.height, fa = gr.w / gr.h, iw = asp > fa ? gr.w : gr.h * asp, ih = asp > fa ? gr.w / asp : gr.h;
+      g.save(); g.beginPath(); g.rect(x0, y0, rw, rh); g.clip();
+      g.drawImage(img, x0 + ((gr.w - iw) / 2 - ox) * s, y0 + ((gr.h - ih) / 2 - oy) * s, iw * s, ih * s); g.restore();
+    } catch (e) { /* bez grafiki — sam kontur */ }
+  }
+  g.strokeStyle = '#2b2a29'; g.lineWidth = 1.6; g.strokeRect(x0, y0, rw, rh);
+  const dx = x0 + p.x * s, dw = p.w * s, dh = p.h * s, dy = y0 + rh - dh;
+  g.fillStyle = 'rgba(49,130,206,.28)'; g.fillRect(dx, dy, dw, dh);
+  g.setLineDash([6, 3]); g.strokeStyle = p.fits ? '#3182ce' : '#e53e3e'; g.lineWidth = 1.8; g.strokeRect(dx, dy, dw, dh); g.setLineDash([]);
+  g.fillStyle = '#2b6cb0'; g.font = `600 13px ${F}`; g.textAlign = 'center'; g.fillText('drzwi', dx + dw / 2, dy + dh - 8);
+  const AC = '#4a5568', ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
+  const hDim = (xa, xb, y, mm, col = '#1a202c') => { if (!(xb - xa > 1)) return; drawArrowLine(g, xa, y, xb, y, 8, AC, 1.2); g.fillStyle = col; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 5); };
+  const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 8, AC, 1.2); g.save(); g.translate(x - 6, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = '#1a202c'; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
+  const yb1 = y0 + rh + 28, yb2 = y0 + rh + 62; // wiersz 1: od lewej / drzwi / od prawej; wiersz 2: cała ściana
+  [x0, dx, dx + dw, x0 + rw].forEach(x => ext(x, y0 + rh, x, yb1 + 4));
+  hDim(x0, dx, yb1, p.left, '#2b6cb0'); hDim(dx, dx + dw, yb1, p.w); hDim(dx + dw, x0 + rw, yb1, p.right, '#2b6cb0');
+  ext(x0, y0 + rh, x0, yb2 + 4); ext(x0 + rw, y0 + rh, x0 + rw, yb2 + 4); hDim(x0, x0 + rw, yb2, W);
+  ext(x0, y0, x0 - 34, y0); ext(x0, y0 + rh, x0 - 34, y0 + rh); vDim(y0, y0 + rh, x0 - 30, H);           // wysokość ściany
+  ext(x0 + rw, dy, x0 + rw + 34, dy); ext(x0 + rw, y0 + rh, x0 + rw + 34, y0 + rh); vDim(dy, y0 + rh, x0 + rw + 30, p.h); // wysokość drzwi
+  g.fillStyle = '#718096'; g.font = `400 12px ${F}`; g.textAlign = 'right'; g.fillText(UNIT(), CW - 8, CH - 6);
+  return { u: c.toDataURL('image/png'), w: CW };
+}
+const wallKey = e => JSON.stringify([e.w, e.h, e.door, e.seg, e.wyslona, e.thumb, e.bleedOverride, e.bleedBox, e.typeId, e.variant, markOf(e), UNIT()]);
+const wallCache = new Map();
+async function wallDrawingCached(e) {
+  const k = e.id + '|' + wallKey(e); if (wallCache.has(k)) return wallCache.get(k);
+  let u = null; try { u = await wallDrawing(e); } catch (err) { u = null; }
+  wallCache.set(k, u); return u;
+}
+// zlecenie jako HTML (do maila): te same linijki co w tekście, a pod ścianą z drzwiami jej rysunek
+function orderHtml(list, draws = new Map()) {
+  const P = t => `<p style="margin:0 0 10px">${esc(t).replace(/\n/g, '<br>').replace(/ {3}/g, '&nbsp;&nbsp;&nbsp;')}</p>`;
+  const IMG = d => `<p style="margin:0 0 14px"><img src="${d.u}" width="${d.w}" style="max-width:100%;border:1px solid #cbd5e0" alt="rysunek ściany z drzwiami"></p>`;
+  let h = '';
+  for (const [name, l] of orderGroups(list)) {
+    if (name) h += `<p style="margin:0 0 4px"><b>${esc(name)}:</b></p>`;
+    for (const e of l) {
+      h += P(orderLine(e));
+      // rysunek: pod drzwiami (a gdy drzwi nie zaznaczone — pod samą ścianą)
+      if (e.doorFor && draws.get(e.doorFor)) h += IMG(draws.get(e.doorFor));
+      else if (hasDoor(e) && draws.get(e.id) && !list.some(x => x.doorFor === e.id)) h += IMG(draws.get(e.id));
+    }
+  }
+  if (h && list.some(isSegFabric)) h += P(SEG_NOTE);
+  return h;
+}
+async function drawsFor(list) {
+  const m = new Map();
+  for (const e of list) if (hasDoor(e) && hasDims(e)) { const u = await wallDrawingCached(e); if (u) m.set(e.id, u); }
+  return m;
+}
+// do schowka: tekst + HTML z rysunkami (mail dostaje opis razem z rysunkiem); bez rysunków albo bez obsługi HTML — sam tekst
+async function copyOrderRich(list, draws) {
+  const txt = orderText(list);
+  if (draws.size && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+    try {
+      const html = `<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt">${orderHtml(list, draws)}</div>`;
+      await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([txt], { type: 'text/plain' }) })]);
+      return true;
+    } catch (e) { /* zwykły tekst poniżej */ }
+  }
+  await copyText(txt); return false;
+}
 async function copyText(txt) {
   try { await navigator.clipboard.writeText(txt); }
   catch (e) { // starsze przeglądarki / brak zgody: kopiowanie przez ukryte pole
@@ -5538,10 +5619,10 @@ async function copyText(txt) {
 function copyOrder() {
   if (!S.project) return;
   if (!S.elements.length) return toast('Brak elementów do zlecenia', 'error');
-  const off = new Set();
+  const off = new Set(); let draws = new Map(), drawTok = 0;
   const m = openModal({ title: '📋 Zlecenie', wide: true, body: `
-    <div class="ord-wrap"><div class="ord-list" id="ord-list"></div><div class="ord-prev"><label>Tekst do wklejenia</label><pre id="ord-txt"></pre></div></div>`,
-    footer: `<span class="hint" id="ord-cnt" style="margin-right:auto"></span><button class="btn" data-c>Zamknij</button><button class="btn btn-solid" id="ord-ok">📋 Kopiuj</button>` });
+    <div class="ord-wrap"><div class="ord-list" id="ord-list"></div><div class="ord-prev"><label>Tekst do wklejenia</label><div id="ord-txt" class="ord-doc"></div></div></div>`,
+    footer: `<span class="hint" id="ord-cnt" style="margin-right:auto"></span><label class="chk ord-pic hidden" id="ord-pic-wrap" title="Pod każdą ścianą z drzwiami dołącza jej rysunek (wymiary od lewej i od prawej, drzwi); wkleisz go razem z tekstem w mailu"><input type="checkbox" id="ord-pic" checked> <span>rysunki ścian z drzwiami</span></label><button class="btn" data-c>Zamknij</button><button class="btn btn-solid" id="ord-ok">📋 Kopiuj</button>` });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   const sel = () => S.elements.filter(e => !off.has(e.id));
   const render = () => {
@@ -5551,7 +5632,13 @@ function copyOrder() {
       ${l.map(e => `<label class="ord-it ${off.has(e.id) ? 'off' : ''}"><input type="checkbox" data-oid="${e.id}" ${off.has(e.id) ? '' : 'checked'}>
         <span class="badge" style="background:${badgeBg(e)}">${markOf(e)}</span>
         <span>${esc(typeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
-    $('ord-txt').textContent = orderText(sel()) || '(nic nie zaznaczono)';
+    const withDoor = sel().some(e => hasDoor(e) && hasDims(e)), usePic = withDoor && $('ord-pic').checked;
+    $('ord-pic-wrap').classList.toggle('hidden', !S.elements.some(e => hasDoor(e) && hasDims(e)));
+    $('ord-txt').innerHTML = orderHtml(sel(), usePic ? draws : new Map()) || '(nic nie zaznaczono)';
+    if (usePic) { // rysunki dorysowują się po chwili (miniatura ściany ładuje się asynchronicznie)
+      const tok = ++drawTok;
+      drawsFor(sel()).then(d => { if (tok === drawTok && m.el.isConnected && d.size !== draws.size) { draws = d; $('ord-txt').innerHTML = orderHtml(sel(), draws); } else if (tok === drawTok) draws = d; });
+    }
     $('ord-cnt').textContent = `${sel().length} z ${S.elements.length} el.`;
     $('ord-list').querySelectorAll('[data-oid]').forEach(c => c.onchange = () => { if (c.checked) off.delete(c.dataset.oid); else off.add(c.dataset.oid); render(); });
     $('ord-list').querySelectorAll('[data-ogrp]').forEach(c => {
@@ -5561,11 +5648,13 @@ function copyOrder() {
     });
   };
   render();
+  $('ord-pic').onchange = render;
   $('ord-ok').onclick = async () => {
     const list = sel();
     if (!list.length) return toast('Zaznacz co najmniej jeden element', 'error');
-    await copyText(orderText(list));
-    toast('Elementy w formacie tekstowym skopiowane do schowka', 'success', 4000);
+    const pic = $('ord-pic').checked && list.some(e => hasDoor(e) && hasDims(e)) ? await drawsFor(list) : new Map();
+    const rich = await copyOrderRich(list, pic);
+    toast(rich ? 'Zlecenie z rysunkami ścian skopiowane do schowka — wklej w mailu' : 'Elementy w formacie tekstowym skopiowane do schowka', 'success', 4000);
     addLog(S.project.id, `Skopiowano zlecenie do schowka (${list.length} el.)`);
     m.close();
   };
