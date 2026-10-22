@@ -214,7 +214,13 @@
   .gc-frame:hover { background: #f7fafc; color: var(--gray); }
   .gc-frame.drag { outline: 3px dashed var(--accent); outline-offset: 2px; }
   .gc-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .gc-qty { position: absolute; top: 0; font-weight: 800; font-size: 1.05rem; color: var(--dark); line-height: 1; padding: 3px 6px; border: 1.5px solid var(--dark); background: #fff; white-space: nowrap; }
+  .mark-menu { position: fixed; z-index: 400; min-width: 230px; padding: 4px 0; }
+  .mark-menu .mm-h { padding: 6px 12px; font-size: .72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+  .mark-menu button { display: block; width: 100%; text-align: left; padding: 7px 12px; background: none; border: none; cursor: pointer; font-size: .88rem; font-weight: 700; color: var(--dark); }
+  .mark-menu button:hover { background: var(--bg); }
+  .mark-menu button small { display: block; font-size: .7rem; font-weight: 400; color: var(--gray); margin-top: 1px; }
+  .mark-menu .mm-del { color: #c53030; }
+  .gc-qty { position: absolute; top: 0; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 6px; box-sizing: border-box; border-radius: 999px !important; border: 2px solid var(--dark); background: #fff; font-weight: 800; font-size: 1.05rem; color: var(--dark); line-height: 1; white-space: nowrap; }
   .gc-pl { position: absolute; top: 0; box-sizing: border-box; border-right: 1px solid #cbd5e0; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-weight: 700; overflow: hidden; }
   .gc-frame .x { position: absolute; right: 0; top: 0; width: 18px; height: 18px; background: rgba(229,62,62,.9); color: #fff; font-size: .7rem; display: none; align-items: center; justify-content: center; z-index: 2; }
   .gc-frame:hover .x { display: flex; }
@@ -239,7 +245,8 @@
   .cd.urgent .cd-val { animation: urgBlink 2.4s ease-in-out infinite; }
   /* pasek postępu pod nazwą targów: to samo co zegar — grafika (żółty), produkcja (zielony → czerwony), targi (ciemnoszary) */
   .fair-row .fgrow { flex: 1 1 auto; min-width: 0; }
-  .fbar { position: relative; height: 7px; margin: 6px 4px 2px 0; background: #1a1a19; }
+  .fbar-row { padding: 10px 16px 12px 22px; border-bottom: 1px solid #edf2f7; background: #fafbfc; }
+  .fbar { position: relative; height: 7px; margin: 4px 0; background: #1a1a19; }
   .fbar .fb-s { position: absolute; top: 0; bottom: 0; }
   .fbar .fb-past { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,.62); }
   .fbar .fb-knob { position: absolute; top: -2px; width: 3px; height: 11px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 0 1px #1a202c; }
@@ -1932,6 +1939,7 @@ function typeLabel(el) {
   if (t.finish) { const f = FINISHES.find(([k]) => k === el.finish); if (f) s += ' · ' + f[2]; }
   if (t.seg && el.seg) s += ' · SEG';
   if (t.wyslona && el.wyslona) s += ' · wysłona · SEG'; // wysłona jest obszywana płaską gumką (SEG)
+  if (isHang(el) && el.hbMode) s += ' · ' + ({ none: 'bez spadów', sock: 'spad: skarpeta', custom: 'spad indywidualny' }[el.hbMode] || '');
   if (hasCombo(el)) s += ' + ' + typeLabel(comboEl(el));
   return s;
 }
@@ -2001,11 +2009,18 @@ function hangBleedShort(el) {
 function planesOf(el) {
   if (!isHang(el)) return null;
   const k = hangBleed(el), mark = markOf(el), base = planeBase(el), th = el.pthumbs || [], zero = { l: 0, r: 0, t: 0, b: 0 };
-  const out = base.map(([w, h], i) => ({ label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb: k, gw: w + k.l + k.r, gh: h + k.t + k.b, thumb: th[i] || '' }));
+  // „inny kształt”: płaszczyzny dolegają do siebie, a spad dotyczy sumy wszystkich płaszczyzn — boczny tylko z zewnątrz (pierwsza: lewy, ostatnia: prawy), góra i dół przy każdej
+  const joined = dimsMode(el) === 'flat' && base.length > 1;
+  const out = base.map(([w, h], i) => {
+    const bb = joined ? { l: i === 0 ? k.l : 0, r: i === base.length - 1 ? k.r : 0, t: k.t, b: k.b } : k;
+    return { label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb, gw: w + bb.l + bb.r, gh: h + bb.t + bb.b, thumb: th[i] || '' };
+  });
   if (el.inside) base.forEach(([w, h], i) => out.push({ label: mark + (base.length + i + 1), side: 'inside', w, h, b: 0, bb: zero, gw: w, gh: h, thumb: th[base.length + i] || '' }));
   return out;
 }
 const planeName = p => p.label + (p.side ? ' ' + p.side : '');
+// ilość sztuk do wyświetlania i liczenia: konstrukcja podwieszana „inny kształt” to zawsze jedna sztuka z kilkoma płaszczyznami
+const qtyOf = e => isHang(e) && e.variant === 'inny' ? 1 : Math.max(1, Number(e.qty) || 1);
 // pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
 const hangFields = d => isHang(d)
   ? { hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
@@ -2244,7 +2259,7 @@ function grossTxt(el) {
 }
 const areaOf = el => {
   const extra = hasCombo(el) ? areaOf(comboEl(el)) : 0; // element złożony: m² obu typów
-  if (isHang(el)) return (planesOf(el) || []).reduce((s, p) => s + p.gw * p.gh, 0) / 1e6 * (Number(el.qty) || 1) + extra;
+  if (isHang(el)) return (planesOf(el) || []).reduce((s, p) => s + p.gw * p.gh, 0) / 1e6 * qtyOf(el) + extra;
   const g = grossOf(el); return g.w * g.h / 1e6 * (Number(el.qty) || 1) + extra;
 };
 
@@ -2435,7 +2450,7 @@ function renderSide() {
         onclick="sideClickFair('${f.id}')" ${adm && real ? `ondblclick="openFairForm('${f.id}')"` : ''}>
         <span class="car">${open ? '▾' : '▸'}</span>
         <div class="fgrow"><div class="fn">${esc(f.name)}${f.archived ? '<span class="arch-tag">archiwum</span>' : ''}</div>
-          ${real ? `<div class="fm">${esc([f.city, fairDates(f)].filter(Boolean).join(' · ') || 'brak terminów')}</div>${f.archived ? '' : fairBar(f)}` : ''}</div>
+          ${real ? `<div class="fm">${esc([f.city, fairDates(f)].filter(Boolean).join(' · ') || 'brak terminów')}</div>` : ''}</div>
         <span class="fc" title="Liczba stoisk">${list.length}</span>
         ${real ? `<button class="add" title="Nowe stoisko na tych targach" onclick="event.stopPropagation(); openProjectForm(null, '${f.id}')">+</button>` : ''}
         ${adm && real ? `<button class="ed" title="Edytuj targi" onclick="event.stopPropagation(); openFairForm('${f.id}')">✎</button>` : ''}
@@ -2445,7 +2460,7 @@ function renderSide() {
         <span class="st">${teamHtml(p)}</span>
         <span class="sm">▦ ${p.elementsCount || 0}</span>
         <button class="ed" title="Zmień nazwę, terminy, zespół" onclick="event.stopPropagation(); openProjectForm('${p.id}')">✎</button>
-      </div>`).join('') : `<div class="stand-empty">brak stoisk — „+ New stand"</div>`);
+      </div>`).join('') : `<div class="stand-empty">brak stoisk — „+ New stand"</div>`) + (real && !f.archived && fairBar(f) ? `<div class="fbar-row">${fairBar(f)}</div>` : '');
   }).join('') : `<div class="empty-state" style="padding:30px 14px">Nie ma jeszcze targów.<br>Dodaj pierwsze przyciskiem <b>+ New fairs</b>.</div>`;
 
   const t = sideTarget();
@@ -3660,7 +3675,69 @@ viewer.addEventListener('dblclick', e => {
   const g = e.target.closest('.shp');
   if (g) openElementDialog({ id: g.dataset.eid });
 });
-viewer.addEventListener('contextmenu', e => { if (draft) { e.preventDefault(); cancelDraft(); } });
+viewer.addEventListener('contextmenu', e => {
+  if (draft) { e.preventDefault(); cancelDraft(); return; }
+  // prawy klawisz na znaczniku: małe menu — skopiuj / sklonuj / usuń
+  const g = e.target.closest && e.target.closest('#overlay [data-eid]');
+  if (g && S.project) { e.preventDefault(); openMarkMenu(e.clientX, e.clientY, g.dataset.eid, g.dataset.loc == null ? -1 : parseInt(g.dataset.loc, 10)); }
+});
+// przesunięcie kształtu (punkt / obrys + kreska) o ułamek wizki — kopia nie zasłania oryginału
+const shiftShape = (sh, dx, dy) => {
+  const c = clone(sh), mv = q => [clamp(q[0] + dx, 0, 1), clamp(q[1] + dy, 0, 1)];
+  if (c.pts) c.pts = c.pts.map(mv);
+  if (c.lab) c.lab = mv(c.lab);
+  return c;
+};
+function closeMarkMenu() { document.querySelectorAll('.mark-menu').forEach(m => m.remove()); }
+function openMarkMenu(x, y, eid, loc) {
+  const el = S.elements.find(e => e.id === eid); if (!el) return;
+  closeMarkMenu();
+  selectElement(eid, false, loc);
+  const m = document.createElement('div');
+  m.className = 'menu mark-menu';
+  m.innerHTML = `<div class="mm-h">${esc(markOf(el))} · ${esc(typeLabel(el))}</div>
+    <button type="button" data-mm="copy">⧉ Skopiuj<small>nowy, osobny element (kolejna litera) z tymi samymi danymi</small></button>
+    <button type="button" data-mm="clone">⊕ Sklonuj<small>drugi znacznik tego samego elementu (ilość bez zmian)</small></button>
+    <button type="button" data-mm="del" class="mm-del">✕ Usuń${locsOf(el).length > 1 ? '<small>tylko ten znacznik</small>' : ''}</button>`;
+  document.body.appendChild(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = clamp(x, 6, innerWidth - r.width - 6) + 'px';
+  m.style.top = clamp(y, 6, innerHeight - r.height - 6) + 'px';
+  const off = ev => { if (!m.contains(ev.target)) closeMarkMenu(); };
+  setTimeout(() => { document.addEventListener('pointerdown', off, { once: true, capture: true }); }, 0);
+  document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { closeMarkMenu(); document.removeEventListener('keydown', esc1); } });
+  m.querySelectorAll('[data-mm]').forEach(b => b.onclick = async () => {
+    const act = b.dataset.mm; closeMarkMenu();
+    if (act === 'copy') await copyElement(eid);
+    else if (act === 'clone') await cloneElementPiece(eid, loc);
+    else if (locsOf(el).length > 1) removeLocation(eid, loc); else deleteElement(eid);
+  });
+}
+// Skopiuj: nowy element o tych samych danych (typ, wymiary, uwagi, drzwi…), znacznik tuż obok oryginału
+async function copyElement(eid) {
+  const el = S.elements.find(e => e.id === eid); if (!el || !S.project) return;
+  const pid = S.project.id, rec = clone(el);
+  ['id', 'num', 'wnum', 'mark', 'backFor', 'doorFor', 'backAsked', 'thumbAuto', 'thumbKey', 'gpos', 'extra', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'src', 'tblHidden'].forEach(k => delete rec[k]);
+  rec.num = nextNum();
+  if (isWys(rec)) rec.wnum = wysNumFor(rec, null);
+  rec.shape = el.shape ? shiftShape(el.shape, 0.035, 0.035) : null;
+  rec.createdAt = nowIso(); rec.createdBy = S.me.id;
+  try {
+    const newId = await DB.add(pElements(pid), rec);
+    if (hasDoor(rec)) await syncDoorElement(newId, { ...rec, id: newId });
+    if (isLbSeg(rec)) { const bk = backOf(el); applyLightboxBack(newId, { ...rec, id: newId }, bk ? bk.backMat : 'none'); }
+    addLog(pid, `Skopiowano element ${markOf(el)} → ${markOf(rec)}`, newId);
+    S.selId = newId;
+    toast(`Skopiowano ${markOf(el)} → ${markOf(rec)}`, 'success', 2500);
+  } catch (e) { toast('Błąd kopiowania: ' + e.message, 'error'); }
+}
+// Sklonuj: kolejna sztuka tego samego elementu w miejscu tuż obok
+async function cloneElementPiece(eid, loc) {
+  const el = S.elements.find(e => e.id === eid); if (!el) return;
+  const sh = locShape(el, loc), ph = locPhoto(el, loc);
+  if (!sh || !ph) return toast('Ten element nie ma jeszcze znacznika na wizce', 'error');
+  await addLocation(eid, ph, shiftShape(sh, 0.035, 0.035), false);
+}
 
 function finishPoly() {
   if (!draft || draft.kind !== 'poly') return;
@@ -3723,7 +3800,9 @@ function openArcMenu(shape, photoId) {
   root.style.left = ox + 'px'; root.style.top = oy + 'px';
   root.style.setProperty('--dir', dir);
   const pad = 14, ys = types.map((t, i) => (i - (n - 1) / 2) * ARC_STEP);
-  const arcPath = rr => `M 0 ${-rr} A ${rr} ${rr} 0 0 ${dir > 0 ? 1 : 0} 0 ${rr}`;
+  // łuk obcięty u góry i u dołu: tylko tyle, ile zajmują przyciski (a nie cały półokrąg)
+  const yM = ys[n - 1] + 26;
+  const arcPath = rr => { const x0 = Math.sqrt(Math.max(0, rr * rr - yM * yM)) * dir; return `M ${x0} ${-yM} A ${rr} ${rr} 0 0 ${dir > 0 ? 1 : 0} ${x0} ${yM}`; };
   const ticks = ys.map(y => { const x = Math.sqrt(R * R - y * y) * dir; return `<line x1="${x}" y1="${y}" x2="${x + 10 * dir}" y2="${y}"/>`; }).join('');
   const dy = py - oy;
   root.innerHTML = `
@@ -3766,6 +3845,13 @@ function closeArcMenu(instant) {
 }
 function arcPickType(id) {
   if (!ARC) return;
+  // wybór typu od razu otwiera pełne okno elementu (wszystkie opcje: drzwi, spady, wysłona…) z wybranym typem; pokaz / samouczek zostają przy panelu
+  if (!S.tour && id !== '__more' && id !== '__view') {
+    const { shape, photoId } = ARC;
+    closeArcMenu(true);
+    openElementDialog({ shape, photoId, typeId: id });
+    return;
+  }
   if (ARC.typeId !== id) Object.assign(ARC, { typeId: id, variant: '', seg: null, thick: '', ...togReset(), wyslona: false, name: '', shown: new Set() });
   ARC.root.querySelectorAll('.arc-btn').forEach(b => { b.classList.toggle('on', b.dataset.t === id); b.classList.toggle('dim', b.dataset.t !== id); });
   renderArcPanel();
@@ -4261,10 +4347,10 @@ document.addEventListener('pointerdown', ev => {
   document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
 }, true);
 
-function openElementDialog({ id, shape, photoId, turbo }) {
+function openElementDialog({ id, shape, photoId, turbo, typeId }) {
   const editing = id ? S.elements.find(e => e.id === id) : null;
   if (id && !editing) return;
-  const el = editing ? clone(editing) : { typeId: '', name: '', w: '', h: '', qty: 1, notes: '', num: nextNum() };
+  const el = editing ? clone(editing) : { typeId: typeId || '', name: '', w: '', h: '', qty: 1, notes: '', num: nextNum() };
   // wysłona lightboxa SEG: wybór w oknie ('' = jeszcze nie zdecydowano — pytanie przy zapisie)
   { const bk = editing && backOf(editing); el.backSel = bk ? bk.backMat : editing && editing.backAsked ? 'none' : ''; }
   const lab = editing ? markOf(editing) : markOf(el);
@@ -4452,6 +4538,8 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     // konstrukcja „inny kształt”: zamiast jednego wymiaru lista płaszczyzn
     const recznie = t && t.id === 'podwieszana' && m === 'flat';
     $('ed-planes').classList.toggle('hidden', !recznie);
+    $('ed-dims').classList.toggle('hidden', !!recznie);           // płaszczyzny to nie sztuki: bez pola ilości
+    $('ed-dims-hint').classList.toggle('hidden', !!recznie);
     ['ed-w', 'ed-h'].forEach(i => $(i).parentNode.classList.toggle('hidden', !!recznie));
     if (recznie) {
       if (!el.planes || !el.planes.length) el.planes = [{ w: Number(toMM(calcVal($('ed-w').value))) || '', h: Number(toMM($('ed-h').value)) || '' }];
@@ -4649,7 +4737,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
@@ -4661,7 +4749,7 @@ function openElementDialog({ id, shape, photoId, turbo }) {
         m.close();
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
-        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: d.qty, notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
@@ -4834,8 +4922,12 @@ function renderGraph() {
     const bx = dims ? (g.box || (g.b ? { l: g.b, r: g.b, t: g.b, b: g.b } : null)) : null, sx = g.w ? FW / g.w : k, sy = g.h ? FH / g.h : k;
     const bw = bx ? Math.min(FW / 4, Math.max(3, bx.l * sx)) : 0, bwR = bx ? Math.min(FW / 4, Math.max(3, bx.r * sx)) : 0;
     const bh = bx ? Math.min(FH / 4, Math.max(3, bx.t * sy)) : 0, bhB = bx ? Math.min(FH / 4, Math.max(3, bx.b * sy)) : 0;
-    const LM = !dims ? 0 : g.b ? 56 : 32, BM = !dims ? 0 : g.b ? 44 : 24;
-    const W = LM + FW + 4, H = FH + BM, QW = (e.qty || 1) > 1 ? 46 : 0; // miejsce na „×3” obok miniatury
+    // konstrukcja podwieszana: pod pasem płaszczyzn kolejne rzędy strzałek — netto (gdy jest spad), każda płaszczyzna, wymiar główny
+    const hangPl = isHang(e) && dims ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [];
+    const hangBl = hangPl.length > 0 && hangBleedAny(hangBleed(e));
+    const hangRows = hangPl.length ? (hangBl ? 1 : 0) + (hangPl.length > 1 ? 1 : 0) + 1 : 0;
+    const LM = !dims ? 0 : hangPl.length ? (hangBl ? 56 : 32) : g.b ? 56 : 32, BM = !dims ? 0 : hangPl.length ? 10 + hangRows * 22 : g.b ? 44 : 24;
+    const W = LM + FW + 4, H = FH + BM, QW = qtyOf(e) > 1 ? 52 : 0; // miejsce na „×3” obok miniatury
     let svg = '';
     if (dims) {
       const L = (x1, y1, x2, y2, txt, vert) => {
@@ -4846,7 +4938,24 @@ function renderGraph() {
       };
       const ext = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a0aec0" stroke-width=".8"/>`;
       svg += `<rect x="${LM}" y="0" width="${FW}" height="${FH}" fill="none" stroke="#a0aec0"/>`;
-      if (bx) {
+      if (hangPl.length) {
+        const tw = hangPl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hangPl.map(q => q.gh)), kx = FW / tw, ky = FH / mh, rowY = i => FH + 16 + i * 22;
+        let row = 0, cx = 0;
+        if (hangPl.length > 1) { // wymiar każdej płaszczyzny (do druku; płaszczyzny dolegają do siebie)
+          cx = 0;
+          hangPl.forEach(q => { const x0 = LM + cx * kx, x1 = LM + (cx + q.gw) * kx; svg += ext(x0, FH, x0, rowY(row) + 2) + ext(x1, FH, x1, rowY(row) + 2) + L(x0, rowY(row), x1, rowY(row), cm(q.gw)); cx += q.gw; });
+          row++;
+        }
+        if (hangBl) { // wymiar całości bez spadu (spad dotyczy sumy płaszczyzn)
+          const x0 = LM + hangPl[0].bb.l * kx, x1 = LM + FW - hangPl[hangPl.length - 1].bb.r * kx;
+          svg += ext(x0, FH, x0, rowY(row) + 2) + ext(x1, FH, x1, rowY(row) + 2) + L(x0, rowY(row), x1, rowY(row), cm(hangPl.reduce((a2, q) => a2 + q.w, 0)));
+          row++;
+        }
+        svg += ext(LM, FH, LM, rowY(row) + 2) + ext(LM + FW, FH, LM + FW, rowY(row) + 2) + L(LM, rowY(row), LM + FW, rowY(row), cm(g.w)); // wymiar główny
+        const tp = hangPl.reduce((a2, q) => q.gh > a2.gh ? q : a2, hangPl[0]);
+        if (hangBl) { const y0 = tp.bb.t * ky, y1 = FH - tp.bb.b * ky; svg += ext(LM, y0, LM - 22, y0) + ext(LM, y1, LM - 22, y1) + L(LM - 20, y0, LM - 20, y1, cm(tp.h), true); }
+        svg += ext(LM, 0, hangBl ? LM - 46 : LM - 24, 0) + ext(LM, FH, hangBl ? LM - 46 : LM - 24, FH) + L(hangBl ? LM - 44 : LM - 22, 0, hangBl ? LM - 44 : LM - 22, FH, cm(g.h), true);
+      } else if (bx) {
         svg += `<rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#f4a6b4" stroke-dasharray="4 3"/>`;
         // netto (wewnątrz spadu) i do druku (całość)
         svg += ext(LM + bw, FH, LM + bw, FH + 18) + ext(LM + FW - bwR, FH, LM + FW - bwR, FH + 18) + L(LM + bw, FH + 16, LM + FW - bwR, FH + 16, cm(g.w - bx.l - bx.r));
@@ -4859,6 +4968,12 @@ function renderGraph() {
       }
     }
     const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - bw - bwR, FH - bh - bhB)}</svg>` : '';
+    // konstrukcja ze spadem: przerywany obrys netto każdej płaszczyzny (na wierzchu podglądów)
+    let hangFrame = '';
+    if (hangBl) {
+      const tw = hangPl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hangPl.map(q => q.gh)), kx = FW / tw, ky = FH / mh; let cx = 0;
+      hangFrame = `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` + hangPl.map(q => { const r = `<rect x="${LM + (cx + q.bb.l) * kx}" y="${q.bb.t * ky}" width="${q.w * kx}" height="${q.h * ky}" fill="none" stroke="#e08a9d" stroke-width="1.2" stroke-dasharray="4 3"/>`; cx += q.gw; return r; }).join('') + '</svg>';
+    }
     // Blackback standard / Folia: na grafice drzwi ramka w miejscu drzwi — sam przerywany kontur, bez wypełnienia
     const doorFrame = e.doorFor && dims && bx && !(e.seg || e.wyslona)
       ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#3182ce" stroke-width="1.8" stroke-dasharray="7 4"/></svg>` : '';
@@ -4873,11 +4988,11 @@ function renderGraph() {
     const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
         title="Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">
       ${cells || (e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika')}</div>`;
-    const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : isHang(e) ? `<div class="gc-note">konstrukcja ${netTxt(e)} ${UNIT()} · ${(planesOf(e) || []).length} pł. do druku</div>` : '';
+    const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W + QW, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
-      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${(e.qty || 1) > 1 ? `<span class="gc-q">× ${e.qty} szt.</span>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
-      <div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}${doorFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${e.qty} szt.">×${e.qty}</div>` : ''}</div>
+      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span><button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
+      <div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}${doorFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
   box.classList.add('gnav');
@@ -5309,12 +5424,12 @@ function orderGroups(list) {
 function orderLine(e) {
   const t = typeById(e.typeId), wys = t.wyslona && e.wyslona;
   if (isHang(e)) {
-    const head = [`konstrukcja ${hasDims(e) ? netTxt(e) + ' ' + UNIT() : 'wymiar do ustalenia'}`, `${e.qty || 1} szt.`, typeLabel(e)];
+    const head = [`konstrukcja ${hasDims(e) ? netTxt(e) + ' ' + UNIT() : 'wymiar do ustalenia'}`, ...(e.variant === 'inny' ? [] : [`${qtyOf(e)} szt.`]), typeLabel(e)];
     if (e.inside) head.push('zadruk zewnątrz i wewnątrz');
     if (e.notes) head.push(e.notes);
     return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${head.join(', ')}` +
-      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${p.side === 'inside' || !hangBleedAny(p.bb) ? ' (bez spadu)' : ` (spad ${hangBleedShort(e)})`}`).join('') +
-      (() => { const pl = planesOf(e) || []; return pl.length > 1 ? `\n   razem (płaszczyzny obok siebie): ${lenPL(pl.reduce((a, p) => a + p.gw, 0))} × ${lenPL(Math.max(...pl.map(p => p.gh)))} ${UNIT()} · ${numPL(pl.reduce((a, p) => a + p.gw * p.gh, 0) / 1e6)} m²` : ''; })();
+      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${p.side === 'inside' || !hangBleedAny(hangBleed(e)) ? ' (bez spadu)' : (planesOf(e) || []).length > 1 && dimsMode(e) === 'flat' ? '' : ` (spad ${hangBleedShort(e)})`}`).join('') +
+      (() => { const pl = planesOf(e) || []; return pl.length > 1 ? `\n   razem (płaszczyzny obok siebie): ${lenPL(pl.reduce((a, p) => a + p.gw, 0))} × ${lenPL(Math.max(...pl.map(p => p.gh)))} ${UNIT()}${hangBleedAny(hangBleed(e)) ? ` (spad ${hangBleedShort(e)} dookoła całości)` : ''} · ${numPL(pl.reduce((a, p) => a + p.gw * p.gh, 0) / 1e6)} m²` : ''; })();
   }
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
@@ -5465,9 +5580,9 @@ function exportRows() {
   return S.elements.filter(e => !hiddenInExport(e)).map(e => {
     const t = typeById(e.typeId), g = grossOf(e);
     return { znak: markOf(e), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
-      w: hasDims(e) ? e.w : '', h: hasDims(e) ? e.h : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
+      w: hasDims(e) ? (Number(e.w) > 0 ? e.w : g.w) : '', h: hasDims(e) ? (Number(e.h) > 0 ? e.h : g.h) : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
       net: netTxt(e), gross: grossTxt(e), spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
-      qty: e.qty || 1, m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: colorOf(e), el: e };
+      qty: qtyOf(e), m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: colorOf(e), el: e };
   });
 }
 function exportCsv(name) {
@@ -5672,11 +5787,14 @@ async function renderIndexA3(stamp) {
     const d = r.w !== '', gb = r.spad;
     const fw0 = r.bw * k, fh0 = r.bh * k, up = d && Math.max(fw0, fh0) < MINF * 2 ? MINF * 2 / Math.max(fw0, fh0) : 1; // proporcje bez zmian
     const FW = d ? Math.max(6, fw0 * up) : 160, FH = d ? Math.max(6, fh0 * up) : 100;
-    const LM = !d ? 0 : gb ? 104 : 60, BM = !d ? 0 : gb ? 88 : 48;
-    const qw = (r.qty || 1) > 1 ? 90 : 0;
+    // konstrukcja podwieszana „inny kształt”: rzędy strzałek pod pasem płaszczyzn (każda płaszczyzna, całość bez spadu, całość do druku)
+    const hpN = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [], hpBl = hpN.length > 0 && hangBleedAny(hangBleed(r.el));
+    const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + (hpBl ? 1 : 0) + 1 : 0;
+    const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? 14 + hpRows * 46 : gb ? 88 : 48;
+    const qw = (r.qty || 1) > 1 ? 110 : 0;
     const w = Math.max(LM + FW + 10 + qw, 230);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
-    const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ + (r.qty > 1 ? `  × ${r.qty} szt.` : ''), w - 56, 3);
+    const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ, w - 56, 3);
     g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
     const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
     const head = 20 + title.length * 34;
@@ -5803,8 +5921,9 @@ async function renderIndexA3(stamp) {
       cd.title.forEach((ln, i) => g.fillText(ln, bx + 54, by + 32 + i * 34));
       const fx = bx + LM, fy = by + cd.head;
       if ((r.qty || 1) > 1) { // ilość obok miniatury: „×3”
-        g.fillStyle = '#1a202c'; g.font = `800 ${FS * 1.5}px ${PDF_FONT}`; const qt = '×' + r.qty, qwid = g.measureText(qt).width + 22;
-        g.lineWidth = 3; g.strokeStyle = '#1a202c'; g.strokeRect(fx + FW + 14, fy, qwid, FS * 1.5 + 18); g.fillText(qt, fx + FW + 25, fy + FS * 1.5 + 4);
+        g.fillStyle = '#1a202c'; g.font = `800 ${FS * 1.5}px ${PDF_FONT}`; const qt = '×' + r.qty, qr = Math.max(FS * 1.25, (g.measureText(qt).width + 26) / 2);
+        g.lineWidth = 3; g.strokeStyle = '#1a202c'; g.beginPath(); g.arc(fx + FW + 16 + qr, fy + qr, qr, 0, Math.PI * 2); g.stroke();
+        g.textAlign = 'center'; g.fillText(qt, fx + FW + 16 + qr, fy + qr + FS * .5); g.textAlign = 'left';
       }
       const th = thumbs[r.el.id];
       const hpl = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [];
@@ -5835,7 +5954,18 @@ async function renderIndexA3(stamp) {
         const ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
         const hDim = (xa, xb, y, mm) => { drawArrowLine(g, xa, y, xb, y, 14, AC, 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 8); g.textAlign = 'left'; };
         const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 14, AC, 2); g.save(); g.translate(x - 8, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
-        if (gb) {
+        if (hpl.length) {
+          const tw = hpl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hpl.map(q => q.gh)), kx = FW / tw, ky = FH / mh, hBl = hangBleedAny(hangBleed(r.el));
+          const rowY = i => fy + FH + 36 + i * 46, rx = (v, row) => ext(v, fy + FH, v, rowY(row) + 4);
+          let row = 0, cx = fx;
+          if (hBl) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; let c2 = fx; hpl.forEach(q => { g.strokeRect(c2 + q.bb.l * kx, fy + q.bb.t * ky, q.w * kx, q.h * ky); c2 += q.gw * kx; }); g.setLineDash([]); }
+          if (hpl.length > 1) { hpl.forEach(q => { const x1 = cx + q.gw * kx; rx(cx, row); rx(x1, row); hDim(cx, x1, rowY(row), q.gw); cx = x1; }); row++; }
+          if (hBl) { const xa = fx + hpl[0].bb.l * kx, xb = fx + FW - hpl[hpl.length - 1].bb.r * kx; rx(xa, row); rx(xb, row); hDim(xa, xb, rowY(row), hpl.reduce((a2, q) => a2 + q.w, 0)); row++; }
+          rx(fx, row); rx(fx + FW, row); hDim(fx, fx + FW, rowY(row), r.bw);
+          const tp = hpl.reduce((a2, q) => q.gh > a2.gh ? q : a2, hpl[0]);
+          if (hBl) { const ya = fy + tp.bb.t * ky, yb = fy + FH - tp.bb.b * ky; ext(fx, ya, fx - 50, ya); ext(fx, yb, fx - 50, yb); vDim(ya, yb, fx - 46, tp.h); ext(fx, fy, fx - 104, fy); ext(fx, fy + FH, fx - 104, fy + FH); vDim(fy, fy + FH, fx - 100, r.bh); }
+          else { ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh); }
+        } else if (gb) {
           ext(fx + bw, fy + FH, fx + bw, fy + FH + 40); ext(fx + FW - bwR, fy + FH, fx + FW - bwR, fy + FH + 40); hDim(fx + bw, fx + FW - bwR, fy + FH + 36, r.bw - bx2.l - bx2.r);
           ext(fx, fy + FH, fx, fy + FH + 86); ext(fx + FW, fy + FH, fx + FW, fy + FH + 86); hDim(fx, fx + FW, fy + FH + 82, r.bw);
           ext(fx, fy + bh, fx - 50, fy + bh); ext(fx, fy + FH - bhB, fx - 50, fy + FH - bhB); vDim(fy + bh, fy + FH - bhB, fx - 46, r.bh - bx2.t - bx2.b);
