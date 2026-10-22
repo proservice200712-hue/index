@@ -4962,12 +4962,18 @@ function renderGraph() {
     box.innerHTML = `<div class="empty-state" style="padding:30px 20px">Brak elementów. <b>Kliknij w dane miejsce na wizce</b>, aby dodać pierwszy element.</div>`;
     return;
   }
+  // element z przekreślonym okiem w tabeli (tblHidden) nie pokazuje się też w Grafice
+  const gEls = S.elements.filter(e => !hiddenInExport(e));
+  if (!gEls.length) {
+    box.innerHTML = `<div class="empty-state" style="padding:30px 20px">Wszystkie elementy są ukryte (przekreślone oko w tabeli).</div>`;
+    return;
+  }
   // wspólna skala dla wszystkich okienek (jak w Corelu), ale każde co najmniej 36 px
   const avail = clamp(box.clientHeight - 110, 60, 520);
-  const withD = S.elements.filter(hasDims);
+  const withD = gEls.filter(hasDims);
   const maxH = Math.max(1, ...withD.map(e => grossOf(e).h)), maxW = Math.max(1, ...withD.map(e => grossOf(e).w));
   const k = Math.min(avail / maxH, 320 / maxW);
-  const cards = S.elements.map(e => {
+  const cards = gEls.map(e => {
     const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
     // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
     const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
