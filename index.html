@@ -224,6 +224,8 @@
   .mark-menu button:hover { background: var(--bg); }
   .mark-menu button small { display: block; font-size: .7rem; font-weight: 400; color: var(--gray); margin-top: 1px; }
   .mark-menu .mm-del { color: #c53030; }
+  .mark-menu .mm-eye { display: inline-block; vertical-align: -3px; }
+  .mark-menu .mm-eye svg { width: 15px; height: 15px; }
   .gc-qty { position: absolute; top: 0; display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 6px; box-sizing: border-box; border-radius: 999px !important; border: 2px solid var(--dark); background: #fff; font-weight: 800; font-size: 1.05rem; color: var(--dark); line-height: 1; white-space: nowrap; }
   .gc-pl { position: absolute; top: 0; box-sizing: border-box; border-right: 1px solid #cbd5e0; display: flex; align-items: center; justify-content: center; color: #a0aec0; font-weight: 700; overflow: hidden; }
   .gc-frame .x { position: absolute; right: 0; top: 0; width: 18px; height: 18px; background: rgba(229,62,62,.9); color: #fff; font-size: .7rem; display: none; align-items: center; justify-content: center; z-index: 2; }
@@ -3789,6 +3791,7 @@ function openMarkMenu(x, y, eid, loc) {
   m.innerHTML = `<div class="mm-h">${esc(markOf(el))} · ${esc(typeLabel(el))}</div>
     <button type="button" data-mm="copy">⧉ Skopiuj<small>nowy, osobny element (kolejna litera) z tymi samymi danymi</small></button>
     ${locsOf(el).length ? '<button type="button" data-mm="clone">⊕ Sklonuj<small>drugi znacznik tego samego elementu (ilość bez zmian)</small></button>' : ''}
+    <button type="button" data-mm="hide" class="mm-hide"><span class="mm-eye">${eyeIcon(!!el.tblHidden)}</span> ${el.tblHidden ? 'Pokaż' : 'Ukryj'}<small>${el.tblHidden ? 'znów widoczny na wizce, w Grafice i w eksporcie' : 'półprzezroczysty na wizce, ukryty w Grafice i pominięty w eksporcie'}</small></button>
     <button type="button" data-mm="del" class="mm-del">✕ Usuń${locsOf(el).length > 1 ? '<small>tylko ten znacznik</small>' : ''}</button>`;
   document.body.appendChild(m);
   const r = m.getBoundingClientRect();
@@ -3801,6 +3804,7 @@ function openMarkMenu(x, y, eid, loc) {
     const act = b.dataset.mm; closeMarkMenu();
     if (act === 'copy') await copyElement(eid, null, loc);
     else if (act === 'clone') await cloneElementPiece(eid, loc);
+    else if (act === 'hide') await toggleRowHidden(eid);
     else if (locsOf(el).length > 1) removeLocation(eid, loc); else deleteElement(eid);
   });
 }
