@@ -5912,10 +5912,7 @@ function ufGeom(d) {
     const walls = r.ops.filter(o => o.t !== 'post'), f = walls[0];
     r.dir = r.ori === 0 ? 0 : 1;
     r.key = 'uf:' + f.id; r.h = f.h || d.H; r.manual = !!f.back;
-    r.front = r.ops.reduce((s, o) => s + o.len, 0);
     r.backW = walls.reduce((s, o) => s + o.len, 0); r.mods = walls.length;
-    r.a = r.ori === 0 ? r.parts[0].x0 : r.parts[0].y0;
-    r.b = r.ori === 0 ? r.parts[r.parts.length - 1].x1 : r.parts[r.parts.length - 1].y1;
     // ścianka na zamkniętym boku stoiska (za nią sąsiad): wysłona zewnętrzna od 248 w górę
     r.closed = '';
     if (st) {
@@ -5927,6 +5924,20 @@ function ufGeom(d) {
     r.backKind = r.manual ? 'manual' : r.auto ? 'auto' : null;
     r.backH = r.backKind === 'auto' ? r.h - UF_EXT_FROM : r.h;
   });
+  // słupek wspólny dla dwóch ścianek (narożnik, T): grafika wchodzi na niego tylko w jednej — tej, przez którą przechodzi, a przy narożniku w dłuższej
+  const owner = new Map();
+  parts.filter(q => q.op.t === 'post').forEach(q => {
+    const rs = runs.filter(r => r.ops.includes(q.op)); if (!rs.length) return;
+    const inner = rs.find(r => { const i = r.ops.indexOf(q.op); return i > 0 && i < r.ops.length - 1; });
+    owner.set(q.op.id, inner || rs.slice().sort((a, b) => b.backW - a.backW || a.ori - b.ori)[0]);
+  });
+  runs.forEach(r => {
+    r.gOps = r.ops.filter(o => o.t !== 'post' || owner.get(o.id) === r);
+    r.gParts = r.parts.filter(q => r.gOps.includes(q.op));
+    r.front = r.gOps.reduce((s, o) => s + o.len, 0);
+    r.a = r.ori === 0 ? r.gParts[0].x0 : r.gParts[0].y0;
+    r.b = r.ori === 0 ? r.gParts[r.gParts.length - 1].x1 : r.gParts[r.gParts.length - 1].y1;
+  });
   runs.forEach(r => r.parts.forEach(q => { q.runs.push(r); if (!q.run || r.h > q.run.h) q.run = r; }));
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   parts.forEach(q => { x0 = Math.min(x0, q.x0); y0 = Math.min(y0, q.y0); x1 = Math.max(x1, q.x1); y1 = Math.max(y1, q.y1); });
@@ -5936,7 +5947,7 @@ function ufGeom(d) {
 const ufRuns = () => ufGeom(UF.d).runs;
 // dane elementu dla ścianki: przód (tkanina SEG: moduły + słupki) albo tył (wysłona: same moduły; zewnętrzna — od 248 w górę)
 function ufSpec(run, role) {
-  const back = role === 'back', items = run.ops.filter(o => !back || o.t !== 'post');
+  const back = role === 'back', items = run.gOps.filter(o => !back || o.t !== 'post');
   const w = items.reduce((s, o) => s + o.len, 0), h = back ? run.backH : run.h;
   let door = null, off = 0;
   if (!back || run.backKind === 'manual') for (const o of items) {
@@ -6062,7 +6073,7 @@ function ufSyncBar() {
   let t;
   if (r) {
     const wy = r.backKind === 'auto' ? ` · <b class="uf-bk">wysłona zewn. ${lenPL(r.backW)} × ${lenPL(r.backH)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
-    t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${r.mods} mod.${r.ops.some(o => o.t === 'post') ? ', słupki ' + r.ops.filter(o => o.t === 'post').length : ''})${wy}`;
+    t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''})${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
   $('uf-info').innerHTML = t + `<span class="uf-keys">strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka) · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
 }
