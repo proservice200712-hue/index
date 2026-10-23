@@ -5478,6 +5478,7 @@ function setHover(id) {
 }
 function renderElements() {
   if (!S.project) return;
+  try { if (UF.open && !UF.drag) { clearTimeout(UF.rt); UF.rt = setTimeout(ufDraw, 150); } } catch (e) { /* edytor jeszcze nie wczytany */ }
   $('btn-turbo').classList.toggle('hidden', !isAdmin());
   renderTurboBar();
   const list = S.elFilter === 'photo' ? S.elements.filter(e => e.photoId === S.photoId) : S.elements;
@@ -6083,7 +6084,7 @@ function ufSyncBar() {
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''})${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + `<span class="uf-keys">strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka) · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
+  $('uf-info').innerHTML = t + `<span class="uf-keys">strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
 }
 
 // ---------- rysowanie widoku z góry ----------
@@ -6190,6 +6191,26 @@ function ufDraw() {
       g.setLineDash([6, 4]); g.strokeStyle = '#dd6b20'; g.lineWidth = 2; g.strokeRect(X(x0) - 5, Y(y0) - 5, (x1 - x0) * s + 10, (y1 - y0) * s + 10); g.setLineDash([]);
     }
   });
+  // znaczniki wygenerowanych elementów (te same litery co na wizce): przód, wysłona ręczna, drzwi, wysłona zewnętrzna na boku
+  const pin = (mx, my, txt, col, r = 11) => {
+    g.beginPath(); g.arc(X(mx), Y(my), r, 0, Math.PI * 2); g.fillStyle = col; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+    g.fillStyle = '#fff'; g.font = `800 ${txt.length > 2 ? 8 : txt.length > 1 ? 9.5 : 11.5}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, X(mx), Y(my) + 0.5);
+  };
+  const elOf = (key, role) => S.elements.find(e => e.ufKey === key && e.ufRole === role && !e.doorFor);
+  geo.runs.forEach(rn => {
+    const fe = elOf(rn.key, 'front'); if (!fe) return;
+    const inn = rn.ori === 0 ? [0, rn.line >= st.D / 2 ? -1 : 1] : [rn.line >= st.L / 2 ? -1 : 1, 0], mid = (rn.a + rn.b) / 2;
+    const at = (along, off) => rn.ori === 0 ? [along, rn.line + inn[1] * off] : [rn.line + inn[0] * off, along];
+    pin(...at(mid, 330), markOf(fe), colorOf(fe));
+    const be = elOf(rn.key, 'back'); if (be) pin(...at(mid + 520, 330), markOf(be), colorOf(be));
+    const de = S.elements.find(e => e.doorFor === fe.id), dp = rn.parts.find(q => q.op.t === 'door');
+    if (de && dp) pin(...at(rn.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 560), markOf(de), colorOf(de), 9.5);
+  });
+  geo.ext.forEach(e => {
+    const el = elOf(e.key, 'ext'); if (!el) return;
+    const [mx, my] = e.side === 'n' ? [st.L * 0.8, -330] : e.side === 's' ? [st.L * 0.8, st.D + 330] : e.side === 'w' ? [-330, st.D * 0.8] : [st.L + 330, st.D * 0.8];
+    pin(mx, my, markOf(el), colorOf(el));
+  });
   // ścianki ucięte krawędzią stoiska: wymiar po przycięciu
   geo.parts.forEach(p => {
     const o = p.op; if (!o.len0) return;
@@ -6238,6 +6259,18 @@ function ufSnap(piece, wx, wy, skip, grab) {
   const dv = UF_DIR[piece.dir || 0], L = piece.len0 || piece.len;
   return { piece: ufEdgeSnap({ ...piece, dir: piece.dir || 0, x: sn(wx - dv[0] * L / 2), y: sn(wy - dv[1] * L / 2) }, et), an: null };
 }
+// kopiowanie jak w Corelu: przeciągasz klocek lewym, naciskasz prawy — oryginał zostaje, kopia leci za kursorem
+function ufStartCopy(dr) {
+  const idMap = new Map();
+  UF.d.pieces.filter(p => dr.grp.has(p.id)).forEach(p => {
+    const o = dr.orig.get(p.id); Object.assign(p, o); if (!o.len0) delete p.len0;
+    idMap.set(p.id, { ...JSON.parse(JSON.stringify(p)), id: ufUid() });
+  });
+  const clones = [...idMap.values()]; clones.forEach(c => UF.d.pieces.push(c));
+  const no = new Map(); idMap.forEach((c, old) => no.set(c.id, dr.orig.get(old)));
+  dr.id = idMap.get(dr.id).id; dr.orig = no; dr.grp = new Set(clones.map(c => c.id)); dr.copy = true; UF.sel = dr.id; UF.rot = false;
+  UF.noCtx = true; setTimeout(() => { UF.noCtx = false; }, 8000);
+}
 function ufDragMove(e) {
   const dr = UF.drag; if (!dr) return;
   const [px, py] = ufCanvasPos(e);
@@ -6245,6 +6278,7 @@ function ufDragMove(e) {
   if (dr.kind === 'pan') { dr.moved = true; UF.vw = { s: dr.s, ox: dr.ox0 + e.clientX - dr.cx, oy: dr.oy0 + e.clientY - dr.cy }; ufDraw(); return; }
   const [wx, wy] = ufWorld(px, py);
   if (!dr.moved) { dr.moved = true; if (dr.kind === 'move') ufPush(); }
+  if (dr.kind === 'move' && (e.buttons & 2) && !dr.copy) ufStartCopy(dr);
   if (dr.kind === 'new') {
     const over = px >= 0 && py >= 0 && px <= $('uf-cv').clientWidth && py <= $('uf-cv').clientHeight;
     dr.over = over;
@@ -6269,6 +6303,13 @@ function ufDragEnd(e) {
       if (ufPostClash(geo.parts, dr.ghost)) toast(UF_POST_MSG, 'error', 4500);
       else { const n = { ...dr.ghost, id: ufUid() }; if (n.len0) toast(`Ścianka wystawała poza stoisko — ucięta do ${lenPL(n.len)} ${UNIT()} (z ${lenPL(n.len0)})`, '', 5000); if (dr.an && dr.an.owner) { const f = dr.an.owner; if (n.t !== 'post' && f.t !== 'post') { n.back = !!f.back; if (f.h) n.h = f.h; } } ufPush(); UF.d.pieces.push(n); UF.sel = n.id; UF.rot = false; }
     } else if (!dr.moved) ufAddNext(dr.op);
+    ufChanged(); return;
+  }
+  if (dr.copy) { // kopia: zostaje tam, gdzie ją puszczono (jeśli się ruszyła i nie koliduje słupkiem)
+    const geo = ufGeom(UF.d), mine = UF.d.pieces.filter(p => dr.grp.has(p.id));
+    const moved = mine.some(p => { const o = dr.orig.get(p.id); return p.x !== o.x || p.y !== o.y || p.dir !== o.dir; }), clash = mine.some(p => ufPostClash(geo.parts, p));
+    if (!moved || clash) { UF.d.pieces = UF.d.pieces.filter(p => !dr.grp.has(p.id)); UF.sel = null; if (clash) toast(UF_POST_MSG, 'error', 4500); }
+    else toast(`Skopiowano: ${mine.length} ${mine.length === 1 ? 'klocek' : 'klocków'}`, 'success', 2500);
     ufChanged(); return;
   }
   if (!dr.moved) { // zwykłe kliknięcie: zaznacz; drugie kliknięcie w zaznaczony — ikona obrotu
@@ -6301,7 +6342,7 @@ function ufPointer(e) {
   if (!q) return ufPan(e);        // tło: przeciągnięcie przesuwa widok, samo kliknięcie odznacza
   const wasSel = UF.sel === q.op.id; UF.sel = q.op.id;
   const grp = e.shiftKey ? ufGroup(q.op.id) : new Set([q.op.id]);
-  UF.drag = { kind: 'move', id: q.op.id, grp, orig: new Map(UF.d.pieces.filter(p => grp.has(p.id)).map(p => [p.id, { x: p.x, y: p.y, dir: p.dir }])), cx: e.clientX, cy: e.clientY, wx0: wx, wy0: wy, moved: false, wasSel };
+  UF.drag = { kind: 'move', id: q.op.id, grp, orig: new Map(UF.d.pieces.filter(p => grp.has(p.id)).map(p => [p.id, { x: p.x, y: p.y, dir: p.dir, len: p.len, len0: p.len0 }])), cx: e.clientX, cy: e.clientY, wx0: wx, wy0: wy, moved: false, wasSel };
   document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true);
   ufDraw(); ufSyncBar();
 }
@@ -6491,9 +6532,8 @@ async function ufGenerate() {
     const orphans = S.elements.filter(e => e.ufKey && !e.doorFor && !keep.has(e.ufKey + '|' + e.ufRole));
     UF.d.photoId = photoId; await ufSave();
     tt.remove();
-    toast(`Widok 3D gotowy: ${nNew} nowych elementów, ${nUpd} zaktualizowanych${multiDoor ? ' · w ściance z kilkoma drzwiami uwzględniono pierwsze' : ''}`, 'success', 6000);
-    closeUltraFrame();
-    setTimeout(() => { setCurrentPhoto(photoId); fitView(); }, 500);
+    toast(`Widok 3D gotowy: ${nNew} nowych elementów, ${nUpd} zaktualizowanych — znaczniki widać na planie; zamknij edytor (✕), aby zobaczyć nową wizkę${multiDoor ? ' · w ściance z kilkoma drzwiami uwzględniono pierwsze' : ''}`, 'success', 8000);
+    setTimeout(() => { setCurrentPhoto(photoId); fitView(); ufDraw(); }, 600);
     if (orphans.length) {
       const ok = await confirmBox(`W ramce nie ma już ${orphans.length} elementów utworzonych wcześniej przez Ultra Frame: <b>${orphans.map(e => esc(markOf(e))).join(', ')}</b>. Usunąć je razem z drzwiami?`, 'Usuń');
       if (ok) for (const e of orphans) {
@@ -6535,7 +6575,7 @@ async function closeUltraFrame() {
 (function ufInit() {
   const pane = $('uf-pane'); if (!pane) return;
   ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick', 'click'].forEach(t => pane.addEventListener(t, e => e.stopPropagation(), { passive: t !== 'wheel' }));
-  pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (e.target === $('uf-cv')) ufContext(e); else e.preventDefault(); });
+  pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (UF.noCtx) { e.preventDefault(); UF.noCtx = false; return; } if (e.target === $('uf-cv')) ufContext(e); else e.preventDefault(); });
   $('uf-cv').addEventListener('pointerdown', ufPointer);
   $('uf-cv').addEventListener('wheel', e => { e.preventDefault(); const [px, py] = ufCanvasPos(e), dl = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY; ufZoomAt(px, py, Math.pow(1.0018, -dl)); }, { passive: false });
   const mid = () => [$('uf-cv').clientWidth / 2, $('uf-cv').clientHeight / 2];
