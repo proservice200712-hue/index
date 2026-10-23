@@ -1958,7 +1958,7 @@ const notesOf = el => { const t = typeById(el.typeId);
 function typeLabel(el) {
   if (el.backFor) return 'Wysłona lightboxa · ' + (backMatName(el) || 'materiał do ustalenia') + ' · SEG';
   const t = typeById(el.typeId), v = variantOf(el);
-  let s = t.name;
+  let s = t.id === 'blackback' ? t.name.replace(/^Baner/, 'Tkanina') : t.id === 'lightbox' ? 'Tkanina ' + t.name : t.name; // Blackback i Lightbox to tkanina (nie „baner”)
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
   if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
   if (hasLit(el)) { const l = LIT_OPTS.filter(([k]) => el[k]).map(x => x[1]); if (l.length) s += ' · ' + l.join(' + '); }
@@ -5558,8 +5558,7 @@ function orderGroups(list) {
     ['Konstrukcje podwieszane', all.filter(isHang)],
   ].filter(([, l]) => l.length);
 }
-// nazwa typu w zleceniu: Blackback i Lightbox to tkanina (zamiast „Baner”)
-const orderTypeLabel = e => { const t = typeLabel(e); return e.typeId === 'blackback' ? t.replace(/^Baner/, 'Tkanina') : e.typeId === 'lightbox' ? 'Tkanina ' + t : t; };
+const orderTypeLabel = typeLabel; // Blackback i Lightbox jako „tkanina” załatwia już typeLabel
 function orderLine(e) {
   const t = typeById(e.typeId), wys = t.wyslona && e.wyslona;
   if (isHang(e)) {
