@@ -50,6 +50,7 @@
   .uf-chk input { width: 15px; height: 15px; }
   .uf-bar2 { background: #2d3748; padding: 5px 10px; }
   .uf-bar2 input[type=text] { width: 74px; padding: 4px 6px; background: #fff; color: var(--dark); border: 1px solid #4a5568; font-size: .78rem; }
+  .uf-zl { min-width: 40px; text-align: center; font-size: .72rem; }
   .uf-area { font-weight: 700; color: #9ae6b4; margin-left: 6px; }
   .uf-open button { padding: 4px 8px; }
   .uf-open > span { margin-right: 4px; }
@@ -880,6 +881,7 @@
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
           <b class="uf-title">▦ Ultra Frame</b>
+          <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
           <span class="uf-grp" id="uf-pal"></span>
           <span class="uf-grp"><input type="number" id="uf-cus" min="1" step="0.1" placeholder="własna" title="Ścianka o własnej szerokości (np. regulowana)"><button type="button" id="uf-cus-b" title="Dodaj ściankę o podanej szerokości za zaznaczonym klockiem">＋</button></span>
           <span class="uf-grp"><button type="button" id="uf-rl" title="Obróć zaznaczony klocek w lewo (Shift+R)">↶</button><button type="button" id="uf-rr" title="Obróć zaznaczony klocek w prawo (R) — albo kliknij klocek drugi raz">↷ R</button></span>
@@ -6042,7 +6044,7 @@ function ufSyncBar() {
     const wy = r.backKind === 'auto' ? ` · <b class="uf-bk">wysłona zewn. ${lenPL(r.backW)} × ${lenPL(r.backH)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${r.mods} mod.${r.ops.some(o => o.t === 'post') ? ', słupki ' + r.ops.filter(o => o.t === 'post').length : ''})${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + `<span class="uf-keys">drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka) · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
+  $('uf-info').innerHTML = t + `<span class="uf-keys">kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka) · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
 }
 
 // ---------- rysowanie widoku z góry ----------
@@ -6070,8 +6072,10 @@ function ufDraw() {
   let b = geo.bounds || { x0: 0, y0: 0, x1: st.L, y1: st.D };
   const mg = 650; b = { x0: b.x0 - mg, y0: b.y0 - mg, x1: b.x1 + mg, y1: b.y1 + mg };
   const bw = Math.max(b.x1 - b.x0, 3000), bh = Math.max(b.y1 - b.y0, 1800);
-  const s = Math.min(0.5, (W - 24) / bw, (H - 24) / bh), ox = W / 2 - (b.x0 + b.x1) / 2 * s, oy = H / 2 - (b.y0 + b.y1) / 2 * s;
-  UF.tr = { s, ox, oy };
+  const s0 = Math.min(0.5, (W - 24) / bw, (H - 24) / bh), ox0 = W / 2 - (b.x0 + b.x1) / 2 * s0, oy0 = H / 2 - (b.y0 + b.y1) / 2 * s0;
+  const vw = UF.vw || { s: s0, ox: ox0, oy: oy0 }, s = vw.s, ox = vw.ox, oy = vw.oy;      // ręczne przybliżenie / przesunięcie albo dopasowanie do okna
+  UF.tr = { s, ox, oy }; UF.fitS = s0;
+  $('uf-zl').textContent = Math.round(s / s0 * 100) + '%';
   const X = x => ox + x * s, Y = y => oy + y * s;
   g.strokeStyle = '#e3e8ee'; g.lineWidth = 1; g.beginPath();
   for (let gx = Math.ceil((-ox / s) / 1000) * 1000; X(gx) < W; gx += 1000) { g.moveTo(X(gx), 0); g.lineTo(X(gx), H); }
@@ -6181,6 +6185,7 @@ function ufDragMove(e) {
   const dr = UF.drag; if (!dr) return;
   const [px, py] = ufCanvasPos(e);
   if (!dr.moved && Math.hypot(e.clientX - dr.cx, e.clientY - dr.cy) < 6) return;
+  if (dr.kind === 'pan') { dr.moved = true; UF.vw = { s: dr.s, ox: dr.ox0 + e.clientX - dr.cx, oy: dr.oy0 + e.clientY - dr.cy }; ufDraw(); return; }
   const [wx, wy] = ufWorld(px, py);
   if (!dr.moved) { dr.moved = true; if (dr.kind === 'move') ufPush(); }
   if (dr.kind === 'new') {
@@ -6200,6 +6205,7 @@ function ufDragMove(e) {
 function ufDragEnd(e) {
   document.removeEventListener('pointermove', ufDragMove); document.removeEventListener('pointerup', ufDragEnd);
   const dr = UF.drag; UF.drag = null; if (!dr) return;
+  if (dr.kind === 'pan') { if (!dr.moved) { UF.sel = null; UF.rot = false; } ufDraw(); ufSyncBar(); return; }
   if (dr.kind === 'new') {
     if (dr.moved && dr.ghost) {
       const geo = ufGeom(UF.d);
@@ -6215,15 +6221,25 @@ function ufDragEnd(e) {
   if (p && ufPostClash(geo.parts, p)) { const o = dr.orig.get(dr.id); p.x = o.x; p.y = o.y; p.dir = o.dir; toast(UF_POST_MSG, 'error', 4500); }
   ufChanged();
 }
+function ufPan(e) {
+  UF.drag = { kind: 'pan', cx: e.clientX, cy: e.clientY, s: UF.tr.s, ox0: UF.tr.ox, oy0: UF.tr.oy, moved: false };
+  document.addEventListener('pointermove', ufDragMove); document.addEventListener('pointerup', ufDragEnd);
+}
+function ufZoomAt(px, py, k) {
+  const t = UF.tr; if (!t) return;
+  const s2 = Math.max(0.012, Math.min(3, t.s * k)), wx = (px - t.ox) / t.s, wy = (py - t.oy) / t.s;
+  UF.vw = { s: s2, ox: px - wx * s2, oy: py - wy * s2 }; ufDraw();
+}
 function ufPointer(e) {
-  if (e.button !== 0 || UF.busy || !UF.tr) return;
+  if ((e.button !== 0 && e.button !== 1) || UF.busy || !UF.tr) return;
+  if (e.button === 1) { e.preventDefault(); return ufPan(e); }
   closeMarkMenu();
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py);
   if (UF.hit && Math.hypot(UF.hit.x - px, UF.hit.y - py) < 16) { ufRotate(true); return; }
   const tol = 6 / UF.tr.s, geo = UF.geo || ufGeom(UF.d);
   const hits = geo.parts.filter(q => wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0));
   const q = hits[0];
-  if (!q) { UF.sel = null; UF.rot = false; ufDraw(); ufSyncBar(); return; }
+  if (!q) return ufPan(e);        // tło: przeciągnięcie przesuwa widok, samo kliknięcie odznacza
   const wasSel = UF.sel === q.op.id; UF.sel = q.op.id;
   const grp = e.shiftKey ? ufGroup(q.op.id) : new Set([q.op.id]);
   UF.drag = { kind: 'move', id: q.op.id, grp, orig: new Map(UF.d.pieces.filter(p => grp.has(p.id)).map(p => [p.id, { x: p.x, y: p.y, dir: p.dir }])), cx: e.clientX, cy: e.clientY, wx0: wx, wy0: wy, moved: false, wasSel };
@@ -6411,7 +6427,7 @@ async function ufGenerate() {
 // ---------- okno edytora ----------
 function openUltraFrame() {
   if (!S.project) return;
-  UF.open = true; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null;
+  UF.open = true; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null;
   const saved = S.project.ultraFrame;
   UF.d = saved ? ufMigrate(JSON.parse(JSON.stringify(saved))) : { v: 2, H: 2480, stand: ufStandDefault(), pieces: [], view: 0, photoId: '' };
   if (!UF.d.H) UF.d.H = 2480;
@@ -6440,6 +6456,10 @@ async function closeUltraFrame() {
   ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick', 'click'].forEach(t => pane.addEventListener(t, e => e.stopPropagation(), { passive: t !== 'wheel' }));
   pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (e.target === $('uf-cv')) ufContext(e); else e.preventDefault(); });
   $('uf-cv').addEventListener('pointerdown', ufPointer);
+  $('uf-cv').addEventListener('wheel', e => { e.preventDefault(); const [px, py] = ufCanvasPos(e), dl = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY; ufZoomAt(px, py, Math.pow(1.0018, -dl)); }, { passive: false });
+  const mid = () => [$('uf-cv').clientWidth / 2, $('uf-cv').clientHeight / 2];
+  $('uf-zi').onclick = () => ufZoomAt(...mid(), 1.25); $('uf-zo').onclick = () => ufZoomAt(...mid(), 1 / 1.25);
+  $('uf-zf').onclick = () => { UF.vw = null; ufDraw(); };
   $('uf-rl').onclick = () => ufRotate(false); $('uf-rr').onclick = () => ufRotate(true);
   $('uf-undo').onclick = ufUndo; $('uf-del').onclick = ufDelete;
   $('uf-h').onchange = e => ufSetH(parseInt(e.target.value, 10));
@@ -6469,6 +6489,9 @@ async function closeUltraFrame() {
     else if (k === 'Backspace' || k === 'Delete') ufDelete();
     else if ((k === 'z' || k === 'Z') && e.ctrlKey) ufUndo();
     else if (k === 'Escape') closeUltraFrame();
+    else if (k === 'f' || k === 'F') { UF.vw = null; ufDraw(); }
+    else if (k === '+' || k === '=') ufZoomAt(...mid(), 1.25);
+    else if (k === '-') ufZoomAt(...mid(), 1 / 1.25);
     else h = false;
     if (h) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
   }, true);
