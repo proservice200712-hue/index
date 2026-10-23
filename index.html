@@ -5576,6 +5576,7 @@ function orderLine(e) {
   if (needsSplit(e)) parts.push('dzielony (krótszy bok ponad 150 cm)');
   // uwaga typu „drzwi” / „+drzwi” przy ścianie z ustawionymi drzwiami nic nie dodaje — drzwi są w wyliczeniu i jako osobny element
   if (e.notes && !(hasDoor(e) && /^\s*\+?\s*drzwi\s*\.?\s*$/i.test(e.notes))) parts.push(e.notes);
+  if (e.typeId === 'blackback' && !e.seg && !e.wyslona && !e.doorFor) parts.push('docięty do wymiaru'); // baner Blackback standard — na końcu linii
   let line = `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${parts.join(', ')}`;
   // element złożony: drugi typ w osobnej linii pod spodem
   if (hasCombo(e)) {
