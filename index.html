@@ -5661,7 +5661,8 @@ function orderText(list = S.elements) {
   return txt && list.some(isSegFabric) ? txt + '\n\n' + SEG_NOTE : txt; // przypis na końcu, gdy jest jakaś tkanina SEG
 }
 // rysunek ściany z drzwiami do zlecenia: grafika ściany (gdy jest podgląd), drzwi, wymiary od lewej i od prawej, wymiar ściany i drzwi
-const needsWallPic = e => hasDims(e) && (hasDoor(e) || wallPosts(e).length > 0);
+// rysunek ściany w zleceniu tylko przy drzwiach (sam słupek bez drzwi — bez rysunku)
+const needsWallPic = e => hasDims(e) && hasDoor(e);
 async function wallDrawing(main) {
   if (!needsWallPic(main)) return null;
   const W = Number(main.w), H = Number(main.h), door = hasDoor(main), p = door ? doorPos(main) : { x: 0, w: 0, h: 0, left: 0, right: 0, fits: true }, gr = grossOf(main), posts = wallPosts(main);
@@ -6002,16 +6003,17 @@ function ufPublic(st, parts) {
   while (todo.length) { const k = todo.pop(), i = k % nx, j = (k - i) / nx; push(i + 1, j); push(i - 1, j); push(i, j + 1); push(i, j - 1); }
   return (x, y) => { const i = Math.floor(x / c), j = Math.floor(y / c); return i < 0 || j < 0 || i >= nx || j >= ny || !!seen[j * nx + i]; };
 }
-// dane elementu dla lica (grafika SEG z przodu): szerokość odcinka; składniki = moduły i słupki w tym odcinku
+// dane elementu dla lica (grafika SEG z przodu): szerokość odcinka; składniki = moduły i słupki w tym odcinku,
+// po kolei od lewej patrząc na grafikę z wnętrza stoiska (np. ścianka pionowa oglądana od prawej: od dołu planu w górę)
 function ufFaceSpec(fc) {
-  const h = fc.h; let door = null, off = 0;
-  for (const it of fc.items) {
+  const h = fc.h, rev = (fc.ori === 0) === (fc.inn < 0), items = rev ? fc.items.slice().reverse() : fc.items; let door = null, off = 0;
+  for (const it of items) {
     const o = it.op;
     if (o.t === 'door') { door = { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' }; break; }
     off += it.len;
   }
-  const terms = fc.items.map(it => numIn(fromMM(it.len)));
-  return { w: fc.b - fc.a, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: fc.items.filter(it => it.op.t === 'door').length, notes: '' };
+  const terms = items.map(it => numIn(fromMM(it.len)));
+  return { w: fc.b - fc.a, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length, notes: '' };
 }
 const ufRuns = () => ufGeom(UF.d).runs;
 // dane elementu dla ścianki: przód (tkanina SEG: moduły + słupki) albo tył (wysłona: same moduły; zewnętrzna — od 248 w górę)
