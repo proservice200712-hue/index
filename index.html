@@ -1833,7 +1833,8 @@ function startTypesSub() {
   DB.sub(C_TYPES, rows => {
     typesFromDb = rows.length > 0;
     const merged = clone(DEFAULT_TYPES).map(d => ({ ...d, ...(rows.find(r => r.id === d.id) || {}) }))
-      .concat(rows.filter(r => !DEFAULT_TYPES.some(d => d.id === r.id) && !LEGACY_TYPES[r.id]));
+      .concat(rows.filter(r => !DEFAULT_TYPES.some(d => d.id === r.id) && !LEGACY_TYPES[r.id]))
+      .map(t => ({ ...t, name: tkaninaName(t.id, t.name) }));
     S.types = merged.sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
     if (S.project) { renderOverlay(); renderElements(); }
   });
@@ -1955,10 +1956,12 @@ function wysNumFor(d, selfId) {
 // uwagi do tabel: SEG z opcji + to, co wpisano
 const notesOf = el => { const t = typeById(el.typeId);
   return [t.seg && el.seg ? 'SEG' : '', t.wyslona && el.wyslona ? 'Wysłona' : '', needsSplit(el) ? '! ' + SPLIT_TXT : '', el.notes || ''].filter(Boolean).join(' · '); };
+// Blackback i Lightbox to tkanina (nie „baner”) — nazwa typu wszędzie; idempotentne
+const tkaninaName = (id, n) => id === 'blackback' ? String(n).replace(/^Baner/, 'Tkanina') : id === 'lightbox' && !/^Tkanina/.test(n) ? 'Tkanina ' + n : n;
 function typeLabel(el) {
   if (el.backFor) return 'Wysłona lightboxa · ' + (backMatName(el) || 'materiał do ustalenia') + ' · SEG';
   const t = typeById(el.typeId), v = variantOf(el);
-  let s = t.id === 'blackback' ? t.name.replace(/^Baner/, 'Tkanina') : t.id === 'lightbox' ? 'Tkanina ' + t.name : t.name; // Blackback i Lightbox to tkanina (nie „baner”)
+  let s = tkaninaName(t.id, t.name);
   if (v) s += ' — ' + v.name; else if (t.variants && t.variants.length) s += ' — wykonanie do ustalenia';
   if (hasThick(el) && Number(el.thick) > 0) s += ', gr. ' + intPL(el.thick) + ' mm';
   if (hasLit(el)) { const l = LIT_OPTS.filter(([k]) => el[k]).map(x => x[1]); if (l.length) s += ' · ' + l.join(' + '); }
