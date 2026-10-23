@@ -5558,6 +5558,8 @@ function orderGroups(list) {
     ['Konstrukcje podwieszane', all.filter(isHang)],
   ].filter(([, l]) => l.length);
 }
+// nazwa typu w zleceniu: Blackback i Lightbox to tkanina (zamiast „Baner”)
+const orderTypeLabel = e => { const t = typeLabel(e); return e.typeId === 'blackback' ? t.replace(/^Baner/, 'Tkanina') : e.typeId === 'lightbox' ? 'Tkanina ' + t : t; };
 function orderLine(e) {
   const t = typeById(e.typeId), wys = t.wyslona && e.wyslona;
   if (isHang(e)) {
@@ -5568,7 +5570,7 @@ function orderLine(e) {
       (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${p.side === 'inside' || !hangBleedAny(hangBleed(e)) ? ' (bez spadu)' : (planesOf(e) || []).length > 1 && dimsMode(e) === 'flat' ? '' : ` (spad ${hangBleedShort(e)})`}`).join('') +
       (() => { const pl = planesOf(e) || []; return pl.length > 1 ? `\n   razem (płaszczyzny obok siebie): ${lenPL(pl.reduce((a, p) => a + p.gw, 0))} × ${lenPL(Math.max(...pl.map(p => p.gh)))} ${UNIT()}${hangBleedAny(hangBleed(e)) ? ` (spad ${hangBleedShort(e)} dookoła całości)` : ''} · ${numPL(pl.reduce((a, p) => a + p.gw * p.gh, 0) / 1e6)} m²` : ''; })();
   }
-  const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, typeLabel(e) + (t.transfer ? ' + transfer' : '')];
+  const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, orderTypeLabel(e) + (t.transfer ? ' + transfer' : '')];
   if (t.seg && e.seg && !wys) parts.push('tkanina obszyta płaską gumką pod profile, wymiar pliku to wymiar zewn. ramy aluminiowej');
   if (e.wExpr) parts.push('szerokość: ' + wCalcTxt(e));
   if (isLbSeg(e) && backOf(e)) parts.push(`z wysłoną ${markOf(backOf(e))} (${backMatName(backOf(e))})`);
@@ -5750,7 +5752,7 @@ function copyOrder() {
     $('ord-list').innerHTML = groups.map(([name, l], gi) => `<div class="ord-g">${name ? `<label class="ord-gh"><input type="checkbox" data-ogrp="${gi}" ${l.every(e => !off.has(e.id)) ? 'checked' : ''} title="Zaznacz / odznacz całą grupę"> ${esc(name)} <span class="ord-gn">${l.filter(e => !off.has(e.id)).length}/${l.length}</span></label>` : ''}
       ${l.map(e => `<label class="ord-it ${off.has(e.id) ? 'off' : ''}"><input type="checkbox" data-oid="${e.id}" ${off.has(e.id) ? '' : 'checked'}>
         <span class="badge" style="background:${badgeBg(e)}">${markOf(e)}</span>
-        <span>${esc(typeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
+        <span>${esc(orderTypeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
     const withDoor = sel().some(needsWallPic), usePic = withDoor && $('ord-pic').checked;
     $('ord-pic-wrap').classList.toggle('hidden', !S.elements.some(needsWallPic));
     $('ord-txt').innerHTML = orderHtml(sel(), usePic ? draws : new Map()) || '(nic nie zaznaczono)';
