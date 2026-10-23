@@ -5965,7 +5965,53 @@ function ufGeom(d) {
   // jeden element na każdą wysokość ścianek (ilość = liczba gołych końców)
   const caps = [];
   if (!st || st.caps !== false) ends.forEach(e => { let c = caps.find(k => k.h === e.h); if (!c) caps.push(c = { key: 'uf:end:' + e.h, h: e.h, ends: [] }); c.ends.push(e); });
-  return { parts, runs, ext, ends, caps, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
+  // lica pod grafikę (tkanina SEG z przodu): strona ścianki od wnętrza stoiska, pocięta przez ścianki, które do niej dochodzą;
+  // grafikę dostaje tylko odcinek widoczny od alejki — zamknięte pomieszczenie (np. magazyn) jest bez grafiki
+  const pub = ufPublic(st, parts), faces = [];
+  runs.forEach(r => {
+    const k0 = r.ori === 0 ? 'x' : 'y', mid = st ? (r.ori === 0 ? st.D : st.L) / 2 : 0, inn = r.line >= mid ? -1 : 1, f = r.line + inn * UF_T / 2;
+    const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
+    const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + inn && q.y1 >= f + inn : q.x0 <= f + inn && q.x1 >= f + inn))
+      .map(q => [q[k0 + '0'], q[k0 + '1']]).filter(([a, b]) => b > lo && a < hi).sort((p, q) => p[0] - q[0]);
+    const segs = []; let a = lo;
+    cut.forEach(([c0, c1]) => { if (c0 > a) segs.push([a, c0]); a = Math.max(a, c1); });
+    if (hi > a) segs.push([a, hi]);
+    segs.forEach(([sa, sb]) => {
+      if (sb - sa < 100) return;
+      const am = (sa + sb) / 2;
+      if (!(r.ori === 0 ? pub(am, f + inn * 60) : pub(f + inn * 60, am))) return;
+      const items = r.parts.map(q => ({ op: q.op, len: Math.min(sb, q[k0 + '1']) - Math.max(sa, q[k0 + '0']) })).filter(it => it.len > 1);
+      const w0 = items.find(it => it.op.t !== 'post'); if (!w0) return;
+      faces.push({ key: 'uf:' + w0.op.id, run: r, ori: r.ori, inn, f, a: sa, b: sb, h: r.h, items });
+    });
+  });
+  return { parts, runs, ext, ends, caps, faces, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
+}
+// część stoiska widoczna od alejki: siatka zalewana od otwartych boków, ścianki (także z drzwiami) są przegrodą
+function ufPublic(st, parts) {
+  if (!st || !['n', 'e', 's', 'w'].some(k => st.open[k])) return () => true;
+  const c = Math.max(50, Math.ceil(Math.max(st.L, st.D) / 300)), nx = Math.ceil(st.L / c), ny = Math.ceil(st.D / c);
+  const blk = new Uint8Array(nx * ny), seen = new Uint8Array(nx * ny), todo = [];
+  parts.forEach(q => {
+    for (let j = Math.max(0, Math.floor(q.y0 / c)); j < Math.min(ny, Math.ceil(q.y1 / c)); j++)
+      for (let i = Math.max(0, Math.floor(q.x0 / c)); i < Math.min(nx, Math.ceil(q.x1 / c)); i++) blk[j * nx + i] = 1;
+  });
+  const push = (i, j) => { if (i < 0 || j < 0 || i >= nx || j >= ny) return; const k = j * nx + i; if (blk[k] || seen[k]) return; seen[k] = 1; todo.push(k); };
+  for (let i = 0; i < nx; i++) { if (st.open.n) push(i, 0); if (st.open.s) push(i, ny - 1); }
+  for (let j = 0; j < ny; j++) { if (st.open.w) push(0, j); if (st.open.e) push(nx - 1, j); }
+  while (todo.length) { const k = todo.pop(), i = k % nx, j = (k - i) / nx; push(i + 1, j); push(i - 1, j); push(i, j + 1); push(i, j - 1); }
+  return (x, y) => { const i = Math.floor(x / c), j = Math.floor(y / c); return i < 0 || j < 0 || i >= nx || j >= ny || !!seen[j * nx + i]; };
+}
+// dane elementu dla lica (grafika SEG z przodu): szerokość odcinka; składniki = moduły i słupki w tym odcinku
+function ufFaceSpec(fc) {
+  const h = fc.h; let door = null, off = 0;
+  for (const it of fc.items) {
+    const o = it.op;
+    if (o.t === 'door') { door = { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' }; break; }
+    off += it.len;
+  }
+  const terms = fc.items.map(it => numIn(fromMM(it.len)));
+  return { w: fc.b - fc.a, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: fc.items.filter(it => it.op.t === 'door').length, notes: '' };
 }
 const ufRuns = () => ufGeom(UF.d).runs;
 // dane elementu dla ścianki: przód (tkanina SEG: moduły + słupki) albo tył (wysłona: same moduły; zewnętrzna — od 248 w górę)
@@ -6100,9 +6146,9 @@ function ufSyncBar() {
   const all = ufRuns(), n = all.length;
   let t;
   if (r) {
-    const eo = ufGeom(d).ext.find(x => x.side === r.closed);
+    const gs = ufGeom(d), eo = gs.ext.find(x => x.side === r.closed), fs = gs.faces.filter(f => f.run.key === r.key);
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
-    t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''})${wy}`;
+    t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
   $('uf-info').innerHTML = t + `<span class="uf-keys">fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
 }
@@ -6148,9 +6194,16 @@ function ufDraw() {
     const open = !!st.open[k];
     g.strokeStyle = open ? '#38a169' : '#718096'; g.lineWidth = open ? 4 : 2; g.setLineDash(open ? [10, 6] : []);
     g.beginPath(); g.moveTo(X(x1), Y(y1)); g.lineTo(X(x2), Y(y2)); g.stroke(); g.setLineDash([]);
-    const hor = k === 'n' || k === 's', mx = hor ? x1 + (x2 - x1) * 0.2 : (x1 + x2) / 2, my = hor ? (y1 + y2) / 2 : y1 + (y2 - y1) * 0.2, ox2 = k === 'e' ? 14 : k === 'w' ? -14 : 0, oy2 = k === 's' ? 14 : k === 'n' ? -14 : 0;
+    const ex = open ? null : geo.ext.find(q => q.side === k), nx2 = k === 'e' ? 1 : k === 'w' ? -1 : 0, ny2 = k === 's' ? 1 : k === 'n' ? -1 : 0, o2 = 150;
+    if (ex) { // wysłona zewnętrzna od strony sąsiada: wymiar na całą długość boku, po zewnętrznej stronie
+      const ax = x1 + nx2 * o2, ay = y1 + ny2 * o2, bx = x2 + nx2 * o2, by = y2 + ny2 * o2;
+      g.strokeStyle = '#e2a679'; g.lineWidth = 1; g.beginPath();
+      g.moveTo(X(x1), Y(y1)); g.lineTo(X(ax) + nx2 * 5, Y(ay) + ny2 * 5); g.moveTo(X(x2), Y(y2)); g.lineTo(X(bx) + nx2 * 5, Y(by) + ny2 * 5); g.stroke();
+      drawArrowLine(g, X(ax), Y(ay), X(bx), Y(by), 6, '#c05621', 1.2);
+    }
+    const lo2 = ex ? o2 * s + 11 : 14;
+    const hor = k === 'n' || k === 's', mx = hor ? x1 + (x2 - x1) * 0.2 : (x1 + x2) / 2, my = hor ? (y1 + y2) / 2 : y1 + (y2 - y1) * 0.2, ox2 = nx2 * lo2, oy2 = ny2 * lo2;
     g.save(); g.translate(X(mx) + ox2, Y(my) + oy2); if (k === 'e' || k === 'w') g.rotate(k === 'e' ? Math.PI / 2 : -Math.PI / 2);
-    const ex = geo.ext.find(q => q.side === k);
     g.fillStyle = open ? '#2f855a' : ex ? '#c05621' : '#a0aec0'; g.font = `700 ${open ? 12 : 10}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(open ? 'ALEJKA' : ex ? `sąsiad · wysłona zewn. ${lenPL(ex.w)} × ${lenPL(ex.h)}` : 'sąsiad', 0, 0); g.restore();
   });
@@ -6193,21 +6246,24 @@ function ufDraw() {
     if (e.ori === 0) g.fillRect(X(e.x) - (e.sg > 0 ? 0 : t), Y(e.y - hw), t, 2 * hw * s);
     else g.fillRect(X(e.x - hw), Y(e.y) - (e.sg > 0 ? 0 : t), 2 * hw * s, t);
   });
-  // ścianki: wymiar po stronie grafiki (od wnętrza stoiska, tam gdzie znaczniki); opis wysłony — z tyłu (na zewnątrz)
-  const selRun = ufSelRun();
-  geo.runs.forEach(rn => {
-    const out = rn.ori === 0 ? [0, rn.line >= st.D / 2 ? 1 : -1] : [rn.line >= st.L / 2 ? 1 : -1, 0], inn = [-out[0], -out[1]], off = 230;
-    const ax = rn.ori === 0 ? rn.a : rn.line + inn[0] * off, ay = rn.ori === 0 ? rn.line + inn[1] * off : rn.a;
-    const bx2 = rn.ori === 0 ? rn.b : ax, by2 = rn.ori === 0 ? ay : rn.b;
+  // grafiki: wymiar każdego lica widocznego od alejki, po stronie grafiki (tam gdzie znaczniki); opis wysłony — z tyłu (na zewnątrz)
+  geo.faces.forEach(fc => {
+    const inn = fc.ori === 0 ? [0, fc.inn] : [fc.inn, 0], L = fc.run.line, off = 230;
+    const ax = fc.ori === 0 ? fc.a : L + inn[0] * off, ay = fc.ori === 0 ? L + inn[1] * off : fc.a;
+    const bx2 = fc.ori === 0 ? fc.b : ax, by2 = fc.ori === 0 ? ay : fc.b;
     g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath();
-    g.moveTo(X(rn.ori === 0 ? rn.a : rn.line + inn[0] * UF_T / 2), Y(rn.ori === 0 ? rn.line + inn[1] * UF_T / 2 : rn.a)); g.lineTo(X(ax) + inn[0] * 6, Y(ay) + inn[1] * 6);
-    g.moveTo(X(rn.ori === 0 ? rn.b : rn.line + inn[0] * UF_T / 2), Y(rn.ori === 0 ? rn.line + inn[1] * UF_T / 2 : rn.b)); g.lineTo(X(bx2) + inn[0] * 6, Y(by2) + inn[1] * 6); g.stroke();
+    g.moveTo(X(fc.ori === 0 ? fc.a : fc.f), Y(fc.ori === 0 ? fc.f : fc.a)); g.lineTo(X(ax) + inn[0] * 6, Y(ay) + inn[1] * 6);
+    g.moveTo(X(fc.ori === 0 ? fc.b : fc.f), Y(fc.ori === 0 ? fc.f : fc.b)); g.lineTo(X(bx2) + inn[0] * 6, Y(by2) + inn[1] * 6); g.stroke();
     drawArrowLine(g, X(ax), Y(ay), X(bx2), Y(by2), 6, '#4a5568', 1.2);
     // napis między ścianką a linią wymiarową (dalej od linii są znaczniki grafik)
-    const tw = inn[rn.ori === 0 ? 1 : 0] > 0;
-    g.save(); g.translate((X(ax) + X(bx2)) / 2, (Y(ay) + Y(by2)) / 2); if (rn.ori === 1) g.rotate(-Math.PI / 2);
+    const tw = fc.inn > 0;
+    g.save(); g.translate((X(ax) + X(bx2)) / 2, (Y(ay) + Y(by2)) / 2); if (fc.ori === 1) g.rotate(-Math.PI / 2);
     g.fillStyle = '#2f855a'; g.font = `600 12px ${F}`; g.textAlign = 'center'; g.textBaseline = tw ? 'bottom' : 'top';
-    g.fillText(`${lenPL(rn.front)} × ${lenPL(rn.h)}`, 0, tw ? -3 : 3); g.restore();
+    g.fillText(`${lenPL(fc.b - fc.a)} × ${lenPL(fc.h)}`, 0, tw ? -3 : 3); g.restore();
+  });
+  const selRun = ufSelRun();
+  geo.runs.forEach(rn => {
+    const out = rn.ori === 0 ? [0, rn.line >= st.D / 2 ? 1 : -1] : [rn.line >= st.L / 2 ? 1 : -1, 0];
     const note = rn.backKind === 'manual' ? `wysłona ${lenPL(rn.backW)} × ${lenPL(rn.h)}` : rn.closed && rn.h <= UF_EXT_FROM ? `bez wysłony (do ${lenPL(UF_EXT_FROM)})` : '';
     if (note) {
       const mx = rn.ori === 0 ? (rn.a + rn.b) / 2 : rn.line + out[0] * 450, my = rn.ori === 0 ? rn.line + out[1] * 450 : (rn.a + rn.b) / 2;
@@ -6225,33 +6281,26 @@ function ufDraw() {
     g.fillStyle = '#fff'; g.font = `800 ${txt.length > 2 ? 8 : txt.length > 1 ? 9.5 : 11.5}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, X(mx), Y(my) + 0.5);
   };
   const elOf = (key, role) => S.elements.find(e => e.ufKey === key && e.ufRole === role && !e.doorFor);
-  geo.runs.forEach(rn => {
-    const fe = elOf(rn.key, 'front'); if (!fe) return;
-    const inn = rn.ori === 0 ? [0, rn.line >= st.D / 2 ? -1 : 1] : [rn.line >= st.L / 2 ? -1 : 1, 0], mid = (rn.a + rn.b) / 2;
-    const at = (along, off) => rn.ori === 0 ? [along, rn.line + inn[1] * off] : [rn.line + inn[0] * off, along];
-    pin(...at(mid, 420), markOf(fe), colorOf(fe));
-    const be = elOf(rn.key, 'back'); if (be) pin(...at(mid + 520, 420), markOf(be), colorOf(be));
-    const de = S.elements.find(e => e.doorFor === fe.id), dp = rn.parts.find(q => q.op.t === 'door');
-    if (de && dp) pin(...at(rn.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 640), markOf(de), colorOf(de), 9.5);
+  geo.faces.forEach(fc => {
+    const fe = elOf(fc.key, 'front'); if (!fe) return;
+    const at = (along, off) => fc.ori === 0 ? [along, fc.run.line + fc.inn * off] : [fc.run.line + fc.inn * off, along];
+    pin(...at((fc.a + fc.b) / 2, 420), markOf(fe), colorOf(fe));
+    const de = S.elements.find(e => e.doorFor === fe.id), dp = fc.run.parts.find(q => q.op.t === 'door' && fc.items.some(it => it.op === q.op));
+    if (de && dp) pin(...at(fc.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 640), markOf(de), colorOf(de), 9.5);
   });
-  geo.caps.forEach(c => { // zaślepki PCW: znacznik przy pierwszym gołym końcu (za końcem ścianki)
-    const el = elOf(c.key, 'end'), e = c.ends[0]; if (!el || !e) return;
-    pin(e.ori === 0 ? e.x + e.sg * 230 : e.x, e.ori === 0 ? e.y : e.y + e.sg * 230, markOf(el), colorOf(el), 9.5);
+  geo.runs.forEach(rn => { // wysłona ręczna (tył ścianki)
+    const be = elOf(rn.key, 'back'); if (!be) return;
+    const inn = rn.ori === 0 ? (rn.line >= st.D / 2 ? -1 : 1) : (rn.line >= st.L / 2 ? -1 : 1), mid = (rn.a + rn.b) / 2 + 520;
+    pin(...(rn.ori === 0 ? [mid, rn.line + inn * 420] : [rn.line + inn * 420, mid]), markOf(be), colorOf(be));
+  });
+  geo.caps.forEach(c => { // zaślepki PCW: znacznik przy każdym gołym końcu (za końcem ścianki)
+    const el = elOf(c.key, 'end'); if (!el) return;
+    c.ends.forEach(e => pin(e.ori === 0 ? e.x + e.sg * 230 : e.x, e.ori === 0 ? e.y : e.y + e.sg * 230, markOf(el), colorOf(el), 9.5));
   });
   geo.ext.forEach(e => {
     const el = elOf(e.key, 'ext'); if (!el) return;
     const [mx, my] = e.side === 'n' ? [st.L * 0.8, -330] : e.side === 's' ? [st.L * 0.8, st.D + 330] : e.side === 'w' ? [-330, st.D * 0.8] : [st.L + 330, st.D * 0.8];
     pin(mx, my, markOf(el), colorOf(el));
-  });
-  // ścianki ucięte krawędzią stoiska: wymiar po przycięciu
-  geo.parts.forEach(p => {
-    const o = p.op; if (!o.len0) return;
-    // na zewnątrz ścianki (od środka stoiska jest wymiar ścianki i znaczniki grafik)
-    const cx = (p.x0 + p.x1) / 2, cy = (p.y0 + p.y1) / 2, horiz = (p.dir & 1) === 0, sg = horiz ? (st.D / 2 - cy >= 0 ? -1 : 1) : (st.L / 2 - cx >= 0 ? -1 : 1), off = UF_T / 2 + 180;
-    const ax = horiz ? p.x0 : cx + sg * off, ay = horiz ? cy + sg * off : p.y0, bx = horiz ? p.x1 : ax, by = horiz ? ay : p.y1;
-    drawArrowLine(g, X(ax), Y(ay), X(bx), Y(by), 6, '#c05621', 1.4);
-    g.save(); g.translate((X(ax) + X(bx)) / 2, (Y(ay) + Y(by)) / 2); if (!horiz) g.rotate(-Math.PI / 2);
-    g.fillStyle = '#c05621'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText(`✂ ${lenPL(o.len)} (ucięta z ${lenPL(o.len0)})`, 0, -3); g.restore();
   });
   // zaczepy podczas przeciągania + duch klocka
   const dr = UF.drag;
@@ -6447,11 +6496,12 @@ function ufRender3D(o) {
     g.strokeStyle = '#1a202c'; g.lineWidth = LW; g.beginPath();
     pts.forEach((a, k) => { if (hide[k]) return; const b = pts[(k + 1) % pts.length]; g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }); g.stroke();
   };
-  // goła rama: profil aluminiowy dookoła, w środku prześwit
+  // goła rama: sam profil aluminiowy dookoła, w środku pusto (widać, co jest za ramą)
   const frame = (o, du, dv, U, V, fill) => {
     const q = (u, v) => [o[0] + du[0] * u + dv[0] * v, o[1] + du[1] * u + dv[1] * v], k = Math.min(45, U / 3, V / 3);
-    poly([q(0, 0), q(U, 0), q(U, V), q(0, V)], fill);
-    if (U > 3 * k && V > 3 * k) poly([q(k, k), q(U - k, k), q(U - k, V - k), q(k, V - k)], '#f7f9fb');
+    g.beginPath(); [q(0, 0), q(U, 0), q(U, V), q(0, V)].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+    if (U > 3 * k && V > 3 * k) { [q(k, k), q(k, V - k), q(U - k, V - k), q(U - k, k)].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); }
+    g.fillStyle = fill; g.fill('evenodd'); g.strokeStyle = '#1a202c'; g.lineWidth = LW; g.stroke();
   };
   // gołe końce (dla zaślepek): w układzie obróconego widoku — ściana końca na x1 (prawa) albo y1 (lewa); x0 / y0 są niewidoczne
   const capOf = bx => { const r = { e: false, s: false }; (geo.ends || []).forEach(e => { if (!bx.p.runs.includes(e.run)) return; const [rx, ry] = rot(e.x, e.y);
@@ -6460,12 +6510,15 @@ function ufRender3D(o) {
   order.forEach(i => {
     const bx = boxes[i], post = bx.p.op.t === 'post', h = bx.h, bk = bx.p.run && bx.p.run.backKind;
     if (bare) {
-      // gołe ramy: każdy moduł osobno (widać podział), aluminium z prześwitem
-      poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#cdd3db' : '#c3cad3');
-      const o1 = T(bx.x0, bx.y1, 0), uS = [(T(bx.x0 + 1, bx.y1, 0)[0] - o1[0]), (T(bx.x0 + 1, bx.y1, 0)[1] - o1[1])], vZ = [(T(bx.x0, bx.y1, 1)[0] - o1[0]), (T(bx.x0, bx.y1, 1)[1] - o1[1])];
-      const o2 = T(bx.x1, bx.y0, 0), uE = [(T(bx.x1, bx.y0 + 1, 0)[0] - o2[0]), (T(bx.x1, bx.y0 + 1, 0)[1] - o2[1])];
+      // gołe ramy: każdy moduł osobno (widać podział), sam profil — najpierw tylne ramy (widoczne przez prześwit), potem przednie i góra
+      const o0 = T(bx.x0, bx.y0, 0), d1 = (a, b) => [a[0] - o0[0], a[1] - o0[1]];
+      const ux = d1(T(bx.x0 + 1, bx.y0, 0)), uy = d1(T(bx.x0, bx.y0 + 1, 0)), vZ = d1(T(bx.x0, bx.y0, 1));
       if (post) { poly([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#aeb6c1'); poly([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], '#949eab'); }
-      else { frame(o1, uS, vZ, bx.x1 - bx.x0, h, '#aeb6c1'); frame(o2, uE, vZ, bx.y1 - bx.y0, h, '#949eab'); }
+      else {
+        frame(o0, ux, vZ, bx.x1 - bx.x0, h, '#a3acb8'); frame(o0, uy, vZ, bx.y1 - bx.y0, h, '#8f99a7');                     // tył: północ, zachód
+        frame(T(bx.x0, bx.y1, 0), ux, vZ, bx.x1 - bx.x0, h, '#aeb6c1'); frame(T(bx.x1, bx.y0, 0), uy, vZ, bx.y1 - bx.y0, h, '#949eab'); // przód: południe, wschód
+      }
+      poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#cdd3db' : '#c3cad3');
     } else {
       const sameH = B => Math.abs(B.h - h) < 1, nb = f => boxes.find(B => B !== bx && sameH(B) && f(B));
       const E = nb(B => Math.abs(B.x0 - bx.x1) < 2 && B.y0 <= bx.y0 + 2 && B.y1 >= bx.y1 - 2), Wn = nb(B => Math.abs(B.x1 - bx.x0) < 2 && B.y0 <= bx.y0 + 2 && B.y1 >= bx.y1 - 2);
@@ -6495,8 +6548,8 @@ function ufRender3D(o) {
       const zf = dr ? Math.min(h - 250, Math.max(h * 0.66, (dr.size === 'h2480' ? 2480 : 1984) + 250)) : h * 0.66;
       const zb = Math.max(h * 0.28, 350);
       const [bx0, by0] = atTop;
-      ['front', 'back'].forEach((role, ri) => {
-        const m = o.marks && o.marks.get(run.key + '|' + role); if (!m) return;
+      ['back'].forEach(role => { // tył (wysłona ręczna) — dla całej ścianki; przód: niżej, osobno dla każdego lica
+        const ri = 1, m = o.marks && o.marks.get(run.key + '|' + role); if (!m) return;
         const [px, py] = at(ri ? zb : zf);
         pos.set(run.key + '|' + role, [px / CW, py / H]);
         const txt = (ri ? 'wysłona ' : '') + m.wTxt;
@@ -6505,6 +6558,18 @@ function ufRender3D(o) {
         g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(bx0 - tw / 2, ty, tw, 26); g.strokeStyle = ri ? '#c05621' : '#a0aec0'; g.lineWidth = 1; g.strokeRect(bx0 - tw / 2, ty, tw, 26);
         g.fillStyle = ri ? '#9c4221' : '#276749'; g.fillText(txt, bx0, ty + 13.5);
       });
+    });
+    geo.faces.forEach(fc => { // grafika SEG z przodu: znacznik na licu, tabliczka nad środkiem odcinka
+      const m = o.marks && o.marks.get(fc.key + '|front'); if (!m) return;
+      const am = (fc.a + fc.b) / 2, L = fc.run.line, h = fc.h, dr = fc.items.find(it => it.op.t === 'door');
+      const zf = dr ? Math.min(h - 250, Math.max(h * 0.66, (dr.op.size === 'h2480' ? 2480 : 1984) + 250)) : h * 0.66;
+      const [fx, fy] = rot(...(fc.ori === 0 ? [am, fc.f] : [fc.f, am])), [cx2, cy2] = rot(...(fc.ori === 0 ? [am, L] : [L, am]));
+      const [px, py] = T(fx, fy, zf), [bx0, by0] = T(cx2, cy2, h);
+      pos.set(fc.key + '|front', [px / CW, py / H]);
+      g.font = `600 17px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const tw = g.measureText(m.wTxt).width + 18, ty = by0 - 44;
+      g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(bx0 - tw / 2, ty, tw, 26); g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.strokeRect(bx0 - tw / 2, ty, tw, 26);
+      g.fillStyle = '#276749'; g.fillText(m.wTxt, bx0, ty + 13.5);
     });
     geo.ext.forEach(e => { // wysłona zewnętrzna: pas na cały bok stoiska, od 248 w górę
       const m = o.marks && o.marks.get(e.key + '|ext'); if (!m) return;
@@ -6520,10 +6585,9 @@ function ufRender3D(o) {
     g.fillText(`Ultra Frame — widok 3D${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
     g.fillStyle = '#718096'; g.font = `400 15px ${F}`;
     g.fillText(`stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · ${bare ? 'gołe ramy — podział na moduły' : 'pełne ściany'} · wymiary grafik w ${UNIT()} (szerokość × wysokość) · tabliczki: tkanina SEG z przodu, wysłona z tyłu`, 24, 54);
-    geo.caps.forEach(c => { // zaślepki PCW: znacznik przy najbliższym (najlepiej widocznym) gołym końcu
+    geo.caps.forEach(c => { // zaślepki PCW: znacznik przy każdym gołym końcu (pierwszy = miejsce elementu, kolejne = dalsze miejsca)
       if (!(o.marks && o.marks.get(c.key + '|end'))) return;
-      const e = c.ends.map(e => [e, ...rot(e.x, e.y)]).sort((a, b) => (b[1] + b[2]) - (a[1] + a[2]))[0], [px, py] = T(e[1], e[2], c.h * 0.45);
-      pos.set(c.key + '|end', [px / CW, py / H]);
+      c.ends.forEach((e, i) => { const [rx, ry] = rot(e.x, e.y), [px, py] = T(rx, ry, c.h * 0.45); pos.set(c.key + '|end' + (i ? '|' + i : ''), [px / CW, py / H]); });
     });
   }
   return { cv, pos };
@@ -6541,15 +6605,18 @@ async function ufGenerate() {
   if (UF.busy || !S.project) return;
   const pid = S.project.id, runs = ufRuns();
   if (!runs.length) return toast('Najpierw ułóż ścianki', 'error');
-  const multiDoor = runs.filter(r => ufSpec(r, 'front').doors > 1).length;
+  const geoG = ufGeom(UF.d), multiDoor = geoG.faces.filter(fc => ufFaceSpec(fc).doors > 1).length;
   UF.busy = true; $('uf-go').disabled = true; const tt = toast('Tworzę widok 3D i elementy…', '', 60000);
   try {
     const usedNum = new Set(S.elements.filter(e => !isWys(e) && !e.doorFor && !e.backFor).map(e => Number(e.num) || 0));
     const usedW = new Set(S.elements.filter(e => isWys(e) && !e.doorFor && e.wnum).map(e => e.wnum));
     const take = set => { let n = 1; while (set.has(n)) n++; set.add(n); return n; };
     const jobs = [], marks = new Map(), tcol = typeById('blackback').color;
-    runs.forEach(run => (run.backKind ? ['front', 'back'] : ['front']).forEach(role => {
-      const spec = ufSpec(run, role), ex = S.elements.find(e => e.ufKey === run.key && e.ufRole === role && !e.doorFor);
+    // przód: jedna grafika na każde lico widoczne od alejki; tył: wysłona ręczna na całą ściankę
+    const units = geoG.faces.map(fc => ({ run: { key: fc.key }, role: 'front', spec: ufFaceSpec(fc) }))
+      .concat(runs.filter(r => r.backKind).map(r => ({ run: { key: r.key }, role: 'back', spec: ufSpec(r, 'back') })));
+    units.forEach(({ run, role, spec }) => {
+      const ex = S.elements.find(e => e.ufKey === run.key && e.ufRole === role && !e.doorFor);
       let rec = null, mark;
       if (ex) mark = markOf(ex);
       else {
@@ -6561,7 +6628,7 @@ async function ufGenerate() {
       }
       marks.set(run.key + '|' + role, { mark, color: tcol, wTxt: `${lenPL(spec.w)} × ${lenPL(spec.h)}` });
       jobs.push({ run, role, spec, ex, rec, mark });
-    }));
+    });
     ufGeom(UF.d).ext.forEach(e => {
       const spec = ufExtSpec(e), ex = S.elements.find(x => x.ufKey === e.key && x.ufRole === 'ext' && !x.doorFor);
       let rec = null, mark;
@@ -6585,7 +6652,7 @@ async function ufGenerate() {
         mark = markOf(rec);
       }
       marks.set(c.key + '|end', { mark, color: typeById('pcw').color, wTxt: `${spec.qty} × ${lenPL(spec.w)} × ${lenPL(spec.h)}` });
-      jobs.push({ run: { key: c.key }, role: 'end', spec, ex, rec, mark });
+      jobs.push({ run: { key: c.key }, role: 'end', spec, ex, rec, mark, n: c.ends.length });
     });
     const img = ufRender3D({ W: 1700, marks });
     if (!img) throw new Error('Brak ścianek do narysowania');
@@ -6601,12 +6668,14 @@ async function ufGenerate() {
     let nNew = 0, nUpd = 0;
     for (const j of jobs) {
       const at = img.pos.get(j.run.key + '|' + j.role) || [0.5, 0.5], shape = { kind: 'point', pts: [at] };
+      // zaślepki: kolejne gołe końce jako dalsze miejsca tego samego elementu (ilość = liczba końców)
+      const more = j.role === 'end' ? { qty: j.spec.qty, extra: Array.from({ length: (j.n || 1) - 1 }, (_, i) => ({ photoId, shape: { kind: 'point', pts: [img.pos.get(j.run.key + '|end|' + (i + 1)) || at] } })) } : {};
       let id;
       if (j.ex) {
         id = j.ex.id;
-        await DB.update(pElements(pid), id, { w: j.spec.w, h: j.spec.h, door: j.spec.door, wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...(j.role === 'end' ? { qty: j.spec.qty } : {}), photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
+        await DB.update(pElements(pid), id, { w: j.spec.w, h: j.spec.h, door: j.spec.door, wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...more, photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
         nUpd++;
-      } else { id = await DB.add(pElements(pid), { ...j.rec, photoId, shape }); nNew++; }
+      } else { id = await DB.add(pElements(pid), { ...j.rec, ...more, photoId, shape }); nNew++; }
       if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, photoId, shape });
     }
     addLog(pid, `Ultra Frame: ${nNew} nowych elementów, ${nUpd} zaktualizowanych`);
