@@ -5851,14 +5851,15 @@ function ufGeom(d) {
   const parts = [], runs = [];
   let x0b = Infinity, y0b = Infinity, x1b = -Infinity, y1b = -Infinity;
   d.chains.forEach((ch, ci) => {
-    let x = ch.x, y = ch.y, dir = ch.dir || 0, prev = null, run = { ci, ops: [], parts: [] };
+    let x = ch.x, y = ch.y, dir = ch.dir || 0, prev = null, run = { ci, ops: [], parts: [], dir, lead: null };
     ch.end = null;
     ch.ops.forEach(op => {
       if (op.t === 'turn') {
         const nd = (dir + (op.d > 0 ? 1 : 3)) % 4;
         // zakręt za słupkiem: oś obrotu = środek słupka, kolejna ścianka zaczyna się za nim
         if (prev && prev.t === 'post') { x += (UF_DIR[nd][0] - UF_DIR[dir][0]) * UF_T / 2; y += (UF_DIR[nd][1] - UF_DIR[dir][1]) * UF_T / 2; }
-        dir = nd; if (run.ops.length) runs.push(run); run = { ci, ops: [], parts: [] }; prev = op; return;
+        const lead = prev && prev.t === 'post' ? prev : null; // słupek w narożniku jest wspólny dla obu ścianek
+        dir = nd; if (run.ops.length) runs.push(run); run = { ci, ops: [], parts: [], dir, lead }; prev = op; return;
       }
       const L = op.len, hx = UF_T / 2;
       let a, b, c, e;
@@ -5876,7 +5877,7 @@ function ufGeom(d) {
   runs.forEach(r => {
     const f = r.ops[0];
     r.key = 'uf:' + f.id; r.h = f.h || d.H; r.back = !!f.back;
-    r.front = r.ops.reduce((s, o) => s + o.len, 0);
+    r.front = (r.lead ? r.lead.len : 0) + r.ops.reduce((s, o) => s + o.len, 0);
     r.backW = r.ops.filter(o => o.t !== 'post').reduce((s, o) => s + o.len, 0);
     r.mods = r.ops.filter(o => o.t !== 'post').length;
   });
@@ -5884,7 +5885,7 @@ function ufGeom(d) {
 }
 // dane elementu dla ścianki: przód (tkanina SEG: moduły + słupki) albo tył (wysłona: same moduły); wyliczenie szerokości jak w kalkulatorze
 function ufSpec(run, role) {
-  const back = role === 'back', items = run.ops.filter(o => !back || o.t !== 'post');
+  const back = role === 'back', items = (run.lead && !back ? [run.lead] : []).concat(run.ops.filter(o => !back || o.t !== 'post'));
   const w = items.reduce((s, o) => s + o.len, 0), h = run.h;
   let door = null, off = 0;
   for (const o of items) {
@@ -5916,6 +5917,13 @@ async function ufSave() {
 }
 function ufInsert(op) {
   if (UF.busy) return;
+  const ch0 = UF.d.chains[UF.act] || UF.d.chains[UF.d.chains.length - 1];
+  if (op.t === 'post' && ch0) { // jeden słupek na narożnik: dwa słupki nie stoją obok siebie (też przez zakręt)
+    const si0 = UF.sel ? ch0.ops.findIndex(o => o.id === UF.sel) : -1, at0 = si0 >= 0 ? si0 + 1 : ch0.ops.length, ops = ch0.ops;
+    const isP = i => !!ops[i] && ops[i].t === 'post', isT = i => !!ops[i] && ops[i].t === 'turn';
+    if (isP(at0 - 1) || (isT(at0 - 1) && isP(at0 - 2)) || isP(at0) || (isT(at0) && isP(at0 + 1)))
+      return toast('Tu już jest słupek — w narożniku jeden słupek obsługuje ściankę wzdłużną i poprzeczną', 'error', 4500);
+  }
   ufPush();
   if (!UF.d.chains.length) { UF.d.chains.push({ id: ufUid(), x: 0, y: 0, dir: 0, ops: [] }); UF.act = 0; }
   const ch = UF.d.chains[UF.act] || (UF.act = UF.d.chains.length - 1, UF.d.chains[UF.act]);
@@ -6002,8 +6010,8 @@ function ufDraw() {
   // ścianki: wymiar z przodu (moduły + słupki) i znacznik tyłu
   geo.runs.forEach(r => {
     if (!r.ops.some(o => o.t !== 'post')) return;
-    const f = r.parts[0], l = r.parts[r.parts.length - 1], dir = f.dir, [dx, dy] = UF_DIR[dir], nx = dy, ny = -dx, off = 420;
-    const sxp = dir === 0 ? f.x0 : dir === 2 ? f.x1 : f.x0 + UF_T / 2, syp = dir === 1 ? f.y0 : dir === 3 ? f.y1 : f.y0 + UF_T / 2;
+    const f = r.parts[0], l = r.parts[r.parts.length - 1], dir = r.dir, [dx, dy] = UF_DIR[dir], nx = dy, ny = -dx, off = 420, ld = r.lead ? r.lead.len : 0;
+    const sxp = (dir === 0 ? f.x0 : dir === 2 ? f.x1 : f.x0 + UF_T / 2) - dx * ld, syp = (dir === 1 ? f.y0 : dir === 3 ? f.y1 : f.y0 + UF_T / 2) - dy * ld;
     const exp = dir === 0 ? l.x1 : dir === 2 ? l.x0 : l.x0 + UF_T / 2, eyp = dir === 1 ? l.y1 : dir === 3 ? l.y0 : l.y0 + UF_T / 2;
     const ax = X(sxp + nx * off), ay = Y(syp + ny * off), bx = X(exp + nx * off), by = Y(eyp + ny * off);
     g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(sxp + nx * UF_T / 2), Y(syp + ny * UF_T / 2)); g.lineTo(ax + nx * 6, ay + ny * 6); g.moveTo(X(exp + nx * UF_T / 2), Y(eyp + ny * UF_T / 2)); g.lineTo(bx + nx * 6, by + ny * 6); g.stroke();
