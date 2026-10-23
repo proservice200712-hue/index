@@ -5093,9 +5093,9 @@ function renderGraph() {
       }
     }
     const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - bw - bwR, FH - bh - bhB)}</svg>` : '';
-    // ramka netto (bez spadu) na wierzchu grafiki — widać, co zostaje po przycięciu; białe podbicie, żeby było widać też na jasnej grafice
+    // ramka netto (bez spadu) na wierzchu grafiki — widać, co zostaje po przycięciu; cienka, sama przerywana linia
     const netFrame = bx && dims && !hangPl.length && !(e.doorFor && !(e.seg || e.wyslona)) && !e.backFor
-      ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="3.4"/><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#e8527a" stroke-width="1.5" stroke-dasharray="5 3"/></svg>` : '';
+      ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#e8527a" stroke-width=".75" stroke-dasharray="5 3"/></svg>` : '';
     // konstrukcja ze spadem: przerywany obrys netto każdej płaszczyzny (na wierzchu podglądów)
     let hangFrame = '';
     if (hangBl) {
