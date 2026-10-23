@@ -33,6 +33,28 @@
   body { font-family: var(--font); background: var(--bg); color: var(--dark); overflow: hidden; display: flex; flex-direction: column; }
   button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
   .hidden { display: none !important; }
+  /* Ultra Frame: edytor ścianek w górnej części (na wizkach) */
+  #uf-pane { position: absolute; inset: 0; z-index: 40; background: #f4f6f8; display: flex; flex-direction: column; }
+  #viewer.uf-on .toolbar, #viewer.uf-on #viewer-empty, #viewer.uf-on #viewer-hint, #viewer.uf-on #assign-bar { display: none !important; }
+  .uf-bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 6px 10px; background: var(--dark); color: #e2e8f0; font-size: .78rem; }
+  .uf-title { font-size: .9rem; letter-spacing: .3px; margin-right: 4px; }
+  .uf-grp { display: inline-flex; gap: 3px; align-items: center; }
+  .uf-bar button { background: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; padding: 5px 9px; cursor: pointer; font-size: .76rem; font-weight: 600; }
+  .uf-bar button:hover { background: #3b475b; }
+  .uf-bar button.on { background: var(--accent); color: var(--dark); }
+  .uf-bar button:disabled { opacity: .5; cursor: default; }
+  .uf-bar .uf-go { background: #38a169; border-color: #2f855a; color: #fff; }
+  .uf-bar input[type=number] { width: 78px; padding: 4px 6px; background: #fff; color: var(--dark); border: 1px solid #4a5568; font-size: .76rem; }
+  .uf-bar select { background: #fff; color: var(--dark); border: 1px solid #4a5568; padding: 3px 4px; font-size: .76rem; }
+  .uf-bar label { display: inline-flex; gap: 5px; align-items: center; }
+  .uf-chk input { width: 15px; height: 15px; }
+  .uf-sp { flex: 1 1 auto; }
+  .uf-main { position: relative; flex: 1 1 auto; min-height: 0; }
+  #uf-cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  #uf-pv { position: absolute; right: 8px; bottom: 8px; width: 260px; opacity: .93; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.15); pointer-events: none; }
+  .uf-info { padding: 5px 10px; font-size: .78rem; color: var(--mid); background: #fff; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
+  .uf-info .uf-keys { color: var(--gray); font-size: .7rem; }
+  .uf-info .uf-bk { color: #c05621; }
 
   /* ---------- przyciski: konturowe jak w Archiwum X ---------- */
   .btn { background: transparent; border: 1.5px solid currentColor; color: var(--dark); padding: 6px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; line-height: 1.2; }
@@ -834,6 +856,8 @@
         <button onclick="pasteFromClipboard()" title="Wklej obrazek ze schowka">📋 <span class="lbl">Ctrl+V</span></button>
         <div class="sep"></div>
         <button onclick="alignMarkers()" id="btn-align" title="Ustaw znaczniki w równych rzędach przy krawędziach wizki — kreski do miejsc bez krzyżowania">⊞ <span class="lbl">Wyrównaj</span></button>
+        <div class="sep"></div>
+        <button onclick="openUltraFrame()" id="btn-uf" title="Ultra Frame: narysuj ścianki ramy z modułów (widok z góry) i jednym kliknięciem zrób z nich widok 3D z elementami">▦ <span class="lbl">Ultra Frame</span></button>
       </div>
       <div id="viewer-empty">
         <div class="big">Przeciągnij tu wizki stoiska</div>
@@ -841,11 +865,28 @@
         <div style="display:flex;gap:10px;pointer-events:auto">
           <button class="btn btn-solid" onclick="pasteFromClipboard()">📋 Wklej (Ctrl+V)</button>
           <button class="btn" onclick="pickPhotos()">Wybierz pliki…</button>
+          <button class="btn" onclick="openUltraFrame()" title="Narysuj ścianki ramy (widok z góry) i zrób z nich widok 3D">▦ Ultra Frame</button>
         </div>
       </div>
       <div id="viewer-hint" class="hidden"></div>
       <div id="assign-bar" class="hidden"></div>
       <div id="drop-hint" class="hidden">Upuść, aby dodać wizki</div>
+      <div id="uf-pane" class="hidden">
+        <div class="uf-bar">
+          <b class="uf-title">▦ Ultra Frame</b>
+          <span class="uf-grp" id="uf-pal"></span>
+          <span class="uf-grp"><input type="number" id="uf-cus" min="1" step="0.1" placeholder="własna" title="Ścianka o własnej szerokości (np. regulowana)"><button type="button" id="uf-cus-b" title="Dodaj ściankę o podanej szerokości">＋</button></span>
+          <span class="uf-grp"><button type="button" id="uf-tl" title="Skręt w lewo (Shift+R)">↰</button><button type="button" id="uf-tr" title="Skręt w prawo (R)">↱ R</button></span>
+          <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony moduł (Backspace)">⌫</button><button type="button" id="uf-new" title="Zacznij nowy łańcuch: kliknij wolne miejsce na planie">＋ łańcuch</button></span>
+          <span class="uf-grp"><label>Wysokość <select id="uf-h"></select></label><label class="uf-chk" title="Ścianka od strony tyłu stoiska dostaje wysłonę (B)"><input type="checkbox" id="uf-back"> Tył (wysłona)</label></span>
+          <span class="uf-sp"></span>
+          <button type="button" id="uf-rot" title="Obróć widok 3D o 90°">⟳ widok 3D</button>
+          <button type="button" id="uf-go" class="uf-go" title="Zrób widok 3D jako nową wizkę, ze znacznikami i elementami (SEG + wysłony)">◈ Zrób widok 3D</button>
+          <button type="button" id="uf-x" title="Zamknij (Esc)">✕</button>
+        </div>
+        <div class="uf-main"><canvas id="uf-cv"></canvas><canvas id="uf-pv" class="hidden" title="Podgląd widoku 3D"></canvas></div>
+        <div class="uf-info" id="uf-info"></div>
+      </div>
     </div>
   </div>
   <div class="split-h" id="split-h" title="Przeciągnij, aby zmienić podział ekranu"></div>
@@ -3816,7 +3857,7 @@ async function copyElement(eid, place = null, loc = -1) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project) return;
   if (!place && loc >= 0 && locShape(el, loc)) place = { photoId: locPhoto(el, loc), shape: shiftShape(locShape(el, loc), 0.035, 0.035) };
   const pid = S.project.id, rec = clone(el);
-  ['id', 'num', 'wnum', 'mark', 'backFor', 'doorFor', 'backAsked', 'thumbAuto', 'thumbKey', 'gpos', 'extra', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'src', 'tblHidden'].forEach(k => delete rec[k]);
+  ['id', 'num', 'wnum', 'mark', 'backFor', 'doorFor', 'backAsked', 'thumbAuto', 'thumbKey', 'gpos', 'extra', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'src', 'tblHidden', 'ufKey', 'ufRole'].forEach(k => delete rec[k]);
   rec.num = nextNum();
   if (isWys(rec)) rec.wnum = wysNumFor(rec, null);
   if (place) { rec.shape = place.shape; rec.photoId = place.photoId; }
@@ -5785,6 +5826,443 @@ function copyOrder() {
     m.close();
   };
 }
+// =====================================================================
+//  ULTRA FRAME — edytor ścianek (widok z góry) i jedno kliknięcie: widok 3D + wizka + elementy
+//  Moduły ramy E80: ścianka 99,2 / 49,6, ścianka z drzwiami 99,2 (drzwi 248 albo 198,4), słupek 8, ścianka o własnej szerokości.
+//  Układanie łańcuchem: moduł dokłada się za poprzednim, R skręca o 90°. Ścianka (przebieg) = moduły między skrętami:
+//  grafika z przodu (tkanina SEG) obejmuje moduły i słupki, wysłona z tyłu (Blackback) — same moduły.
+// =====================================================================
+const UF_T = 80;                                              // grubość ścianki i słupka [mm]
+const UF_DIR = [[1, 0], [0, 1], [-1, 0], [0, -1]];            // wschód, południe, zachód, północ (y rośnie w dół)
+const UF_PAL = [
+  { id: 'w99', key: '1', op: { t: 'w', len: 992 } },
+  { id: 'w49', key: '2', op: { t: 'w', len: 496 } },
+  { id: 'd248', key: '3', op: { t: 'door', len: 992, size: 'h2480' } },
+  { id: 'd198', key: '4', op: { t: 'door', len: 992, size: 'h1984' } },
+  { id: 'post', key: '5', op: { t: 'post', len: 80 } },
+];
+const UF_HS = [1984, 2480, 2976, 3472, 3968, 4464, 4960];      // wysokości od 198,4 w górę (co 49,6)
+const UF = { open: false, pid: '', d: null, act: 0, sel: null, arm: false, undo: [], tr: null, tmr: 0, busy: false, ro: null };
+const ufUid = () => Math.random().toString(36).slice(2, 8);
+const ufPalLabel = p => p.op.t === 'post' ? `słupek ${lenPL(80)}` : p.op.t === 'door' ? `drzwi ${lenPL(992)} ▸ ${lenPL(p.op.size === 'h2480' ? 2480 : 1984)}` : `ścianka ${lenPL(p.op.len)}`;
+
+// położenie wszystkich modułów (prostokąty w mm) i ścianek (przebiegi)
+function ufGeom(d) {
+  const parts = [], runs = [];
+  let x0b = Infinity, y0b = Infinity, x1b = -Infinity, y1b = -Infinity;
+  d.chains.forEach((ch, ci) => {
+    let x = ch.x, y = ch.y, dir = ch.dir || 0, prev = null, run = { ci, ops: [], parts: [] };
+    ch.end = null;
+    ch.ops.forEach(op => {
+      if (op.t === 'turn') {
+        const nd = (dir + (op.d > 0 ? 1 : 3)) % 4;
+        // zakręt za słupkiem: oś obrotu = środek słupka, kolejna ścianka zaczyna się za nim
+        if (prev && prev.t === 'post') { x += (UF_DIR[nd][0] - UF_DIR[dir][0]) * UF_T / 2; y += (UF_DIR[nd][1] - UF_DIR[dir][1]) * UF_T / 2; }
+        dir = nd; if (run.ops.length) runs.push(run); run = { ci, ops: [], parts: [] }; prev = op; return;
+      }
+      const L = op.len, hx = UF_T / 2;
+      let a, b, c, e;
+      if (dir === 0) { a = x; c = x + L; b = y - hx; e = y + hx; } else if (dir === 2) { c = x; a = x - L; b = y - hx; e = y + hx; }
+      else if (dir === 1) { b = y; e = y + L; a = x - hx; c = x + hx; } else { e = y; b = y - L; a = x - hx; c = x + hx; }
+      const part = { op, ci, x0: a, y0: b, x1: c, y1: e, dir, run };
+      parts.push(part); run.ops.push(op); run.parts.push(part);
+      x0b = Math.min(x0b, a); y0b = Math.min(y0b, b); x1b = Math.max(x1b, c); y1b = Math.max(y1b, e);
+      x += UF_DIR[dir][0] * L; y += UF_DIR[dir][1] * L; prev = op;
+    });
+    if (run.ops.length) runs.push(run);
+    ch.end = { x, y, dir };
+    x0b = Math.min(x0b, ch.x, x); y0b = Math.min(y0b, ch.y, y); x1b = Math.max(x1b, ch.x, x); y1b = Math.max(y1b, ch.y, y);
+  });
+  runs.forEach(r => {
+    const f = r.ops[0];
+    r.key = 'uf:' + f.id; r.h = f.h || d.H; r.back = !!f.back;
+    r.front = r.ops.reduce((s, o) => s + o.len, 0);
+    r.backW = r.ops.filter(o => o.t !== 'post').reduce((s, o) => s + o.len, 0);
+    r.mods = r.ops.filter(o => o.t !== 'post').length;
+  });
+  return { parts, runs, bounds: parts.length || d.chains.length ? { x0: x0b, y0: y0b, x1: x1b, y1: y1b } : null };
+}
+// dane elementu dla ścianki: przód (tkanina SEG: moduły + słupki) albo tył (wysłona: same moduły); wyliczenie szerokości jak w kalkulatorze
+function ufSpec(run, role) {
+  const back = role === 'back', items = run.ops.filter(o => !back || o.t !== 'post');
+  const w = items.reduce((s, o) => s + o.len, 0), h = run.h;
+  let door = null, off = 0;
+  for (const o of items) {
+    if (o.t === 'door') { door = { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984' }; break; }
+    off += o.len;
+  }
+  const terms = items.map(o => numIn(fromMM(o.len)));
+  return { w, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(o => o.t === 'door').length };
+}
+const ufRuns = () => ufGeom(UF.d).runs.filter(r => r.ops.some(o => o.t !== 'post'));
+
+function ufPush() { UF.undo.push(JSON.stringify(UF.d)); if (UF.undo.length > 60) UF.undo.shift(); }
+function ufUndo() {
+  const s = UF.undo.pop(); if (!s) return;
+  UF.d = JSON.parse(s); UF.act = Math.min(UF.act, Math.max(0, UF.d.chains.length - 1)); UF.sel = null; ufChanged(true);
+}
+function ufChanged(noSnap) {
+  ufDraw(); ufSyncBar();
+  clearTimeout(UF.tmr);
+  UF.tmr = setTimeout(ufSave, 800);
+}
+async function ufSave() {
+  clearTimeout(UF.tmr); UF.tmr = 0;
+  if (!UF.d || !UF.pid || !S.project || S.project.id !== UF.pid) return;
+  try {
+    const data = JSON.parse(JSON.stringify(UF.d, (k, v) => k === 'end' ? undefined : v));
+    await DB.update(C_PROJECTS, UF.pid, { ultraFrame: data });
+  } catch (e) { console.warn('ultra frame', e); }
+}
+function ufInsert(op) {
+  if (UF.busy) return;
+  ufPush();
+  if (!UF.d.chains.length) { UF.d.chains.push({ id: ufUid(), x: 0, y: 0, dir: 0, ops: [] }); UF.act = 0; }
+  const ch = UF.d.chains[UF.act] || (UF.act = UF.d.chains.length - 1, UF.d.chains[UF.act]);
+  const si = UF.sel ? ch.ops.findIndex(o => o.id === UF.sel) : -1, at = si >= 0 ? si + 1 : ch.ops.length, prev = ch.ops[at - 1];
+  const n = { id: ufUid(), ...op };
+  if (n.t !== 'turn') { n.back = !!(prev && prev.t !== 'turn' && prev.back); if (prev && prev.t !== 'turn' && prev.h) n.h = prev.h; }
+  ch.ops.splice(at, 0, n); UF.sel = n.id; UF.arm = false; ufChanged();
+}
+function ufDelete() {
+  const ch = UF.d.chains[UF.act]; if (!ch || UF.busy) return;
+  let i = UF.sel ? ch.ops.findIndex(o => o.id === UF.sel) : ch.ops.length - 1;
+  if (i < 0) i = ch.ops.length - 1;
+  if (i < 0) { if (UF.d.chains.length) { ufPush(); UF.d.chains.splice(UF.act, 1); UF.act = Math.max(0, UF.act - 1); ufChanged(); } return; }
+  ufPush(); ch.ops.splice(i, 1); UF.sel = i > 0 ? ch.ops[i - 1].id : null;
+  if (!ch.ops.length) { UF.d.chains.splice(UF.act, 1); UF.act = Math.max(0, UF.act - 1); UF.sel = null; }
+  ufChanged();
+}
+const ufSelRun = () => { if (!UF.sel) return null; return ufGeom(UF.d).runs.find(r => r.ops.some(o => o.id === UF.sel)) || null; };
+function ufSetBack(v) { const r = ufSelRun(); if (!r) { toast('Zaznacz ściankę (kliknij jej moduł)', 'error'); ufSyncBar(); return; } ufPush(); r.ops.forEach(o => { o.back = v; }); ufChanged(); }
+function ufSetH(v) {
+  const r = ufSelRun();
+  ufPush();
+  if (r) r.ops.forEach(o => { o.h = v; }); else UF.d.H = v;
+  ufChanged();
+}
+function ufSyncBar() {
+  const r = ufSelRun(), sel = $('uf-h'), cb = $('uf-back');
+  if (!sel) return;
+  sel.value = String(r ? r.h : UF.d.H); cb.checked = !!(r && r.back);
+  const all = ufRuns(), n = all.length, bk = all.filter(x => x.back).length;
+  let t;
+  if (r) t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${r.mods} mod.${r.ops.some(o => o.t === 'post') ? ', słupki ' + r.ops.filter(o => o.t === 'post').length : ''})${r.back ? ' · <b class="uf-bk">tył — wysłona ' + lenPL(r.backW) + '</b>' : ''}`;
+  else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'}${bk ? ', z wysłoną: ' + bk : ''} · kliknij moduł, aby zaznaczyć ściankę` : 'Wybierz moduł z palety (1–5), a ułoży się od początku układu. R = skręt o 90°.';
+  $('uf-info').innerHTML = t + `<span class="uf-keys">1 ${lenPL(992)} · 2 ${lenPL(496)} · 3 drzwi ▸ ${lenPL(2480)} · 4 drzwi ▸ ${lenPL(1984)} · 5 słupek · R / Shift+R skręt · B tył · Backspace usuń · Ctrl+Z cofnij</span>`;
+  $('uf-new').classList.toggle('on', UF.arm);
+}
+
+// ---------- rysowanie widoku z góry ----------
+function ufDraw() {
+  const cv = $('uf-cv'); if (!cv || !UF.open) return;
+  if (!S.project || S.project.id !== UF.pid) return closeUltraFrame();
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (r.width < 20 || r.height < 20) return;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const F = `Segoe UI, Arial, sans-serif`, W = r.width, H = r.height;
+  g.fillStyle = '#f4f6f8'; g.fillRect(0, 0, W, H);
+  const geo = ufGeom(UF.d);
+  let b = geo.bounds || { x0: -2500, y0: -1500, x1: 2500, y1: 1500 };
+  const mg = 650; b = { x0: b.x0 - mg, y0: b.y0 - mg, x1: b.x1 + mg, y1: b.y1 + mg };
+  const bw = Math.max(b.x1 - b.x0, 3000), bh = Math.max(b.y1 - b.y0, 1800);
+  const s = Math.min(0.5, (W - 24) / bw, (H - 24) / bh), ox = W / 2 - (b.x0 + b.x1) / 2 * s, oy = H / 2 - (b.y0 + b.y1) / 2 * s;
+  UF.tr = { s, ox, oy };
+  const X = x => ox + x * s, Y = y => oy + y * s;
+  // siatka co 1 m
+  g.strokeStyle = '#e3e8ee'; g.lineWidth = 1; g.beginPath();
+  for (let gx = Math.ceil((-ox / s) / 1000) * 1000; X(gx) < W; gx += 1000) { g.moveTo(X(gx), 0); g.lineTo(X(gx), H); }
+  for (let gy = Math.ceil((-oy / s) / 1000) * 1000; Y(gy) < H; gy += 1000) { g.moveTo(0, Y(gy)); g.lineTo(W, Y(gy)); }
+  g.stroke();
+  const selRun = ufSelRun();
+  // moduły
+  geo.parts.forEach(p => {
+    const o = p.op, back = p.run.back, x = X(p.x0), y = Y(p.y0), w = (p.x1 - p.x0) * s, h = (p.y1 - p.y0) * s;
+    g.fillStyle = o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : back ? '#fde3c8' : '#e9ecef';
+    g.fillRect(x, y, w, h);
+    g.strokeStyle = '#4a5568'; g.lineWidth = 1; g.strokeRect(x, y, w, h);
+    if (o.t === 'door') { // skrzydło drzwi: łuk
+      const horiz = p.dir === 0 || p.dir === 2, len = o.len * s;
+      g.strokeStyle = '#7aa7d6'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath();
+      if (horiz) { const hx = p.dir === 0 ? x : x + w, cyy = y + h / 2; g.moveTo(hx, cyy); g.lineTo(hx, cyy + len); g.arc(hx, cyy, len, Math.PI / 2, p.dir === 0 ? 0 : Math.PI, p.dir === 0); }
+      else { const hy = p.dir === 1 ? y : y + h, cxx = x + w / 2; g.moveTo(cxx, hy); g.lineTo(cxx + len, hy); g.arc(cxx, hy, len, 0, p.dir === 1 ? Math.PI / 2 : -Math.PI / 2, p.dir === 3); }
+      g.stroke(); g.setLineDash([]);
+    }
+    if (o.t !== 'post') {
+      const lab = lenPL(o.len), vert = p.dir === 1 || p.dir === 3;
+      if (o.len * s > 26) {
+        g.save(); g.translate(x + w / 2, y + h / 2); if (vert) g.rotate(-Math.PI / 2);
+        g.fillStyle = o.t === 'door' ? '#1a4f86' : '#2f855a'; g.font = `600 ${Math.max(9, Math.min(13, o.len * s / 6))}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(o.t === 'door' ? '🚪 ' + lab : lab, 0, 0); g.restore();
+      }
+    }
+    if (o.id === UF.sel) { g.strokeStyle = '#2b6cb0'; g.lineWidth = 3; g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
+  });
+  // ścianki: wymiar z przodu (moduły + słupki) i znacznik tyłu
+  geo.runs.forEach(r => {
+    if (!r.ops.some(o => o.t !== 'post')) return;
+    const f = r.parts[0], l = r.parts[r.parts.length - 1], dir = f.dir, [dx, dy] = UF_DIR[dir], nx = dy, ny = -dx, off = 420;
+    const sxp = dir === 0 ? f.x0 : dir === 2 ? f.x1 : f.x0 + UF_T / 2, syp = dir === 1 ? f.y0 : dir === 3 ? f.y1 : f.y0 + UF_T / 2;
+    const exp = dir === 0 ? l.x1 : dir === 2 ? l.x0 : l.x0 + UF_T / 2, eyp = dir === 1 ? l.y1 : dir === 3 ? l.y0 : l.y0 + UF_T / 2;
+    const ax = X(sxp + nx * off), ay = Y(syp + ny * off), bx = X(exp + nx * off), by = Y(eyp + ny * off);
+    g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(sxp + nx * UF_T / 2), Y(syp + ny * UF_T / 2)); g.lineTo(ax + nx * 6, ay + ny * 6); g.moveTo(X(exp + nx * UF_T / 2), Y(eyp + ny * UF_T / 2)); g.lineTo(bx + nx * 6, by + ny * 6); g.stroke();
+    drawArrowLine(g, ax, ay, bx, by, 6, '#4a5568', 1.2);
+    g.save(); g.translate((ax + bx) / 2, (ay + by) / 2); if (dir === 1 || dir === 3) g.rotate(-Math.PI / 2);
+    g.fillStyle = '#2f855a'; g.font = `600 12px ${F}`; g.textAlign = 'center'; g.textBaseline = 'bottom';
+    g.fillText(`${lenPL(r.front)} × ${lenPL(r.h)}`, 0, -3); g.restore();
+    if (r.back) { // tył stoiska — wysłona
+      const cxm = X((sxp + exp) / 2 - nx * 330), cym = Y((syp + eyp) / 2 - ny * 330);
+      g.fillStyle = '#c05621'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(`TYŁ · wysłona ${lenPL(r.backW)}`, cxm, cym);
+    }
+    if (r === selRun) { // obrys zaznaczonej ścianki
+      const x0 = Math.min(...r.parts.map(p => p.x0)), y0 = Math.min(...r.parts.map(p => p.y0)), x1 = Math.max(...r.parts.map(p => p.x1)), y1 = Math.max(...r.parts.map(p => p.y1));
+      g.setLineDash([6, 4]); g.strokeStyle = '#dd6b20'; g.lineWidth = 2; g.strokeRect(X(x0) - 5, Y(y0) - 5, (x1 - x0) * s + 10, (y1 - y0) * s + 10); g.setLineDash([]);
+    }
+  });
+  // końce łańcuchów (następny moduł dołoży się tu) i początki
+  UF.hit = [];
+  UF.d.chains.forEach((ch, ci) => {
+    const e = ch.end || { x: ch.x, y: ch.y, dir: ch.dir || 0 }, ex = X(e.x), ey = Y(e.y), act = ci === UF.act && !UF.sel;
+    g.fillStyle = '#2b6cb0'; g.fillRect(X(ch.x) - 4, Y(ch.y) - 4, 8, 8);
+    g.beginPath(); g.arc(ex, ey, act ? 8 : 6, 0, Math.PI * 2); g.fillStyle = act ? '#38a169' : '#fff'; g.fill(); g.strokeStyle = '#38a169'; g.lineWidth = 2; g.stroke();
+    if (act || (ci === UF.act && UF.sel && ch.ops[ch.ops.length - 1] && ch.ops[ch.ops.length - 1].id === UF.sel)) {
+      const [dx, dy] = UF_DIR[e.dir]; g.strokeStyle = '#38a169'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex + dx * 30, ey + dy * 30); g.stroke();
+      g.beginPath(); g.moveTo(ex + dx * 36, ey + dy * 36); g.lineTo(ex + dx * 24 - dy * 7, ey + dy * 24 + dx * 7); g.lineTo(ex + dx * 24 + dy * 7, ey + dy * 24 - dx * 7); g.closePath(); g.fillStyle = '#38a169'; g.fill();
+    }
+    UF.hit.push({ ci, x: ex, y: ey });
+  });
+  if (!UF.d.chains.length) {
+    g.fillStyle = '#718096'; g.font = `600 15px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('Kliknij moduł w palecie (albo naciśnij 1–5) — ułoży się od początku planu', W / 2, H / 2);
+  }
+  if (UF.arm) { g.fillStyle = '#c05621'; g.font = `700 13px ${F}`; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText('Kliknij miejsce, w którym zaczyna się nowy łańcuch', W / 2, 10); }
+  ufPreview();
+}
+function ufCanvasPos(e) { const r = $('uf-cv').getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+function ufPointer(e) {
+  if (e.button !== 0 || UF.busy || !UF.tr) return;
+  const [px, py] = ufCanvasPos(e), { s, ox, oy } = UF.tr, wx = (px - ox) / s, wy = (py - oy) / s;
+  const h = (UF.hit || []).find(q => Math.hypot(q.x - px, q.y - py) < 13);
+  if (h && !UF.arm) { UF.act = h.ci; UF.sel = null; ufDraw(); ufSyncBar(); return; }
+  if (UF.arm) {
+    ufPush(); const sn = v => Math.round(v / 100) * 100;
+    UF.d.chains.push({ id: ufUid(), x: sn(wx), y: sn(wy), dir: 0, ops: [] }); UF.act = UF.d.chains.length - 1; UF.sel = null; UF.arm = false; ufChanged(); return;
+  }
+  const tol = 8 / s, p = ufGeom(UF.d).parts.find(q => wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol);
+  if (p) { UF.act = p.ci; UF.sel = p.op.id; } else UF.sel = null;
+  ufDraw(); ufSyncBar();
+}
+
+// ---------- widok 3D (rzut izometryczny): plansza do wizki albo podgląd w rogu edytora ----------
+// o: { W szerokość [px], preview, marks: Map(klucz|rola → { mark, color, wTxt }) } → { cv, pos: Map(klucz|rola → [nx, ny]) }
+function ufRender3D(o) {
+  const d = UF.d, geo = ufGeom(d), view = (d.view || 0) & 3, pv = !!o.preview, W = o.W;
+  if (!geo.parts.length) return null;
+  const bb = geo.bounds, cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+  const rot = (x, y) => { const dx = x - cx, dy = y - cy, [a, c] = view === 0 ? [dx, dy] : view === 1 ? [-dy, dx] : view === 2 ? [-dx, -dy] : [dy, -dx]; return [cx + a, cy + c]; };
+  const boxes = geo.parts.map(p => { const [ax, ay] = rot(p.x0, p.y0), [bx, by] = rot(p.x1, p.y1); return { p, x0: Math.min(ax, bx), x1: Math.max(ax, bx), y0: Math.min(ay, by), y1: Math.max(ay, by), h: p.run.h }; });
+  const P = (x, y, z) => [(x - y) * 0.8660254, (x + y) * 0.5 - z];
+  let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
+  boxes.forEach(bx => [[bx.x0, bx.y0], [bx.x1, bx.y0], [bx.x0, bx.y1], [bx.x1, bx.y1]].forEach(([x, y]) => [0, bx.h].forEach(z => { const [X, Y] = P(x, y, z); mnX = Math.min(mnX, X); mxX = Math.max(mxX, X); mnY = Math.min(mnY, Y); mxY = Math.max(mxY, Y); })));
+  const M = pv ? 8 : 130, TOP = pv ? 8 : 150, BOT = pv ? 8 : 60, bw = mxX - mnX, bh = mxY - mnY;
+  const s = Math.min((W - 2 * M) / bw, ((pv ? 190 : 1100) - TOP - BOT) / bh), H = Math.round(bh * s + TOP + BOT), CW = pv ? W : Math.max(900, Math.round(bw * s + 2 * M));
+  const T = (x, y, z) => { const [X, Y] = P(x, y, z); return [M + (X - mnX) * s, TOP + (Y - mnY) * s]; };
+  const cv = document.createElement('canvas'); cv.width = CW; cv.height = H;
+  const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, CW, H); g.lineJoin = 'round';
+  // kolejność rysowania: dalsze (północ / zachód) przed bliższymi
+  const n = boxes.length, before = Array.from({ length: n }, () => new Set()), eps = 1;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (i !== j) {
+    const A = boxes[i], B = boxes[j];
+    if (A.x1 <= B.x0 + eps && !(B.x1 <= A.x0 + eps)) before[j].add(i); else if (A.y1 <= B.y0 + eps && !(B.y1 <= A.y0 + eps)) before[j].add(i);
+  }
+  const key = b => b.x0 + b.x1 + b.y0 + b.y1, done = new Set(), order = [];
+  while (order.length < n) {
+    let pick = -1;
+    for (let i = 0; i < n; i++) if (!done.has(i) && [...before[i]].every(k => done.has(k)) && (pick < 0 || key(boxes[i]) < key(boxes[pick]))) pick = i;
+    if (pick < 0) for (let i = 0; i < n; i++) if (!done.has(i) && (pick < 0 || key(boxes[i]) < key(boxes[pick]))) pick = i;
+    done.add(pick); order.push(pick);
+  }
+  const poly = (pts, fill) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = '#1a202c'; g.lineWidth = pv ? .6 : 1.1; g.stroke(); };
+  order.forEach(i => {
+    const bx = boxes[i], post = bx.p.op.t === 'post', h = bx.h;
+    poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#e8ecf1' : '#dfe3e9');                 // góra
+    poly([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#aeb7c4' : bx.p.run.back ? '#5d6370' : '#4f5664'); // południe
+    poly([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], post ? '#8d97a6' : bx.p.run.back ? '#464b57' : '#3a404c'); // wschód
+    if (bx.p.op.t === 'door') { // otwór drzwi na widocznej ścianie
+      const dh = Math.min(h, bx.p.op.size === 'h2480' ? 2480 : 1984), alongX = (bx.x1 - bx.x0) >= (bx.y1 - bx.y0), ins = 70;
+      if (alongX) poly([T(bx.x0 + ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, dh), T(bx.x0 + ins, bx.y1, dh)], '#bcd9f0');
+      else poly([T(bx.x1, bx.y0 + ins, 0), T(bx.x1, bx.y1 - ins, 0), T(bx.x1, bx.y1 - ins, dh), T(bx.x1, bx.y0 + ins, dh)], '#9dc3e3');
+    }
+  });
+  const pos = new Map();
+  if (!pv) {
+    // wymiary grafik: tabliczki przy podstawie widocznej ściany; położenie znaczników (rysuje je aplikacja) — wyżej, na ścianie
+    const k = 1, F = `Segoe UI, Arial, sans-serif`;
+    geo.runs.forEach(run => {
+      if (!run.ops.some(o => o.t !== 'post')) return;
+      const rb = boxes.filter(bx => bx.p.run === run);
+      const x0 = Math.min(...rb.map(q => q.x0)), x1 = Math.max(...rb.map(q => q.x1)), y0 = Math.min(...rb.map(q => q.y0)), y1 = Math.max(...rb.map(q => q.y1));
+      const alongX = (x1 - x0) >= (y1 - y0), h = run.h, dr = run.ops.find(q => q.t === 'door');
+      const at = z => alongX ? T((x0 + x1) / 2, y1, z) : T(x1, (y0 + y1) / 2, z), atTop = alongX ? T((x0 + x1) / 2, (y0 + y1) / 2, h) : T((x0 + x1) / 2, (y0 + y1) / 2, h);
+      const zf = dr ? Math.min(h - 250, Math.max(h * 0.66, (dr.size === 'h2480' ? 2480 : 1984) + 250)) : h * 0.66;
+      const [bx0, by0] = atTop;  // tabliczki nad górną krawędzią ścianki (dół ścianki bywa zasłonięty)
+      ['front', 'back'].forEach((role, ri) => {
+        const m = o.marks && o.marks.get(run.key + '|' + role); if (!m) return;
+        const [px, py] = at(ri ? Math.max(h * 0.28, 350) : zf);
+        pos.set(run.key + '|' + role, [px / CW, py / H]);
+        const txt = (ri ? 'wysłona ' : '') + m.wTxt;
+        g.font = `600 ${17 * k}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        const tw = g.measureText(txt).width + 18 * k, ty = by0 - (44 + ri * 34) * k;
+        g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(bx0 - tw / 2, ty, tw, 26 * k); g.strokeStyle = ri ? '#c05621' : '#a0aec0'; g.lineWidth = 1; g.strokeRect(bx0 - tw / 2, ty, tw, 26 * k);
+        g.fillStyle = ri ? '#9c4221' : '#276749'; g.fillText(txt, bx0, ty + 13.5 * k);
+      });
+    });
+    g.fillStyle = '#1a202c'; g.font = `700 ${22 * k}px ${F}`; g.textAlign = 'left'; g.textBaseline = 'top';
+    g.fillText(`Ultra Frame — widok 3D${S.project ? ' · ' + S.project.name : ''}`, 24 * k, 22 * k);
+    g.fillStyle = '#718096'; g.font = `400 ${15 * k}px ${F}`;
+    g.fillText(`wymiary grafik w ${UNIT()} (szerokość × wysokość) · tabliczki: tkanina SEG (z przodu), wysłona (z tyłu)`, 24 * k, 54 * k);
+  }
+  return { cv, pos };
+}
+function ufPreview() {
+  const pv = $('uf-pv'); if (!pv) return;
+  const r = ufRender3D({ W: 320, preview: true });
+  if (!r) { pv.classList.add('hidden'); return; }
+  pv.classList.remove('hidden');
+  pv.width = r.cv.width; pv.height = r.cv.height; pv.getContext('2d').drawImage(r.cv, 0, 0);
+}
+
+// ---------- jedno kliknięcie: elementy + widok 3D jako nowa wizka ----------
+async function ufGenerate() {
+  if (UF.busy || !S.project) return;
+  const pid = S.project.id, runs = ufRuns();
+  if (!runs.length) return toast('Najpierw ułóż ścianki', 'error');
+  const multiDoor = runs.filter(r => ufSpec(r, 'front').doors > 1).length;
+  UF.busy = true; $('uf-go').disabled = true; const tt = toast('Tworzę widok 3D i elementy…', '', 60000);
+  try {
+    // numeracja lokalnie (żeby kilka nowych elementów w jednej serii nie dostało tego samego znaku)
+    const usedNum = new Set(S.elements.filter(e => !isWys(e) && !e.doorFor && !e.backFor).map(e => Number(e.num) || 0));
+    const usedW = new Set(S.elements.filter(e => isWys(e) && !e.doorFor && e.wnum).map(e => e.wnum));
+    const take = set => { let n = 1; while (set.has(n)) n++; set.add(n); return n; };
+    const jobs = [], marks = new Map(), tcol = typeById('blackback').color;
+    runs.forEach(run => (run.back ? ['front', 'back'] : ['front']).forEach(role => {
+      const spec = ufSpec(run, role), ex = S.elements.find(e => e.ufKey === run.key && e.ufRole === role && !e.doorFor);
+      let rec = null, mark;
+      if (ex) mark = markOf(ex);
+      else {
+        const wys = role === 'back';
+        rec = { num: wys ? 0 : take(usedNum), typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, thick: '',
+          ...togValues({ wyslona: wys }, 'blackback'), frontlit: false, sidelit: false, seg: !wys, wyslona: wys, wnum: wys ? take(usedW) : null, name: '', w: spec.w, h: spec.h, d: '', qty: 1, notes: '',
+          wExpr: spec.wExpr, wExprUnit: spec.wExpr ? spec.wExprUnit : '', ufKey: run.key, ufRole: role, photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
+        mark = markOf(rec);
+      }
+      marks.set(run.key + '|' + role, { mark, color: tcol, wTxt: `${lenPL(spec.w)} × ${lenPL(spec.h)}` });
+      jobs.push({ run, role, spec, ex, rec, mark });
+    }));
+    const img = ufRender3D({ W: 1700, marks });
+    if (!img) throw new Error('Brak ścianek do narysowania');
+    const blob = await new Promise(res => img.cv.toBlob(res, 'image/png'));
+    const up = await storeImage(new File([blob], 'ultra-frame.png', { type: 'image/png' }), 3200, { png: true });
+    let photoId = UF.d.photoId && S.photos.some(p => p.id === UF.d.photoId) ? UF.d.photoId : '';
+    if (photoId) await DB.update(pPhotos(pid), photoId, { url: up.url, w: up.w, h: up.h });
+    else {
+      const order = S.photos.reduce((m, p) => Math.max(m, p.order || 0), 0) + 1;
+      photoId = await DB.add(pPhotos(pid), { url: up.url, w: up.w, h: up.h, name: 'Ultra Frame — widok 3D', order, createdAt: nowIso(), createdBy: S.me.id });
+      addLog(pid, `Ultra Frame: dodano wizkę #${order} (widok 3D)`);
+    }
+    let nNew = 0, nUpd = 0;
+    for (const j of jobs) {
+      const at = img.pos.get(j.run.key + '|' + j.role) || [0.5, 0.5], shape = { kind: 'point', pts: [at] };
+      let id;
+      if (j.ex) {
+        id = j.ex.id;
+        await DB.update(pElements(pid), id, { w: j.spec.w, h: j.spec.h, door: j.spec.door, wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
+        nUpd++;
+      } else {
+        id = await DB.add(pElements(pid), { ...j.rec, photoId, shape });
+        nNew++;
+      }
+      if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, photoId, shape });
+    }
+    addLog(pid, `Ultra Frame: ${nNew} nowych elementów, ${nUpd} zaktualizowanych`);
+    // elementy, których nie ma już w ramce — pytamy, czy usunąć
+    const keep = new Set(jobs.map(j => j.run.key + '|' + j.role));
+    const orphans = S.elements.filter(e => e.ufKey && !e.doorFor && !keep.has(e.ufKey + '|' + e.ufRole));
+    UF.d.photoId = photoId; await ufSave();
+    tt.remove();
+    toast(`Widok 3D gotowy: ${nNew} nowych elementów, ${nUpd} zaktualizowanych${multiDoor ? ' · w ściance z kilkoma drzwiami uwzględniono pierwsze' : ''}`, 'success', 6000);
+    closeUltraFrame();
+    setTimeout(() => { setCurrentPhoto(photoId); fitView(); }, 500);
+    if (orphans.length) {
+      const ok = await confirmBox(`W ramce nie ma już ${orphans.length} elementów utworzonych wcześniej przez Ultra Frame: <b>${orphans.map(e => esc(markOf(e))).join(', ')}</b>. Usunąć je razem z drzwiami?`, 'Usuń');
+      if (ok) for (const e of orphans) {
+        for (const dd of S.elements.filter(x => x.doorFor === e.id)) await DB.del(pElements(pid), dd.id);
+        await DB.del(pElements(pid), e.id);
+      }
+    }
+  } catch (e) { tt.remove(); toast('Ultra Frame: ' + e.message, 'error', 7000); }
+  finally { UF.busy = false; const b = $('uf-go'); if (b) b.disabled = false; }
+}
+
+// ---------- okno edytora ----------
+function openUltraFrame() {
+  if (!S.project) return;
+  UF.open = true; UF.pid = S.project.id; UF.sel = null; UF.act = 0; UF.arm = false; UF.undo = [];
+  const saved = S.project.ultraFrame;
+  UF.d = saved && saved.chains ? JSON.parse(JSON.stringify(saved)) : { v: 1, H: 2480, chains: [], view: 0, photoId: '' };
+  if (!UF.d.H) UF.d.H = 2480;
+  UF.act = Math.max(0, UF.d.chains.length - 1);
+  $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${ufPalLabel(p)} [${p.key}]">${p.op.t === 'door' ? '🚪' : p.op.t === 'post' ? '■' : '▭'} ${ufPalLabel(p)}</button>`).join('');
+  $('uf-pal').querySelectorAll('[data-pal]').forEach(b => b.onclick = () => ufInsert(UF_PAL.find(p => p.id === b.dataset.pal).op));
+  $('uf-h').innerHTML = UF_HS.map(v => `<option value="${v}">${lenPL(v)} ${UNIT()}</option>`).join('');
+  $('uf-pane').classList.remove('hidden'); $('viewer').classList.add('uf-on');
+  if (!UF.ro) { UF.ro = new ResizeObserver(() => { if (UF.open) ufDraw(); }); UF.ro.observe($('uf-pane')); }
+  ufDraw(); ufSyncBar();
+}
+async function closeUltraFrame() {
+  if (!UF.open) return;
+  UF.open = false;
+  if (UF.tmr) await ufSave();
+  $('uf-pane').classList.add('hidden'); $('viewer').classList.remove('uf-on');
+  if (S.project) { renderOverlay(); }
+}
+(function ufInit() {
+  const pane = $('uf-pane'); if (!pane) return;
+  ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick', 'contextmenu', 'click'].forEach(t => pane.addEventListener(t, e => e.stopPropagation(), { passive: t !== 'wheel' }));
+  $('uf-cv').addEventListener('pointerdown', ufPointer);
+  $('uf-tl').onclick = () => ufInsert({ t: 'turn', d: -1 });
+  $('uf-tr').onclick = () => ufInsert({ t: 'turn', d: 1 });
+  $('uf-undo').onclick = ufUndo; $('uf-del').onclick = ufDelete;
+  $('uf-new').onclick = () => { UF.arm = !UF.arm; ufDraw(); ufSyncBar(); };
+  $('uf-h').onchange = e => ufSetH(parseInt(e.target.value, 10));
+  $('uf-back').onchange = e => ufSetBack(e.target.checked);
+  $('uf-rot').onclick = () => { UF.d.view = ((UF.d.view || 0) + 1) & 3; ufChanged(); };
+  $('uf-go').onclick = ufGenerate; $('uf-x').onclick = closeUltraFrame;
+  $('uf-cus-b').onclick = () => {
+    const v = toMM($('uf-cus').value);
+    if (!(v >= 100 && v <= 2000)) return toast(`Podaj szerokość ścianki od ${lenPL(100)} do ${lenPL(2000)} ${UNIT()}`, 'error');
+    ufInsert({ t: 'w', len: v }); $('uf-cus').value = '';
+  };
+  $('uf-cus').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); $('uf-cus-b').click(); } });
+  document.addEventListener('keydown', e => {
+    if (!UF.open || e.ctrlKey && e.key.toLowerCase() !== 'z' || e.altKey || e.metaKey) return;
+    if (document.querySelector('.modal-back')) return;
+    const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (e.key === 'Escape') t.blur(); return; }
+    const k = e.key; let h = true;
+    const pal = UF_PAL.find(p => p.key === k);
+    if (pal) ufInsert(pal.op);
+    else if (k === 'r' || k === 'R') ufInsert({ t: 'turn', d: e.shiftKey ? -1 : 1 });
+    else if (k === 'b' || k === 'B') { const r = ufSelRun(); ufSetBack(r ? !r.back : true); }
+    else if (k === 'Backspace' || k === 'Delete') ufDelete();
+    else if ((k === 'z' || k === 'Z') && e.ctrlKey) ufUndo();
+    else if (k === 'Escape') closeUltraFrame();
+    else h = false;
+    if (h) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
+  }, true);
+})();
+
 function openExportDialog() {
   if (!S.project) return;
   const p = S.project, nextV = (Number(p.indexVersion) || 0) + 1;
