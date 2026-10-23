@@ -9,6 +9,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
+    /* kursor łapki: ciemny z białą obwódką — widoczny także na białym tle (systemowa łapka jest biała) */
+    --cur-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24'%3E%3Cg fill='%23fff' stroke='%23fff' stroke-width='2.6' stroke-linejoin='round'%3E%3Crect x='6.2' y='5' width='2.6' height='9' rx='1.3'/%3E%3Crect x='9' y='3' width='2.6' height='11' rx='1.3'/%3E%3Crect x='11.8' y='3.5' width='2.6' height='10.5' rx='1.3'/%3E%3Crect x='14.6' y='5.5' width='2.6' height='8.5' rx='1.3'/%3E%3Crect x='3.2' y='9.5' width='2.6' height='7.5' rx='1.3' transform='rotate(-35 4.5 13.2)'/%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c' stroke='%23fff' stroke-width='.9'%3E%3Crect x='3.2' y='9.5' width='2.6' height='7.5' rx='1.3' transform='rotate(-35 4.5 13.2)'/%3E%3Crect x='6.2' y='5' width='2.6' height='9' rx='1.3'/%3E%3Crect x='9' y='3' width='2.6' height='11' rx='1.3'/%3E%3Crect x='11.8' y='3.5' width='2.6' height='10.5' rx='1.3'/%3E%3Crect x='14.6' y='5.5' width='2.6' height='8.5' rx='1.3'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='7' y='12' width='9.4' height='7.6' rx='2.6'/%3E%3C/g%3E%3C/svg%3E") 14 14, grab;
+    --cur-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24'%3E%3Cg fill='%23fff' stroke='%23fff' stroke-width='2.6' stroke-linejoin='round'%3E%3Crect x='6.2' y='9' width='2.6' height='5' rx='1.3'/%3E%3Crect x='9' y='8' width='2.6' height='6' rx='1.3'/%3E%3Crect x='11.8' y='8.5' width='2.6' height='5.5' rx='1.3'/%3E%3Crect x='14.6' y='9.5' width='2.6' height='4.5' rx='1.3'/%3E%3Crect x='4.2' y='11.5' width='2.6' height='5' rx='1.3' transform='rotate(-50 5.5 14)'/%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='6.2' y='10.5' width='11' height='10' rx='3.2'/%3E%3C/g%3E%3Cg fill='%231a202c' stroke='%23fff' stroke-width='.9'%3E%3Crect x='4.2' y='11.5' width='2.6' height='5' rx='1.3' transform='rotate(-50 5.5 14)'/%3E%3Crect x='6.2' y='9' width='2.6' height='5' rx='1.3'/%3E%3Crect x='9' y='8' width='2.6' height='6' rx='1.3'/%3E%3Crect x='11.8' y='8.5' width='2.6' height='5.5' rx='1.3'/%3E%3Crect x='14.6' y='9.5' width='2.6' height='4.5' rx='1.3'/%3E%3C/g%3E%3Cg fill='%231a202c'%3E%3Crect x='7' y='12' width='9.4' height='7.6' rx='2.6'/%3E%3C/g%3E%3C/svg%3E") 14 14, grabbing;
     --dark: #1a202c;
     --dark2: #2d3748;
     --gray: #4a5568;
@@ -137,10 +140,10 @@
   #pane-top { flex: 0 0 var(--top-h); min-height: 120px; display: flex; flex-direction: column; background: #e2e5e9; position: relative; }
 
   /* wszystkie wizki obok siebie na jednym płótnie */
-  #viewer { flex: 1 1 auto; position: relative; overflow: hidden; touch-action: none; cursor: grab; user-select: none; }
+  #viewer { flex: 1 1 auto; position: relative; overflow: hidden; touch-action: none; cursor: var(--cur-grab); user-select: none; }
   #viewer.t-point { cursor: crosshair; }
   #viewer.t-poly { cursor: crosshair; }
-  #viewer.panning { cursor: grabbing; }
+  #viewer.panning { cursor: var(--cur-grabbing); }
   #stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
   #stage-imgs img { position: absolute; top: 0; display: block; pointer-events: none; -webkit-user-drag: none; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,0.18); }
   #overlay { position: absolute; left: 0; top: 0; overflow: visible; }
@@ -190,10 +193,10 @@
   .gc-h .gc-q, .gc-h .gc-ed { flex: 0 0 auto; margin-top: 2px; }
   .gc-h .gc-sub { display: block; font-size: .78rem; font-weight: 400; color: var(--gray); margin-top: 2px; }
   /* nawigacja w widoku Grafika */
-  .el-scroll.gnav { overflow: hidden; position: relative; cursor: grab; touch-action: none; }
-  .el-scroll.gnav.panning { cursor: grabbing; }
+  .el-scroll.gnav { overflow: hidden; position: relative; cursor: var(--cur-grab); touch-action: none; }
+  .el-scroll.gnav.panning { cursor: var(--cur-grabbing); }
   .gstage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-  .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: grab; touch-action: none; }
+  .gidx.moving .gc, .gidx.moving .gc-h, .gidx.moving .gc-frame { cursor: var(--cur-grab); touch-action: none; }
   .gidx.moving .gc-frame:hover { background: #fff; color: var(--mid); }
   .gidx.moving .gc { animation: gcWiggle .3s ease-in-out infinite alternate; transform-origin: 50% 40%; }
   .gidx.moving .gc:nth-child(2n) { animation-delay: -.15s; animation-duration: .34s; }
@@ -201,7 +204,7 @@
   .gidx.moving .gc.dragging { animation: none; }
   .gidx.sorting .gc:not(.dragging) { transition: left .22s ease, top .22s ease; }
   @keyframes gcWiggle { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
-  .gc.dragging .gc-h { cursor: grabbing; }
+  .gc.dragging .gc-h { cursor: var(--cur-grabbing); }
   .gc-ed { background: none; border: 1.5px solid var(--line); color: var(--gray); cursor: pointer; width: 24px; height: 24px; font-size: .8rem; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; }
   .gc-ed:hover { border-color: var(--dark); color: var(--dark); background: var(--bg); }
   .gc-h .gc-t { font-family: Bahnschrift, 'Segoe UI', Arial, sans-serif; font-size: 1rem; font-weight: 600; letter-spacing: .2px; color: var(--dark); }
@@ -251,7 +254,7 @@
   .fbar .fb-s { position: absolute; top: 0; bottom: 0; }
   .fbar .fb-past { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,.62); }
   .fbar .fb-knob { position: absolute; top: -2px; width: 3px; height: 11px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 0 1px #1a202c; }
-  .fbar.urgent { animation: urgBlink 2.4s ease-in-out infinite; }
+  /* pasek pod targami nie miga (miga tylko zegar w stoisku) */
   #clock-pane.ph-none #clock-svg { opacity: .45; }
   .cl-legend { display: flex; gap: 8px; font-size: .62rem; color: var(--gray); margin-top: 3px; flex: 0 0 auto; }
   .cl-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 3px; vertical-align: 0; }
@@ -333,7 +336,7 @@
   #side-tree { flex: 1 1 auto; overflow-y: auto; padding: 4px 0; }
   .fair-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 6px; cursor: pointer; border-left: 4px solid transparent; border-bottom: 1px solid #edf2f7; }
   .fair-row:hover, .stand-row:hover { background: var(--bg); }
-  .fair-row[draggable="true"], .stand-row[draggable="true"] { cursor: grab; }
+  .fair-row[draggable="true"], .stand-row[draggable="true"] { cursor: var(--cur-grab); }
   .dragging-row { opacity: .4; }
   .drop-before { box-shadow: inset 0 3px 0 var(--accent); }
   .drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
@@ -514,7 +517,7 @@
   #turbo-bar { display: flex; align-items: center; gap: 10px; padding: 7px 12px; background: #fffbea; border-bottom: 2px solid #f6c90e; font-size: 0.82rem; flex-wrap: wrap; }
   #turbo-bar span { color: var(--gray); }
   .turbo-tag { font-size: 0.78rem; font-weight: 700; color: #b7791f; }
-  .row-act .thread { cursor: grab; touch-action: none; }
+  .row-act .thread { cursor: var(--cur-grab); touch-action: none; }
   /* stałe „szuflady” na ikony: archiwum X, nitka, ⌖, oko, edycja, usuń — ikony w kolumnie zawsze równo pod sobą */
   .row-act { white-space: nowrap; }
   .row-act .ra { display: inline-block; width: 26px; text-align: center; vertical-align: middle; }
@@ -1201,7 +1204,18 @@ function wCalcTxt(e) {
     vals.forEach((v, i) => { if (Math.abs(v - dw) < 0.06 && Math.abs(start - dx) < best) { best = Math.abs(start - dx); mark = i; } start += v; });
   }
   const pretty = t => t.replace(/\*/g, ' × ').replace(/(\d)-/g, '$1 − ').replace(/\./g, ',');
-  return terms.map((t, i) => pretty(t) + (i === mark ? ' (drzwi)' : '')).join(' + ') + ` = ${numIn(calcEval(e.wExpr))} ${u}`;
+  const pst = wallPosts(e), isPost = i => pst.length > 0 && Math.abs(vals[i] * k - POST_MM) < 0.6 && pst.some(q => Math.abs(q.x - vals.slice(0, i).reduce((a, b) => a + b, 0) * k) < 0.6);
+  return terms.map((t, i) => pretty(t) + (i === mark ? ' (drzwi)' : isPost(i) ? ' (słupek)' : '')).join(' + ') + ` = ${numIn(calcEval(e.wExpr))} ${u}`;
+}
+// SEG: składnik „8” (cm) w wyliczeniu szerokości = słupek 8 cm; położenie = suma składników przed nim (od lewej)
+const POST_MM = 80;
+function wallPosts(e) {
+  if (!e || !e.seg || !e.wExpr || /[()]/.test(e.wExpr)) return [];
+  const k = (e.wExprUnit || 'cm') === 'cm' ? 10 : 1, vals = calcNorm(e.wExpr).split('+').map(t => calcEval(t));
+  if (!vals.every(Number.isFinite)) return [];
+  const out = []; let x = 0;
+  vals.forEach(v => { const mm = v * k; if (Math.abs(mm - POST_MM) < 0.6) out.push({ x, w: POST_MM }); x += mm; });
+  return out;
 }
 // dodaje / zdejmuje przycisk ▾ przy polu wymiaru
 function sizeButton(input, on) {
@@ -2071,19 +2085,20 @@ function doorPos(el) {
   const x = d.from === 'right' ? W - dist - dw : dist;
   return { std, w: dw, h: dh, x, left: x, right: W - x - dw, fits: W > 0 && x >= 0 && x + dw <= W && dh <= H };
 }
-// spady grafiki na drzwi (standard): razem zawsze 2 × 30 na boki — brakujące po jednej stronie idzie na drugą
+// spady grafiki na drzwi (standard): razem zawsze 2 × 30 na boki — brakujące po jednej stronie idzie na drugą;
+// miejsce na spad z boku = odległość do krawędzi ściany + spad ściany (grafika drzwi może wejść w spad ściany)
 function doorBleed(el) {
   const p = doorPos(el);
   if (!p.std) return null;
-  const all = 2 * DOOR_STD.side;
-  let l = Math.min(DOOR_STD.side, Math.max(0, p.left)), r = all - l;
-  if (r > Math.max(0, p.right)) { r = Math.max(0, p.right); l = Math.min(Math.max(0, p.left), all - r); }
+  const all = 2 * DOOR_STD.side, wb = bleedOf(el), roomL = Math.max(0, p.left) + wb, roomR = Math.max(0, p.right) + wb;
+  let l = Math.min(DOOR_STD.side, roomL), r = all - l;
+  if (r > roomR) { r = roomR; l = Math.min(roomL, all - r); }
   return { l, r, t: DOOR_STD.top, b: DOOR_STD.bottom };
 }
 // prostokąt drzwi + wymiar od bliższej krawędzi, w układzie netto ściany (x0, y0, szer., wys. w px)
-function doorSvg(el, x0, y0, nw, nh) {
+function doorSvg(el, x0, y0, nw, nh, withPost = false) {
   if (!hasDoor(el) || !hasDims(el)) return '';
-  const p = doorPos(el), W = Number(el.w), H = Number(el.h), sx = nw / W, sy = nh / H;
+  const p = doorPos(el), W = Number(el.w), H = Number(el.h), sx = nw / W, sy = nh / H, posts = withPost ? wallPosts(el) : [];
   const x = x0 + p.x * sx, w = p.w * sx, h = p.h * sy, y = y0 + nh - h;
   let o = `<defs><marker id="dArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2b6cb0"/></marker></defs>
     <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(49,130,206,.28)" stroke="${p.fits ? '#3182ce' : '#e53e3e'}" stroke-width="1.2" stroke-dasharray="4 2"/>`;
@@ -2096,7 +2111,15 @@ function doorSvg(el, x0, y0, nw, nh) {
     return `<line x1="${ax}" y1="${yy}" x2="${bx}" y2="${yy}" stroke="#2b6cb0" stroke-width="1" marker-start="url(#dArrow)" marker-end="url(#dArrow)"/>
     <text x="${tx}" y="${ty}" text-anchor="middle" fill="#2b6cb0" font-size="10" font-weight="700">${lenPL(val)}</text>`;
   };
-  o += gap(x0, x, p.left) + gap(x + w, x0 + nw, p.right);
+  // słupek (SEG): zielony prostokąt na całą wysokość ściany; odległości od drzwi liczone do słupka
+  let lEnd = 0, rStart = W;
+  posts.forEach(q => {
+    const px = x0 + q.x * sx, pw = q.w * sx;
+    o += `<rect x="${px}" y="${y0}" width="${pw}" height="${nh}" fill="rgba(56,161,105,.32)" stroke="#38a169" stroke-width="1"/>
+      <text transform="rotate(-90 ${px + pw / 2 + 3} ${y0 + nh / 2})" x="${px + pw / 2 + 3}" y="${y0 + nh / 2}" text-anchor="middle" fill="#276749" font-size="9" font-weight="700">słupek ${lenPL(q.w)}</text>`;
+    if (q.x + q.w <= p.x + 0.5) lEnd = Math.max(lEnd, q.x + q.w); else if (q.x >= p.x + p.w - 0.5) rStart = Math.min(rStart, q.x);
+  });
+  o += gap(x0 + lEnd * sx, x, p.left - lEnd) + gap(x + w, x0 + rStart * sx, rStart - (p.x + p.w));
   o += `<text x="${x + w / 2}" y="${y + h - 4}" text-anchor="middle" fill="#2b6cb0" font-size="9">drzwi</text>`;
   return o;
 }
@@ -2398,6 +2421,7 @@ function startFairsSub() {
   if (fairsUnsub) return;
   fairsUnsub = DB.sub(C_FAIRS, rows => {
     S.fairs = rows;
+    autoArchiveFairs();
     renderSide();
     if (!$('screen-home').classList.contains('hidden')) renderHome();
   });
@@ -2690,6 +2714,28 @@ async function sideDelete() {
     if (S.project && stands.some(p => p.id === S.project.id)) goHome(); else renderSide();
   } catch (e) { toast('Błąd usuwania: ' + e.message, 'error'); }
 }
+// po zakończeniu targów (koniec imprezy, a bez końca — dzień po starcie) targi same idą do archiwum,
+// a z nimi ich stoiska. Raz: przywrócone ręcznie z archiwum już tam nie wracają (autoArchiveDone).
+let autoArchBusy = false;
+async function autoArchiveFairs() {
+  if (autoArchBusy || !isAdmin() || DEMO || (S.tour && S.tour.show) || S.practice) return;
+  const now = Date.now();
+  const done = S.fairs.filter(f => !f.archived && !f.autoArchiveDone && tsOf(f.eventStart)
+    && now > (tsOf(f.eventEnd) || tsOf(f.eventStart) + 864e5));
+  if (!done.length) return;
+  autoArchBusy = true;
+  try {
+    for (const f of done) {
+      await DB.update(C_FAIRS, f.id, { archived: true, autoArchiveDone: true, updatedAt: nowIso() });
+      for (const p of S.projects.filter(x => x.fairId === f.id && !x.archived)) {
+        await DB.update(C_PROJECTS, p.id, { archived: true, updatedAt: nowIso() });
+        addLog(p.id, `Targi „${f.name}” zakończone — stoisko przeniesione do archiwum`);
+      }
+    }
+    toast(`Zakończone targi w archiwum: ${done.map(f => f.name).join(', ')}`, 'success', 6000);
+  } catch (e) { console.warn('autoarchiwum', e); }
+  finally { autoArchBusy = false; }
+}
 async function sideArchive() {
   const t = sideTarget(); if (!t || !isAdmin()) return;
   const arch = !t.obj.archived;
@@ -2697,7 +2743,11 @@ async function sideArchive() {
     if (t.kind === 'stand') {
       await DB.update(C_PROJECTS, t.id, { archived: arch, updatedAt: nowIso() });
       addLog(t.id, arch ? 'Stoisko przeniesione do archiwum' : 'Stoisko przywrócone z archiwum');
-    } else await DB.update(C_FAIRS, t.id, { archived: arch, updatedAt: nowIso() });
+    } else {
+      await DB.update(C_FAIRS, t.id, { archived: arch, updatedAt: nowIso() });
+      // targi razem ze stoiskami: archiwum i przywrócenie dotyczą też ich stoisk
+      for (const p of S.projects.filter(x => x.fairId === t.id && !!x.archived !== arch)) await DB.update(C_PROJECTS, p.id, { archived: arch, updatedAt: nowIso() });
+    }
     if (arch && !S.showArch) S.sideSel = null;
     toast(arch ? `„${t.obj.name}" w archiwum` + (S.showArch ? '' : ' (widać po zaznaczeniu „Pokaż archiwum")') : `„${t.obj.name}" przywrócone`, 'success', 4500);
     renderSide();
@@ -4703,7 +4753,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       if (!hasDims(cur)) dp.innerHTML = '<div class="hint">Wpisz wymiar ściany, żeby zobaczyć drzwi na podglądzie.</div>';
       else {
         const W = Number(cur.w), H = Number(cur.h), sc = Math.min(420 / W, 170 / H), pw = W * sc, ph = H * sc, p = doorPos(cur);
-        dp.innerHTML = `<svg width="${pw + 20}" height="${ph + 14}" class="door-svg"><rect x="10" y="4" width="${pw}" height="${ph}" fill="#f7fafc" stroke="#2b2a29" stroke-width="1.4"/>${doorSvg(cur, 10, 4, pw, ph)}</svg>
+        dp.innerHTML = `<svg width="${pw + 20}" height="${ph + 14}" class="door-svg"><rect x="10" y="4" width="${pw}" height="${ph}" fill="#f7fafc" stroke="#2b2a29" stroke-width="1.4"/>${doorSvg(cur, 10, 4, pw, ph, true)}</svg>
           ${p.fits ? `<div class="hint">Na podglądzie wymiar od bliższej krawędzi: <b>${lenPL(Math.min(p.left, p.right))} ${UNIT()} od ${p.left <= p.right ? 'lewej' : 'prawej'}</b>
             (od lewej ${lenPL(p.left)}, od prawej ${lenPL(p.right)} ${UNIT()}).</div>` : '<div class="tag-warn">Drzwi nie mieszczą się w ścianie — sprawdź odległość i wymiar.</div>'}`;
       }
@@ -5461,11 +5511,21 @@ function renderLog() {
       bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
     });
   }
+  // belka między wizkami a elementami: wizki rosną i maleją razem z polem (to samo przybliżenie
+  // względem „Dopasuj”, ten sam punkt na środku) — w górę mniejszy widok, w dół większy
   drag($('split-h'), e => {
     const r = $('screen-project').getBoundingClientRect();
     const h = clamp(e.clientY - r.top, 120, r.height - 110);
+    if (!hasPhotos()) { root.style.setProperty('--top-h', h + 'px'); return; }
+    const TB = 48, r0 = viewer.getBoundingClientRect(); // TB: miejsce na pasek narzędzi (jak w fitView)
+    const z = V.scale / (V.fit || V.scale), cx0 = r0.width / 2, cy0 = TB + (r0.height - TB) / 2;
+    const sx = (cx0 - V.tx) / V.scale, sy = (cy0 - V.ty) / V.scale;
     root.style.setProperty('--top-h', h + 'px');
-    if (hasPhotos()) applyView();
+    const r1 = viewer.getBoundingClientRect();
+    V.fit = Math.min(r1.width / L.W, (r1.height - TB) / H0) * 0.95;
+    V.scale = V.fit * z;
+    V.tx = r1.width / 2 - sx * V.scale; V.ty = TB + (r1.height - TB) / 2 - sy * V.scale;
+    applyView();
   }, () => { try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
   drag($('split-v'), e => {
     const r = $('logside').getBoundingClientRect();
@@ -5531,43 +5591,97 @@ function orderText(list = S.elements) {
   return txt && list.some(isSegFabric) ? txt + '\n\n' + SEG_NOTE : txt; // przypis na końcu, gdy jest jakaś tkanina SEG
 }
 // rysunek ściany z drzwiami do zlecenia: grafika ściany (gdy jest podgląd), drzwi, wymiary od lewej i od prawej, wymiar ściany i drzwi
+const needsWallPic = e => hasDims(e) && (hasDoor(e) || wallPosts(e).length > 0);
 async function wallDrawing(main) {
-  if (!hasDoor(main) || !hasDims(main)) return null;
-  const W = Number(main.w), H = Number(main.h), p = doorPos(main), gr = grossOf(main);
-  const Q = 2, LM = 70, TM = 44, RM = 84, BM = 92, F = `Segoe UI, Arial, sans-serif`;
-  const s = Math.min(520 / W, 340 / H), rw = W * s, rh = H * s, CW = Math.round(Math.max(330, LM + rw + RM)), CH = Math.round(TM + rh + BM);
+  if (!needsWallPic(main)) return null;
+  const W = Number(main.w), H = Number(main.h), door = hasDoor(main), p = door ? doorPos(main) : { x: 0, w: 0, h: 0, left: 0, right: 0, fits: true }, gr = grossOf(main), posts = wallPosts(main);
+  // cała ściana do druku (netto + spad ściany) z grafiką; na niej kontur netto, drzwi i spady grafiki na drzwi
+  const wb = gr.box || { l: gr.b || 0, r: gr.b || 0, t: gr.b || 0, b: gr.b || 0 };
+  // grafika na drzwi do druku: drzwi + spady (standard 30 / 30 / 20 / 10; za blisko krawędzi — przesunięte); SEG / wysłona bez spadu
+  const bb = door ? doorBleed(main) : null, dbOn = !!(bb && bb.l + bb.r + bb.t + bb.b > 0);
+  const Q = 2, LM = 70, TM = 44, RM = dbOn ? 150 : 84, BM = dbOn ? 162 : 92, F = `Segoe UI, Arial, sans-serif`;
+  const s = Math.min(520 / gr.w, 340 / gr.h), rw = W * s, rh = H * s, gw = gr.w * s, gh = gr.h * s;
+  const CW = Math.round(Math.max(330, LM + gw + RM)), CH = Math.round(TM + gh + BM);
   const c = document.createElement('canvas'); c.width = CW * Q; c.height = CH * Q;
   const g = c.getContext('2d'); g.scale(Q, Q); g.fillStyle = '#fff'; g.fillRect(0, 0, CW, CH); g.imageSmoothingQuality = 'high';
-  const x0 = LM, y0 = TM;
+  const gx = LM, gy = TM, x0 = gx + wb.l * s, y0 = gy + wb.t * s;
   g.fillStyle = '#1a202c'; g.font = `700 17px ${F}`; g.textAlign = 'left';
-  g.fillText(`${markOf(main)} — ${typeLabel(main)}`, 10, 24);
-  g.fillStyle = '#f7fafc'; g.fillRect(x0, y0, rw, rh);
-  if (main.thumb) { // grafika ściany: wycinek w obrębie netto (jak tekstura drzwi)
+  g.fillText(`${markOf(main)} — ${typeLabel(main)}${door ? '' : ' — słupek'}`, 10, 24);
+  g.fillStyle = '#f7fafc'; g.fillRect(gx, gy, gw, gh);
+  if (main.thumb) { // grafika ściany = cały wymiar do druku (ze spadem)
     try {
-      const img = await loadImg(main.thumb), ox = gr.box ? gr.box.l : gr.b, oy = gr.box ? gr.box.t : gr.b;
+      const img = await loadImg(main.thumb);
       const asp = img.width / img.height, fa = gr.w / gr.h, iw = asp > fa ? gr.w : gr.h * asp, ih = asp > fa ? gr.w / asp : gr.h;
-      g.save(); g.beginPath(); g.rect(x0, y0, rw, rh); g.clip();
-      g.drawImage(img, x0 + ((gr.w - iw) / 2 - ox) * s, y0 + ((gr.h - ih) / 2 - oy) * s, iw * s, ih * s); g.restore();
+      g.save(); g.beginPath(); g.rect(gx, gy, gw, gh); g.clip();
+      g.drawImage(img, gx + (gr.w - iw) / 2 * s, gy + (gr.h - ih) / 2 * s, iw * s, ih * s); g.restore();
     } catch (e) { /* bez grafiki — sam kontur */ }
   }
-  g.strokeStyle = '#2b2a29'; g.lineWidth = 1.6; g.strokeRect(x0, y0, rw, rh);
+  const hasWb = wb.l + wb.r + wb.t + wb.b > 0;
+  if (hasWb) { // ściana do druku (ze spadem): cienka szara ramka + wymiar
+    g.strokeStyle = '#a0aec0'; g.lineWidth = 1.2; g.strokeRect(gx, gy, gw, gh);
+    g.fillStyle = '#718096'; g.font = `600 12px ${F}`; g.textAlign = 'right';
+    g.fillText(`ściana do druku ${lenPL(gr.w)} × ${lenPL(gr.h)}`, gx + gw, gy - 6);
+  }
+  g.strokeStyle = '#2b2a29'; g.lineWidth = 1.6; g.strokeRect(x0, y0, rw, rh); // ściana netto (widoczna)
   const dx = x0 + p.x * s, dw = p.w * s, dh = p.h * s, dy = y0 + rh - dh;
-  g.fillStyle = 'rgba(49,130,206,.28)'; g.fillRect(dx, dy, dw, dh);
-  g.setLineDash([6, 3]); g.strokeStyle = p.fits ? '#3182ce' : '#e53e3e'; g.lineWidth = 1.8; g.strokeRect(dx, dy, dw, dh); g.setLineDash([]);
-  g.fillStyle = '#2b6cb0'; g.font = `600 13px ${F}`; g.textAlign = 'center'; g.fillText('drzwi', dx + dw / 2, dy + dh - 8);
+  if (door) {
+    g.fillStyle = 'rgba(49,130,206,.28)'; g.fillRect(dx, dy, dw, dh);
+    g.setLineDash([6, 3]); g.strokeStyle = p.fits ? '#3182ce' : '#e53e3e'; g.lineWidth = 1.8; g.strokeRect(dx, dy, dw, dh); g.setLineDash([]);
+    g.fillStyle = '#2b6cb0'; g.font = `600 13px ${F}`; g.textAlign = 'center'; g.fillText('drzwi', dx + dw / 2, dy + dh - 8);
+  }
+  posts.forEach(q => { // słupek 8 cm (SEG): zielony prostokąt na całą wysokość ściany
+    const px = x0 + q.x * s, pw = q.w * s;
+    g.fillStyle = 'rgba(56,161,105,.32)'; g.fillRect(px, y0, pw, rh); g.strokeStyle = '#38a169'; g.lineWidth = 1.4; g.strokeRect(px, y0, pw, rh);
+    g.save(); g.translate(px + pw / 2 + 4, y0 + rh / 2); g.rotate(-Math.PI / 2); g.fillStyle = '#276749'; g.font = `700 12px ${F}`; g.textAlign = 'center'; g.fillText('słupek', 0, 0); g.restore();
+  });
+  // obrys grafiki na drzwi do druku (wymiary i spady — liniami wymiarowymi niżej)
+  const bx = dbOn ? dx - bb.l * s : dx, by = dbOn ? dy - bb.t * s : dy, bw2 = dbOn ? dw + (bb.l + bb.r) * s : dw, bh2 = dbOn ? dh + (bb.t + bb.b) * s : dh;
+  if (dbOn) {
+    g.fillStyle = 'rgba(213,63,140,.07)'; g.fillRect(bx, by, bw2, bh2);
+    g.setLineDash([5, 3]); g.strokeStyle = '#d53f8c'; g.lineWidth = 1.5; g.strokeRect(bx, by, bw2, bh2); g.setLineDash([]);
+  }
   const AC = '#4a5568', ext = (x1, y1, x2, y2) => { g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
   const hDim = (xa, xb, y, mm, col = '#1a202c') => { if (!(xb - xa > 1)) return; drawArrowLine(g, xa, y, xb, y, 8, AC, 1.2); g.fillStyle = col; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 5); };
-  const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 8, AC, 1.2); g.save(); g.translate(x - 6, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = '#1a202c'; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
-  const yb1 = y0 + rh + 28, yb2 = y0 + rh + 62; // wiersz 1: od lewej / drzwi / od prawej; wiersz 2: cała ściana
-  [x0, dx, dx + dw, x0 + rw].forEach(x => ext(x, y0 + rh, x, yb1 + 4));
-  hDim(x0, dx, yb1, p.left, '#2b6cb0'); hDim(dx, dx + dw, yb1, p.w); hDim(dx + dw, x0 + rw, yb1, p.right, '#2b6cb0');
+  const vDim = (ya, yb, x, mm, col = '#1a202c') => { if (!(yb - ya > 1)) return; drawArrowLine(g, x, ya, x, yb, 8, AC, 1.2); g.save(); g.translate(x - 6, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = col; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
+  // krótki odcinek (spad): strzałki, a liczba obok odcinka, gdy się w nim nie mieści
+  const hSeg = (xa, xb, y, mm, col, side) => {
+    if (!(mm > 0) || !(xb - xa > 0.5)) return;
+    if (xb - xa >= 34) return hDim(xa, xb, y, mm, col);
+    drawArrowLine(g, xa, y, xb, y, Math.min(6, (xb - xa) / 2), AC, 1.2);
+    g.fillStyle = col; g.font = `600 13px ${F}`; g.textAlign = side === 'l' ? 'right' : 'left'; g.fillText(lenPL(mm), side === 'l' ? xa - 4 : xb + 4, y + 5); g.textAlign = 'left';
+  };
+  const vSeg = (ya, yb, x, mm, col) => {
+    if (!(mm > 0) || !(yb - ya > 0.5)) return;
+    if (yb - ya >= 34) return vDim(ya, yb, x, mm, col);
+    drawArrowLine(g, x, ya, x, yb, Math.min(6, (yb - ya) / 2), AC, 1.2);
+    g.fillStyle = col; g.font = `600 13px ${F}`; g.textAlign = 'left'; g.fillText(lenPL(mm), x + 5, (ya + yb) / 2 + 5);
+  };
+  const yb1 = gy + gh + 28, yb2 = gy + gh + 62; // wiersz 1: od lewej / drzwi / od prawej; wiersz 2: cała ściana (netto)
+  // wiersz 1: kolejne odcinki ściany — odstępy (niebieskie), drzwi, słupki (zielone)
+  const items = [...(door ? [{ a: p.x, b: p.x + p.w, k: 'door' }] : []), ...posts.map(q => ({ a: q.x, b: q.x + q.w, k: 'post' }))].sort((u, v) => u.a - v.a);
+  const segs = []; let cur = 0;
+  items.forEach(it => { if (it.a > cur + 0.5) segs.push({ a: cur, b: it.a, k: 'gap' }); segs.push(it); cur = Math.max(cur, it.b); });
+  if (W > cur + 0.5) segs.push({ a: cur, b: W, k: 'gap' });
+  [...new Set(segs.flatMap(sg => [sg.a, sg.b]))].forEach(v => ext(x0 + v * s, y0 + rh, x0 + v * s, yb1 + 4));
+  segs.forEach(sg => hDim(x0 + sg.a * s, x0 + sg.b * s, yb1, sg.b - sg.a, sg.k === 'gap' ? '#2b6cb0' : sg.k === 'post' ? '#276749' : '#1a202c'));
   ext(x0, y0 + rh, x0, yb2 + 4); ext(x0 + rw, y0 + rh, x0 + rw, yb2 + 4); hDim(x0, x0 + rw, yb2, W);
-  ext(x0, y0, x0 - 34, y0); ext(x0, y0 + rh, x0 - 34, y0 + rh); vDim(y0, y0 + rh, x0 - 30, H);           // wysokość ściany
-  ext(x0 + rw, dy, x0 + rw + 34, dy); ext(x0 + rw, y0 + rh, x0 + rw + 34, y0 + rh); vDim(dy, y0 + rh, x0 + rw + 30, p.h); // wysokość drzwi
+  ext(x0, y0, gx - 34, y0); ext(x0, y0 + rh, gx - 34, y0 + rh); vDim(y0, y0 + rh, gx - 30, H);           // wysokość ściany
+  if (door) { ext(x0 + rw, dy, gx + gw + 34, dy); ext(x0 + rw, y0 + rh, gx + gw + 34, y0 + rh); vDim(dy, y0 + rh, gx + gw + 30, p.h); } // wysokość drzwi
+  // grafika na drzwi do druku (różowe): spady lewy / prawy, cała szerokość; po prawej spad górny / dolny i cała wysokość
+  if (dbOn) {
+    const PK = '#b83280', yb3 = gy + gh + 98, yb4 = gy + gh + 132, xv3 = gx + gw + 66, xv4 = gx + gw + 108;
+    [bx, dx, dx + dw, bx + bw2].forEach(x => ext(x, by + bh2, x, yb4 + 4));
+    hSeg(bx, dx, yb3, bb.l, PK, 'l'); hSeg(dx + dw, bx + bw2, yb3, bb.r, PK, 'r');
+    hDim(bx, bx + bw2, yb4, p.w + bb.l + bb.r, PK);
+    [by, dy, dy + dh, by + bh2].forEach(y => ext(bx + bw2, y, xv4 + 4, y));
+    vSeg(by, dy, xv3, bb.t, PK); vSeg(dy + dh, by + bh2, xv3, bb.b, PK);
+    vDim(by, by + bh2, xv4, p.h + bb.t + bb.b, PK);
+    g.fillStyle = PK; g.font = `600 12px ${F}`; g.textAlign = 'left'; g.fillText('różowe — grafika na drzwi do druku (ze spadem)', 10, CH - 6);
+  }
   g.fillStyle = '#718096'; g.font = `400 12px ${F}`; g.textAlign = 'right'; g.fillText(UNIT(), CW - 8, CH - 6);
   return { u: c.toDataURL('image/png'), w: CW };
 }
-const wallKey = e => JSON.stringify([e.w, e.h, e.door, e.seg, e.wyslona, e.thumb, e.bleedOverride, e.bleedBox, e.typeId, e.variant, markOf(e), UNIT()]);
+const wallKey = e => JSON.stringify([e.wExpr, e.wExprUnit, e.w, e.h, e.door, e.seg, e.wyslona, e.thumb, e.bleedOverride, e.bleedBox, e.typeId, e.variant, markOf(e), UNIT()]);
 const wallCache = new Map();
 async function wallDrawingCached(e) {
   const k = e.id + '|' + wallKey(e); if (wallCache.has(k)) return wallCache.get(k);
@@ -5583,9 +5697,9 @@ function orderHtml(list, draws = new Map()) {
     if (name) h += `<p style="margin:0 0 4px"><b>${esc(name)}:</b></p>`;
     for (const e of l) {
       h += P(orderLine(e));
-      // rysunek: pod drzwiami (a gdy drzwi nie zaznaczone — pod samą ścianą)
+      // rysunek: pod drzwiami (a gdy drzwi nie zaznaczone albo ich nie ma — pod samą ścianą)
       if (e.doorFor && draws.get(e.doorFor)) h += IMG(draws.get(e.doorFor));
-      else if (hasDoor(e) && draws.get(e.id) && !list.some(x => x.doorFor === e.id)) h += IMG(draws.get(e.id));
+      else if (draws.get(e.id) && !(hasDoor(e) && list.some(x => x.doorFor === e.id))) h += IMG(draws.get(e.id));
     }
   }
   if (h && list.some(isSegFabric)) h += P(SEG_NOTE);
@@ -5593,7 +5707,7 @@ function orderHtml(list, draws = new Map()) {
 }
 async function drawsFor(list) {
   const m = new Map();
-  for (const e of list) if (hasDoor(e) && hasDims(e)) { const u = await wallDrawingCached(e); if (u) m.set(e.id, u); }
+  for (const e of list) if (needsWallPic(e)) { const u = await wallDrawingCached(e); if (u) m.set(e.id, u); }
   return m;
 }
 // do schowka: tekst + HTML z rysunkami (mail dostaje opis razem z rysunkiem); bez rysunków albo bez obsługi HTML — sam tekst
@@ -5622,7 +5736,7 @@ function copyOrder() {
   const off = new Set(); let draws = new Map(), drawTok = 0;
   const m = openModal({ title: '📋 Zlecenie', wide: true, body: `
     <div class="ord-wrap"><div class="ord-list" id="ord-list"></div><div class="ord-prev"><label>Tekst do wklejenia</label><div id="ord-txt" class="ord-doc"></div></div></div>`,
-    footer: `<span class="hint" id="ord-cnt" style="margin-right:auto"></span><label class="chk ord-pic hidden" id="ord-pic-wrap" title="Pod każdą ścianą z drzwiami dołącza jej rysunek (wymiary od lewej i od prawej, drzwi); wkleisz go razem z tekstem w mailu"><input type="checkbox" id="ord-pic" checked> <span>rysunki ścian z drzwiami</span></label><button class="btn" data-c>Zamknij</button><button class="btn btn-solid" id="ord-ok">📋 Kopiuj</button>` });
+    footer: `<span class="hint" id="ord-cnt" style="margin-right:auto"></span><label class="chk ord-pic hidden" id="ord-pic-wrap" title="Pod każdą ścianą z drzwiami albo słupkiem (SEG) dołącza jej rysunek z wymiarami; wkleisz go razem z tekstem w mailu"><input type="checkbox" id="ord-pic" checked> <span>rysunki ścian z drzwiami i słupkiem</span></label><button class="btn" data-c>Zamknij</button><button class="btn btn-solid" id="ord-ok">📋 Kopiuj</button>` });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   const sel = () => S.elements.filter(e => !off.has(e.id));
   const render = () => {
@@ -5632,8 +5746,8 @@ function copyOrder() {
       ${l.map(e => `<label class="ord-it ${off.has(e.id) ? 'off' : ''}"><input type="checkbox" data-oid="${e.id}" ${off.has(e.id) ? '' : 'checked'}>
         <span class="badge" style="background:${badgeBg(e)}">${markOf(e)}</span>
         <span>${esc(typeLabel(e))}${e.name ? ' · ' + esc(e.name) : ''}<small>${hasDims(e) ? esc(isHang(e) ? netTxt(e) : grossTxt(e)) + ' ' + UNIT() : 'wymiar do ustalenia'} · ${e.qty || 1} szt.</small></span></label>`).join('')}</div>`).join('');
-    const withDoor = sel().some(e => hasDoor(e) && hasDims(e)), usePic = withDoor && $('ord-pic').checked;
-    $('ord-pic-wrap').classList.toggle('hidden', !S.elements.some(e => hasDoor(e) && hasDims(e)));
+    const withDoor = sel().some(needsWallPic), usePic = withDoor && $('ord-pic').checked;
+    $('ord-pic-wrap').classList.toggle('hidden', !S.elements.some(needsWallPic));
     $('ord-txt').innerHTML = orderHtml(sel(), usePic ? draws : new Map()) || '(nic nie zaznaczono)';
     if (usePic) { // rysunki dorysowują się po chwili (miniatura ściany ładuje się asynchronicznie)
       const tok = ++drawTok;
@@ -5652,7 +5766,7 @@ function copyOrder() {
   $('ord-ok').onclick = async () => {
     const list = sel();
     if (!list.length) return toast('Zaznacz co najmniej jeden element', 'error');
-    const pic = $('ord-pic').checked && list.some(e => hasDoor(e) && hasDims(e)) ? await drawsFor(list) : new Map();
+    const pic = $('ord-pic').checked && list.some(needsWallPic) ? await drawsFor(list) : new Map();
     const rich = await copyOrderRich(list, pic);
     toast(rich ? 'Zlecenie z rysunkami ścian skopiowane do schowka — wklej w mailu' : 'Elementy w formacie tekstowym skopiowane do schowka', 'success', 4000);
     addLog(S.project.id, `Skopiowano zlecenie do schowka (${list.length} el.)`);
@@ -5878,6 +5992,9 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
     g.fillStyle = '#1a202c'; g.fillText(stamp, rx - 22 * sc, by + bh / 2 + 11 * sc);
     rx -= bw + 30 * sc;
   }
+  // kto przygotował (KG — pełne imię i nazwisko; „przygotował” w języku strony)
+  const prep = S.me && S.me.login === 'KG' ? TT('przygotował', 'підготував', 'prepared by') + ': Krzysztof Gólecki' : '';
+  if (prep) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#e2e8f0'; g.fillText(prep, rx, 70 * sc); rx -= g.measureText(prep).width + 40 * sc; }
   if (sub) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#cbd5e0'; g.fillText(sub, rx, 70 * sc); }
   g.textAlign = 'left';
   g.fillStyle = '#718096'; g.font = `400 ${22 * sc}px ${PDF_FONT}`;
@@ -6393,14 +6510,13 @@ document.addEventListener('mouseout', e => { if (e.target.closest && e.target.cl
 //  ALPAKA — co 5 minut dobiega do 1/4 ekranu, mruga i wraca
 // =====================================================================
 // losowo: wybiega z lewej, z prawej albo (w stoisku) spada na spadochronie ze środkowej belki nad zegarem
-// stroje alpaki (losowane przy każdym wyjściu): październik (do Halloween) — dynia albo postacie z horrorów
-// (Ghostface z „Krzyku”, Jason z „Piątku trzynastego”, Freddy Krueger, Drakula);
-// grudzień — gwiazdor, renifer Rudolf albo elf; w pozostałe miesiące zwykła
+// stroje alpaki (losowane przy każdym wyjściu): październik (do Halloween) — dynia
+// (postacie z horrorów były mało czytelne); grudzień — gwiazdor, renifer Rudolf albo elf; w pozostałe miesiące zwykła
 const pickW = list => { let r = Math.random() * list.reduce((a, [, w]) => a + w, 0); for (const [v, w] of list) { if ((r -= w) < 0) return v; } return list[0][0]; };
 function alpacaCostume() {
   const a = $('alpaca'); if (!a) return;
   const m = new Date().getMonth();
-  a.dataset.costume = m === 9 ? pickW([['pumpkin', 30], ['ghostface', 17.5], ['jason', 17.5], ['freddy', 17.5], ['dracula', 17.5]])
+  a.dataset.costume = m === 9 ? 'pumpkin'
     : m === 11 ? pickW([['santa', 45], ['rudolph', 30], ['elf', 25]]) : '';
 }
 alpacaCostume();
