@@ -246,6 +246,11 @@
   .gc-frame:hover { background: #f7fafc; color: var(--gray); }
   .gc-frame.drag { outline: 3px dashed var(--accent); outline-offset: 2px; }
   .gc-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .gc-frame img.gc-himg { object-fit: fill; pointer-events: none; }                       /* konstrukcja podwieszana: jeden obrazek na cały pasek (ze spadami) */
+  .gc-frame .gc-pl { z-index: 2; }
+  .gc-frame.has-img .gc-pl { border-right: 1px solid rgba(255,255,255,.9); box-shadow: 1px 0 0 rgba(26,32,44,.5); }   /* linie podziału nad obrazkiem */
+  .gc-frame.has-img .gc-pl span { display: none; }
+  .gc-frame .x { z-index: 3; }
   #viewer.copying { cursor: copy; }
   .mark-menu { position: fixed; z-index: 400; min-width: 230px; padding: 4px 0; }
   .mark-menu .mm-h { padding: 6px 12px; font-size: .72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
@@ -2067,7 +2072,7 @@ const depthOf = el => Number(el.d) > 0 ? Number(el.d) : Number(el.w); // kwadrat
 //  kwadratowa W×D×H → 4 boki obok siebie: W×H, D×H, W×H, D×H
 //  okrągła Ø×H      → jeden pas 3,14·Ø × H (π z dwoma miejscami po przecinku)
 //  inny kształt     → płaszczyzny wpisane ręcznie (el.planes = [{w, h}] w mm)
-//  zadruk wewnątrz  → te same płaszczyzny jeszcze raz, bez spadu
+//  zadruk wewnątrz  → te same płaszczyzny jeszcze raz, z takim samym spadem
 //  znaki: A1, A2…; przy zadruku wewnątrz dopisek outside / inside
 const PI_DRUK = 3.14;
 const isHang = el => el.typeId === 'podwieszana';
@@ -2103,7 +2108,7 @@ function planesOf(el) {
     const bb = joined ? { l: i === 0 ? k.l : 0, r: i === base.length - 1 ? k.r : 0, t: k.t, b: k.b } : k;
     return { label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb, gw: w + bb.l + bb.r, gh: h + bb.t + bb.b, thumb: th[i] || '' };
   });
-  if (el.inside) base.forEach(([w, h], i) => out.push({ label: mark + (base.length + i + 1), side: 'inside', w, h, b: 0, bb: zero, gw: w, gh: h, thumb: th[base.length + i] || '' }));
+  if (el.inside) base.forEach(([w, h], i) => out.push({ label: mark + (base.length + i + 1), side: 'inside', w, h, b: out[i].b, bb: out[i].bb, gw: out[i].gw, gh: out[i].gh, thumb: th[base.length + i] || '' }));
   return out;
 }
 const planeName = p => p.label + (p.side ? ' ' + p.side : '');
@@ -4642,13 +4647,13 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         ${bm === 'all' ? `<div class="bleed-row"><span class="bl-i">spad <input type="number" id="ed-bl-all" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedAll))}"> ${UNIT()} / stronę</span></div>` : ''}
         ${bm === 'sides' ? `<div class="bleed-row">${BLEED_SIDES.map(([k, n]) => `<span class="bl-i">${n} <input type="number" data-bl="${k}" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedSides[k]))}"></span>`).join('')} <span>${UNIT()}</span></div>` : ''}</div>`;
     }
-    if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, bez spadu)</span></span></label>`;
+    if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, z takim samym spadem)</span></span></label>`;
     if (t && t.id === 'podwieszana') {
       if (!el.hbMode) { const k0 = hangBleed(el); el.hbMode = hangBleedAny(k0) ? 'custom' : 'none'; if (el.hbMode === 'custom') el.hbSides = { ...k0 }; }
       hb = `<div class="fld bleed-fld" style="margin-top:12px"><label>Spady (zadruk zewnętrzny)</label><div class="var-list">
         ${HANG_MODES.map(([id, n]) => `<button type="button" class="type-btn var-btn ${el.hbMode === id ? 'on' : ''}" data-hmode="${id}">${n}${id === 'sock' ? ` · boki ${lenPL(HANG_SOCK.l)}, góra/dół ${lenPL(HANG_SOCK.t)} ${UNIT()}` : ''}</button>`).join('')}</div>
         ${el.hbMode === 'custom' ? `<div class="bleed-row">${BLEED_SIDES.map(([k2, n]) => `<span class="bl-i">${n} <input type="number" data-hb="${k2}" min="0" step="${unitStep()}" value="${esc(fromMM((el.hbSides || {})[k2] || 0))}"></span>`).join('')} <span>${UNIT()}</span></div>` : ''}
-        ${el.hbMode !== 'none' ? '<div class="hint">Spad dotyczy zadruku zewnętrznego; zadruk wewnątrz zostaje bez spadu.</div>' : ''}</div>`;
+        ${el.hbMode !== 'none' ? '<div class="hint">Spad dotyczy zadruku zewnętrznego i wewnętrznego (te same płaszczyzny).</div>' : ''}</div>`;
     }
     $('ed-opts').innerHTML = h;
     $('ed-bleedopts').innerHTML = hb;
@@ -4727,7 +4732,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const sw = pls.reduce((a, q) => a + q.w, 0), mh = Math.max(...pls.map(q => q.h)), gw = pls.reduce((a, q) => a + q.gw, 0), gh = Math.max(...pls.map(q => q.gh));
     const area = pls.reduce((a, q) => a + q.gw * q.gh, 0) / 1e6;
     box.innerHTML = `<label class="pl-lab" style="margin-top:10px">Wymiary płaszczyzn</label>` + pls.map((q, i) => `
-      <div class="pl-srow"><b>${esc(planeName(q))}</b><span>${lenPL(q.w)} × ${lenPL(q.h)} → do druku <b>${lenPL(q.gw)} × ${lenPL(q.gh)}</b> ${UNIT()}${q.side === 'inside' ? '' : hangBleedAny(q.bb) ? ' · ze spadem' : ''}</span>
+      <div class="pl-srow"><b>${esc(planeName(q))}</b><span>${lenPL(q.w)} × ${lenPL(q.h)} → do druku <b>${lenPL(q.gw)} × ${lenPL(q.gh)}</b> ${UNIT()}${hangBleedAny(q.bb) ? ' · ze spadem' : ''}</span>
         ${q.thumb ? `<img class="pl-th" src="${esc(q.thumb)}" alt=""><button type="button" class="btn btn-sm" data-ptrm="${i}" title="Usuń podgląd">✕</button>`
           : `<button type="button" class="btn btn-sm" data-ptb="${i}" title="Wklej podgląd tej płaszczyzny ze schowka (albo wybierz plik)">🖼 Wklej podgląd</button>`}</div>`).join('') +
       `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
@@ -5127,8 +5132,9 @@ function renderGraph() {
     const hangPl = isHang(e) && dims ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [];
     const hangBl = hangPl.length > 0 && hangBleedAny(hangBleed(e));
     const insPl = isHang(e) && dims && e.inside ? (planesOf(e) || []).filter(q => q.side === 'inside') : [];
-    const outRows = hangPl.length ? (hangPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0, inRows = insPl.length ? (insPl.length > 1 ? 1 : 0) + 1 : 0;
-    const LM = !dims ? 0 : hangPl.length ? (hangBl ? 56 : 32) : g.b ? 56 : 32, BM = !dims ? 0 : hangPl.length ? 10 + outRows * 22 + (inRows ? 36 + inRows * 22 : 0) : g.b ? 44 : 24;
+    const outRows = hangPl.length ? (hangPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0, inRows = insPl.length ? (insPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0;
+    const inTop = hangPl.length ? FH + 16 + outRows * 22 + 24 : 0;       // górna krawędź paska zadruku wewnętrznego (pod wymiarami zewnętrznymi)
+    const LM = !dims ? 0 : hangPl.length ? (hangBl ? 56 : 32) : g.b ? 56 : 32, BM = !dims ? 0 : hangPl.length ? (insPl.length ? inTop + 16 + inRows * 22 + 6 : 10 + outRows * 22) : g.b ? 44 : 24;
     const W = LM + FW + 4, H = FH + BM, QW = qtyOf(e) > 1 ? 52 : 0; // miejsce na „×3” obok miniatury
     let svg = '';
     if (dims) {
@@ -5141,26 +5147,22 @@ function renderGraph() {
       const ext = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a0aec0" stroke-width=".8"/>`;
       svg += `<rect x="${LM}" y="0" width="${FW}" height="${FH}" fill="none" stroke="#a0aec0"/>`;
       if (hangPl.length) {
-        const tw = hangPl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hangPl.map(q => q.gh)), kx = FW / tw, ky = FH / mh, rowY = i => FH + 16 + i * 22;
-        const netX = (q, c0) => [LM + (c0 + q.bb.l) * kx, LM + (c0 + q.gw - q.bb.r) * kx];
-        const nx0 = LM + hangPl[0].bb.l * kx, nx1 = LM + FW - hangPl[hangPl.length - 1].bb.r * kx;
-        let row = 0, cx = 0;
-        if (hangPl.length > 1) { // rzeczywisty wymiar każdej płaszczyzny (netto, bez spadu) — np. 20, 20, 20
-          hangPl.forEach(q => { const [x0, x1] = netX(q, cx); svg += ext(x0, FH, x0, rowY(row) + 2) + ext(x1, FH, x1, rowY(row) + 2) + L(x0, rowY(row), x1, rowY(row), cm(q.w)); cx += q.gw; });
-          row++;
-        }
-        svg += ext(nx0, FH, nx0, rowY(row) + 2) + ext(nx1, FH, nx1, rowY(row) + 2) + L(nx0, rowY(row), nx1, rowY(row), cm(hangPl.reduce((a2, q) => a2 + q.w, 0))); row++;   // razem (netto)
-        if (hangBl) { svg += ext(LM, FH, LM, rowY(row) + 2) + ext(LM + FW, FH, LM + FW, rowY(row) + 2) + L(LM, rowY(row), LM + FW, rowY(row), cm(g.w)); row++; }                 // razem ze spadem
-        if (insPl.length) { // zadruk wewnątrz: to samo wymiarowanie, bez spadu, niżej
-          const y0 = FH + 16 + outRows * 22 + 16, yIn = j => y0 + 14 + j * 22, tk = (x, y) => ext(x, y - 10, x, y + 2);
-          svg += `<text x="${LM}" y="${y0 - 3}" style="fill:#718096;font-size:10px;font-weight:700">zadruk wewnątrz</text>`;
-          let rj = 0; cx = 0;
-          if (insPl.length > 1) { hangPl.forEach((q, i) => { const [x0, x1] = netX(q, cx), iq = insPl[i]; if (iq) svg += tk(x0, yIn(rj)) + tk(x1, yIn(rj)) + L(x0, yIn(rj), x1, yIn(rj), cm(iq.w)); cx += q.gw; }); rj++; }
-          svg += tk(nx0, yIn(rj)) + tk(nx1, yIn(rj)) + L(nx0, yIn(rj), nx1, yIn(rj), cm(insPl.reduce((a2, q) => a2 + q.w, 0)));
-        }
-        const tp = hangPl.reduce((a2, q) => q.gh > a2.gh ? q : a2, hangPl[0]);
-        if (hangBl) { const y0 = tp.bb.t * ky, y1 = FH - tp.bb.b * ky; svg += ext(LM, y0, LM - 22, y0) + ext(LM, y1, LM - 22, y1) + L(LM - 20, y0, LM - 20, y1, cm(tp.h), true); }
-        svg += ext(LM, 0, hangBl ? LM - 46 : LM - 24, 0) + ext(LM, FH, hangBl ? LM - 46 : LM - 24, FH) + L(hangBl ? LM - 44 : LM - 22, 0, hangBl ? LM - 44 : LM - 22, FH, cm(g.h), true);
+        // pasek płaszczyzn z wymiarami: każda netto (bez spadu), razem netto, razem ze spadem + wysokości; zadruk wewnątrz — ten sam blok niżej
+        const hangBlock = (top, pls) => {
+          const bl = pls.some(q => hangBleedAny(q.bb)), tw = pls.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...pls.map(q => q.gh)), kx = FW / tw, ky = FH / mh, rowY = i => top + FH + 16 + i * 22;
+          const netX = (q, c0) => [LM + (c0 + q.bb.l) * kx, LM + (c0 + q.gw - q.bb.r) * kx];
+          const nx0 = LM + pls[0].bb.l * kx, nx1 = LM + FW - pls[pls.length - 1].bb.r * kx;
+          let o2 = `<rect x="${LM}" y="${top}" width="${FW}" height="${FH}" fill="none" stroke="#a0aec0"/>`, row = 0, cx = 0;
+          if (pls.length > 1) { pls.forEach(q => { const [x0, x1] = netX(q, cx); o2 += ext(x0, top + FH, x0, rowY(row) + 2) + ext(x1, top + FH, x1, rowY(row) + 2) + L(x0, rowY(row), x1, rowY(row), cm(q.w)); cx += q.gw; }); row++; }
+          o2 += ext(nx0, top + FH, nx0, rowY(row) + 2) + ext(nx1, top + FH, nx1, rowY(row) + 2) + L(nx0, rowY(row), nx1, rowY(row), cm(pls.reduce((a2, q) => a2 + q.w, 0))); row++;
+          if (bl) { o2 += ext(LM, top + FH, LM, rowY(row) + 2) + ext(LM + FW, top + FH, LM + FW, rowY(row) + 2) + L(LM, rowY(row), LM + FW, rowY(row), cm(tw)); row++; }
+          const tp = pls.reduce((a2, q) => q.gh > a2.gh ? q : a2, pls[0]), vx = bl ? LM - 44 : LM - 22;
+          if (bl) { const y0 = top + tp.bb.t * ky, y1 = top + FH - tp.bb.b * ky; o2 += ext(LM, y0, LM - 22, y0) + ext(LM, y1, LM - 22, y1) + L(LM - 20, y0, LM - 20, y1, cm(tp.h), true); }
+          o2 += ext(LM, top, vx - 2, top) + ext(LM, top + FH, vx - 2, top + FH) + L(vx, top, vx, top + FH, cm(mh), true);
+          return o2;
+        };
+        svg += hangBlock(0, hangPl);
+        if (insPl.length) svg += `<text x="${LM}" y="${inTop - 7}" style="fill:#718096;font-size:10px;font-weight:700">zadruk wewnątrz</text>` + hangBlock(inTop, insPl);
       } else if (bx) {
         svg += `<rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#f4a6b4" stroke-dasharray="4 3"/>`;
         // netto (wewnątrz spadu) i do druku (całość)
@@ -5177,31 +5179,29 @@ function renderGraph() {
     // ramka netto (bez spadu) na wierzchu grafiki — widać, co zostaje po przycięciu; cienka, sama przerywana linia
     const netFrame = bx && dims && !hangPl.length && !(e.doorFor && !(e.seg || e.wyslona)) && !e.backFor
       ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#e8527a" stroke-width=".75" stroke-dasharray="5 3"/></svg>` : '';
-    // konstrukcja ze spadem: przerywany obrys netto każdej płaszczyzny (na wierzchu podglądów)
-    let hangFrame = '';
-    if (hangBl) {
-      const tw = hangPl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hangPl.map(q => q.gh)), kx = FW / tw, ky = FH / mh; let cx = 0;
-      hangFrame = `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` + hangPl.map(q => { const r = `<rect x="${LM + (cx + q.bb.l) * kx}" y="${q.bb.t * ky}" width="${q.w * kx}" height="${q.h * ky}" fill="none" stroke="#e08a9d" stroke-width="1.2" stroke-dasharray="4 3"/>`; cx += q.gw; return r; }).join('') + '</svg>';
-    }
+    // konstrukcja ze spadem: przerywany obrys netto każdej płaszczyzny (na wierzchu podglądów), także na pasku zadruku wewnętrznego
+    const netOverlay = (top, pls) => { const tw = pls.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...pls.map(q => q.gh)), kx = FW / tw, ky = FH / mh; let cx = 0;
+      return pls.map(q => { const r = `<rect x="${LM + (cx + q.bb.l) * kx}" y="${top + q.bb.t * ky}" width="${q.w * kx}" height="${q.h * ky}" fill="none" stroke="#e08a9d" stroke-width="1.2" stroke-dasharray="4 3"/>`; cx += q.gw; return r; }).join(''); };
+    const hangFrame = hangBl ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${netOverlay(0, hangPl)}${insPl.length ? netOverlay(inTop, insPl) : ''}</svg>` : '';
     // Blackback standard / Folia: na grafice drzwi ramka w miejscu drzwi — sam przerywany kontur, bez wypełnienia
     const doorFrame = e.doorFor && dims && bx && !(e.seg || e.wyslona)
       ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#3182ce" stroke-width="1.8" stroke-dasharray="7 4"/></svg>` : '';
-    // konstrukcja podwieszana: płaszczyzny zewnętrzne obok siebie (szerokość i wysokość wg wymiaru do druku); klik w płaszczyznę wkleja jej podgląd
-    const hpl = isHang(e) && dims ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [];
-    const showCells = hpl.length > 0 && !(e.thumb && !hpl.some(q => q.thumb));
-    let cells = '';
-    if (showCells) {
-      const tw = hpl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hpl.map(q => q.gh)); let cx = 0;
-      cells = hpl.map((q, i) => { const c = `<div class="gc-pl" data-pl="${i}" title="${esc(planeName(q))} — kliknij, aby wkleić podgląd tej płaszczyzny" style="left:${(cx / tw * 100).toFixed(3)}%;width:${(q.gw / tw * 100).toFixed(3)}%;height:${(q.gh / mh * 100).toFixed(3)}%">${q.thumb ? `<img src="${esc(q.thumb)}" alt="" draggable="false">` : '<span>+</span>'}</div>`; cx += q.gw; return c; }).join('');
-    }
-    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
+    // konstrukcja podwieszana: pasek płaszczyzn obok siebie (szerokość i wysokość wg wymiaru do druku); klik wkleja JEDEN obrazek na całą konstrukcję
+    // (wypełnia też spady), linie podziału płaszczyzn zostają na wierzchu; zadruk wewnątrz — drugi pasek z własnym obrazkiem
+    const hasCells = hangPl.length > 0;
+    const cellsOf = (pls, whole) => { const tw = pls.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...pls.map(q => q.gh)); let cx = 0;
+      return pls.map(q => { const c = `<div class="gc-pl" title="${esc(planeName(q))}" style="left:${(cx / tw * 100).toFixed(3)}%;width:${(q.gw / tw * 100).toFixed(3)}%;height:${(q.gh / mh * 100).toFixed(3)}%">${q.thumb ? `<img src="${esc(q.thumb)}" alt="" draggable="false">` : whole ? '' : '<span>+</span>'}</div>`; cx += q.gw; return c; }).join(''); };
+    const himg = (url, inn) => url ? `<img class="gc-himg" src="${esc(url)}" alt="" draggable="false"><span class="x" data-rm="${e.id}"${inn ? ' data-in="1"' : ''} title="Usuń miniaturę">✕</span>` : '';
+    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}${hasCells && e.thumb ? ' has-img' : ''}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
         title="Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">
-      ${cells || (e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika')}</div>`;
+      ${hasCells ? himg(e.thumb, false) + cellsOf(hangPl, !!e.thumb) : (e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika')}</div>`;
+    const frameIn = insPl.length ? `<div class="gc-frame gc-frame-in${e.thumbIn ? ' has-img' : ''}" data-eid="${e.id}" data-in="1" style="left:${LM}px;top:${inTop}px;width:${FW}px;height:${FH}px"
+        title="Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W + QW, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span><button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
-      <div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${doorLayer}${doorFrame}${netFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}</div>
+      <div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${frameIn}${doorLayer}${doorFrame}${netFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
   box.classList.add('gnav');
@@ -5305,14 +5305,12 @@ function renderGraph() {
     };
   });
   box.querySelectorAll('.gc-frame').forEach(f => {
-    const eid = f.dataset.eid;
+    const eid = f.dataset.eid, which = f.dataset.in ? 'in' : '';
     f.onclick = e => {
       if (S.graphMove) return; // w trybie przesuwania klik nie wkleja grafiki
       const rm = e.target.closest('[data-rm]');
-      if (rm) { e.stopPropagation(); removeThumb(eid); return; }
-      const pc = e.target.closest('[data-pl]');
-      if (pc) { e.stopPropagation(); pastePlaneThumb(eid, +pc.dataset.pl); return; }
-      e.stopPropagation(); pasteThumb(eid);
+      if (rm) { e.stopPropagation(); removeThumb(eid, rm.dataset.in ? 'in' : ''); return; }
+      e.stopPropagation(); pasteThumb(eid, which);
     };
     f.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); f.classList.add('drag'); } });
     f.addEventListener('dragleave', () => f.classList.remove('drag'));
@@ -5321,36 +5319,36 @@ function renderGraph() {
       if (!hasFiles(e)) return;
       e.preventDefault(); e.stopPropagation();
       const file = [...e.dataTransfer.files].find(x => x.type.startsWith('image/'));
-      if (file) setThumb(eid, file);
+      if (file) setThumb(eid, file, which);
     });
   });
 }
 // miniatura grafiki w okienku elementu: kliknięcie od razu wkleja obrazek ze schowka;
 // gdy w schowku nie ma obrazka (albo przeglądarka nie da dostępu) — wybór pliku z dysku
-function pickThumbFile(eid) {
+function pickThumbFile(eid, which = '') {
   const fi = $('file-generic');
-  fi.onchange = () => { const file = fi.files[0]; fi.value = ''; if (file) setThumb(eid, file); };
+  fi.onchange = () => { const file = fi.files[0]; fi.value = ''; if (file) setThumb(eid, file, which); };
   fi.click();
 }
-async function pasteThumb(eid) {
+async function pasteThumb(eid, which = '') {
   selectElement(eid, false);
-  if (!navigator.clipboard || !navigator.clipboard.read) return pickThumbFile(eid);
+  if (!navigator.clipboard || !navigator.clipboard.read) return pickThumbFile(eid, which);
   try {
     for (const item of await navigator.clipboard.read()) {
       const type = item.types.find(t => t.startsWith('image/'));
-      if (type) { const b = await item.getType(type); return setThumb(eid, new File([b], 'grafika.' + (type.split('/')[1] || 'png'), { type })); }
+      if (type) { const b = await item.getType(type); return setThumb(eid, new File([b], 'grafika.' + (type.split('/')[1] || 'png'), { type }), which); }
     }
     toast('W schowku nie ma obrazka — wybierz plik z dysku', '', 3500);
   } catch (e) { /* brak zgody na schowek */ }
-  pickThumbFile(eid);
+  pickThumbFile(eid, which);
 }
-async function setThumb(eid, file) {
+async function setThumb(eid, file, which = '') {
   const el = S.elements.find(x => x.id === eid); if (!el || !S.project) return;
   const t = toast('Wgrywanie miniatury…', '', 60000);
   try {
     const { url } = await storeThumb(file);
-    await DB.update(pElements(S.project.id), eid, { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
-    addLog(S.project.id, `Dodano grafikę (miniaturę) do elementu ${markOf(el)}`, eid);
+    await DB.update(pElements(S.project.id), eid, which === 'in' ? { thumbIn: url, updatedAt: nowIso(), updatedBy: S.me.id } : { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
+    addLog(S.project.id, `Dodano grafikę (miniaturę)${which === 'in' ? ' zadruku wewnętrznego' : ''} do elementu ${markOf(el)}`, eid);
   } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
   t.remove();
 }
@@ -5368,11 +5366,11 @@ async function pastePlaneThumb(eid, idx) {
   } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
   t.remove();
 }
-async function removeThumb(eid) {
+async function removeThumb(eid, which = '') {
   const el = S.elements.find(x => x.id === eid); if (!el) return;
-  if (!await confirmBox(`Usunąć miniaturę grafiki z elementu <b>${markOf(el)}</b>?`, 'Usuń')) return;
-  await DB.update(pElements(S.project.id), eid, { thumb: '', thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
-  addLog(S.project.id, `Usunięto miniaturę grafiki z elementu ${markOf(el)}`, eid);
+  if (!await confirmBox(`Usunąć miniaturę grafiki${which === 'in' ? ' zadruku wewnętrznego' : ''} z elementu <b>${markOf(el)}</b>?`, 'Usuń')) return;
+  await DB.update(pElements(S.project.id), eid, which === 'in' ? { thumbIn: '', updatedAt: nowIso(), updatedBy: S.me.id } : { thumb: '', thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
+  addLog(S.project.id, `Usunięto miniaturę grafiki${which === 'in' ? ' zadruku wewnętrznego' : ''} z elementu ${markOf(el)}`, eid);
 }
 // okienka znów w automatycznym układzie
 async function graphAutoLayout() {
@@ -5654,7 +5652,7 @@ function orderLine(e) {
     if (e.inside) head.push('zadruk zewnątrz i wewnątrz');
     if (e.notes) head.push(e.notes);
     return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${head.join(', ')}` +
-      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${p.side === 'inside' || !hangBleedAny(hangBleed(e)) ? ' (bez spadu)' : (planesOf(e) || []).length > 1 && dimsMode(e) === 'flat' ? '' : ` (spad ${hangBleedShort(e)})`}`).join('') +
+      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${!hangBleedAny(hangBleed(e)) ? ' (bez spadu)' : (planesOf(e) || []).length > 1 && dimsMode(e) === 'flat' ? '' : ` (spad ${hangBleedShort(e)})`}`).join('') +
       (() => { const pl = planesOf(e) || []; return pl.length > 1 ? `\n   razem (płaszczyzny obok siebie): ${lenPL(pl.reduce((a, p) => a + p.gw, 0))} × ${lenPL(Math.max(...pl.map(p => p.gh)))} ${UNIT()}${hangBleedAny(hangBleed(e)) ? ` (spad ${hangBleedShort(e)} dookoła całości)` : ''} · ${numPL(pl.reduce((a, p) => a + p.gw * p.gh, 0) / 1e6)} m²` : ''; })();
   }
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, orderTypeLabel(e) + (t.transfer ? ' + transfer' : '')];
@@ -7037,6 +7035,7 @@ const _crispUrls = new Map(), _crispImgs = new Map();
 async function crispGraphThumbs(root) {
   const zoom = G.s > 2 ? 4 : G.s > 1 ? 2 : 1, dpr = window.devicePixelRatio || 1;
   for (const im of (root || document).querySelectorAll('.gc-frame img')) {
+    if (im.classList.contains('gc-himg')) continue;   // obrazek konstrukcji podwieszanej rozciągnięty na cały pasek — bez przeliczania
     const url = im.dataset.src || im.getAttribute('src'); if (!url || url.startsWith('blob:') || /\.svg(\?|$)/i.test(url)) continue; // wektor (SVG) jest ostry sam
     im.dataset.src = url;
     const fr = im.parentElement, bw = fr.clientWidth * dpr * zoom, bh = fr.clientHeight * dpr * zoom; if (!bw || !bh) continue;
@@ -7166,7 +7165,10 @@ async function renderIndexA3(stamp) {
   const thumbs = {};
   for (const r of rows) if (r.el.thumb) { try { thumbs[r.el.id] = await loadImg(r.el.thumb); } catch (e) {} }
   const pthumbs = {}; // konstrukcje podwieszane: podgląd każdej płaszczyzny zewnętrznej
-  for (const r of rows) if (isHang(r.el)) for (const [i, q] of (planesOf(r.el) || []).filter(q => q.side !== 'inside').entries()) if (q.thumb) { try { pthumbs[r.el.id + '#' + i] = await loadImg(q.thumb); } catch (e) {} }
+  for (const r of rows) if (isHang(r.el)) {
+    for (const [i, q] of (planesOf(r.el) || []).entries()) if (q.thumb) { try { pthumbs[r.el.id + '#' + i] = await loadImg(q.thumb); } catch (e) {} }
+    if (r.el.inside && r.el.thumbIn) { try { thumbs[r.el.id + '#in'] = await loadImg(r.el.thumbIn); } catch (e) {} }
+  }
   const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24;
   const withD = rows.filter(r => r.w !== '');
   const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
@@ -7177,8 +7179,8 @@ async function renderIndexA3(stamp) {
     // konstrukcja podwieszana „inny kształt”: rzędy strzałek pod pasem płaszczyzn (każda płaszczyzna, całość bez spadu, całość do druku)
     const hpN = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [], hpBl = hpN.length > 0 && hangBleedAny(hangBleed(r.el));
     const hpIn = isHang(r.el) && d && r.el.inside ? (planesOf(r.el) || []).filter(q => q.side === 'inside') : [];
-    const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0, hpInRows = hpIn.length ? (hpIn.length > 1 ? 1 : 0) + 1 : 0;
-    const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? 14 + hpRows * 46 + (hpInRows ? 34 + hpInRows * 46 : 0) : gb ? 88 : 48;
+    const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0, hpInRows = hpIn.length ? (hpIn.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0;
+    const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? (hpIn.length ? FH + 106 + hpRows * 46 + (hpInRows - 1) * 46 : 14 + hpRows * 46) : gb ? 88 : 48;
     const qw = (r.qty || 1) > 1 ? 110 : 0;
     const w = Math.max(LM + FW + 10 + qw, 230);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
@@ -7315,14 +7317,22 @@ async function renderIndexA3(stamp) {
       }
       const th = thumbs[r.el.id];
       const hpl = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [];
-      if (hpl.length && hpl.some((q, i) => pthumbs[r.el.id + '#' + i])) { // płaszczyzny obok siebie, każda z własnym podglądem
-        const tw = hpl.reduce((a2, q) => a2 + q.gw, 0), sk = FW / tw; let cx = fx;
-        hpl.forEach((q, i) => {
-          const im = pthumbs[r.el.id + '#' + i], cw = q.gw * sk, ch = q.gh * sk;
-          if (im) { const s3 = Math.min(cw / im.width, ch / im.height), dw3 = im.width * s3, dh3 = im.height * s3; g.drawImage(crispCanvas(im, dw3 * EXP_Q, dh3 * EXP_Q) || im, cx + (cw - dw3) / 2, fy + (ch - dh3) / 2, dw3, dh3); }
-          g.strokeStyle = '#cbd5e0'; g.lineWidth = 1.5; g.strokeRect(cx, fy, cw, ch);
-          cx += cw;
-        });
+      const insA = isHang(r.el) && d && r.el.inside ? (planesOf(r.el) || []).filter(q => q.side === 'inside') : [];
+      const hBlA = hpl.length > 0 && hangBleedAny(hangBleed(r.el)), outRowsA = hpl.length ? (hpl.length > 1 ? 1 : 0) + 1 + (hBlA ? 1 : 0) : 0, inFy = fy + FH + 36 + outRowsA * 46 + 24;
+      if (hpl.length) { // paski płaszczyzn: jeden obrazek na całość (także na spady), linie podziału na wierzchu; zadruk wewnątrz — drugi pasek niżej
+        const strip = (sy, pls, whole, off) => {
+          const tw = pls.reduce((a2, q) => a2 + q.gw, 0), sk = FW / tw; let cx = fx;
+          if (whole) g.drawImage(crispCanvas(whole, FW * EXP_Q, FH * EXP_Q) || whole, fx, sy, FW, FH);
+          pls.forEach((q, i) => {
+            const im = pthumbs[r.el.id + '#' + (off + i)], cw = q.gw * sk, ch = q.gh * sk;
+            if (im) { const s3 = Math.min(cw / im.width, ch / im.height), dw3 = im.width * s3, dh3 = im.height * s3; g.drawImage(crispCanvas(im, dw3 * EXP_Q, dh3 * EXP_Q) || im, cx + (cw - dw3) / 2, sy + (ch - dh3) / 2, dw3, dh3); }
+            cx += cw;
+          });
+          cx = fx; g.lineCap = 'butt';
+          pls.forEach((q, i) => { cx += q.gw * sk; if (i < pls.length - 1) { g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx, sy); g.lineTo(cx, sy + q.gh * sk); g.stroke(); g.strokeStyle = 'rgba(26,32,44,.6)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx, sy); g.lineTo(cx, sy + q.gh * sk); g.stroke(); } });
+        };
+        strip(fy, hpl, th, 0);
+        if (insA.length) { strip(inFy, insA, thumbs[r.el.id + '#in'], hpl.length); g.strokeStyle = '#a0aec0'; g.lineWidth = 2; g.strokeRect(fx, inFy, FW, FH); }
       } else if (th) { // miniatura grafiki mieści się w całości w okienku (wyśrodkowana, bez przycinania)
         const s2 = Math.min(FW / th.width, FH / th.height), dw = th.width * s2, dh = th.height * s2;
         g.drawImage(crispCanvas(th, dw * EXP_Q, dh * EXP_Q) || th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
@@ -7343,25 +7353,21 @@ async function renderIndexA3(stamp) {
         const hDim = (xa, xb, y, mm) => { drawArrowLine(g, xa, y, xb, y, 14, AC, 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), (xa + xb) / 2, y - 8); g.textAlign = 'left'; };
         const vDim = (ya, yb, x, mm) => { drawArrowLine(g, x, ya, x, yb, 14, AC, 2); g.save(); g.translate(x - 8, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.fillStyle = TXT; g.font = `400 ${FS}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(mm), 0, 0); g.restore(); };
         if (hpl.length) {
-          const tw = hpl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hpl.map(q => q.gh)), kx = FW / tw, ky = FH / mh, hBl = hangBleedAny(hangBleed(r.el));
-          const rowY = i => fy + FH + 36 + i * 46, rx = (v, row) => ext(v, fy + FH, v, rowY(row) + 4);
-          let row = 0, cx = fx;
-          if (hBl) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; let c2 = fx; hpl.forEach(q => { g.strokeRect(c2 + q.bb.l * kx, fy + q.bb.t * ky, q.w * kx, q.h * ky); c2 += q.gw * kx; }); g.setLineDash([]); }
-          const nxa = fx + hpl[0].bb.l * kx, nxb = fx + FW - hpl[hpl.length - 1].bb.r * kx;
-          if (hpl.length > 1) { hpl.forEach(q => { const xa = cx + q.bb.l * kx, xb = cx + (q.gw - q.bb.r) * kx; rx(xa, row); rx(xb, row); hDim(xa, xb, rowY(row), q.w); cx += q.gw * kx; }); row++; }   // każda płaszczyzna: wymiar netto
-          rx(nxa, row); rx(nxb, row); hDim(nxa, nxb, rowY(row), hpl.reduce((a2, q) => a2 + q.w, 0)); row++;                                                                 // razem netto
-          if (hBl) { rx(fx, row); rx(fx + FW, row); hDim(fx, fx + FW, rowY(row), r.bw); row++; }                                                                              // razem ze spadem
-          const ins = isHang(r.el) && r.el.inside ? (planesOf(r.el) || []).filter(q => q.side === 'inside') : [];
-          if (ins.length) { // zadruk wewnątrz — to samo wymiarowanie bez spadu
-            const capY = rowY(row) - 4, yIn = j => capY + 34 + j * 46, tk = (v, y) => ext(v, y - 22, v, y + 4);
-            g.fillStyle = '#718096'; g.font = `700 ${FS * .8}px ${PDF_FONT}`; g.textAlign = 'left'; g.fillText('zadruk wewnątrz', fx, capY + 6);
-            let rj = 0; cx = fx;
-            if (ins.length > 1) { hpl.forEach((q, i) => { const xa = cx + q.bb.l * kx, xb = cx + (q.gw - q.bb.r) * kx, iq = ins[i]; if (iq) { tk(xa, yIn(rj)); tk(xb, yIn(rj)); hDim(xa, xb, yIn(rj), iq.w); } cx += q.gw * kx; }); rj++; }
-            tk(nxa, yIn(rj)); tk(nxb, yIn(rj)); hDim(nxa, nxb, yIn(rj), ins.reduce((a2, q) => a2 + q.w, 0));
-          }
-          const tp = hpl.reduce((a2, q) => q.gh > a2.gh ? q : a2, hpl[0]);
-          if (hBl) { const ya = fy + tp.bb.t * ky, yb = fy + FH - tp.bb.b * ky; ext(fx, ya, fx - 50, ya); ext(fx, yb, fx - 50, yb); vDim(ya, yb, fx - 46, tp.h); ext(fx, fy, fx - 104, fy); ext(fx, fy + FH, fx - 104, fy + FH); vDim(fy, fy + FH, fx - 100, r.bh); }
-          else { ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh); }
+          const hangDims = (sy, pls) => {
+            const tw = pls.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...pls.map(q => q.gh)), kx = FW / tw, ky = FH / mh, bl = pls.some(q => hangBleedAny(q.bb));
+            const rowY = i => sy + FH + 36 + i * 46, rx = (v, row) => ext(v, sy + FH, v, rowY(row) + 4);
+            if (bl) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; let c2 = fx; pls.forEach(q => { g.strokeRect(c2 + q.bb.l * kx, sy + q.bb.t * ky, q.w * kx, q.h * ky); c2 += q.gw * kx; }); g.setLineDash([]); }
+            const nxa = fx + pls[0].bb.l * kx, nxb = fx + FW - pls[pls.length - 1].bb.r * kx;
+            let row = 0, cx = fx;
+            if (pls.length > 1) { pls.forEach(q => { const xa = cx + q.bb.l * kx, xb = cx + (q.gw - q.bb.r) * kx; rx(xa, row); rx(xb, row); hDim(xa, xb, rowY(row), q.w); cx += q.gw * kx; }); row++; }   // każda płaszczyzna: wymiar netto
+            rx(nxa, row); rx(nxb, row); hDim(nxa, nxb, rowY(row), pls.reduce((a2, q) => a2 + q.w, 0)); row++;                                                          // razem netto
+            if (bl) { rx(fx, row); rx(fx + FW, row); hDim(fx, fx + FW, rowY(row), pls.reduce((a2, q) => a2 + q.gw, 0)); row++; }                                          // razem ze spadem
+            const tp = pls.reduce((a2, q) => q.gh > a2.gh ? q : a2, pls[0]);
+            if (bl) { const ya = sy + tp.bb.t * ky, yb = sy + FH - tp.bb.b * ky; ext(fx, ya, fx - 50, ya); ext(fx, yb, fx - 50, yb); vDim(ya, yb, fx - 46, tp.h); ext(fx, sy, fx - 104, sy); ext(fx, sy + FH, fx - 104, sy + FH); vDim(sy, sy + FH, fx - 100, mh); }
+            else { ext(fx, sy, fx - 56, sy); ext(fx, sy + FH, fx - 56, sy + FH); vDim(sy, sy + FH, fx - 52, mh); }
+          };
+          hangDims(fy, hpl);
+          if (insA.length) { g.fillStyle = '#718096'; g.font = `700 ${FS * .8}px ${PDF_FONT}`; g.textAlign = 'left'; g.fillText('zadruk wewnątrz', fx, inFy - 12); hangDims(inFy, insA); }
         } else if (gb) {
           ext(fx + bw, fy + FH, fx + bw, fy + FH + 40); ext(fx + FW - bwR, fy + FH, fx + FW - bwR, fy + FH + 40); hDim(fx + bw, fx + FW - bwR, fy + FH + 36, r.bw - bx2.l - bx2.r);
           ext(fx, fy + FH, fx, fy + FH + 86); ext(fx + FW, fy + FH, fx + FW, fy + FH + 86); hDim(fx, fx + FW, fy + FH + 82, r.bw);
