@@ -6027,6 +6027,10 @@ function ufGeom(d) {
   // grafikę dostaje tylko odcinek widoczny od alejki — zamknięte pomieszczenie (np. magazyn) jest bez grafiki;
   // gdy za ścianką nie ma zamkniętego pomieszczenia (tył też widać od alejki, w obrębie stoiska) — grafika także z tyłu, tak samo pocięta
   const pub = ufPublic(st, parts), faces = [];
+  // znaczniki pomieszczeń (ikony ZAP / MT przeciągnięte do zamkniętego pomieszczenia): MT = pokój rozmów — grafiki jak od alejki, ZAP = zaplecze — wysłony
+  const rooms = (d.rooms || []).map(m => ({ ...m, reg: pub.region(m.x, m.y) })), roomKind = new Map(rooms.filter(m => m.reg).map(m => [m.reg, m.t]));
+  const kindAt = (x, y) => roomKind.get(pub.region(x, y)) || '';
+  const vis = (x, y) => pub(x, y) || kindAt(x, y) === 'mt';
   runs.forEach(r => { const mid0 = st ? (r.ori === 0 ? st.D : st.L) / 2 : 0, inn0 = r.line >= mid0 ? -1 : 1; [inn0, -inn0].forEach(inn => {
     const back = inn !== inn0; if (back && (!st || r.manual)) return;   // tył z wysłoną ręczną — bez grafiki SEG
     const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + inn * UF_T / 2;
@@ -6040,7 +6044,7 @@ function ufGeom(d) {
       if (sb - sa < 100) return;
       const am = (sa + sb) / 2;
       const px = r.ori === 0 ? am : f + inn * 60, py = r.ori === 0 ? f + inn * 60 : am;
-      if (!pub(px, py) || (back && !(px > 0 && px < st.L && py > 0 && py < st.D))) return;       // tył poza stoiskiem (sąsiad) — bez grafiki
+      if (!vis(px, py) || (back && !(px > 0 && px < st.L && py > 0 && py < st.D))) return;       // tył poza stoiskiem (sąsiad) — bez grafiki
       const items = r.parts.map(q => ({ op: q.op, len: Math.min(sb, q[k0 + '1']) - Math.max(sa, q[k0 + '0']) })).filter(it => it.len > 1);
       const w0 = items.find(it => it.op.t !== 'post'); if (!w0) return;
       faces.push({ key: 'uf:' + w0.op.id + (back ? ':b' : ''), run: r, ori: r.ori, inn, back, f, a: sa, b: sb, h: r.h, items });
@@ -6049,7 +6053,7 @@ function ufGeom(d) {
   // wysłony zaplecza (opcja): każde lico ścianki zwrócone do zamkniętego pomieszczenia wewnątrz stoiska (niewidoczne od alejki) —
   // pocięte ściankami, które do niego dochodzą; szerokość = same moduły (bez słupków), wysokość ścianki
   const zap = [];
-  if (st && st.zap) runs.forEach(r => [-1, 1].forEach(sd => {
+  if (st && (st.zap || rooms.some(m => m.t === 'zap'))) runs.forEach(r => [-1, 1].forEach(sd => {
     const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + sd * UF_T / 2;
     const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
     const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + sd && q.y1 >= f + sd : q.x0 <= f + sd && q.x1 >= f + sd))
@@ -6061,16 +6065,17 @@ function ufGeom(d) {
       if (sb - sa < 100) return;
       const am = (sa + sb) / 2, px = r.ori === 0 ? am : f + sd * 60, py = r.ori === 0 ? f + sd * 60 : am;
       if (!(px > 0 && px < st.L && py > 0 && py < st.D) || pub(px, py)) return;           // tylko wnętrze stoiska niewidoczne od alejki
+      const kd = kindAt(px, py); if (kd === 'mt' || (!kd && !st.zap)) return;              // pokój rozmów — grafiki; pomieszczenie bez znacznika — wg opcji „wysłona zaplecza”
       const items = r.parts.map(q => ({ op: q.op, len: Math.min(sb, q[k0 + '1']) - Math.max(sa, q[k0 + '0']) })).filter(it => it.len > 1);
       const w0 = items.find(it => it.op.t !== 'post'); if (!w0) return;
       zap.push({ key: 'uf:zap:' + w0.op.id + ':' + (sd > 0 ? 'p' : 'm'), run: r, ori: r.ori, inn: sd, f, a: sa, b: sb, h: r.h, items });
     });
   }));
-  return { parts, runs, ext, ends, caps, faces, zap, pub, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
+  return { parts, runs, ext, ends, caps, faces, zap, pub, rooms, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
 }
 // część stoiska widoczna od alejki: siatka zalewana od otwartych boków, ścianki (także z drzwiami) są przegrodą
 function ufPublic(st, parts) {
-  if (!st || !['n', 'e', 's', 'w'].some(k => st.open[k])) return () => true;
+  if (!st || !['n', 'e', 's', 'w'].some(k => st.open[k])) { const f = () => true; f.region = () => 0; return f; }
   const c = Math.max(50, Math.ceil(Math.max(st.L, st.D) / 300)), nx = Math.ceil(st.L / c), ny = Math.ceil(st.D / c);
   const blk = new Uint8Array(nx * ny), seen = new Uint8Array(nx * ny), todo = [];
   parts.forEach(q => {
@@ -6081,7 +6086,19 @@ function ufPublic(st, parts) {
   for (let i = 0; i < nx; i++) { if (st.open.n) push(i, 0); if (st.open.s) push(i, ny - 1); }
   for (let j = 0; j < ny; j++) { if (st.open.w) push(0, j); if (st.open.e) push(nx - 1, j); }
   while (todo.length) { const k = todo.pop(), i = k % nx, j = (k - i) / nx; push(i + 1, j); push(i - 1, j); push(i, j + 1); push(i, j - 1); }
-  return (x, y) => { const i = Math.floor(x / c), j = Math.floor(y / c); return i < 0 || j < 0 || i >= nx || j >= ny || !!seen[j * nx + i]; };
+  // zamknięte pomieszczenia: każde z osobnym numerem (do znaczników ZAP / MT)
+  const reg = new Int32Array(nx * ny); let nr = 0;
+  for (let k0 = 0; k0 < nx * ny; k0++) {
+    if (blk[k0] || seen[k0] || reg[k0]) continue;
+    nr++; reg[k0] = nr; const st2 = [k0];
+    while (st2.length) {
+      const k = st2.pop(), i = k % nx, j = (k - i) / nx;
+      [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]].forEach(([a, b]) => { if (a < 0 || b < 0 || a >= nx || b >= ny) return; const q = b * nx + a; if (blk[q] || seen[q] || reg[q]) return; reg[q] = nr; st2.push(q); });
+    }
+  }
+  const f = (x, y) => { const i = Math.floor(x / c), j = Math.floor(y / c); return i < 0 || j < 0 || i >= nx || j >= ny || !!seen[j * nx + i]; };
+  f.region = (x, y) => { const i = Math.floor(x / c), j = Math.floor(y / c); return i < 0 || j < 0 || i >= nx || j >= ny ? 0 : reg[j * nx + i]; };
+  return f;
 }
 // dane elementu dla lica (grafika SEG z przodu): szerokość odcinka; składniki = moduły i słupki w tym odcinku,
 // po kolei od lewej patrząc na grafikę z wnętrza stoiska (np. ścianka pionowa oglądana od prawej: od dołu planu w górę)
@@ -6245,7 +6262,7 @@ function ufSyncBar() {
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) ? 'ramy ' + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + `<span class="uf-keys">fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
+  $('uf-info').innerHTML = t + `<span class="uf-keys">ZAP / MT na środku pomieszczenia = zaplecze (wysłony) / pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
 }
 
 // ---------- rysowanie widoku z góry ----------
@@ -6394,6 +6411,11 @@ function ufDraw() {
     const de = S.elements.find(e => e.doorFor === fe.id), dp = fc.run.parts.find(q => q.op.t === 'door' && fc.items.some(it => it.op === q.op));
     if (de && dp) pin(...at(fc.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 640), markOf(de), colorOf(de), 9.5);
   });
+  // znaczniki pomieszczeń: ZAP (zaplecze — wysłony) i MT (pokój rozmów — grafiki); przenoszone myszą, PPM = zmiana / usunięcie
+  (d.rooms || []).concat(UF.drag && UF.drag.kind === 'room' && !UF.drag.rid && UF.drag.over ? [{ t: UF.drag.t, x: UF.drag.wx, y: UF.drag.wy, ghost: true }] : []).forEach(m => {
+    const r0 = geo.rooms.find(q => q.id === m.id), bad = !m.ghost && r0 && !r0.reg;   // poza zamkniętym pomieszczeniem — bez znaczenia
+    ufRoomBadge(g, X(m.x), Y(m.y), m.t, m.ghost ? .6 : bad ? .45 : 1, F);
+  });
   geo.zap.forEach(zf => { // wysłona zaplecza: znacznik w pomieszczeniu przy licu
     const ze = elOf(zf.key, 'zap'); if (!ze) return;
     const am = (zf.a + zf.b) / 2, off = 560;
@@ -6487,6 +6509,13 @@ function ufDragMove(e) {
   if (!dr.moved && Math.hypot(e.clientX - dr.cx, e.clientY - dr.cy) < 6) return;
   if (dr.kind === 'pan') { dr.moved = true; UF.vw = { s: dr.s, ox: dr.ox0 + e.clientX - dr.cx, oy: dr.oy0 + e.clientY - dr.cy }; ufDraw(); return; }
   const [wx, wy] = ufWorld(px, py);
+  if (dr.kind === 'room') {
+    dr.over = px >= 0 && py >= 0 && px <= $('uf-cv').clientWidth && py <= $('uf-cv').clientHeight;
+    if (!dr.moved) { dr.moved = true; if (dr.rid) ufPush(); }
+    if (dr.rid) { const m = (UF.d.rooms || []).find(x => x.id === dr.rid); if (m && dr.over) { m.x = Math.round(wx); m.y = Math.round(wy); } }
+    else { dr.wx = wx; dr.wy = wy; }
+    ufDraw(); return;
+  }
   if (!dr.moved) { dr.moved = true; if (dr.kind === 'move') ufPush(); }
   if (dr.kind === 'move' && (e.buttons & 2) && !dr.copy) ufStartCopy(dr);
   if (dr.kind === 'new') {
@@ -6507,6 +6536,11 @@ function ufDragEnd(e) {
   document.removeEventListener('pointermove', ufDragMove, true); document.removeEventListener('pointerup', ufDragEnd, true);
   const dr = UF.drag; UF.drag = null; if (!dr) return;
   if (dr.kind === 'pan') { if (!dr.moved) { UF.sel = null; UF.rot = false; } ufDraw(); ufSyncBar(); return; }
+  if (dr.kind === 'room') {
+    if (!dr.rid && dr.moved && dr.over) { ufPush(); (UF.d.rooms = UF.d.rooms || []).push({ id: ufUid(), t: dr.t, x: Math.round(dr.wx), y: Math.round(dr.wy) }); }
+    else if (!dr.rid && !dr.moved) toast(`Przeciągnij ikonę ${UF_ROOM[dr.t].txt} na środek pomieszczenia (${UF_ROOM[dr.t].name})`, '', 4000);
+    ufChanged(); return;
+  }
   if (dr.kind === 'new') {
     if (dr.moved && dr.ghost) {
       const geo = ufGeom(UF.d);
@@ -6546,6 +6580,11 @@ function ufPointer(e) {
   const ar = (UF.arrows || []).find(q => Math.hypot(q.x - px, q.y - py) < 16);
   if (ar) { ufPush(); UF.d.stand.open[ar.k] = !UF.d.stand.open[ar.k]; ufChanged(); return; }
   if (UF.hit && Math.hypot(UF.hit.x - px, UF.hit.y - py) < 16) { ufRotate(true); return; }
+  const rm = ufRoomAt(px, py);
+  if (rm) { // znacznik pomieszczenia: przeciąganie
+    UF.drag = { kind: 'room', rid: rm.id, t: rm.t, cx: e.clientX, cy: e.clientY, moved: false };
+    document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true); return;
+  }
   const tol = 6 / UF.tr.s, geo = UF.geo || ufGeom(UF.d);
   const hits = geo.parts.filter(q => wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0));
   const q = hits[0];
@@ -6557,9 +6596,31 @@ function ufPointer(e) {
   ufDraw(); ufSyncBar();
 }
 // prawy klawisz na drzwiach: zawiasy lewe / prawe, otwieranie do środka / na zewnątrz
+// znacznik pomieszczenia na planie: zaokrąglony prostokąt z napisem ZAP / MT
+const UF_ROOM = { zap: { txt: 'ZAP', col: '#c05621', name: 'zaplecze — wysłony' }, mt: { txt: 'MT', col: '#2b6cb0', name: 'pokój rozmów — grafiki' } };
+function ufRoomBadge(g, x, y, t, alpha, F) {
+  const k = UF_ROOM[t] || UF_ROOM.zap; g.save(); g.globalAlpha = alpha; g.font = `800 12px ${F}`;
+  const w = g.measureText(k.txt).width + 16, h = 22;
+  g.beginPath(); g.roundRect ? g.roundRect(x - w / 2, y - h / 2, w, h, 6) : g.rect(x - w / 2, y - h / 2, w, h);
+  g.fillStyle = k.col; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k.txt, x, y + .5); g.restore();
+}
+const ufRoomAt = (px, py) => (UF.d.rooms || []).find(m => UF.tr && Math.abs(UF.tr.ox + m.x * UF.tr.s - px) < 20 && Math.abs(UF.tr.oy + m.y * UF.tr.s - py) < 13);
+function ufRoomMenu(e, m) {
+  const mn = document.createElement('div'); mn.className = 'menu mark-menu';
+  mn.innerHTML = `<div class="mm-h">Pomieszczenie</div>` + Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-rt="${k}">${m.t === k ? '● ' : '○ '}${v.txt} · ${v.name}</button>`).join('')
+    + `<div class="mm-sep"></div><button type="button" class="mm-del" data-rdel="1">🗑 Usuń znacznik</button>`;
+  document.body.appendChild(mn);
+  const rc = mn.getBoundingClientRect();
+  mn.style.left = clamp(e.clientX, 6, innerWidth - rc.width - 6) + 'px'; mn.style.top = clamp(e.clientY, 6, innerHeight - rc.height - 6) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', ev => { if (!mn.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
+  mn.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { ufPush(); m.t = b.dataset.rt; closeMarkMenu(); ufChanged(); });
+  mn.querySelector('[data-rdel]').onclick = () => { ufPush(); UF.d.rooms = UF.d.rooms.filter(x => x !== m); closeMarkMenu(); ufChanged(); };
+}
 function ufContext(e) {
   e.preventDefault(); closeMarkMenu();
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 6 / UF.tr.s;
+  const rm = ufRoomAt(px, py); if (rm) return ufRoomMenu(e, rm);
   const q = (UF.geo || ufGeom(UF.d)).parts.find(q => q.op.t === 'door' && wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol);
   if (!q) return;
   UF.sel = q.op.id; UF.rot = false; ufDraw(); ufSyncBar();
@@ -6679,7 +6740,7 @@ function ufRender3D(o) {
     covers.push(side === 's' ? { side, pl: A[1], lo: Math.min(A[0], B[0]), hi: Math.max(A[0], B[0]), z0, z1 } : { side, pl: A[0], lo: Math.min(A[1], B[1]), hi: Math.max(A[1], B[1]), z0, z1 });
   };
   (geo.faces || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
-  if (st.zap) (geo.zap || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
+  (geo.zap || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
   geo.runs.forEach(r => {
     const k0 = r.ori === 0 ? 'x' : 'y', a = Math.min(...r.parts.map(q => q[k0 + '0'])), b = Math.max(...r.parts.map(q => q[k0 + '1']));
     const inn0 = r.line >= (r.ori === 0 ? st.D : st.L) / 2 ? -1 : 1, fb = r.line - inn0 * UF_T / 2;
@@ -7004,6 +7065,13 @@ async function ufGenerate() {
 function ufPalRender() {
   const palShort = p => p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) : lenPL(p.op.len);
   $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? ' · prawy klawisz = wysokość drzwi' : ''}">${p.op.t === 'door' ? '🚪' : p.op.t === 'post' ? '■' : '▭'} ${palShort(p)}</button>`).join('');
+  // znaczniki pomieszczeń: ZAP (zaplecze — wysłony), MT (pokój rozmów — grafiki) — przeciągane na środek zamkniętego pomieszczenia
+  $('uf-pal').insertAdjacentHTML('beforeend', Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-room="${k}" title="${v.txt}: ${v.name} — przeciągnij na środek zamkniętego pomieszczenia; na planie: przeciągnij, prawy klawisz = zmiana / usunięcie" style="color:${v.col === '#c05621' ? '#fbd38d' : '#90cdf4'};font-weight:800">${v.txt}</button>`).join(''));
+  $('uf-pal').querySelectorAll('[data-room]').forEach(b => b.onpointerdown = e => {
+    if (e.button !== 0 || UF.busy) return; e.preventDefault();
+    UF.drag = { kind: 'room', t: b.dataset.room, cx: e.clientX, cy: e.clientY, moved: false, over: false };
+    document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true);
+  });
   $('uf-pal').querySelectorAll('[data-pal]').forEach(b => b.onpointerdown = e => {
     if (e.button !== 0 || UF.busy) return; e.preventDefault();
     const op = ufPalOp(UF_PAL.find(p => p.id === b.dataset.pal));
