@@ -47,7 +47,7 @@
   .uf-bar input[type=number] { width: 78px; padding: 4px 6px; background: #fff; color: var(--dark); border: 1px solid #4a5568; font-size: .76rem; }
   .uf-bar select { background: #fff; color: var(--dark); border: 1px solid #4a5568; padding: 3px 4px; font-size: .76rem; }
   .uf-bar label { display: inline-flex; gap: 5px; align-items: center; }
-  .uf-chk input { width: 15px; height: 15px; }
+  .uf-chk input { width: 15px; height: 15px; accent-color: #38a169; } /* ptaszki zielone */
   .uf-bar2 { background: #2d3748; padding: 5px 10px; }
   .uf-bar2 input[type=text] { width: 74px; padding: 4px 6px; background: #fff; color: var(--dark); border: 1px solid #4a5568; font-size: .78rem; }
   .uf-zl { min-width: 40px; text-align: center; font-size: .72rem; }
@@ -910,8 +910,8 @@
           <span class="uf-grp"><input type="text" inputmode="decimal" id="uf-sl" title="Długość stoiska (oś pozioma)"> × <input type="text" inputmode="decimal" id="uf-sd" title="Głębokość stoiska (oś pionowa)"> <span id="uf-sa" class="uf-area"></span></span>
           <label>Wysokość <select id="uf-sh" title="Domyślna wysokość ścianek"></select></label>
           <label class="uf-chk" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> wysłony zewnętrzne (od 248 w górę)</label>
-          <label class="uf-chk" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><input type="checkbox" id="uf-zap"> wysłony zaplecza (od wewnątrz)</label>
-          <label class="uf-chk" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW 8 cm na gołych końcach</label>
+          <label class="uf-chk" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><input type="checkbox" id="uf-zap"> wysłona zaplecza</label>
+          <label class="uf-chk" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW</label>
         </div>
         <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo">◀</button><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo">▶</button></div></div>
         <div class="uf-info" id="uf-info"></div>
@@ -6627,18 +6627,40 @@ function ufRender3D(o) {
   const capOf = bx => { const r = { e: false, s: false }; (geo.ends || []).forEach(e => { if (!bx.p.runs.includes(e.run)) return; const [rx, ry] = rot(e.x, e.y);
     if (Math.abs(rx - bx.x1) < 2 && ry > bx.y0 - 2 && ry < bx.y1 + 2) r.e = true; if (Math.abs(ry - bx.y1) < 2 && rx > bx.x0 - 2 && rx < bx.x1 + 2) r.s = true; }); return r; };
   const capsOn = st.caps !== false;
+  // podgląd (pełne ściany): grafiki elementów nałożone na lica — każdy moduł rysuje swój kawałek obrazka, przycięty do swojej ściany
+  const rv = (vx, vy) => { const [a, b] = rot(cx + vx, cy + vy); return [a - cx, b - cy]; };
+  const tex = o.tex && !bare ? (geo.faces || []).map(fc => {
+    const el = S.elements.find(e => e.ufKey === fc.key && e.ufRole === 'front' && !e.doorFor && e.thumb), im = el && ufTexImg(el.thumb); if (!im) return null;
+    const A = rot(...(fc.ori === 0 ? [fc.a, fc.f] : [fc.f, fc.a])), B = rot(...(fc.ori === 0 ? [fc.b, fc.f] : [fc.f, fc.b])), nv = rv(...(fc.ori === 0 ? [0, fc.inn] : [fc.inn, 0]));
+    const side = nv[1] > 0.5 ? 's' : nv[0] > 0.5 ? 'e' : '';                                  // widoczne są tylko lica zwrócone na południe (lewe) i na wschód (prawe)
+    if (!side) return null;
+    const [L, R] = side === 's' ? (A[0] < B[0] ? [A, B] : [B, A]) : (A[1] > B[1] ? [A, B] : [B, A]); // od lewej patrząc na grafikę
+    return { side, im, L, R, h: fc.h };
+  }).filter(Boolean) : [];
+  const texOn = (bx, pts, side) => tex.forEach(t => {
+    if (t.side !== side) return;
+    const on = side === 's' ? Math.abs(t.L[1] - bx.y1) < 2 && Math.max(t.L[0], t.R[0]) > bx.x0 + 1 && Math.min(t.L[0], t.R[0]) < bx.x1 - 1
+      : Math.abs(t.L[0] - bx.x1) < 2 && Math.max(t.L[1], t.R[1]) > bx.y0 + 1 && Math.min(t.L[1], t.R[1]) < bx.y1 - 1;
+    if (!on) return;
+    const TL = T(t.L[0], t.L[1], t.h), TR = T(t.R[0], t.R[1], t.h), BL = T(t.L[0], t.L[1], 0), iw = t.im.width, ih = t.im.height;
+    // przycięcie do ściany modułu, poszerzone o ułamek piksela (bez jasnych szwów między modułami)
+    const ul = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]) || 1, ux = (pts[1][0] - pts[0][0]) / ul * 1.2, uy = (pts[1][1] - pts[0][1]) / ul * 1.2;
+    g.save(); g.beginPath(); pts.forEach(([x, y], k) => { const sg = k === 1 || k === 2 ? 1 : -1, X = x + sg * ux, Y = y + sg * uy; k ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.closePath(); g.clip();
+    g.transform((TR[0] - TL[0]) / iw, (TR[1] - TL[1]) / iw, (BL[0] - TL[0]) / ih, (BL[1] - TL[1]) / ih, TL[0], TL[1]);
+    g.drawImage(t.im, 0, 0); g.restore();
+  });
   order.forEach(i => {
     const bx = boxes[i], post = bx.p.op.t === 'post', h = bx.h, bk = bx.p.run && bx.p.run.backKind;
     if (bare) {
       // gołe ramy: każdy moduł osobno (widać podział), sam profil — najpierw tylne ramy (widoczne przez prześwit), potem przednie i góra
       const o0 = T(bx.x0, bx.y0, 0), d1 = (a, b) => [a[0] - o0[0], a[1] - o0[1]];
       const ux = d1(T(bx.x0 + 1, bx.y0, 0)), uy = d1(T(bx.x0, bx.y0 + 1, 0)), vZ = d1(T(bx.x0, bx.y0, 1));
-      if (post) { poly([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#aeb6c1'); poly([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], '#949eab'); }
+      if (post) { poly([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#d62d20'); poly([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], '#a8231a'); } // słupek czerwony (jak na planie)
       else {
         frame(o0, ux, vZ, bx.x1 - bx.x0, h, '#a3acb8'); frame(o0, uy, vZ, bx.y1 - bx.y0, h, '#8f99a7');                     // tył: północ, zachód
         frame(T(bx.x0, bx.y1, 0), ux, vZ, bx.x1 - bx.x0, h, '#aeb6c1'); frame(T(bx.x1, bx.y0, 0), uy, vZ, bx.y1 - bx.y0, h, '#949eab'); // przód: południe, wschód
       }
-      poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#cdd3db' : '#c3cad3');
+      poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#e8584d' : '#c3cad3');
     } else {
       const sameH = B => Math.abs(B.h - h) < 1, nb = f => boxes.find(B => B !== bx && sameH(B) && f(B));
       const E = nb(B => Math.abs(B.x0 - bx.x1) < 2 && B.y0 <= bx.y0 + 2 && B.y1 >= bx.y1 - 2), Wn = nb(B => Math.abs(B.x1 - bx.x0) < 2 && B.y0 <= bx.y0 + 2 && B.y1 >= bx.y1 - 2);
@@ -6646,8 +6668,11 @@ function ufRender3D(o) {
       const corner = (E && Math.abs(E.y1 - bx.y1) < 2) || (Sn && Math.abs(Sn.x1 - bx.x1) < 2);
       const cp = capsOn ? capOf(bx) : { e: false, s: false };
       face([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#cfd6df', [!!N, !!E, !!Sn, !!Wn]);
-      face([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], cp.s ? '#e4dcf5' : bk ? '#eceff3' : '#f3f5f8', [false, !!corner, false, !!(Wn && Math.abs(Wn.y1 - bx.y1) < 2)]);
-      face([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], cp.e ? '#cfc2ea' : '#dde2e9', [false, !!corner, false, !!(N && Math.abs(N.x1 - bx.x1) < 2)]);
+      const fS = [T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], fE = [T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)];
+      face(fS, cp.s ? '#e4dcf5' : bk ? '#eceff3' : '#f3f5f8', [false, !!corner, false, !!(Wn && Math.abs(Wn.y1 - bx.y1) < 2)]);
+      if (!cp.s) texOn(bx, fS, 's');
+      face(fE, cp.e ? '#cfc2ea' : '#dde2e9', [false, !!corner, false, !!(N && Math.abs(N.x1 - bx.x1) < 2)]);
+      if (!cp.e) texOn(bx, fE, 'e');
     }
     if (bx.p.op.t === 'door') {
       const dh = Math.min(h, bx.p.op.size === 'h2480' ? 2480 : 1984), alongX = (bx.x1 - bx.x0) >= (bx.y1 - bx.y0), ins = 70;
@@ -6722,9 +6747,16 @@ function ufRender3D(o) {
   }
   return { cv, pos };
 }
+// miniatury grafik do podglądu 3D: wczytywane raz; po wczytaniu podgląd rysuje się jeszcze raz
+const _ufTex = new Map();
+function ufTexImg(url) {
+  let t = _ufTex.get(url);
+  if (!t) { t = { img: null }; _ufTex.set(url, t); loadImg(url).then(im => { t.img = im; if (UF.open) ufPreview(); }).catch(() => {}); }
+  return t.img;
+}
 function ufPreview() {
   const pv = $('uf-pv'); if (!pv) return;
-  const r = ufRender3D({ W: 286, preview: true }), wr = $('uf-pvw');
+  const r = ufRender3D({ W: 286, preview: true, tex: true }), wr = $('uf-pvw');
   if (!r) { wr.classList.add('hidden'); return; }
   wr.classList.remove('hidden');
   pv.width = r.cv.width; pv.height = r.cv.height; pv.getContext('2d').drawImage(r.cv, 0, 0);
