@@ -6670,6 +6670,24 @@ function ufRender3D(o) {
     g.transform((TR[0] - TL[0]) / iw, (TR[1] - TL[1]) / iw, (BL[0] - TL[0]) / ih, (BL[1] - TL[1]) / ih, TL[0], TL[1]);
     g.drawImage(t.im, 0, 0); g.restore();
   });
+  // co jest na licach (pełne ściany): tkanina SEG na licach grafik, wysłony — zaplecza i ręczna na całą wysokość, zewnętrzna od 248 w górę;
+  // lico bez niczego (np. tył ścianki od sąsiada poniżej 248) to gołe ramy (widać tył tkaniny z drugiej strony)
+  const covers = [];
+  const addCov = (ori, f, n, a, b, z0, z1) => {
+    const A = rot(...(ori === 0 ? [a, f] : [f, a])), B = rot(...(ori === 0 ? [b, f] : [f, b])), nv = rv(...(ori === 0 ? [0, n] : [n, 0]));
+    const side = nv[1] > 0.5 ? 's' : nv[0] > 0.5 ? 'e' : ''; if (!side) return;
+    covers.push(side === 's' ? { side, pl: A[1], lo: Math.min(A[0], B[0]), hi: Math.max(A[0], B[0]), z0, z1 } : { side, pl: A[0], lo: Math.min(A[1], B[1]), hi: Math.max(A[1], B[1]), z0, z1 });
+  };
+  (geo.faces || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
+  if (st.zap) (geo.zap || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
+  geo.runs.forEach(r => {
+    const k0 = r.ori === 0 ? 'x' : 'y', a = Math.min(...r.parts.map(q => q[k0 + '0'])), b = Math.max(...r.parts.map(q => q[k0 + '1']));
+    const inn0 = r.line >= (r.ori === 0 ? st.D : st.L) / 2 ? -1 : 1, fb = r.line - inn0 * UF_T / 2;
+    if (r.backKind === 'manual') addCov(r.ori, fb, -inn0, a, b, 0, r.h);
+    if (r.closed && geo.ext.some(e => e.side === r.closed)) addCov(r.ori, fb, -inn0, a, b, UF_EXT_FROM, r.h);
+  });
+  const covOf = (bx, side) => covers.filter(c => c.side === side && Math.abs(c.pl - (side === 's' ? bx.y1 : bx.x1)) < 2
+    && Math.min(c.hi, side === 's' ? bx.x1 : bx.y1) - Math.max(c.lo, side === 's' ? bx.x0 : bx.y0) > 1);
   order.forEach(i => {
     const bx = boxes[i], post = bx.p.op.t === 'post', h = bx.h, bk = bx.p.run && bx.p.run.backKind;
     if (bare) {
@@ -6692,10 +6710,20 @@ function ufRender3D(o) {
       const cp = capsOn ? capOf(bx) : { e: false, s: false };
       face([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#cfd6df', [!!N, !!E, !!Sn, !!Wn]);
       const fS = [T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], fE = [T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)];
-      face(fS, cp.s ? '#e4dcf5' : bk ? '#eceff3' : '#f3f5f8', [false, !!corner, false, !!(Wn && Math.abs(Wn.y1 - bx.y1) < 2)]);
-      if (!cp.s) texOn(bx, fS, 's');
-      face(fE, cp.e ? '#cfc2ea' : '#dde2e9', [false, !!corner, false, !!(N && Math.abs(N.x1 - bx.x1) < 2)]);
-      if (!cp.e) texOn(bx, fE, 'e');
+      const o0 = T(bx.x0, bx.y0, 0), d1 = a => [a[0] - o0[0], a[1] - o0[1]], ux = d1(T(bx.x0 + 1, bx.y0, 0)), uy = d1(T(bx.x0, bx.y0 + 1, 0)), vZ = d1(T(bx.x0, bx.y0, 1));
+      // lico ściany: pełne (tkanina / wysłona) albo gołe ramy z wysłoną tylko tam, gdzie jest (zewnętrzna — pasek od 248 w górę)
+      const side = (pts, sd, col, hide) => {
+        const long = post || (sd === 's' ? bx.x1 - bx.x0 >= bx.y1 - bx.y0 : bx.y1 - bx.y0 > bx.x1 - bx.x0);   // krótki bok (koniec ścianki) — bez zmian
+        const cv2 = long ? covOf(bx, sd) : [];
+        if (!long || cv2.some(c => c.z0 <= 1 && c.z1 >= h - 1)) { face(pts, col, hide); if (!cp[sd]) texOn(bx, pts, sd); return; }
+        const top = cv2.length ? Math.max(0, Math.min(...cv2.map(c => c.z0))) : h, U = sd === 's' ? bx.x1 - bx.x0 : bx.y1 - bx.y0, du = sd === 's' ? ux : uy;
+        const at = z => sd === 's' ? T(bx.x0, bx.y1, z) : T(bx.x1, bx.y0, z), q = (z, u) => { const p0 = at(z); return [p0[0] + du[0] * u, p0[1] + du[1] * u]; };
+        if (post) poly([q(0, 0), q(0, U), q(top, U), q(top, 0)], '#aeb6c1');
+        else { let z = 0; ufStack(h).forEach(hh => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#e9edf2'); frame(at(z), du, vZ, U, z1 - z, '#aeb6c1'); } z += hh; }); }
+        if (top < h - 1) poly([q(top, 0), q(top, U), q(h, U), q(h, 0)], col);
+      };
+      side(fS, 's', cp.s ? '#e4dcf5' : bk ? '#eceff3' : '#f3f5f8', [false, !!corner, false, !!(Wn && Math.abs(Wn.y1 - bx.y1) < 2)]);
+      side(fE, 'e', cp.e ? '#cfc2ea' : '#dde2e9', [false, !!corner, false, !!(N && Math.abs(N.x1 - bx.x1) < 2)]);
     }
     if (bx.p.op.t === 'door') {
       const dh = Math.min(h, bx.p.op.size === 'h2480' ? 2480 : 1984), alongX = (bx.x1 - bx.x0) >= (bx.y1 - bx.y0), ins = 70;
