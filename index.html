@@ -258,6 +258,7 @@
   .gc-frame .x { z-index: 3; }
   #viewer.copying { cursor: copy; }
   .mark-menu { position: fixed; z-index: 400; min-width: 230px; padding: 4px 0; }
+  .mark-menu .mm-sep { height: 1px; background: var(--line); margin: 3px 0; } /* kreska między grupami w menu */
   .mark-menu .mm-h { padding: 6px 12px; font-size: .72rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .4px; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
   .mark-menu button { display: block; width: 100%; text-align: left; padding: 7px 12px; background: none; border: none; cursor: pointer; font-size: .88rem; font-weight: 700; color: var(--dark); }
   .mark-menu button:hover { background: var(--bg); }
@@ -1477,6 +1478,7 @@ const I18N_PAIRS = [
   ['Logo z elastycznego neonu LED, zwykle na tafli pleksi albo bezpośrednio na ścianie.', 'Логотип з гнучкого LED-неону, зазвичай на листі плексигласу або прямо на стіні.', 'Logo made of flexible LED neon, usually on an acrylic sheet or directly on the wall.'],
   ['Wybierz, gdy nie wiesz, z czego ma być element. Opisz go w uwagach — ustalimy to z Tobą.', 'Виберіть, якщо не знаєте, з чого має бути елемент. Опишіть його в примітках — ми узгодимо це з вами.', 'Choose this if you do not know what the element should be made of. Describe it in the notes — we will agree on it with you.'],
   // menu łukowe i okno elementu
+  ['zawiasy po lewej', 'петлі зліва', 'hinges on the left'], ['zawiasy po prawej', 'петлі справа', 'hinges on the right'], ['otwierane do środka', 'відчиняються всередину', 'opens inwards'], ['otwierane na zewnątrz', 'відчиняються назовні', 'opens outwards'],
   ['Wykonanie', 'Виконання', 'Finish'], ['Kształt', 'Форма', 'Shape'], ['Kształt konstrukcji', 'Форма конструкції', 'Structure shape'], ['Mocowanie', 'Кріплення', 'Mounting'],
   ['SEG — tkanina na ramie aluminiowej obszyta płaskimi gumkami', 'SEG — тканина на алюмінієвій рамі, обшита плоскими гумками', 'SEG — fabric on an aluminium frame, edged with flat rubber strips'],
   ['tkanina na ramie aluminiowej obszyta płaskimi gumkami', 'тканина на алюмінієвій рамі, обшита плоскими гумками', 'fabric on an aluminium frame, edged with flat rubber strips'],
@@ -6564,8 +6566,8 @@ function ufContext(e) {
   const o = q.op, m = document.createElement('div'); m.className = 'menu mark-menu';
   const row = (k, v, lab, cur) => `<button type="button" data-uk="${k}" data-uv="${v}">${cur === v ? '● ' : '○ '}${lab}</button>`;
   m.innerHTML = `<div class="mm-h">Drzwi · ${lenPL(o.len)} ▸ ${lenPL(o.size === 'h2480' ? 2480 : 1984)}</div>
-    ${UF_DOOR_HS.map(([k, v]) => row('size', k, 'wysokość ' + lenPL(v), o.size || 'h2480')).join('')}
-    ${row('hinge', 'l', 'zawiasy po lewej', o.hinge || 'l')}${row('hinge', 'r', 'zawiasy po prawej', o.hinge || 'l')}
+    ${UF_DOOR_HS.map(([k, v]) => row('size', k, 'wysokość ' + lenPL(v), o.size || 'h2480')).join('')}<div class="mm-sep"></div>
+    ${row('hinge', 'l', 'zawiasy po lewej', o.hinge || 'l')}${row('hinge', 'r', 'zawiasy po prawej', o.hinge || 'l')}<div class="mm-sep"></div>
     ${row('swing', 'in', 'otwierane do środka', o.swing || 'in')}${row('swing', 'out', 'otwierane na zewnątrz', o.swing || 'in')}`;
   document.body.appendChild(m);
   const rc = m.getBoundingClientRect();
@@ -6796,9 +6798,9 @@ function ufRender3D(o) {
       });
     }
     g.fillStyle = '#1a202c'; g.font = `700 22px ${F}`; g.textAlign = 'left'; g.textBaseline = 'top';
-    g.fillText(`Ultra Frame — ${o.dims ? 'gołe ramy z wymiarami' : 'widok 3D'}${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
+    g.fillText(`Ultra Frame — ${o.dims ? 'gołe ramy z wymiarami' : o.vis ? 'wizualizacja z grafikami' : 'widok 3D'}${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
     g.fillStyle = '#718096'; g.font = `400 15px ${F}`;
-    g.fillText(o.dims ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · wymiary stoiska i wysokość ścianek w ${UNIT()}: rama 248 + nadstawka`
+    g.fillText(o.vis ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · grafiki elementów nałożone na ścianki` : o.dims ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · wymiary stoiska i wysokość ścianek w ${UNIT()}: rama 248 + nadstawka`
       : `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · ${bare ? 'gołe ramy — podział na moduły' : 'pełne ściany'} · wymiary grafik w ${UNIT()} (szerokość × wysokość) · tabliczki: tkanina SEG z przodu, wysłona z tyłu`, 24, 54);
     geo.caps.forEach(c => { // zaślepki PCW: znacznik przy każdym gołym końcu (pierwszy = miejsce elementu, kolejne = dalsze miejsca)
       if (!(o.marks && o.marks.get(c.key + '|end'))) return;
@@ -6811,8 +6813,14 @@ function ufRender3D(o) {
 const _ufTex = new Map();
 function ufTexImg(url) {
   let t = _ufTex.get(url);
-  if (!t) { t = { img: null }; _ufTex.set(url, t); loadImg(url).then(im => { t.img = im; if (UF.open) ufPreview(); }).catch(() => {}); }
+  if (!t) { t = { img: null }; _ufTex.set(url, t); t.p = loadImg(url).then(im => { t.img = im; if (UF.open) ufPreview(); }).catch(() => {}); }
   return t.img;
+}
+// przed zapisem wizualizacji: poczekaj, aż wczytają się wszystkie grafiki ścianek
+async function ufTexPreload() {
+  const urls = [...new Set(S.elements.filter(e => e.ufKey && e.ufRole === 'front' && !e.doorFor && e.thumb).map(e => e.thumb))];
+  urls.forEach(u => ufTexImg(u));
+  await Promise.all(urls.map(u => _ufTex.get(u).p));
 }
 function ufPreview() {
   const pv = $('uf-pv'); if (!pv) return;
@@ -6929,6 +6937,23 @@ async function ufGenerate() {
       if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, photoId, shape });
     }
     addLog(pid, `Ultra Frame: ${nNew} nowych elementów, ${nUpd} zaktualizowanych`);
+    // trzecia wizka: wizualizacja bez znaczników, z grafikami elementów nałożonymi na ścianki (pełne ściany)
+    try {
+      await ufTexPreload();
+      const imgC = ufRender3D({ W: 1700, tex: true, look: 'full', vis: true });
+      if (imgC) {
+        const blobC = await new Promise(res => imgC.cv.toBlob(res, 'image/png'));
+        const upC = await storeImage(new File([blobC], 'ultra-frame-wizualizacja.png', { type: 'image/png' }), 3200, { png: true });
+        let pC = UF.d.photoId3 && S.photos.some(p => p.id === UF.d.photoId3) ? UF.d.photoId3 : '';
+        if (pC) await DB.update(pPhotos(pid), pC, { url: upC.url, w: upC.w, h: upC.h });
+        else {
+          const order = ++ordMax;
+          pC = await DB.add(pPhotos(pid), { url: upC.url, w: upC.w, h: upC.h, name: 'Ultra Frame — wizualizacja z grafikami', order, createdAt: nowIso(), createdBy: S.me.id });
+          addLog(pid, `Ultra Frame: dodano wizkę #${order} (wizualizacja z grafikami)`);
+        }
+        UF.d.photoId3 = pC;
+      }
+    } catch (e) { console.warn('Ultra Frame: wizualizacja z grafikami', e); toast('Wizualizacja z grafikami się nie udała: ' + e.message, 'error', 6000); }
     const keep = new Set(jobs.map(j => j.run.key + '|' + j.role));
     const orphans = S.elements.filter(e => e.ufKey && !e.doorFor && !keep.has(e.ufKey + '|' + e.ufRole));
     UF.d.photoId = photoId; await ufSave();
