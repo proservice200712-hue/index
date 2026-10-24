@@ -5908,10 +5908,12 @@ const UF_CAP_W = 80, UF_CAP_COL = '#6b46c1';                  // zaślepka gołe
 const UF_PAL = [
   { id: 'w99', key: '1', op: { t: 'w', len: 992 } },
   { id: 'w49', key: '2', op: { t: 'w', len: 496 } },
-  { id: 'd248', key: '3', op: { t: 'door', len: 992, size: 'h2480' } },
-  { id: 'd198', key: '4', op: { t: 'door', len: 992, size: 'h1984' } },
-  { id: 'post', key: '5', op: { t: 'post', len: 80 } },
+  { id: 'door', key: '3', op: { t: 'door', len: 992, size: 'h2480' } },   // jedna ikona drzwi — wysokość (248 / 198,4) pod prawym klawiszem
+  { id: 'post', key: '4', op: { t: 'post', len: 80 } },
 ];
+const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
+// moduł z palety: drzwi w wysokości wybranej prawym klawiszem na ikonie (zapamiętanej w układzie)
+const ufPalOp = p => p.op.t === 'door' ? { ...p.op, size: (UF.d && UF.d.doorSize) || 'h2480' } : p.op;
 const UF_HS = [1984, 2480, 2976, 3472, 3968, 4464, 4960];      // wysokości od 198,4 w górę (co 49,6)
 // ramy mają najwyżej 248 cm — wyższa ścianka to rama 248 + niższa rama na niej (np. 347,2 = 248 + 99,2); od dołu do góry
 const ufStack = h => { const out = []; let r = Math.round(h); while (r > 2480 + 1) { out.push(2480); r -= 2480; } if (r > 1) out.push(r); return out; };
@@ -6562,6 +6564,7 @@ function ufContext(e) {
   const o = q.op, m = document.createElement('div'); m.className = 'menu mark-menu';
   const row = (k, v, lab, cur) => `<button type="button" data-uk="${k}" data-uv="${v}">${cur === v ? '● ' : '○ '}${lab}</button>`;
   m.innerHTML = `<div class="mm-h">Drzwi · ${lenPL(o.len)} ▸ ${lenPL(o.size === 'h2480' ? 2480 : 1984)}</div>
+    ${UF_DOOR_HS.map(([k, v]) => row('size', k, 'wysokość ' + lenPL(v), o.size || 'h2480')).join('')}
     ${row('hinge', 'l', 'zawiasy po lewej', o.hinge || 'l')}${row('hinge', 'r', 'zawiasy po prawej', o.hinge || 'l')}
     ${row('swing', 'in', 'otwierane do środka', o.swing || 'in')}${row('swing', 'out', 'otwierane na zewnątrz', o.swing || 'in')}`;
   document.body.appendChild(m);
@@ -6569,6 +6572,17 @@ function ufContext(e) {
   m.style.left = clamp(e.clientX, 6, innerWidth - rc.width - 6) + 'px'; m.style.top = clamp(e.clientY, 6, innerHeight - rc.height - 6) + 'px';
   setTimeout(() => document.addEventListener('pointerdown', ev => { if (!m.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
   m.querySelectorAll('[data-uk]').forEach(b => b.onclick = () => { ufPush(); o[b.dataset.uk] = b.dataset.uv; closeMarkMenu(); ufChanged(); });
+}
+// prawy klawisz na ikonie drzwi w palecie: wysokość kolejnych drzwi
+function ufPalDoorMenu(e) {
+  e.preventDefault(); closeMarkMenu();
+  const cur = UF.d.doorSize || 'h2480', m = document.createElement('div'); m.className = 'menu mark-menu';
+  m.innerHTML = `<div class="mm-h">Drzwi ${lenPL(992)} — wysokość</div>` + UF_DOOR_HS.map(([k, v]) => `<button type="button" data-ds="${k}">${cur === k ? '● ' : '○ '}${lenPL(v)} ${UNIT()}</button>`).join('');
+  document.body.appendChild(m);
+  const rc = m.getBoundingClientRect();
+  m.style.left = clamp(e.clientX, 6, innerWidth - rc.width - 6) + 'px'; m.style.top = clamp(e.clientY, 6, innerHeight - rc.height - 6) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', ev => { if (!m.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
+  m.querySelectorAll('[data-ds]').forEach(b => b.onclick = () => { UF.d.doorSize = b.dataset.ds; closeMarkMenu(); ufPalRender(); ufChanged(); });
 }
 
 // ---------- widok 3D (rzut izometryczny): plansza do wizki albo podgląd w rogu edytora ----------
@@ -6933,21 +6947,24 @@ async function ufGenerate() {
 }
 
 // ---------- okno edytora ----------
+// paleta modułów: krótkie napisy (ikona + wymiar), pełna nazwa w dymku; drzwi — jedna ikona, wysokość pod prawym klawiszem
+function ufPalRender() {
+  const palShort = p => p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) : lenPL(p.op.len);
+  $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? ' · prawy klawisz = wysokość drzwi' : ''}">${p.op.t === 'door' ? '🚪' : p.op.t === 'post' ? '■' : '▭'} ${palShort(p)}</button>`).join('');
+  $('uf-pal').querySelectorAll('[data-pal]').forEach(b => b.onpointerdown = e => {
+    if (e.button !== 0 || UF.busy) return; e.preventDefault();
+    const op = ufPalOp(UF_PAL.find(p => p.id === b.dataset.pal));
+    UF.drag = { kind: 'new', op, cx: e.clientX, cy: e.clientY, moved: false, over: false, ghost: null, an: null };
+    document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true);
+  });
+}
 function openUltraFrame() {
   if (!S.project) return;
   UF.open = true; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null;
   const saved = S.project.ultraFrame;
   UF.d = saved ? ufMigrate(JSON.parse(JSON.stringify(saved))) : { v: 2, H: 2480, stand: ufStandDefault(), pieces: [], view: 0, photoId: '' };
   if (!UF.d.H) UF.d.H = 2480;
-  // krótkie napisy (ikona + wymiar), pełna nazwa w dymku — pasek mieści się w jednej linijce
-  const palShort = p => p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? lenPL(p.op.size === 'h2480' ? 2480 : 1984) : lenPL(p.op.len);
-  $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel(p))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]">${p.op.t === 'door' ? '🚪' : p.op.t === 'post' ? '■' : '▭'} ${palShort(p)}</button>`).join('');
-  $('uf-pal').querySelectorAll('[data-pal]').forEach(b => b.onpointerdown = e => {
-    if (e.button !== 0 || UF.busy) return; e.preventDefault();
-    const op = UF_PAL.find(p => p.id === b.dataset.pal).op;
-    UF.drag = { kind: 'new', op, cx: e.clientX, cy: e.clientY, moved: false, over: false, ghost: null, an: null };
-    document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true);
-  });
+  ufPalRender();
   const hs = UF_HS.map(v => `<option value="${v}">${lenPL(v)} ${UNIT()}${ufStackTxt(v) ? ' (' + ufStackTxt(v) + ')' : ''}</option>`).join('');
   $('uf-h').innerHTML = hs; $('uf-sh').innerHTML = hs;
   $('uf-pane').classList.remove('hidden'); $('viewer').classList.add('uf-on');
@@ -6964,7 +6981,7 @@ async function closeUltraFrame() {
 (function ufInit() {
   const pane = $('uf-pane'); if (!pane) return;
   ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick', 'click'].forEach(t => pane.addEventListener(t, e => e.stopPropagation(), { passive: t !== 'wheel' }));
-  pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (UF.noCtx) { e.preventDefault(); UF.noCtx = false; return; } if (e.target === $('uf-cv')) ufContext(e); else e.preventDefault(); });
+  pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (UF.noCtx) { e.preventDefault(); UF.noCtx = false; return; } if (e.target === $('uf-cv')) ufContext(e); else if (e.target.closest && e.target.closest('[data-pal="door"]')) ufPalDoorMenu(e); else e.preventDefault(); });
   $('uf-cv').addEventListener('pointerdown', ufPointer);
   $('uf-cv').addEventListener('wheel', e => { e.preventDefault(); const [px, py] = ufCanvasPos(e), dl = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY; ufZoomAt(px, py, Math.pow(1.0018, -dl)); }, { passive: false });
   const mid = () => [$('uf-cv').clientWidth / 2, $('uf-cv').clientHeight / 2];
@@ -6997,7 +7014,7 @@ async function closeUltraFrame() {
     const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (e.key === 'Escape') t.blur(); return; }
     const k = e.key; let h = true;
     const pal = UF_PAL.find(p => p.key === k);
-    if (pal) ufAddNext(pal.op);
+    if (pal) ufAddNext(ufPalOp(pal));
     else if (k === 'r' || k === 'R') ufRotate(!e.shiftKey);
     else if (k === 'b' || k === 'B') { const r = ufSelRun(); ufSetBack(r ? !r.manual : true); }
     else if (k === 'Backspace' || k === 'Delete') ufDelete();
