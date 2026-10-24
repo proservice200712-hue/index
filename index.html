@@ -4742,6 +4742,24 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
   }
   // płaszczyzny konstrukcji (inny kształt): wymiary w mm w el.planes, pola w bieżącej jednostce
   function renderPlanes() {
+    const pls = el.planes || [], hs = pls.map(q => Number(q.h) || 0);
+    if (pls.length > 1 && !hs.every(h => h === hs[0])) return renderPlanesList();       // starszy zapis: różne wysokości — edycja pojedyncza
+    const wTxt = pls.map(q => numIn(fromMM(q.w))).filter(v => v !== '').join('+'), hTxt = pls[0] ? fromMM(pls[0].h) : '';
+    $('ed-planes').innerHTML = `<label class="pl-lab">Płaszczyzny do druku: szerokości po plusie × wspólna wysokość</label>
+      <div class="pl-row"><input type="text" inputmode="decimal" autocomplete="off" id="ed-pw" value="${esc(wTxt)}" placeholder="np. 20+20+20 [${UNIT()}]" title="Szerokości kolejnych płaszczyzn po plusie, np. 20+20+20 (można liczyć: 10+2x5)"> ×
+        <input type="number" min="0" step="${unitStep()}" id="ed-ph" value="${esc(hTxt)}" placeholder="wysokość [${UNIT()}]"></div>
+      <div class="hint" id="ed-pl-hint"></div>`;
+    const apply = () => {
+      const h = toMM($('ed-ph').value), terms = String($('ed-pw').value).split('+').map(t => t.trim()).filter(Boolean);
+      const ws = terms.map(t => { const v = calcEval(t); return v !== '' && Number.isFinite(Number(v)) && Number(v) > 0 ? toMM(v) : ''; });
+      el.planes = (ws.length ? ws : ['']).map(w => ({ w, h }));
+      const ok = ws.filter(w => w !== '');
+      $('ed-pl-hint').textContent = ok.length > 1 ? `${ok.length} płaszczyzny: ${ok.map(w => lenPL(w)).join(' + ')} = ${lenPL(ok.reduce((a, w) => a + Number(w), 0))} ${UNIT()}` : '';
+      refresh();
+    };
+    $('ed-pw').addEventListener('input', apply); $('ed-ph').addEventListener('input', apply); apply();
+  }
+  function renderPlanesList() {
     const mk = markOf({ ...el, num: editing && !isWys(editing) ? el.num : nextNum(editing && editing.id) });
     $('ed-planes').innerHTML = '<label class="pl-lab">Płaszczyzny do druku (szerokość × wysokość)</label>' + el.planes.map((p, i) => `
       <div class="pl-row"><b>${mk}${i + 1}</b>
@@ -4758,10 +4776,10 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         if (el.inside) th.splice(vi + nb, 1);
         th.splice(vi, 1); el.pthumbs = th;
       }
-      el.planes.splice(i, 1); renderPlanes(); refresh();
+      el.planes.splice(i, 1); renderPlanesList(); refresh();
     });
     $('ed-pl-add').onclick = () => {
-      el.planes.push({ w: '', h: '' }); renderPlanes(); refresh();
+      el.planes.push({ w: '', h: '' }); renderPlanesList(); refresh();
       const all = $('ed-planes').querySelectorAll('[data-pw]'); if (all.length) all[all.length - 1].focus();
     };
   }
@@ -5105,8 +5123,9 @@ function renderGraph() {
     // konstrukcja podwieszana: pod pasem płaszczyzn kolejne rzędy strzałek — netto (gdy jest spad), każda płaszczyzna, wymiar główny
     const hangPl = isHang(e) && dims ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [];
     const hangBl = hangPl.length > 0 && hangBleedAny(hangBleed(e));
-    const hangRows = hangPl.length ? (hangBl ? 1 : 0) + (hangPl.length > 1 ? 1 : 0) + 1 : 0;
-    const LM = !dims ? 0 : hangPl.length ? (hangBl ? 56 : 32) : g.b ? 56 : 32, BM = !dims ? 0 : hangPl.length ? 10 + hangRows * 22 : g.b ? 44 : 24;
+    const insPl = isHang(e) && dims && e.inside ? (planesOf(e) || []).filter(q => q.side === 'inside') : [];
+    const outRows = hangPl.length ? (hangPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0, inRows = insPl.length ? (insPl.length > 1 ? 1 : 0) + 1 : 0;
+    const LM = !dims ? 0 : hangPl.length ? (hangBl ? 56 : 32) : g.b ? 56 : 32, BM = !dims ? 0 : hangPl.length ? 10 + outRows * 22 + (inRows ? 36 + inRows * 22 : 0) : g.b ? 44 : 24;
     const W = LM + FW + 4, H = FH + BM, QW = qtyOf(e) > 1 ? 52 : 0; // miejsce na „×3” obok miniatury
     let svg = '';
     if (dims) {
@@ -5120,18 +5139,22 @@ function renderGraph() {
       svg += `<rect x="${LM}" y="0" width="${FW}" height="${FH}" fill="none" stroke="#a0aec0"/>`;
       if (hangPl.length) {
         const tw = hangPl.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...hangPl.map(q => q.gh)), kx = FW / tw, ky = FH / mh, rowY = i => FH + 16 + i * 22;
+        const netX = (q, c0) => [LM + (c0 + q.bb.l) * kx, LM + (c0 + q.gw - q.bb.r) * kx];
+        const nx0 = LM + hangPl[0].bb.l * kx, nx1 = LM + FW - hangPl[hangPl.length - 1].bb.r * kx;
         let row = 0, cx = 0;
-        if (hangPl.length > 1) { // wymiar każdej płaszczyzny (do druku; płaszczyzny dolegają do siebie)
-          cx = 0;
-          hangPl.forEach(q => { const x0 = LM + cx * kx, x1 = LM + (cx + q.gw) * kx; svg += ext(x0, FH, x0, rowY(row) + 2) + ext(x1, FH, x1, rowY(row) + 2) + L(x0, rowY(row), x1, rowY(row), cm(q.gw)); cx += q.gw; });
+        if (hangPl.length > 1) { // rzeczywisty wymiar każdej płaszczyzny (netto, bez spadu) — np. 20, 20, 20
+          hangPl.forEach(q => { const [x0, x1] = netX(q, cx); svg += ext(x0, FH, x0, rowY(row) + 2) + ext(x1, FH, x1, rowY(row) + 2) + L(x0, rowY(row), x1, rowY(row), cm(q.w)); cx += q.gw; });
           row++;
         }
-        if (hangBl) { // wymiar całości bez spadu (spad dotyczy sumy płaszczyzn)
-          const x0 = LM + hangPl[0].bb.l * kx, x1 = LM + FW - hangPl[hangPl.length - 1].bb.r * kx;
-          svg += ext(x0, FH, x0, rowY(row) + 2) + ext(x1, FH, x1, rowY(row) + 2) + L(x0, rowY(row), x1, rowY(row), cm(hangPl.reduce((a2, q) => a2 + q.w, 0)));
-          row++;
+        svg += ext(nx0, FH, nx0, rowY(row) + 2) + ext(nx1, FH, nx1, rowY(row) + 2) + L(nx0, rowY(row), nx1, rowY(row), cm(hangPl.reduce((a2, q) => a2 + q.w, 0))); row++;   // razem (netto)
+        if (hangBl) { svg += ext(LM, FH, LM, rowY(row) + 2) + ext(LM + FW, FH, LM + FW, rowY(row) + 2) + L(LM, rowY(row), LM + FW, rowY(row), cm(g.w)); row++; }                 // razem ze spadem
+        if (insPl.length) { // zadruk wewnątrz: to samo wymiarowanie, bez spadu, niżej
+          const y0 = FH + 16 + outRows * 22 + 16, yIn = j => y0 + 14 + j * 22, tk = (x, y) => ext(x, y - 10, x, y + 2);
+          svg += `<text x="${LM}" y="${y0 - 3}" style="fill:#718096;font-size:10px;font-weight:700">zadruk wewnątrz</text>`;
+          let rj = 0; cx = 0;
+          if (insPl.length > 1) { hangPl.forEach((q, i) => { const [x0, x1] = netX(q, cx), iq = insPl[i]; if (iq) svg += tk(x0, yIn(rj)) + tk(x1, yIn(rj)) + L(x0, yIn(rj), x1, yIn(rj), cm(iq.w)); cx += q.gw; }); rj++; }
+          svg += tk(nx0, yIn(rj)) + tk(nx1, yIn(rj)) + L(nx0, yIn(rj), nx1, yIn(rj), cm(insPl.reduce((a2, q) => a2 + q.w, 0)));
         }
-        svg += ext(LM, FH, LM, rowY(row) + 2) + ext(LM + FW, FH, LM + FW, rowY(row) + 2) + L(LM, rowY(row), LM + FW, rowY(row), cm(g.w)); // wymiar główny
         const tp = hangPl.reduce((a2, q) => q.gh > a2.gh ? q : a2, hangPl[0]);
         if (hangBl) { const y0 = tp.bb.t * ky, y1 = FH - tp.bb.b * ky; svg += ext(LM, y0, LM - 22, y0) + ext(LM, y1, LM - 22, y1) + L(LM - 20, y0, LM - 20, y1, cm(tp.h), true); }
         svg += ext(LM, 0, hangBl ? LM - 46 : LM - 24, 0) + ext(LM, FH, hangBl ? LM - 46 : LM - 24, FH) + L(hangBl ? LM - 44 : LM - 22, 0, hangBl ? LM - 44 : LM - 22, FH, cm(g.h), true);
@@ -5892,7 +5915,7 @@ function ufMigrate(d) {
 
 // położenie klocków, ścianki (przebiegi) i obrys stoiska
 function ufGeom(d) {
-  const st = d.stand, parts = d.pieces.map(p => ({ op: p, ...ufRect(p), dir: p.dir, run: null, runs: [] })), runs = [], TOL = 3;
+  const st = d.stand, parts = d.pieces.map(p => ({ op: p, ...ufRect(p), dir: p.dir, run: null, runs: [] })), runs = [], TOL = 12;     // do 12 mm różnicy traktujemy jako styk
   for (const ori of [0, 1]) {                                  // 0 = poziome (oś x), 1 = pionowe (oś y)
     const lines = [];
     parts.forEach(q => {
@@ -6248,16 +6271,33 @@ function ufDraw() {
 const ufCanvasPos = e => { const r = $('uf-cv').getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 const ufWorld = (px, py) => { const { s, ox, oy } = UF.tr; return [(px - ox) / s, (py - oy) / s]; };
 // miejsce klocka dla wskaźnika (świat): przyciąga się do najbliższego zaczepu, inaczej leży swobodnie na siatce 5 cm
+// koniec klocka blisko wolnego zaczepu (w tej samej linii) → klocek staje dokładnie przy zaczepie, bez szczeliny
+function ufEndSnap(piece, anchors, thr) {
+  const dv = UF_DIR[piece.dir || 0], ends = [[piece.x, piece.y], [piece.x + dv[0] * piece.len, piece.y + dv[1] * piece.len]];
+  let best = null, bd = thr;
+  anchors.forEach(a => {
+    if ((a.dir & 1) !== ((piece.dir || 0) & 1)) return;
+    ends.forEach((e, i) => {
+      const dd = Math.hypot(e[0] - a.x, e[1] - a.y); if (dd >= bd) return;
+      const o = ends[1 - i], dw = UF_DIR[a.dir];
+      if ((o[0] - a.x) * dw[0] + (o[1] - a.y) * dw[1] > 0 || piece.len < 5) { bd = dd; best = a; }
+    });
+  });
+  return best;
+}
 function ufSnap(piece, wx, wy, skip, grab) {
-  const geo = ufGeom(UF.d), anchors = ufAnchors(geo.parts, skip), thr = 45 / UF.tr.s;
+  const geo = ufGeom(UF.d), anchors = ufAnchors(geo.parts, skip), thr = 60 / UF.tr.s;
   let an = null, best = thr;
   anchors.forEach(a => { const dd = Math.hypot(a.x - wx, a.y - wy); if (dd < best) { best = dd; an = a; } });
   if (an) { const n = { ...piece, x: an.x, y: an.y, dir: an.dir }; return { piece: n, an }; }
   piece = { ...piece, len: piece.len0 || piece.len };
   const sn = v => Math.round(v / 50) * 50, et = 30 / UF.tr.s;
-  if (grab) return { piece: ufEdgeSnap({ ...piece, x: sn(grab.x + wx - grab.px), y: sn(grab.y + wy - grab.py) }, et), an: null };
-  const dv = UF_DIR[piece.dir || 0], L = piece.len0 || piece.len;
-  return { piece: ufEdgeSnap({ ...piece, dir: piece.dir || 0, x: sn(wx - dv[0] * L / 2), y: sn(wy - dv[1] * L / 2) }, et), an: null };
+  let cand;
+  if (grab) cand = { ...piece, x: sn(grab.x + wx - grab.px), y: sn(grab.y + wy - grab.py) };
+  else { const dv = UF_DIR[piece.dir || 0], L = piece.len; cand = { ...piece, dir: piece.dir || 0, x: sn(wx - dv[0] * L / 2), y: sn(wy - dv[1] * L / 2) }; }
+  const e2 = ufEndSnap(cand, anchors, 50 / UF.tr.s);        // koniec ścianki przy końcu innej — dosuwa na styk
+  if (e2) return { piece: { ...cand, x: e2.x, y: e2.y, dir: e2.dir }, an: e2 };
+  return { piece: ufEdgeSnap(cand, et), an: null };
 }
 // kopiowanie jak w Corelu: przeciągasz klocek lewym, naciskasz prawy — oryginał zostaje, kopia leci za kursorem
 function ufStartCopy(dr) {
@@ -6909,8 +6949,9 @@ async function renderIndexA3(stamp) {
     const FW = d ? Math.max(6, fw0 * up) : 160, FH = d ? Math.max(6, fh0 * up) : 100;
     // konstrukcja podwieszana „inny kształt”: rzędy strzałek pod pasem płaszczyzn (każda płaszczyzna, całość bez spadu, całość do druku)
     const hpN = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [], hpBl = hpN.length > 0 && hangBleedAny(hangBleed(r.el));
-    const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + (hpBl ? 1 : 0) + 1 : 0;
-    const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? 14 + hpRows * 46 : gb ? 88 : 48;
+    const hpIn = isHang(r.el) && d && r.el.inside ? (planesOf(r.el) || []).filter(q => q.side === 'inside') : [];
+    const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0, hpInRows = hpIn.length ? (hpIn.length > 1 ? 1 : 0) + 1 : 0;
+    const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? 14 + hpRows * 46 + (hpInRows ? 34 + hpInRows * 46 : 0) : gb ? 88 : 48;
     const qw = (r.qty || 1) > 1 ? 110 : 0;
     const w = Math.max(LM + FW + 10 + qw, 230);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
@@ -7079,9 +7120,18 @@ async function renderIndexA3(stamp) {
           const rowY = i => fy + FH + 36 + i * 46, rx = (v, row) => ext(v, fy + FH, v, rowY(row) + 4);
           let row = 0, cx = fx;
           if (hBl) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; let c2 = fx; hpl.forEach(q => { g.strokeRect(c2 + q.bb.l * kx, fy + q.bb.t * ky, q.w * kx, q.h * ky); c2 += q.gw * kx; }); g.setLineDash([]); }
-          if (hpl.length > 1) { hpl.forEach(q => { const x1 = cx + q.gw * kx; rx(cx, row); rx(x1, row); hDim(cx, x1, rowY(row), q.gw); cx = x1; }); row++; }
-          if (hBl) { const xa = fx + hpl[0].bb.l * kx, xb = fx + FW - hpl[hpl.length - 1].bb.r * kx; rx(xa, row); rx(xb, row); hDim(xa, xb, rowY(row), hpl.reduce((a2, q) => a2 + q.w, 0)); row++; }
-          rx(fx, row); rx(fx + FW, row); hDim(fx, fx + FW, rowY(row), r.bw);
+          const nxa = fx + hpl[0].bb.l * kx, nxb = fx + FW - hpl[hpl.length - 1].bb.r * kx;
+          if (hpl.length > 1) { hpl.forEach(q => { const xa = cx + q.bb.l * kx, xb = cx + (q.gw - q.bb.r) * kx; rx(xa, row); rx(xb, row); hDim(xa, xb, rowY(row), q.w); cx += q.gw * kx; }); row++; }   // każda płaszczyzna: wymiar netto
+          rx(nxa, row); rx(nxb, row); hDim(nxa, nxb, rowY(row), hpl.reduce((a2, q) => a2 + q.w, 0)); row++;                                                                 // razem netto
+          if (hBl) { rx(fx, row); rx(fx + FW, row); hDim(fx, fx + FW, rowY(row), r.bw); row++; }                                                                              // razem ze spadem
+          const ins = isHang(r.el) && r.el.inside ? (planesOf(r.el) || []).filter(q => q.side === 'inside') : [];
+          if (ins.length) { // zadruk wewnątrz — to samo wymiarowanie bez spadu
+            const capY = rowY(row) - 4, yIn = j => capY + 34 + j * 46, tk = (v, y) => ext(v, y - 22, v, y + 4);
+            g.fillStyle = '#718096'; g.font = `700 ${FS * .8}px ${PDF_FONT}`; g.textAlign = 'left'; g.fillText('zadruk wewnątrz', fx, capY + 6);
+            let rj = 0; cx = fx;
+            if (ins.length > 1) { hpl.forEach((q, i) => { const xa = cx + q.bb.l * kx, xb = cx + (q.gw - q.bb.r) * kx, iq = ins[i]; if (iq) { tk(xa, yIn(rj)); tk(xb, yIn(rj)); hDim(xa, xb, yIn(rj), iq.w); } cx += q.gw * kx; }); rj++; }
+            tk(nxa, yIn(rj)); tk(nxb, yIn(rj)); hDim(nxa, nxb, yIn(rj), ins.reduce((a2, q) => a2 + q.w, 0));
+          }
           const tp = hpl.reduce((a2, q) => q.gh > a2.gh ? q : a2, hpl[0]);
           if (hBl) { const ya = fy + tp.bb.t * ky, yb = fy + FH - tp.bb.b * ky; ext(fx, ya, fx - 50, ya); ext(fx, yb, fx - 50, yb); vDim(ya, yb, fx - 46, tp.h); ext(fx, fy, fx - 104, fy); ext(fx, fy + FH, fx - 104, fy + FH); vDim(fy, fy + FH, fx - 100, r.bh); }
           else { ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh); }
