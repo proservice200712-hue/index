@@ -637,6 +637,10 @@
   #qtip-pop { position: fixed; z-index: 500; max-width: 260px; padding: 7px 10px; background: #1a202c; color: #fff; font-size: .76rem; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.35); border: 1px solid #67b437; pointer-events: none; }
   /* lista wymiarów wysłony */
   input.has-sz { padding-right: 30px !important; }
+  /* przyciski „+” i „×” przy polach z działaniem — tylko na ekranach dotykowych (tam klawiatura numeryczna ich nie ma) */
+  .calc-plus { position: absolute; right: calc(4px + var(--cp-i, 0) * 30px); top: 50%; transform: translateY(-50%); width: 26px; height: 26px; padding: 0; border: 1px solid var(--line); background: #edf2f7; color: var(--dark); font-size: 1rem; font-weight: 800; line-height: 1; cursor: pointer; display: none; align-items: center; justify-content: center; }
+  .calc-plus.inl { position: static; transform: none; margin-left: 6px; width: 34px; height: 34px; }
+  @media (pointer: coarse) { .calc-plus { display: flex; } input.has-calc:not(.has-sz) { padding-right: calc(8px + var(--cp-n, 2) * 30px) !important; } input.has-sz ~ .calc-plus { right: calc(50px + var(--cp-i, 0) * 30px); } input.has-calc.has-sz { padding-right: 98px !important; } }
   .sz-wrap { display: block; }
   .sz-btn { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border: none; background: var(--accent); color: #fff; font-size: .8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; }
   .sz-btn:hover { filter: brightness(1.1); }
@@ -1281,6 +1285,24 @@ function wallPosts(e) {
   const out = []; let x = 0;
   vals.forEach(v => { const mm = v * k; if (Math.abs(mm - POST_MM) < 0.6) out.push({ x, w: POST_MM }); x += mm; });
   return out;
+}
+// telefon: klawiatura numeryczna nie ma znaków „+” i „x” — przyciski obok pola wstawiają je w miejscu kursora (działanie typu 99,2x2+8 albo 20+20+20)
+function calcPlus(input, chars, inline) {
+  if (!input || input.parentElement.querySelector(':scope > .calc-plus')) return;
+  const wrap = input.parentElement; if (!inline) wrap.style.position = 'relative';
+  if (!inline) input.classList.add('has-calc');
+  chars.forEach((ch, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'calc-plus' + (inline ? ' inl' : ''); b.textContent = ch === 'x' ? '×' : ch; b.tabIndex = -1; b.title = ch === 'x' ? 'Mnożenie' : 'Dodawanie';
+    b.style.setProperty('--cp-i', i);
+    b.addEventListener('pointerdown', e => e.preventDefault());           // klawiatura zostaje otwarta
+    b.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const a = input.selectionStart == null ? input.value.length : input.selectionStart, z = input.selectionEnd == null ? a : input.selectionEnd;
+      input.value = input.value.slice(0, a) + ch + input.value.slice(z); input.focus(); try { input.setSelectionRange(a + 1, a + 1); } catch (er) { /* pole bez zaznaczenia */ }
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    wrap.appendChild(b);
+  });
 }
 // dodaje / zdejmuje przycisk ▾ przy polu wymiaru
 function sizeButton(input, on) {
@@ -4714,6 +4736,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     // wysłona: lista typowych wymiarów (wielokrotności 49,6 cm) przy szerokości i wysokości
     const wysList = t && t.wyslona && el.wyslona;
     sizeButton($('ed-w'), !!wysList);
+    calcPlus($('ed-w'), ['+', 'x'], false);
     // Blackback SEG: wysokość z listy co 49,6 cm, strzałki pola też skaczą o 49,6 cm
     const segH = segHeight(el);
     sizeButton($('ed-h'), !!wysList || segH);
@@ -4765,6 +4788,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       $('ed-pl-hint').textContent = ok.length > 1 ? `${ok.length} płaszczyzny: ${ok.map(w => lenPL(w)).join(' + ')} = ${lenPL(ok.reduce((a, w) => a + Number(w), 0))} ${UNIT()}` : '';
       refresh();
     };
+    calcPlus($('ed-pw'), ['+'], true);
     $('ed-pw').addEventListener('input', apply); $('ed-ph').addEventListener('input', apply); apply();
   }
   function renderPlanesList() {
