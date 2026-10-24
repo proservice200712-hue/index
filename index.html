@@ -60,9 +60,10 @@
   #uf-cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cg stroke='%23fff' stroke-width='4.2' stroke-linecap='round'%3E%3Cpath d='M13 2v8M13 16v8M2 13h8M16 13h8'/%3E%3C/g%3E%3Cg stroke='%2338a169' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M13 2v8M13 16v8M2 13h8M16 13h8'/%3E%3C/g%3E%3Ccircle cx='13' cy='13' r='1.6' fill='%2338a169' stroke='%23fff' stroke-width='1'/%3E%3C/svg%3E") 13 13, crosshair; touch-action: none; } /* zielony krzyżyk z białą obwódką (systemowy jest biały) */
   #uf-pvw { position: absolute; right: 8px; top: 8px; width: 220px; }
   #uf-pv { display: block; width: 100%; opacity: .9; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.15); pointer-events: none; }
-  #uf-pvw .uf-pva { position: absolute; top: 50%; transform: translateY(-50%); width: 26px; height: 26px; padding: 0; border-radius: 50% !important; border: 1px solid #a0aec0; background: #fff; color: #2d3748; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  #uf-pvw .uf-pva { position: absolute; bottom: -13px; width: 26px; height: 26px; padding: 0; border-radius: 50% !important; border: 1px solid #a0aec0; background: #fff; color: #2d3748; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
   #uf-pvw .uf-pva:hover { background: #38a169; border-color: #2f855a; color: #fff; }
-  #uf-pvw .uf-pva.l { left: 4px; } #uf-pvw .uf-pva.r { right: 4px; }
+  #uf-pvw .uf-pva.l { left: 6px; } #uf-pvw .uf-pva.r { right: 6px; } /* strzałki na dolnej krawędzi podglądu — nie zasłaniają ścianek */
+  .uf-div { width: 1px; align-self: stretch; background: #4a5568; margin: 0 2px; }
   .uf-info { padding: 5px 10px; font-size: .78rem; color: var(--mid); background: #fff; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
   .uf-info .uf-keys { color: var(--gray); font-size: .7rem; }
   .uf-info .uf-bk { color: #c05621; }
@@ -893,23 +894,23 @@
       <div id="drop-hint" class="hidden">Upuść, aby dodać wizki</div>
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
-          <b class="uf-title">▦ Ultra Frame</b>
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
           <span class="uf-grp" id="uf-pal"></span>
           <span class="uf-grp"><input type="number" id="uf-cus" min="1" step="0.1" placeholder="własna" title="Ścianka o własnej szerokości (np. regulowana)"><button type="button" id="uf-cus-b" title="Dodaj ściankę o podanej szerokości za zaznaczonym klockiem">＋</button></span>
           <span class="uf-grp"><button type="button" id="uf-rl" title="Obróć zaznaczony klocek w lewo (Shift+R)">↶</button><button type="button" id="uf-rr" title="Obróć zaznaczony klocek w prawo (R) — albo kliknij klocek drugi raz">↷ R</button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
-          <span class="uf-grp"><label>Ścianka: <select id="uf-h" title="Wysokość zaznaczonej ścianki"></select></label><label class="uf-chk" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><input type="checkbox" id="uf-back"> wysłona ręcznie</label></span>
           <span class="uf-sp"></span>
           <button type="button" id="uf-look" title="Widok 3D: pełne ściany (z grafiką, bez podziału) albo gołe ramy z widocznym podziałem na moduły">▮ 3D: pełne ściany</button>
           <button type="button" id="uf-go" class="uf-go" title="Zrób widok 3D jako nową wizkę, ze znacznikami i elementami (SEG + wysłony)">◈ Zrób widok 3D</button>
           <button type="button" id="uf-x" title="Zamknij (Esc)">✕</button>
         </div>
         <div class="uf-bar uf-bar2">
+          <span class="uf-grp"><label>Ścianka: <select id="uf-h" title="Wysokość zaznaczonej ścianki"></select></label><label class="uf-chk" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><input type="checkbox" id="uf-back"> wysłona ręcznie</label></span>
+          <span class="uf-div"></span>
           <b>Stoisko</b>
           <span class="uf-grp"><input type="text" inputmode="decimal" id="uf-sl" title="Długość stoiska (oś pozioma)"> × <input type="text" inputmode="decimal" id="uf-sd" title="Głębokość stoiska (oś pionowa)"> <span id="uf-sa" class="uf-area"></span></span>
           <label>Wysokość <select id="uf-sh" title="Domyślna wysokość ścianek"></select></label>
-          <label class="uf-chk" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> wysłony zewnętrzne (od 248 w górę)</label>
+          <label class="uf-chk" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> wysłony zewn.</label>
           <label class="uf-chk" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><input type="checkbox" id="uf-zap"> wysłona zaplecza</label>
           <label class="uf-chk" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW</label>
         </div>
@@ -6585,6 +6586,7 @@ function ufRender3D(o) {
   const grow = (x, y, z) => { const [X, Y] = P(x, y, z); mnX = Math.min(mnX, X); mxX = Math.max(mxX, X); mnY = Math.min(mnY, Y); mxY = Math.max(mxY, Y); };
   boxes.forEach(bx => [[bx.x0, bx.y0], [bx.x1, bx.y0], [bx.x0, bx.y1], [bx.x1, bx.y1]].forEach(([x, y]) => [0, bx.h].forEach(z => grow(x, y, z))));
   fl.forEach(([x, y]) => grow(x, y, 0));
+  if (o.dims) { const ex = 900; [[-ex, -ex], [st.L + ex, -ex], [st.L + ex, st.D + ex], [-ex, st.D + ex]].forEach(([x, y]) => grow(...rot(x, y), 0)); } // miejsce na wymiary stoiska
   const M = pv ? 8 : 130, TOP = pv ? 8 : 150, BOT = pv ? 8 : 60, bw = mxX - mnX, bh = mxY - mnY;
   const s = Math.min((W - 2 * M) / bw, ((pv ? 209 : 1100) - TOP - BOT) / bh), H = Math.round(bh * s + TOP + BOT), CW = pv ? W : Math.max(900, Math.round(bw * s + 2 * M));
   const T = (x, y, z) => { const [X, Y] = P(x, y, z); return [M + (X - mnX) * s, TOP + (Y - mnY) * s]; };
@@ -6611,7 +6613,7 @@ function ufRender3D(o) {
     if (pick < 0) for (let i = 0; i < n; i++) if (!done.has(i) && (pick < 0 || key(boxes[i]) < key(boxes[pick]))) pick = i;
     done.add(pick); order.push(pick);
   }
-  const LW = pv ? .6 : 1.1, bare = d.look === 'bare';
+  const LW = pv ? .6 : 1.1, bare = (o.look || d.look) === 'bare';
   const poly = (pts, fill) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = '#1a202c'; g.lineWidth = LW; g.stroke(); };
   // ściana pełna: wypełnienie bez szwów między modułami (krawędź rysowana tylko tam, gdzie nie styka się sąsiedni moduł)
   const face = (pts, fill, hide) => {
@@ -6658,14 +6660,14 @@ function ufRender3D(o) {
       // gołe ramy: każdy moduł osobno (widać podział), sam profil — najpierw tylne ramy (widoczne przez prześwit), potem przednie i góra
       const o0 = T(bx.x0, bx.y0, 0), d1 = (a, b) => [a[0] - o0[0], a[1] - o0[1]];
       const ux = d1(T(bx.x0 + 1, bx.y0, 0)), uy = d1(T(bx.x0, bx.y0 + 1, 0)), vZ = d1(T(bx.x0, bx.y0, 1));
-      if (post) { poly([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#d62d20'); poly([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], '#a8231a'); } // słupek czerwony (jak na planie)
+      if (post) { poly([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#38a169'); poly([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], '#2f855a'); } // słupek zielony
       else {
         // ramy piętrowo: 248 na dole, niższa rama na niej
         let z0 = 0; const zs = ufStack(h).map(hh => { const r = [z0, hh]; z0 += hh; return r; }), at = (x, y, z) => T(x, y, z);
         zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, '#a3acb8'); frame(at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, '#8f99a7'); });                     // tył: północ, zachód
         zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, '#aeb6c1'); frame(at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, '#949eab'); }); // przód: południe, wschód
       }
-      poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#e8584d' : '#c3cad3');
+      poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#68d391' : '#c3cad3');
     } else {
       const sameH = B => Math.abs(B.h - h) < 1, nb = f => boxes.find(B => B !== bx && sameH(B) && f(B));
       const E = nb(B => Math.abs(B.x0 - bx.x1) < 2 && B.y0 <= bx.y0 + 2 && B.y1 >= bx.y1 - 2), Wn = nb(B => Math.abs(B.x1 - bx.x0) < 2 && B.y0 <= bx.y0 + 2 && B.y1 >= bx.y1 - 2);
@@ -6741,10 +6743,37 @@ function ufRender3D(o) {
       g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(tx - tw / 2, ty, tw, 26); g.strokeStyle = '#c05621'; g.lineWidth = 1; g.strokeRect(tx - tw / 2, ty, tw, 26);
       g.fillStyle = '#9c4221'; g.fillText(txt, tx, ty + 13.5);
     });
+    if (o.dims) { // podgląd przezroczysty (gołe ramy) z wymiarami: stoisko na podłodze, każda ścianka — długość × wysokość i podział ram
+      const fcx = (fl[0][0] + fl[2][0]) / 2, fcy = (fl[0][1] + fl[2][1]) / 2;
+      [[0, 1], [1, 2], [2, 3], [3, 0]].map(([a, b]) => ({ A: fl[a], B: fl[b], sy: T((fl[a][0] + fl[b][0]) / 2, (fl[a][1] + fl[b][1]) / 2, 0)[1] }))
+        .sort((p, q) => q.sy - p.sy).slice(0, 2).forEach(({ A, B }) => {   // dwie przednie krawędzie podłogi
+          const alongX = Math.abs(B[0] - A[0]) > Math.abs(B[1] - A[1]), len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+          const n = alongX ? [0, Math.sign((A[1] + B[1]) / 2 - fcy) || 1] : [Math.sign((A[0] + B[0]) / 2 - fcx) || 1, 0], off = 450;
+          const [ax, ay] = T(A[0] + n[0] * off, A[1] + n[1] * off, 0), [bx2, by2] = T(B[0] + n[0] * off, B[1] + n[1] * off, 0);
+          g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath();
+          [[A, ax, ay], [B, bx2, by2]].forEach(([P0, x2, y2]) => { const [x1, y1] = T(P0[0], P0[1], 0); g.moveTo(x1, y1); g.lineTo(x2 + (x2 - x1) * .12, y2 + (y2 - y1) * .12); }); g.stroke();
+          drawArrowLine(g, ax, ay, bx2, by2, 12, '#4a5568', 1.6);
+          let an = Math.atan2(by2 - ay, bx2 - ax); if (an > Math.PI / 2) an -= Math.PI; if (an < -Math.PI / 2) an += Math.PI;
+          g.save(); g.translate((ax + bx2) / 2, (ay + by2) / 2); g.rotate(an); g.fillStyle = '#2f855a'; g.font = `700 18px ${F}`; g.textAlign = 'center'; const A0 = T(A[0], A[1], 0), outY = (ax - A0[0]) * -Math.sin(an) + (ay - A0[1]) * Math.cos(an); g.textBaseline = outY > 0 ? 'top' : 'bottom'; g.fillText(`${lenPL(len)} ${UNIT()}`, 0, g.textBaseline === 'top' ? 6 : -6); g.restore();
+        });
+      const placed = [];
+      geo.runs.forEach(run => {
+        const k0 = run.ori === 0 ? 'x' : 'y', a = Math.min(...run.parts.map(q => q[k0 + '0'])), b = Math.max(...run.parts.map(q => q[k0 + '1'])), am = (a + b) / 2;
+        const [rx, ry] = rot(...(run.ori === 0 ? [am, run.line] : [run.line, am])), [tx, ty0] = T(rx, ry, run.h);
+        const txt = `${lenPL(b - a)} × ${lenPL(run.h)}` + (ufStackTxt(run.h) ? `  (ramy ${ufStackTxt(run.h)})` : '');
+        g.font = `600 17px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        const tw = g.measureText(txt).width + 18; let ty = ty0 - 44;
+        while (placed.some(q => tx - tw / 2 < q[0] + q[2] + 6 && q[0] < tx + tw / 2 + 6 && ty < q[1] + 30 && q[1] < ty + 30)) ty -= 32; // tabliczki nie nachodzą na siebie
+        placed.push([tx - tw / 2, ty, tw]);
+        g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(tx - tw / 2, ty, tw, 26); g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.strokeRect(tx - tw / 2, ty, tw, 26);
+        g.fillStyle = '#1a202c'; g.fillText(txt, tx, ty + 13.5);
+      });
+    }
     g.fillStyle = '#1a202c'; g.font = `700 22px ${F}`; g.textAlign = 'left'; g.textBaseline = 'top';
-    g.fillText(`Ultra Frame — widok 3D${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
+    g.fillText(`Ultra Frame — ${o.dims ? 'gołe ramy z wymiarami' : 'widok 3D'}${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
     g.fillStyle = '#718096'; g.font = `400 15px ${F}`;
-    g.fillText(`stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · ${bare ? 'gołe ramy — podział na moduły' : 'pełne ściany'} · wymiary grafik w ${UNIT()} (szerokość × wysokość) · tabliczki: tkanina SEG z przodu, wysłona z tyłu`, 24, 54);
+    g.fillText(o.dims ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · tabliczki: ścianka długość × wysokość w ${UNIT()}, ramy 248 + niższa na niej`
+      : `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · ${bare ? 'gołe ramy — podział na moduły' : 'pełne ściany'} · wymiary grafik w ${UNIT()} (szerokość × wysokość) · tabliczki: tkanina SEG z przodu, wysłona z tyłu`, 24, 54);
     geo.caps.forEach(c => { // zaślepki PCW: znacznik przy każdym gołym końcu (pierwszy = miejsce elementu, kolejne = dalsze miejsca)
       if (!(o.marks && o.marks.get(c.key + '|end'))) return;
       c.ends.forEach((e, i) => { const [rx, ry] = rot(e.x, e.y), [px, py] = T(rx, ry, c.h * 0.45); pos.set(c.key + '|end' + (i ? '|' + i : ''), [px / CW, py / H]); });
@@ -6839,11 +6868,26 @@ async function ufGenerate() {
     const blob = await new Promise(res => img.cv.toBlob(res, 'image/png'));
     const up = await storeImage(new File([blob], 'ultra-frame.png', { type: 'image/png' }), 3200, { png: true });
     let photoId = UF.d.photoId && S.photos.some(p => p.id === UF.d.photoId) ? UF.d.photoId : '';
+    let ordMax = S.photos.reduce((m, p) => Math.max(m, p.order || 0), 0);
     if (photoId) await DB.update(pPhotos(pid), photoId, { url: up.url, w: up.w, h: up.h });
     else {
-      const order = S.photos.reduce((m, p) => Math.max(m, p.order || 0), 0) + 1;
+      const order = ++ordMax;
       photoId = await DB.add(pPhotos(pid), { url: up.url, w: up.w, h: up.h, name: 'Ultra Frame — widok 3D', order, createdAt: nowIso(), createdBy: S.me.id });
       addLog(pid, `Ultra Frame: dodano wizkę #${order} (widok 3D)`);
+    }
+    // druga wizka: przezroczysty podgląd (gołe ramy) z wymiarami stoiska i ścianek — bez znaczników
+    const imgB = ufRender3D({ W: 1700, dims: true, look: 'bare' });
+    if (imgB) {
+      const blobB = await new Promise(res => imgB.cv.toBlob(res, 'image/png'));
+      const upB = await storeImage(new File([blobB], 'ultra-frame-ramy.png', { type: 'image/png' }), 3200, { png: true });
+      let pB = UF.d.photoId2 && S.photos.some(p => p.id === UF.d.photoId2) ? UF.d.photoId2 : '';
+      if (pB) await DB.update(pPhotos(pid), pB, { url: upB.url, w: upB.w, h: upB.h });
+      else {
+        const order = ++ordMax;
+        pB = await DB.add(pPhotos(pid), { url: upB.url, w: upB.w, h: upB.h, name: 'Ultra Frame — gołe ramy z wymiarami', order, createdAt: nowIso(), createdBy: S.me.id });
+        addLog(pid, `Ultra Frame: dodano wizkę #${order} (gołe ramy z wymiarami)`);
+      }
+      UF.d.photoId2 = pB;
     }
     let nNew = 0, nUpd = 0;
     for (const j of jobs) {
