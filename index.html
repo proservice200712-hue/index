@@ -898,6 +898,7 @@
           <span class="uf-grp"><input type="text" inputmode="decimal" id="uf-sl" title="Długość stoiska (oś pozioma)"> × <input type="text" inputmode="decimal" id="uf-sd" title="Głębokość stoiska (oś pionowa)"> <span id="uf-sa" class="uf-area"></span></span>
           <label>Wysokość <select id="uf-sh" title="Domyślna wysokość ścianek"></select></label>
           <label class="uf-chk" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> wysłony zewnętrzne (od 248 w górę)</label>
+          <label class="uf-chk" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><input type="checkbox" id="uf-zap"> wysłony zaplecza (od wewnątrz)</label>
           <label class="uf-chk" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW 8 cm na gołych końcach</label>
         </div>
         <div class="uf-main"><canvas id="uf-cv"></canvas><canvas id="uf-pv" class="hidden" title="Podgląd widoku 3D"></canvas></div>
@@ -6009,7 +6010,27 @@ function ufGeom(d) {
       faces.push({ key: 'uf:' + w0.op.id, run: r, ori: r.ori, inn, f, a: sa, b: sb, h: r.h, items });
     });
   });
-  return { parts, runs, ext, ends, caps, faces, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
+  // wysłony zaplecza (opcja): każde lico ścianki zwrócone do zamkniętego pomieszczenia wewnątrz stoiska (niewidoczne od alejki) —
+  // pocięte ściankami, które do niego dochodzą; szerokość = same moduły (bez słupków), wysokość ścianki
+  const zap = [];
+  if (st && st.zap) runs.forEach(r => [-1, 1].forEach(sd => {
+    const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + sd * UF_T / 2;
+    const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
+    const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + sd && q.y1 >= f + sd : q.x0 <= f + sd && q.x1 >= f + sd))
+      .map(q => [q[k0 + '0'], q[k0 + '1']]).filter(([a, b]) => b > lo && a < hi).sort((p, q) => p[0] - q[0]);
+    const segs = []; let a = lo;
+    cut.forEach(([c0, c1]) => { if (c0 > a) segs.push([a, c0]); a = Math.max(a, c1); });
+    if (hi > a) segs.push([a, hi]);
+    segs.forEach(([sa, sb]) => {
+      if (sb - sa < 100) return;
+      const am = (sa + sb) / 2, px = r.ori === 0 ? am : f + sd * 60, py = r.ori === 0 ? f + sd * 60 : am;
+      if (!(px > 0 && px < st.L && py > 0 && py < st.D) || pub(px, py)) return;           // tylko wnętrze stoiska niewidoczne od alejki
+      const items = r.parts.map(q => ({ op: q.op, len: Math.min(sb, q[k0 + '1']) - Math.max(sa, q[k0 + '0']) })).filter(it => it.len > 1);
+      const w0 = items.find(it => it.op.t !== 'post'); if (!w0) return;
+      zap.push({ key: 'uf:zap:' + w0.op.id + ':' + (sd > 0 ? 'p' : 'm'), run: r, ori: r.ori, inn: sd, f, a: sa, b: sb, h: r.h, items });
+    });
+  }));
+  return { parts, runs, ext, ends, caps, faces, zap, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
 }
 // część stoiska widoczna od alejki: siatka zalewana od otwartych boków, ścianki (także z drzwiami) są przegrodą
 function ufPublic(st, parts) {
@@ -6037,6 +6058,19 @@ function ufFaceSpec(fc) {
   }
   const terms = items.map(it => numIn(fromMM(it.len)));
   return { w: fc.b - fc.a, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length, notes: '' };
+}
+// wysłona zaplecza (Blackback od wewnątrz pomieszczenia): same moduły lica, po kolei od lewej patrząc na wysłonę z pomieszczenia; z drzwiami, gdy w licu są drzwi
+function ufZapSpec(zf) {
+  const rev = (zf.ori === 0) === (zf.inn < 0), items = (rev ? zf.items.slice().reverse() : zf.items).filter(it => it.op.t !== 'post'), h = zf.h;
+  let door = null, off = 0;
+  for (const it of items) {
+    const o = it.op;
+    if (o.t === 'door') { door = { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' }; break; }
+    off += it.len;
+  }
+  const terms = items.map(it => numIn(fromMM(it.len)));
+  return { w: items.reduce((s2, it) => s2 + it.len, 0), h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length,
+    notes: 'wysłona zaplecza — od wewnątrz pomieszczenia (strona bez grafiki)' };
 }
 const ufRuns = () => ufGeom(UF.d).runs;
 // dane elementu dla ścianki: przód (tkanina SEG: moduły + słupki) albo tył (wysłona: same moduły; zewnętrzna — od 248 w górę)
@@ -6166,7 +6200,7 @@ function ufSyncBar() {
   const act = document.activeElement;
   if (act !== $('uf-sl')) $('uf-sl').value = numIn(fromMM(st.L)); if (act !== $('uf-sd')) $('uf-sd').value = numIn(fromMM(st.D));
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
-  $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-caps').checked = st.caps !== false;
+  $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-caps').checked = st.caps !== false; $('uf-zap').checked = !!st.zap;
   $('uf-look').textContent = d.look === 'bare' ? '▦ 3D: gołe ramy' : '▮ 3D: pełne ściany';
   const all = ufRuns(), n = all.length;
   let t;
@@ -6286,6 +6320,15 @@ function ufDraw() {
     g.fillStyle = '#2f855a'; g.font = `600 12px ${F}`; g.textAlign = 'center'; g.textBaseline = tw ? 'bottom' : 'top';
     g.fillText(`${lenPL(fc.b - fc.a)} × ${lenPL(fc.h)}`, 0, tw ? -3 : 3); g.restore();
   });
+  geo.zap.forEach(zf => {
+    const inn = zf.ori === 0 ? [0, zf.inn] : [zf.inn, 0], L = zf.run.line, off = 230, sp = ufZapSpec(zf);
+    const ax = zf.ori === 0 ? zf.a : L + inn[0] * off, ay = zf.ori === 0 ? L + inn[1] * off : zf.a, bx2 = zf.ori === 0 ? zf.b : ax, by2 = zf.ori === 0 ? ay : zf.b;
+    g.strokeStyle = '#dd6b20'; g.lineWidth = 3; g.beginPath(); g.moveTo(X(zf.ori === 0 ? zf.a : zf.f), Y(zf.ori === 0 ? zf.f : zf.a)); g.lineTo(X(zf.ori === 0 ? zf.b : zf.f), Y(zf.ori === 0 ? zf.f : zf.b)); g.stroke();
+    drawArrowLine(g, X(ax), Y(ay), X(bx2), Y(by2), 6, '#c05621', 1.2);
+    g.save(); g.translate((X(ax) + X(bx2)) / 2, (Y(ay) + Y(by2)) / 2); if (zf.ori === 1) g.rotate(-Math.PI / 2);
+    g.fillStyle = '#c05621'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = zf.inn > 0 ? 'bottom' : 'top';
+    g.fillText(`wysłona ${lenPL(sp.w)} × ${lenPL(sp.h)}`, 0, zf.inn > 0 ? -3 : 3); g.restore();
+  });
   const selRun = ufSelRun();
   geo.runs.forEach(rn => {
     const out = rn.ori === 0 ? [0, rn.line >= st.D / 2 ? 1 : -1] : [rn.line >= st.L / 2 ? 1 : -1, 0];
@@ -6312,6 +6355,11 @@ function ufDraw() {
     pin(...at((fc.a + fc.b) / 2, 420), markOf(fe), colorOf(fe));
     const de = S.elements.find(e => e.doorFor === fe.id), dp = fc.run.parts.find(q => q.op.t === 'door' && fc.items.some(it => it.op === q.op));
     if (de && dp) pin(...at(fc.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 640), markOf(de), colorOf(de), 9.5);
+  });
+  geo.zap.forEach(zf => { // wysłona zaplecza: znacznik w pomieszczeniu przy licu
+    const ze = elOf(zf.key, 'zap'); if (!ze) return;
+    const am = (zf.a + zf.b) / 2, off = 560;
+    pin(...(zf.ori === 0 ? [am, zf.run.line + zf.inn * off] : [zf.run.line + zf.inn * off, am]), markOf(ze), colorOf(ze));
   });
   geo.runs.forEach(rn => { // wysłona ręczna (tył ścianki)
     const be = elOf(rn.key, 'back'); if (!be) return;
@@ -6623,6 +6671,16 @@ function ufRender3D(o) {
       g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(tx - tw / 2, ty, tw, 26); g.strokeStyle = '#c05621'; g.lineWidth = 1; g.strokeRect(tx - tw / 2, ty, tw, 26);
       g.fillStyle = '#9c4221'; g.fillText(txt, tx, ty + 13.5);
     });
+    geo.zap.forEach((zf, zi) => { // wysłona zaplecza: od wewnątrz pomieszczenia, więc znacznik w osi ścianki (ściana zasłania lico), tabliczka nad górną krawędzią
+      const m = o.marks && o.marks.get(zf.key + '|zap'); if (!m) return;
+      const am = (zf.a + zf.b) / 2, [cxr, cyr] = rot(...(zf.ori === 0 ? [am, zf.run.line] : [zf.run.line, am]));
+      const [px, py] = T(cxr, cyr, zf.h * 0.45), [tx, ty0] = T(cxr, cyr, zf.h);
+      pos.set(zf.key + '|zap', [px / CW, py / H]);
+      const txt = 'wysłona zaplecza ' + m.wTxt; g.font = `600 17px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const tw = g.measureText(txt).width + 18, ty = ty0 - 78 - (zi % 3) * 30;
+      g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(tx - tw / 2, ty, tw, 26); g.strokeStyle = '#c05621'; g.lineWidth = 1; g.strokeRect(tx - tw / 2, ty, tw, 26);
+      g.fillStyle = '#9c4221'; g.fillText(txt, tx, ty + 13.5);
+    });
     g.fillStyle = '#1a202c'; g.font = `700 22px ${F}`; g.textAlign = 'left'; g.textBaseline = 'top';
     g.fillText(`Ultra Frame — widok 3D${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
     g.fillStyle = '#718096'; g.font = `400 15px ${F}`;
@@ -6682,6 +6740,19 @@ async function ufGenerate() {
       }
       marks.set(e.key + '|ext', { mark, color: tcol, wTxt: `${lenPL(spec.w)} × ${lenPL(spec.h)}` });
       jobs.push({ run: { key: e.key }, role: 'ext', spec, ex, rec, mark });
+    });
+    // wysłony zaplecza: Blackback od wewnątrz zamkniętego pomieszczenia (opcja stoiska)
+    ufGeom(UF.d).zap.forEach(zf => {
+      const spec = ufZapSpec(zf), ex = S.elements.find(x => x.ufKey === zf.key && x.ufRole === 'zap' && !x.doorFor);
+      let rec = null, mark;
+      if (ex) mark = markOf(ex);
+      else {
+        rec = { num: 0, typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, thick: '', ...togValues({ wyslona: true }, 'blackback'), frontlit: false, sidelit: false,
+          seg: false, wyslona: true, wnum: take(usedW), name: '', w: spec.w, h: spec.h, d: '', qty: 1, notes: spec.notes, wExpr: spec.wExpr, wExprUnit: spec.wExpr ? spec.wExprUnit : '', ufKey: zf.key, ufRole: 'zap', photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
+        mark = markOf(rec);
+      }
+      marks.set(zf.key + '|zap', { mark, color: tcol, wTxt: `${lenPL(spec.w)} × ${lenPL(spec.h)}` });
+      jobs.push({ run: { key: zf.key }, role: 'zap', spec, ex, rec, mark });
     });
     // zaślepki gołych końców ramy: PCW 3 mm, 8 cm × wysokość systemu (jeden element na wysokość, ilość = liczba końców)
     ufGeom(UF.d).caps.forEach(c => {
@@ -6783,6 +6854,7 @@ async function closeUltraFrame() {
   dimIn('uf-sl', 'L'); dimIn('uf-sd', 'D');
   $('uf-ext').onchange = e => { ufPush(); UF.d.stand.ext = e.target.checked; ufChanged(); };
   $('uf-caps').onchange = e => { ufPush(); UF.d.stand.caps = e.target.checked; ufChanged(); };
+  $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
   $('uf-rot').onclick = () => { UF.d.view = ((UF.d.view || 0) + 1) & 3; ufChanged(); };
   $('uf-go').onclick = ufGenerate; $('uf-x').onclick = closeUltraFrame;
