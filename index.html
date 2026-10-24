@@ -6671,7 +6671,7 @@ function ufRender3D(o) {
     g.drawImage(t.im, 0, 0); g.restore();
   });
   // co jest na licach (pełne ściany): tkanina SEG na licach grafik, wysłony — zaplecza i ręczna na całą wysokość, zewnętrzna od 248 w górę;
-  // lico bez niczego (np. tył ścianki od sąsiada poniżej 248) to gołe ramy (widać tył tkaniny z drugiej strony)
+  // lico bez niczego (np. tył ścianki od sąsiada poniżej 248) to gołe ramy na ciemnoszarym tle
   const covers = [];
   const addCov = (ori, f, n, a, b, z0, z1) => {
     const A = rot(...(ori === 0 ? [a, f] : [f, a])), B = rot(...(ori === 0 ? [b, f] : [f, b])), nv = rv(...(ori === 0 ? [0, n] : [n, 0]));
@@ -6719,7 +6719,7 @@ function ufRender3D(o) {
         const top = cv2.length ? Math.max(0, Math.min(...cv2.map(c => c.z0))) : h, U = sd === 's' ? bx.x1 - bx.x0 : bx.y1 - bx.y0, du = sd === 's' ? ux : uy;
         const at = z => sd === 's' ? T(bx.x0, bx.y1, z) : T(bx.x1, bx.y0, z), q = (z, u) => { const p0 = at(z); return [p0[0] + du[0] * u, p0[1] + du[1] * u]; };
         if (post) poly([q(0, 0), q(0, U), q(top, U), q(top, 0)], '#aeb6c1');
-        else { let z = 0; ufStack(h).forEach(hh => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#e9edf2'); frame(at(z), du, vZ, U, z1 - z, '#aeb6c1'); } z += hh; }); }
+        else { let z = 0; ufStack(h).forEach(hh => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#4a5568'); frame(at(z), du, vZ, U, z1 - z, '#aeb6c1'); } z += hh; }); }
         if (top < h - 1) poly([q(top, 0), q(top, U), q(h, U), q(h, 0)], col);
       };
       side(fS, 's', cp.s ? '#e4dcf5' : bk ? '#eceff3' : '#f3f5f8', [false, !!corner, false, !!(Wn && Math.abs(Wn.y1 - bx.y1) < 2)]);
