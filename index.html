@@ -7148,7 +7148,7 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
 }
 // płótno o rozmiarze logicznym PW × PH, rysowane w Q-krotnej rozdzielczości (ostry tekst i miniatury w PDF / druku)
 const EXP_Q = 2;
-function newCanvas(PW, PH, Q = 1) { const c = document.createElement('canvas'); c.width = PW * Q; c.height = PH * Q; const g = c.getContext('2d'); g.scale(Q, Q); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.imageSmoothingQuality = 'high'; return [c, g]; }
+function newCanvas(PW, PH, Q = 1) { if (VEC) return VEC.page(PW, PH); const c = document.createElement('canvas'); c.width = PW * Q; c.height = PH * Q; const g = c.getContext('2d'); g.scale(Q, Q); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.imageSmoothingQuality = 'high'; return [c, g]; }
 // wizka z kształtami, strzałkami i literami
 function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
   g.drawImage(img, ix, iy, iw, ih);
@@ -7369,7 +7369,9 @@ async function renderIndexA3(stamp) {
         if (insA.length) { strip(inFy, insA, thumbs[r.el.id + '#in'], hpl.length); g.strokeStyle = '#a0aec0'; g.lineWidth = 2; g.strokeRect(fx, inFy, FW, FH); }
       } else if (th) { // miniatura grafiki mieści się w całości w okienku (wyśrodkowana, bez przycinania)
         const s2 = Math.min(FW / th.width, FH / th.height), dw = th.width * s2, dh = th.height * s2;
-        g.drawImage(crispCanvas(th, dw * EXP_Q, dh * EXP_Q) || th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
+        // PDF wektorowy: grafika z Corela jako wektor (SVG), bez niego — bitmapa
+        if (!(g.vec && r.el.thumbVec && await g.svg(r.el.thumbVec, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh)))
+          g.drawImage(crispCanvas(th, dw * EXP_Q, dh * EXP_Q) || th, fx + (FW - dw) / 2, fy + (FH - dh) / 2, dw, dh);
       }
       if (!d) {
         if (!noFrame) { g.setLineDash([12, 8]); g.strokeStyle = '#dd6b20'; g.lineWidth = 3; g.strokeRect(fx, fy, FW, FH); g.setLineDash([]); }
@@ -7501,6 +7503,192 @@ function printPages(canvases, size) {
   const imgs = [...d.images];
   Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))).then(go);
 }
+// =====================================================================
+//  EKSPORT PDF WEKTOROWY: te same funkcje rysujące co na płótnie, ale do PDF (jsPDF) — tekst, linie, ramki, znaczniki
+//  i wymiary zostają wektorami; grafiki z Corela (thumbVec, SVG) wchodzą jako wektory przez svg2pdf;
+//  zdjęcia (wizki), logo i miniatury bez wektora — jako bitmapy. Czcionka z polskimi (i ukraińskimi) znakami: Fira Sans.
+// =====================================================================
+const VEC_SVG2PDF = 'https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.4/dist/svg2pdf.umd.min.js';
+const VEC_FONT_URL = 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/fira-sans@0.2.3/';
+const VEC_FONTS = { F400: 'FiraSans_400Regular.ttf', F600: 'FiraSans_600SemiBold.ttf', F700: 'FiraSans_700Bold.ttf', F800: 'FiraSans_800ExtraBold.ttf', F400i: 'FiraSans_400Regular_Italic.ttf' };
+let VEC = null;                     // trwający eksport wektorowy: { pdf, page(PW, PH) } — newCanvas oddaje wtedy stronę PDF zamiast płótna
+const vecFontB64 = {};              // pobrane czcionki (base64), raz na sesję
+function vecScript(url) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = url; s.onload = res; s.onerror = () => rej(new Error('Nie można wczytać ' + url)); document.head.appendChild(s); });
+}
+async function vecReady() {
+  if (!window.svg2pdf) { try { await vecScript(VEC_SVG2PDF); } catch (e) { console.warn('svg2pdf', e); } }   // bez svg2pdf grafiki pójdą jako bitmapy
+  await Promise.all(Object.entries(VEC_FONTS).map(async ([k, f]) => {
+    if (vecFontB64[k]) return;
+    const r = await fetch(VEC_FONT_URL + f); if (!r.ok) throw new Error('czcionka ' + f);
+    const u = new Uint8Array(await r.arrayBuffer()); let bin = '';
+    for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+    vecFontB64[k] = btoa(bin);
+  }));
+}
+function vecFonts(pdf) { Object.keys(VEC_FONTS).forEach(k => { pdf.addFileToVFS(k + '.ttf', vecFontB64[k]); pdf.addFont(k + '.ttf', k, 'normal'); }); }
+// kolor CSS → { r, g, b, a }
+const _vecCol = new Map();
+function vecColor(c) {
+  c = String(c || '#000').trim(); if (_vecCol.has(c)) return _vecCol.get(c);
+  let o = null, m;
+  if ((m = /^#([0-9a-f]{3,8})$/i.exec(c))) {
+    let h = m[1]; if (h.length <= 4) h = h.split('').map(x => x + x).join('');
+    o = { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16), a: h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1 };
+  } else if ((m = /^rgba?\(([^)]+)\)$/i.exec(c))) {
+    const p = m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+    o = { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  } else if (c === 'transparent') o = { r: 0, g: 0, b: 0, a: 0 };
+  else if (typeof document !== 'undefined') {
+    const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; const v = x.fillStyle;
+    o = v !== c && (v[0] === '#' || /^rgba?\(/.test(v)) ? vecColor(v) : { r: 0, g: 0, b: 0, a: 1 };
+  } else o = { r: 0, g: 0, b: 0, a: 1 };
+  _vecCol.set(c, o); return o;
+}
+// font CSS („italic 700 24px Bahnschrift, …”) → czcionka PDF i rozmiar w px (logicznych)
+function vecFontOf(font) {
+  const f = String(font || ''), it = /\bitalic\b/.test(f), w = Number((/\b([1-9]00)\b/.exec(f) || [])[1] || (/\bbold\b/.test(f) ? 700 : 400));
+  const px = Number((/([\d.]+)px/.exec(f) || [])[1] || 10);
+  return { name: it ? 'F400i' : w >= 800 ? 'F800' : w >= 700 ? 'F700' : w >= 550 ? 'F600' : 'F400', px };
+}
+const VEC_PROPS = ['fillStyle', 'strokeStyle', 'lineWidth', 'font', 'textAlign', 'textBaseline', 'globalAlpha', 'lineCap', 'lineJoin', 'shadowColor', 'shadowBlur', 'imageSmoothingQuality'];
+// podzbiór CanvasRenderingContext2D używany przy rysowaniu stron eksportu, zapisywany od razu do PDF
+class PdfCtx {
+  constructor(pdf, k) {
+    this.pdf = pdf; this.vec = true; this.m = [k, 0, 0, k, 0, 0]; this.stack = []; this.path = []; this.dash = [];
+    Object.assign(this, { fillStyle: '#000', strokeStyle: '#000', lineWidth: 1, font: '10px sans-serif', textAlign: 'left', textBaseline: 'alphabetic', globalAlpha: 1, lineCap: 'butt', lineJoin: 'miter', shadowColor: 'transparent', shadowBlur: 0, imageSmoothingQuality: 'high' });
+    this.gs = new Map(); this.imgs = new Map();
+  }
+  // przekształcenia (macierz jak w canvas; k = mm na piksel logiczny strony)
+  T(x, y) { const m = this.m; return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }
+  get sc() { const m = this.m; return Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])); }
+  save() { const s = { m: this.m.slice(), dash: this.dash.slice() }; VEC_PROPS.forEach(p => { s[p] = this[p]; }); this.stack.push(s); this.pdf.saveGraphicsState(); }
+  restore() { const s = this.stack.pop(); if (!s) return; Object.assign(this, s); this.pdf.restoreGraphicsState(); }
+  translate(x, y) { const m = this.m; m[4] += m[0] * x + m[2] * y; m[5] += m[1] * x + m[3] * y; }
+  scale(x, y) { const m = this.m; m[0] *= x; m[1] *= x; m[2] *= y; m[3] *= y; }
+  rotate(a) { const c = Math.cos(a), s = Math.sin(a), [A, B, C, D] = this.m; this.m[0] = A * c + C * s; this.m[1] = B * c + D * s; this.m[2] = C * c - A * s; this.m[3] = D * c - B * s; }
+  setLineDash(a) { this.dash = (a || []).slice(); }
+  getLineDash() { return this.dash.slice(); }
+  // ścieżka (w mm strony)
+  beginPath() { this.path = []; this.cur = null; }
+  moveTo(x, y) { this.path.push(['m', ...this.T(x, y)]); this.cur = this.start = [x, y]; }
+  lineTo(x, y) { if (!this.cur) return this.moveTo(x, y); this.path.push(['l', ...this.T(x, y)]); this.cur = [x, y]; }
+  bezierCurveTo(a, b, c, d, x, y) { if (!this.cur) this.moveTo(a, b); this.path.push(['c', ...this.T(a, b), ...this.T(c, d), ...this.T(x, y)]); this.cur = [x, y]; }
+  quadraticCurveTo(a, b, x, y) { const [x0, y0] = this.cur || [a, b]; this.bezierCurveTo(x0 + 2 / 3 * (a - x0), y0 + 2 / 3 * (b - y0), x + 2 / 3 * (a - x), y + 2 / 3 * (b - y), x, y); }
+  closePath() { if (this.cur) { this.path.push(['h']); this.cur = this.start; } }
+  rect(x, y, w, h) { this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath(); }
+  arc(cx, cy, r, a0, a1, ccw) {
+    const TAU = Math.PI * 2; let da = ccw ? a0 - a1 : a1 - a0;
+    if (da >= TAU) da = TAU; else { da %= TAU; if (da < 0) da += TAU; }
+    if (ccw) da = -da;
+    const p0 = [cx + r * Math.cos(a0), cy + r * Math.sin(a0)];
+    this.cur ? this.lineTo(...p0) : this.moveTo(...p0);
+    const n = Math.max(1, Math.ceil(Math.abs(da) / (Math.PI / 2) - 1e-9)), th = da / n, q = 4 / 3 * Math.tan(th / 4);
+    let a = a0;
+    for (let i = 0; i < n; i++) {
+      const b = a + th, ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+      this.bezierCurveTo(cx + r * (ca - q * sa), cy + r * (sa + q * ca), cx + r * (cb + q * sb), cy + r * (sb - q * cb), cx + r * cb, cy + r * sb);
+      a = b;
+    }
+  }
+  _emit() { const p = this.pdf; for (const s of this.path) { if (s[0] === 'm') p.moveTo(s[1], s[2]); else if (s[0] === 'l') p.lineTo(s[1], s[2]); else if (s[0] === 'c') p.curveTo(s[1], s[2], s[3], s[4], s[5], s[6]); else p.close(); } }
+  _alpha(fa, sa) {
+    fa = Math.round(Math.max(0, Math.min(1, fa)) * 1000) / 1000; sa = Math.round(Math.max(0, Math.min(1, sa)) * 1000) / 1000;
+    const k = fa + '|' + sa; let g = this.gs.get(k); if (!g) { g = new this.pdf.GState({ opacity: fa, 'stroke-opacity': sa }); this.gs.set(k, g); }
+    this.pdf.setGState(g);
+  }
+  _fillCol() { const c = vecColor(this.fillStyle); this.pdf.setFillColor(c.r, c.g, c.b); return c.a * this.globalAlpha; }
+  _strokeSet() {
+    const c = vecColor(this.strokeStyle), p = this.pdf, sc = this.sc;
+    p.setDrawColor(c.r, c.g, c.b); p.setLineWidth(Math.max(0.01, this.lineWidth * sc));
+    p.setLineDashPattern(this.dash.length ? this.dash.map(d => d * sc) : [], 0);
+    p.setLineCap({ butt: 0, round: 1, square: 2 }[this.lineCap] || 0); p.setLineJoin({ miter: 0, round: 1, bevel: 2 }[this.lineJoin] || 0);
+    return c.a * this.globalAlpha;
+  }
+  fill(rule) { if (!this.path.length) return; const a = this._fillCol(); if (a <= 0) return; this._alpha(a, 1); this._emit(); rule === 'evenodd' ? this.pdf.fillEvenOdd() : this.pdf.fill(); }
+  stroke() { if (!this.path.length) return; const a = this._strokeSet(); if (a <= 0) return; this._alpha(1, a); this._emit(); this.pdf.stroke(); }
+  clip() { this._emit(); this.pdf.clip(); this.pdf.discardPath(); }
+  fillRect(x, y, w, h) { const P = this.path, C = this.cur; this.beginPath(); this.rect(x, y, w, h); this.fill(); this.path = P; this.cur = C; }
+  strokeRect(x, y, w, h) { const P = this.path, C = this.cur; this.beginPath(); this.rect(x, y, w, h); this.stroke(); this.path = P; this.cur = C; }
+  clearRect() {}
+  // tekst
+  _font() { const f = vecFontOf(this.font); this.pdf.setFont(f.name, 'normal'); return f; }
+  measureText(t) { const f = this._font(); return { width: this.pdf.getStringUnitWidth(String(t)) * f.px }; }
+  fillText(t, x, y) {
+    t = String(t == null ? '' : t); if (!t) return;
+    const f = this._font(), w = this.pdf.getStringUnitWidth(t) * f.px;
+    const dx = this.textAlign === 'center' ? -w / 2 : this.textAlign === 'right' || this.textAlign === 'end' ? -w : 0;
+    const bl = this.textBaseline, dy = bl === 'middle' ? f.px * 0.35 : bl === 'top' || bl === 'hanging' ? f.px * 0.78 : bl === 'bottom' || bl === 'ideographic' ? -f.px * 0.22 : 0;
+    const [px, py] = this.T(x + dx, y + dy), m = this.m, ang = -Math.atan2(m[1], m[0]) * 180 / Math.PI;
+    const c = vecColor(this.fillStyle), a = c.a * this.globalAlpha; if (a <= 0) return;
+    this.pdf.setFontSize(f.px * this.sc * 72 / 25.4); this.pdf.setTextColor(c.r, c.g, c.b); this._alpha(a, 1);
+    this.pdf.text(t, px, py, Math.abs(ang) > 0.01 ? { angle: ang } : {});
+  }
+  strokeText() {}
+  // obrazy: zdjęcia JPEG, reszta PNG (przezroczystość); rozdzielczość do ok. 300 dpi, bez powiększania ponad oryginał
+  drawImage(img, ...a) {
+    let sx = 0, sy = 0, sw = img.naturalWidth || img.width, sh = img.naturalHeight || img.height, x, y, w, h;
+    if (a.length >= 8) [sx, sy, sw, sh, x, y, w, h] = a; else if (a.length >= 4) [x, y, w, h] = a; else { [x, y] = a; w = sw; h = sh; }
+    if (!(w > 0 && h > 0 && sw > 0 && sh > 0)) return;
+    const [px, py] = this.T(x, y), pw = w * this.sc, ph = h * this.sc;
+    const src = img.currentSrc || img.src || '', jpg = /\.(jpe?g)(\?|$)/i.test(src) || /^data:image\/jpe?g/i.test(src);
+    const tw = Math.max(1, Math.round(Math.min(sw, pw / 25.4 * 300))), th = Math.max(1, Math.round(Math.min(sh, ph / 25.4 * 300)));
+    const key = img, sub = sx + ',' + sy + ',' + sw + ',' + sh + ',' + tw + 'x' + th;
+    let per = this.imgs.get(key); if (!per) { per = new Map(); this.imgs.set(key, per); }
+    let d = per.get(sub);
+    if (!d) {
+      const c = document.createElement('canvas'); c.width = tw; c.height = th; const g = c.getContext('2d');
+      if (jpg) { g.fillStyle = '#fff'; g.fillRect(0, 0, tw, th); }
+      g.imageSmoothingQuality = 'high'; g.drawImage(img, sx, sy, sw, sh, 0, 0, tw, th);
+      d = { url: c.toDataURL(jpg ? 'image/jpeg' : 'image/png', 0.92), fmt: jpg ? 'JPEG' : 'PNG', alias: 'im' + (++PdfCtx.n) };
+      per.set(sub, d);
+    }
+    this._alpha(this.globalAlpha, 1);
+    this.pdf.addImage(d.url, d.fmt, px, py, pw, ph, d.alias, 'FAST');
+  }
+  // grafika wektorowa (SVG z Corela) w prostokącie (x, y, w, h) — true, gdy się udało
+  async svg(url, x, y, w, h) {
+    if (!window.svg2pdf) return false;
+    try {
+      const el = await vecSvgEl(url); if (!el) return false;
+      const [px, py] = this.T(x, y), sc = this.sc;
+      this.pdf.saveGraphicsState();
+      try { await (window.svg2pdf.svg2pdf || window.svg2pdf)(el, this.pdf, { x: px, y: py, width: w * sc, height: h * sc }); }
+      finally { this.pdf.restoreGraphicsState(); }
+      return true;
+    } catch (e) { console.warn('svg2pdf', url, e); return false; }
+  }
+}
+PdfCtx.n = 0;
+// SVG z Corela: pobrany raz; tekst dostaje czcionkę PDF z polskimi znakami (kształt liter jak Fira Sans), element w ukrytym pojemniku
+const _vecSvg = new Map();
+function vecSvgEl(url) {
+  if (!_vecSvg.has(url)) _vecSvg.set(url, (async () => {
+    const r = await fetch(url); if (!r.ok) return null;
+    const doc = new DOMParser().parseFromString(await r.text(), 'image/svg+xml'), svg = doc.documentElement;
+    if (!svg || svg.nodeName.toLowerCase() !== 'svg') return null;
+    let box = $('vec-svg-box');
+    if (!box) { box = document.createElement('div'); box.id = 'vec-svg-box'; box.style.cssText = 'position:fixed;left:-20000px;top:0;width:10px;height:10px;overflow:hidden;visibility:hidden'; document.body.appendChild(box); }
+    const el = document.importNode(svg, true); box.appendChild(el);
+    el.querySelectorAll('text, tspan').forEach(t => {
+      const cs = getComputedStyle(t), wt = Number(cs.fontWeight) || (cs.fontWeight === 'bold' ? 700 : 400), it = cs.fontStyle === 'italic';
+      t.style.fontFamily = it ? 'F400i' : wt >= 800 ? 'F800' : wt >= 700 ? 'F700' : wt >= 550 ? 'F600' : 'F400'; t.style.fontWeight = 'normal'; t.style.fontStyle = 'normal';
+    });
+    return el;
+  })());
+  return _vecSvg.get(url);
+}
+// cały dokument (index A3 albo tabela A4) jako PDF wektorowy
+async function vecPdf(w, stamp) {
+  await vecReady();
+  const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: w === 'a3' ? 'a3' : 'a4', compress: true });
+  vecFonts(pdf); pdf.setFont('F400', 'normal');
+  const pageW = w === 'a3' ? 420 : 297; let n = 0;
+  VEC = { pdf, page: PW => { if (n++) pdf.addPage(); return [{ vec: true }, new PdfCtx(pdf, pageW / PW)]; } };
+  try { if (w === 'a3') await renderIndexA3(stamp); else await renderTableA4(stamp); }
+  finally { VEC = null; }
+  return pdf;
+}
 // Index A3 / Tabela A4: druk albo zapis PDF z nazwą FIRMA_Index_vN_data
 async function exportDoc(w, mode, v) {
   if (mode === 'save' && !window.jspdf) return toast('Brak biblioteki PDF (sprawdź internet)', 'error');
@@ -7508,14 +7696,20 @@ async function exportDoc(w, mode, v) {
   try {
     const p = S.project, ver = mode === 'save' ? v : (Number(p.indexVersion) || 0);
     const stamp = (ver ? `Index_v${ver}  ` : 'Index  ') + dateStamp();
-    const pages = w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp);
+    const raster = async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp);
     if (mode === 'print') {
+      const pages = await raster();
       printPages(pages, w === 'a3' ? 'A3' : 'A4');
       addLog(p.id, w === 'a3' ? 'Wydrukowano index (A3)' : 'Wydrukowano tabelę elementów (A4)');
     } else {
-      const fmt = w === 'a3' ? [420, 297] : [297, 210];
-      const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: w === 'a3' ? 'a3' : 'a4', compress: true });
-      pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, fmt[0], fmt[1]); });
+      // PDF wektorowy (tekst, linie, grafiki SVG z Corela); gdy się nie uda — jak dawniej: strony jako obrazy
+      let pdf = null;
+      try { pdf = await vecPdf(w, stamp); } catch (e) { console.warn('PDF wektorowy', e); toast('PDF wektorowy się nie udał (' + e.message + ') — zapisuję strony jako obraz', 'error', 6000); }
+      if (!pdf) {
+        const fmt = w === 'a3' ? [420, 297] : [297, 210], pages = await raster();
+        pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: w === 'a3' ? 'a3' : 'a4', compress: true });
+        pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, fmt[0], fmt[1]); });
+      }
       pdf.save(fileBase(v) + (w === 'a3' ? '.pdf' : '_tabela.pdf'));
       if (v > (Number(p.indexVersion) || 0)) await DB.update(C_PROJECTS, p.id, { indexVersion: v });
       addLog(p.id, w === 'a3' ? `Wyeksportowano index v${v} (A3, PDF)` : `Wyeksportowano tabelę elementów v${v} (A4, PDF)`);
