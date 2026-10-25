@@ -914,6 +914,7 @@
           <label class="uf-chk" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> wysłony zewn.</label>
           <label class="uf-chk" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><input type="checkbox" id="uf-zap"> wysłona zaplecza</label>
           <label class="uf-chk" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW</label>
+          <label class="uf-chk" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><input type="checkbox" id="uf-capsx"> zaślepki ELTEX</label>
         </div>
         <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo">◀</button><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo">▶</button></div></div>
         <div class="uf-info" id="uf-info"></div>
@@ -5912,7 +5913,7 @@ const UF_PAL = [
   { id: 'w49', key: '2', op: { t: 'w', len: 496 } },
   { id: 'door', key: '3', op: { t: 'door', len: 992, size: 'h2480' } },   // jedna ikona drzwi — wysokość (248 / 198,4) pod prawym klawiszem
   { id: 'post', key: '4', op: { t: 'post', len: 80 } },
-  { id: 'eltex', key: '5', op: { t: 'eltex', len: 1000, h: 2500, th: 50 } },  // rama ELTEX: indywidualne wymiary (długość, wysokość, grubość) — okno po upuszczeniu
+  { id: 'eltex', key: '5', op: { t: 'eltex', len: 1000, h: 2480, th: 50 } },  // rama ELTEX: indywidualne wymiary (długość, wysokość, grubość) — okno po upuszczeniu
 ];
 const UF_ELTEX_COL = '#3182ce';
 const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : UF_T;          // grubość klocka: ELTEX — własna, reszta ramy E80
@@ -6018,15 +6019,20 @@ function ufGeom(d) {
   runs.forEach(r => {
     const ps = r.parts, ax = r.ori === 0 ? 'x' : 'y';
     [[ps[0], -1], [ps[ps.length - 1], 1]].forEach(([q, sg]) => {
-      if (q.op.t === 'post' || q.op.t === 'eltex') return;         // ELTEX — inny system, bez zaślepek PCW
+      if (q.op.t === 'post') return;
+      const elx = q.op.t === 'eltex';                               // ELTEX — osobne zaślepki (opcja „zaślepki ELTEX”), szerokość = grubość ramy
+      if (elx ? st && st.capsX === false : st && st.caps === false) return;
       const c = sg < 0 ? q[ax + '0'] : q[ax + '1'], px = r.ori === 0 ? c + sg * 20 : r.line, py = r.ori === 0 ? r.line : c + sg * 20;
       if (parts.some(o => o !== q && px >= o.x0 - 1 && px <= o.x1 + 1 && py >= o.y0 - 1 && py <= o.y1 + 1)) return;
-      ends.push({ run: r, sg, ori: r.ori, x: r.ori === 0 ? c : r.line, y: r.ori === 0 ? r.line : c, h: r.h });
+      ends.push({ run: r, sg, ori: r.ori, x: r.ori === 0 ? c : r.line, y: r.ori === 0 ? r.line : c, h: r.h, eltex: elx, th: ufTh(q.op) });
     });
   });
   // jeden element na każdą wysokość ścianek (ilość = liczba gołych końców)
   const caps = [];
-  if (!st || st.caps !== false) ends.forEach(e => { let c = caps.find(k => k.h === e.h); if (!c) caps.push(c = { key: 'uf:end:' + e.h, h: e.h, ends: [] }); c.ends.push(e); });
+  ends.forEach(e => {
+    const key = e.eltex ? 'uf:endx:' + e.h + ':' + e.th : 'uf:end:' + e.h;
+    let c = caps.find(k => k.key === key); if (!c) caps.push(c = { key, h: e.h, w: e.eltex ? e.th : UF_CAP_W, eltex: e.eltex, ends: [] }); c.ends.push(e);
+  });
   // lica pod grafikę (tkanina SEG z przodu): strona ścianki od wnętrza stoiska, pocięta przez ścianki, które do niej dochodzą;
   // grafikę dostaje tylko odcinek widoczny od alejki — zamknięte pomieszczenie (np. magazyn) jest bez grafiki;
   // gdy za ścianką nie ma zamkniętego pomieszczenia (tył też widać od alejki, w obrębie stoiska) — grafika także z tyłu, tak samo pocięta
@@ -6075,6 +6081,14 @@ function ufGeom(d) {
       zap.push({ key: 'uf:zap:' + w0.op.id + ':' + (sd > 0 ? 'p' : 'm'), run: r, ori: r.ori, inn: sd, f, a: sa, b: sb, h: r.h, items });
     });
   }));
+  // ELTEX przyłożony licem do innej ramy (jedna linia, inna grubość): lica w tej samej płaszczyźnie, stykające się — jedna grafika
+  faces.sort((p, q) => p.ori - q.ori || p.inn - q.inn || p.f - q.f || p.a - q.a);
+  for (let i = faces.length - 1; i > 0; i--) {
+    const A = faces[i - 1], B = faces[i];
+    if (A.ori === B.ori && A.inn === B.inn && Math.abs(A.f - B.f) < 3 && Math.abs(A.h - B.h) < 1 && A.run !== B.run && Math.abs(B.a - A.b) < 15) {
+      faces[i - 1] = { ...A, b: B.b, items: A.items.concat(B.items), runs2: [A.run, B.run] }; faces.splice(i, 1);
+    }
+  }
   return { parts, runs, ext, ends, caps, faces, zap, pub, rooms, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
 }
 // część stoiska widoczna od alejki: siatka zalewana od otwartych boków, ścianki (także z drzwiami) są przegrodą
@@ -6147,8 +6161,9 @@ function ufSpec(run, role) {
 }
 const UF_SIDE = { n: 'górny', e: 'prawy', s: 'dolny', w: 'lewy' };
 const ufExtSpec = e => ({ w: e.w, h: e.h, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0, notes: `wysłona zewnętrzna od ${lenPL(UF_EXT_FROM)} ${UNIT()} w górę — cały ${UF_SIDE[e.side]} bok stoiska (za nim sąsiad)` });
-const ufCapSpec = c => ({ w: UF_CAP_W, h: c.h, qty: c.ends.length, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0,
-  notes: `zaślepki gołych końców ramy (aluminium z otworami) — PCW 3 mm, ${lenPL(UF_CAP_W)} × wysokość systemu ${lenPL(c.h)} ${UNIT()}, zadrukowane na kolor ścianki` });
+const ufCapSpec = c => ({ w: c.w || UF_CAP_W, h: c.h, qty: c.ends.length, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0,
+  notes: c.eltex ? `zaślepki gołych końców ramy ELTEX — PCW 3 mm, ${lenPL(c.w)} (grubość ramy) × wysokość ${lenPL(c.h)} ${UNIT()}, zadrukowane na kolor ścianki`
+    : `zaślepki gołych końców ramy (aluminium z otworami) — PCW 3 mm, ${lenPL(UF_CAP_W)} × wysokość systemu ${lenPL(c.h)} ${UNIT()}, zadrukowane na kolor ścianki` });
 
 function ufPush() { UF.undo.push(JSON.stringify(UF.d)); if (UF.undo.length > 60) UF.undo.shift(); }
 function ufUndo() { const s = UF.undo.pop(); if (!s) return; UF.d = JSON.parse(s); UF.sel = null; UF.rot = false; ufChanged(); }
@@ -6205,7 +6220,7 @@ function ufEdgeSnap(p, thr) {
 // ścianka wystająca poza obrys jest ucinana (len0 = pełna długość modułu); po cofnięciu poza krawędź wraca do pełnej
 function ufFit(p) {
   const st = UF.d.stand, full = p.len0 || p.len; let len = full;
-  if (st && p.t === 'w') {
+  if (st && (p.t === 'w' || p.t === 'eltex')) {             // ścianka i ELTEX wystające poza stoisko — ucięte
     const lim = p.dir === 0 ? st.L - p.x : p.dir === 2 ? p.x : p.dir === 1 ? st.D - p.y : p.y;
     if (lim < full - 1 && lim >= 100) len = Math.round(lim);
   }
@@ -6260,14 +6275,14 @@ function ufSyncBar() {
   const act = document.activeElement;
   if (act !== $('uf-sl')) $('uf-sl').value = numIn(fromMM(st.L)); if (act !== $('uf-sd')) $('uf-sd').value = numIn(fromMM(st.D));
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
-  $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-caps').checked = st.caps !== false; $('uf-zap').checked = !!st.zap;
+  $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
   $('uf-look').textContent = d.look === 'bare' ? '▦ 3D: gołe ramy' : '▮ 3D: pełne ściany';
   const all = ufRuns(), n = all.length;
   let t;
   if (r) {
     const gs = ufGeom(d), eo = gs.ext.find(x => x.side === r.closed), fs = gs.faces.filter(f => f.run.key === r.key);
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
-    t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) ? 'ramy ' + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
+    t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? 'ramy ' + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
   $('uf-info').innerHTML = t + `<span class="uf-keys">zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
 }
@@ -6364,8 +6379,8 @@ function ufDraw() {
     if (o.id === sel) { g.strokeStyle = '#2b6cb0'; g.lineWidth = 3; g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
   });
   // gołe końce ścianek: zaślepka PCW (fioletowa kreska w poprzek końca)
-  if (st.caps !== false) geo.ends.forEach(e => {
-    const hw = UF_T / 2 + 12, t = Math.max(5, 40 * s); g.fillStyle = UF_CAP_COL;
+  geo.ends.forEach(e => {
+    const hw = (e.th || UF_T) / 2 + 12, t = Math.max(5, 40 * s); g.fillStyle = UF_CAP_COL;
     if (e.ori === 0) g.fillRect(X(e.x) - (e.sg > 0 ? 0 : t), Y(e.y - hw), t, 2 * hw * s);
     else g.fillRect(X(e.x - hw), Y(e.y) - (e.sg > 0 ? 0 : t), 2 * hw * s, t);
   });
@@ -6486,18 +6501,25 @@ function ufEndSnap(piece, anchors, thr) {
   });
   return best;
 }
+// ramy różnej grubości w jednej linii (ELTEX przy E80 i odwrotnie): zaczep narożnikiem — lico od wnętrza stoiska w jednej płaszczyźnie
+function ufFlush(p, an) {
+  if (!an || !an.owner || ((an.dir & 1) !== (p.dir & 1))) return p;
+  const d0 = ufTh(an.owner) - ufTh(p); if (Math.abs(d0) < 1) return p;
+  const st = UF.d.stand, hor = (p.dir & 1) === 0, inn = hor ? (st.D / 2 - an.y >= 0 ? 1 : -1) : (st.L / 2 - an.x >= 0 ? 1 : -1);
+  return hor ? { ...p, y: p.y + inn * d0 / 2 } : { ...p, x: p.x + inn * d0 / 2 };
+}
 function ufSnap(piece, wx, wy, skip, grab) {
   const geo = ufGeom(UF.d), anchors = ufAnchors(geo.parts, skip), thr = 60 / UF.tr.s;
   let an = null, best = thr;
   anchors.forEach(a => { const dd = Math.hypot(a.x - wx, a.y - wy); if (dd < best) { best = dd; an = a; } });
-  if (an) { const n = { ...piece, x: an.x, y: an.y, dir: an.dir }; return { piece: n, an }; }
+  if (an) { const n = ufFlush({ ...piece, x: an.x, y: an.y, dir: an.dir }, an); return { piece: n, an }; }
   piece = { ...piece, len: piece.len0 || piece.len };
   const sn = v => Math.round(v / 50) * 50, et = 30 / UF.tr.s;
   let cand;
   if (grab) cand = { ...piece, x: sn(grab.x + wx - grab.px), y: sn(grab.y + wy - grab.py) };
   else { const dv = UF_DIR[piece.dir || 0], L = piece.len; cand = { ...piece, dir: piece.dir || 0, x: sn(wx - dv[0] * L / 2), y: sn(wy - dv[1] * L / 2) }; }
   const e2 = ufEndSnap(cand, anchors, 50 / UF.tr.s);        // koniec ścianki przy końcu innej — dosuwa na styk
-  if (e2) return { piece: { ...cand, x: e2.x, y: e2.y, dir: e2.dir }, an: e2 };
+  if (e2) return { piece: ufFlush({ ...cand, x: e2.x, y: e2.y, dir: e2.dir }, e2), an: e2 };
   return { piece: ufEdgeSnap(cand, et), an: null };
 }
 // kopiowanie jak w Corelu: przeciągasz klocek lewym, naciskasz prawy — oryginał zostaje, kopia leci za kursorem
@@ -6627,6 +6649,21 @@ function ufRoomMenu(e, m) {
   mn.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { ufPush(); m.t = b.dataset.rt; closeMarkMenu(); ufChanged(); });
   mn.querySelector('[data-rdel]').onclick = () => { ufPush(); UF.d.rooms = UF.d.rooms.filter(x => x !== m); closeMarkMenu(); ufChanged(); };
 }
+// lista gotowych wymiarów pod polem (jak ▾ przy wymiarach elementu); wartości w mm, pokazywane w jednostce strony
+function ufPresetPop(input, valsMM) {
+  closeSizePop();
+  const pop = document.createElement('div'); pop.id = 'size-pop';
+  const cur = toMM(input.value);
+  pop.innerHTML = valsMM.map(v => `<div class="sz-it${Math.abs(v - cur) < 0.5 ? ' on' : ''}" data-v="${numIn(fromMM(v))}">${lenPL(v)} ${UNIT()}</div>`).join('');
+  document.body.appendChild(pop);
+  const r = input.getBoundingClientRect(), ph = pop.offsetHeight;
+  pop.style.left = r.left + 'px'; pop.style.minWidth = r.width + 'px';
+  pop.style.top = (r.bottom + ph + 4 > innerHeight ? r.top - ph - 4 : r.bottom + 4) + 'px';
+  pop.addEventListener('pointerdown', e => e.stopPropagation());
+  pop.querySelectorAll('.sz-it').forEach(it => it.onclick = () => { input.value = it.dataset.v; closeSizePop(); input.focus(); });
+  const on = pop.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+  setTimeout(() => document.addEventListener('pointerdown', () => closeSizePop(), { once: true }), 0);
+}
 // okno wymiarów ramy ELTEX (długość, wysokość, grubość); nowa rama — Anuluj ją usuwa
 function ufEltexDialog(p, fresh) {
   const u = UNIT(), v = mm => numIn(fromMM(mm));
@@ -6636,7 +6673,7 @@ function ufEltexDialog(p, fresh) {
       <div class="fld"><label>Wysokość [${u}]</label><input type="text" inputmode="decimal" id="elx-h" value="${v(p.h || UF.d.H)}"></div>
       <div class="fld"><label>Grubość [${u}]</label><input type="text" inputmode="decimal" id="elx-t" value="${v(ufTh(p))}"></div>
     </div>
-    <div class="hint">Rama ELTEX o indywidualnym rozmiarze — na planie niebieska. Nie skleja się z ramami E80 o innej grubości.</div>`,
+    <div class="hint">Rama ELTEX o indywidualnym rozmiarze — na planie niebieska. Przyłożona do innej ramy staje narożnikiem, licem od wnętrza stoiska w jednej linii (jedna grafika). ▾ = gotowe wymiary.</div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="elx-ok">OK</button>`,
     onClose: () => { if (fresh && !m.ok) ufUndo(); } });
   m.el.querySelector('[data-c]').onclick = () => m.close();
@@ -6646,9 +6683,21 @@ function ufEltexDialog(p, fresh) {
     if (!(H >= 300 && H <= 8000)) return toast(`Wysokość: od ${lenPL(300)} do ${lenPL(8000)} ${u}`, 'error');
     if (!(Th >= 10 && Th <= 600)) return toast(`Grubość: od ${lenPL(10)} do ${lenPL(600)} ${u}`, 'error');
     if (!fresh) ufPush();
-    p.len = Math.round(L); p.h = Math.round(H); p.th = Math.round(Th); delete p.len0;
+    p.len = Math.round(L); p.h = Math.round(H); p.th = Math.round(Th); delete p.len0; ufFit(p);
+    if (p.len0) toast(`Rama ELTEX wystawała poza stoisko — ucięta do ${lenPL(p.len)} ${UNIT()} (z ${lenPL(p.len0)})`, '', 5000);
     m.ok = true; m.close(); ufChanged();
   };
+  // gotowe wymiary (▾ przy polu): typowe rozmiary ram i te, które są już na tym stoisku
+  const used = k => UF.d.pieces.filter(q => q.t === 'eltex' && q !== p).map(q => k === 'th' ? ufTh(q) : k === 'h' ? (q.h || UF.d.H) : (q.len0 || q.len));
+  const presets = { 'elx-l': [500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 4000, 5000, 6000], 'elx-h': [1000, 1500, 2000, 2100, 2200, 2300, 2400, 2500, 2800, 3000, 3500, 4000], 'elx-t': [15, 25, 30, 40, 50, 60, 80, 100, 120] };
+  const keyOf = { 'elx-l': 'len', 'elx-h': 'h', 'elx-t': 'th' };
+  Object.entries(presets).forEach(([id, base]) => {
+    const inp = $(id), wrap = document.createElement('span'); wrap.style.cssText = 'position:relative;display:block';
+    inp.parentElement.insertBefore(wrap, inp); wrap.appendChild(inp); inp.classList.add('has-sz');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sz-btn'; b.textContent = '▾'; b.title = 'Wybierz z gotowych wymiarów'; b.style.right = '6px'; wrap.appendChild(b);
+    b.addEventListener('pointerdown', e => e.stopPropagation());
+    b.onclick = e => { e.stopPropagation(); if ($('size-pop')) return closeSizePop(); ufPresetPop(inp, [...new Set(base.concat(used(keyOf[id])))].sort((a2, b2) => a2 - b2)); };
+  });
   $('elx-ok').onclick = ok;
   m.el.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } }));
 }
@@ -6745,7 +6794,7 @@ function ufRender3D(o) {
   // gołe końce (dla zaślepek): w układzie obróconego widoku — ściana końca na x1 (prawa) albo y1 (lewa); x0 / y0 są niewidoczne
   const capOf = bx => { const r = { e: false, s: false }; (geo.ends || []).forEach(e => { if (!bx.p.runs.includes(e.run)) return; const [rx, ry] = rot(e.x, e.y);
     if (Math.abs(rx - bx.x1) < 2 && ry > bx.y0 - 2 && ry < bx.y1 + 2) r.e = true; if (Math.abs(ry - bx.y1) < 2 && rx > bx.x0 - 2 && rx < bx.x1 + 2) r.s = true; }); return r; };
-  const capsOn = st.caps !== false;
+  const capsOn = true;                                        // geo.ends ma już tylko końce z włączonymi zaślepkami (PCW / ELTEX)
   // podgląd (pełne ściany): grafiki elementów nałożone na lica — każdy moduł rysuje swój kawałek obrazka, przycięty do swojej ściany
   const rv = (vx, vy) => { const [a, b] = rot(cx + vx, cy + vy); return [a - cx, b - cy]; };
   const tex = o.tex && !bare ? (geo.faces || []).map(fc => {
@@ -6911,7 +6960,7 @@ function ufRender3D(o) {
         });
       });
       [...best.values()].forEach(({ run, e, x0 }) => {
-        const st2 = ufStack(run.h), zs = [0]; st2.forEach(v => zs.push(zs[zs.length - 1] + v));
+        const st2 = run.ops.some(o => o.t === 'eltex') ? [run.h] : ufStack(run.h), zs = [0];   // ELTEX — jedna rama, bez nadstawek st2.forEach(v => zs.push(zs[zs.length - 1] + v));
         const pt = z => T(e.r2[0], e.r2[1], z), right = x0 > CW / 2;
         g.strokeStyle = '#1a202c'; g.lineWidth = 1.4;
         zs.forEach(z => { const [x, y] = pt(z); g.beginPath(); g.moveTo(x - 9, y); g.lineTo(x + 9, y); g.stroke(); });
@@ -7019,7 +7068,7 @@ async function ufGenerate() {
       if (ex) mark = markOf(ex);
       else {
         rec = { num: take(usedNum), typeId: 'pcw', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: null, thick: 3, ...togValues({}, 'pcw'), frontlit: false, sidelit: false,
-          seg: false, wyslona: false, wnum: null, name: 'Zaślepki końców ramy', w: spec.w, h: spec.h, d: '', qty: spec.qty, notes: spec.notes, wExpr: '', wExprUnit: '', ufKey: c.key, ufRole: 'end', photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
+          seg: false, wyslona: false, wnum: null, name: c.eltex ? 'Zaślepki ramy ELTEX' : 'Zaślepki końców ramy', w: spec.w, h: spec.h, d: '', qty: spec.qty, notes: spec.notes, wExpr: '', wExprUnit: '', ufKey: c.key, ufRole: 'end', photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
         mark = markOf(rec);
       }
       marks.set(c.key + '|end', { mark, color: typeById('pcw').color, wTxt: `${spec.qty} × ${lenPL(spec.w)} × ${lenPL(spec.h)}` });
@@ -7156,6 +7205,7 @@ async function closeUltraFrame() {
   dimIn('uf-sl', 'L'); dimIn('uf-sd', 'D');
   $('uf-ext').onchange = e => { ufPush(); UF.d.stand.ext = e.target.checked; ufChanged(); };
   $('uf-caps').onchange = e => { ufPush(); UF.d.stand.caps = e.target.checked; ufChanged(); };
+  $('uf-capsx').onchange = e => { ufPush(); UF.d.stand.capsX = e.target.checked; ufChanged(); };
   $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
   // obrót widoku 3D strzałkami na podglądzie (o 90° w lewo / w prawo)
