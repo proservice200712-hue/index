@@ -5912,7 +5912,10 @@ const UF_PAL = [
   { id: 'w49', key: '2', op: { t: 'w', len: 496 } },
   { id: 'door', key: '3', op: { t: 'door', len: 992, size: 'h2480' } },   // jedna ikona drzwi — wysokość (248 / 198,4) pod prawym klawiszem
   { id: 'post', key: '4', op: { t: 'post', len: 80 } },
+  { id: 'eltex', key: '5', op: { t: 'eltex', len: 1000, h: 2500, th: 50 } },  // rama ELTEX: indywidualne wymiary (długość, wysokość, grubość) — okno po upuszczeniu
 ];
+const UF_ELTEX_COL = '#3182ce';
+const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : UF_T;          // grubość klocka: ELTEX — własna, reszta ramy E80
 const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
 // moduł z palety: drzwi w wysokości wybranej prawym klawiszem na ikonie (zapamiętanej w układzie)
 const ufPalOp = p => p.op.t === 'door' ? { ...p.op, size: (UF.d && UF.d.doorSize) || 'h2480' } : p.op;
@@ -5922,11 +5925,11 @@ const ufStack = h => { const out = []; let r = Math.round(h); while (r > 2480 + 
 const ufStackTxt = h => ufStack(h).length > 1 ? ufStack(h).map(v => lenPL(v)).join(' + ') : '';
 const UF = { open: false, pid: '', d: null, sel: null, rot: false, undo: [], tr: null, tmr: 0, busy: false, ro: null, drag: null, pd: null, geo: null };
 const ufUid = () => Math.random().toString(36).slice(2, 8);
-const ufPalLabel = p => p.op.t === 'post' ? `słupek ${lenPL(80)}` : p.op.t === 'door' ? `drzwi ${lenPL(992)} ▸ ${lenPL(p.op.size === 'h2480' ? 2480 : 1984)}` : `ścianka ${lenPL(p.op.len)}`;
+const ufPalLabel = p => p.op.t === 'eltex' ? 'rama ELTEX (własna długość, wysokość i grubość)' : p.op.t === 'post' ? `słupek ${lenPL(80)}` : p.op.t === 'door' ? `drzwi ${lenPL(992)} ▸ ${lenPL(p.op.size === 'h2480' ? 2480 : 1984)}` : `ścianka ${lenPL(p.op.len)}`;
 const ufStandDefault = () => ({ L: 6000, D: 3000, open: { n: false, e: false, s: true, w: false }, ext: true });
 const ufEnd = p => [p.x + UF_DIR[p.dir][0] * p.len, p.y + UF_DIR[p.dir][1] * p.len];
 function ufRect(p) {
-  const hx = UF_T / 2, L = p.len, x = p.x, y = p.y;
+  const hx = ufTh(p) / 2, L = p.len, x = p.x, y = p.y;
   if (p.dir === 0) return { x0: x, x1: x + L, y0: y - hx, y1: y + hx };
   if (p.dir === 2) return { x0: x - L, x1: x, y0: y - hx, y1: y + hx };
   if (p.dir === 1) return { x0: x - hx, x1: x + hx, y0: y, y1: y + L };
@@ -5959,13 +5962,14 @@ function ufGeom(d) {
     parts.forEach(q => {
       if (q.op.t !== 'post' && (q.dir & 1) !== ori) return;
       const c = ori === 0 ? (q.y0 + q.y1) / 2 : (q.x0 + q.x1) / 2;
-      let ln = lines.find(l => Math.abs(l.c - c) < TOL); if (!ln) { ln = { c, a: [] }; lines.push(ln); }
+      const th = ufTh(q.op);                                   // ELTEX innej grubości nie skleja się z ramą E80 w jedną ściankę
+      let ln = lines.find(l => Math.abs(l.c - c) < TOL && l.th === th); if (!ln) { ln = { c, th, a: [] }; lines.push(ln); }
       ln.a.push(q);
     });
     lines.forEach(ln => {
       ln.a.sort((a, b) => ori === 0 ? a.x0 - b.x0 : a.y0 - b.y0);
       let seq = [];
-      const flush = () => { if (seq.some(q => q.op.t !== 'post')) runs.push({ ori, line: ln.c, parts: seq, ops: seq.map(q => q.op) }); seq = []; };
+      const flush = () => { if (seq.some(q => q.op.t !== 'post')) runs.push({ ori, line: ln.c, th: ln.th, parts: seq, ops: seq.map(q => q.op) }); seq = []; };
       ln.a.forEach(q => { const last = seq[seq.length - 1]; if (last && Math.abs(ori === 0 ? q.x0 - last.x1 : q.y0 - last.y1) > TOL) flush(); seq.push(q); });
       flush();
     });
@@ -6014,7 +6018,7 @@ function ufGeom(d) {
   runs.forEach(r => {
     const ps = r.parts, ax = r.ori === 0 ? 'x' : 'y';
     [[ps[0], -1], [ps[ps.length - 1], 1]].forEach(([q, sg]) => {
-      if (q.op.t === 'post') return;
+      if (q.op.t === 'post' || q.op.t === 'eltex') return;         // ELTEX — inny system, bez zaślepek PCW
       const c = sg < 0 ? q[ax + '0'] : q[ax + '1'], px = r.ori === 0 ? c + sg * 20 : r.line, py = r.ori === 0 ? r.line : c + sg * 20;
       if (parts.some(o => o !== q && px >= o.x0 - 1 && px <= o.x1 + 1 && py >= o.y0 - 1 && py <= o.y1 + 1)) return;
       ends.push({ run: r, sg, ori: r.ori, x: r.ori === 0 ? c : r.line, y: r.ori === 0 ? r.line : c, h: r.h });
@@ -6033,7 +6037,7 @@ function ufGeom(d) {
   const vis = (x, y) => pub(x, y) || kindAt(x, y) === 'mt';
   runs.forEach(r => { const mid0 = st ? (r.ori === 0 ? st.D : st.L) / 2 : 0, inn0 = r.line >= mid0 ? -1 : 1; [inn0, -inn0].forEach(inn => {
     const back = inn !== inn0; if (back && (!st || r.manual)) return;   // tył z wysłoną ręczną — bez grafiki SEG
-    const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + inn * UF_T / 2;
+    const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + inn * (r.th || UF_T) / 2;
     const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
     const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + inn && q.y1 >= f + inn : q.x0 <= f + inn && q.x1 >= f + inn))
       .map(q => [q[k0 + '0'], q[k0 + '1']]).filter(([a, b]) => b > lo && a < hi).sort((p, q) => p[0] - q[0]);
@@ -6054,7 +6058,7 @@ function ufGeom(d) {
   // pocięte ściankami, które do niego dochodzą; szerokość = same moduły (bez słupków), wysokość ścianki
   const zap = [];
   if (st && st.zap) runs.forEach(r => [-1, 1].forEach(sd => {
-    const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + sd * UF_T / 2;
+    const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + sd * (r.th || UF_T) / 2;
     const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
     const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + sd && q.y1 >= f + sd : q.x0 <= f + sd && q.x1 >= f + sd))
       .map(q => [q[k0 + '0'], q[k0 + '1']]).filter(([a, b]) => b > lo && a < hi).sort((p, q) => p[0] - q[0]);
@@ -6110,7 +6114,9 @@ function ufFaceSpec(fc) {
     off += it.len;
   }
   const terms = items.map(it => numIn(fromMM(it.len)));
-  return { w: fc.b - fc.a, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length, notes: '' };
+  const elx = items.find(it => it.op.t === 'eltex');
+  return { w: fc.b - fc.a, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length,
+    notes: elx ? `rama ELTEX, grubość ${lenPL(ufTh(elx.op))} ${UNIT()}` : '' };
 }
 // wysłona zaplecza (Blackback od wewnątrz pomieszczenia): same moduły lica, po kolei od lewej patrząc na wysłonę z pomieszczenia; z drzwiami, gdy w licu są drzwi
 function ufZapSpec(zf) {
@@ -6229,6 +6235,7 @@ function ufAddNext(op) {
   }
   if (ufPostClash(geo.parts, piece)) return toast(UF_POST_MSG, 'error', 4500);
   ufFit(piece); ufPush(); UF.d.pieces.push(piece); UF.sel = piece.id; UF.rot = false; ufChanged();
+  if (piece.t === 'eltex') ufEltexDialog(piece, true);                // nowa rama ELTEX: od razu okno wymiarów
 }
 function ufDelete() {
   if (UF.busy || !UF.sel) return;
@@ -6334,8 +6341,8 @@ function ufDraw() {
   const sel = UF.sel;
   geo.parts.forEach(p => {
     const o = p.op, bk = p.runs.some(rn => rn.backKind), x = X(p.x0), y = Y(p.y0), w = (p.x1 - p.x0) * s, h = (p.y1 - p.y0) * s;
-    g.fillStyle = o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#e9ecef';
-    g.fillRect(x, y, w, h); g.strokeStyle = '#4a5568'; g.lineWidth = 1; g.strokeRect(x, y, w, h);
+    g.fillStyle = o.t === 'eltex' ? '#90cdf4' : o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#e9ecef';
+    g.fillRect(x, y, w, h); g.strokeStyle = o.t === 'eltex' ? UF_ELTEX_COL : '#4a5568'; g.lineWidth = o.t === 'eltex' ? 1.6 : 1; g.strokeRect(x, y, w, h);
     if (o.t === 'door') {
       const dg = ufDoorGeom(o, d, geo.pub), len = o.len * s;
       g.strokeStyle = '#2b6cb0'; g.lineWidth = 1.3; g.beginPath();
@@ -6350,7 +6357,9 @@ function ufDraw() {
       const lab = lenPL(o.len), vert = (p.dir & 1) === 1;
       g.save(); g.translate(x + w / 2, y + h / 2); if (vert) g.rotate(-Math.PI / 2);
       g.fillStyle = o.t === 'door' ? '#1a4f86' : o.len0 ? '#c05621' : '#2f855a'; g.font = `600 ${Math.max(9, Math.min(13, o.len * s / 6))}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText(o.t === 'door' ? '🚪 ' + lab : o.len0 ? '✂ ' + lab : lab, 0, 0); g.restore();
+      if (o.t === 'eltex') g.fillStyle = '#1a4f86';
+      const elxT = `ELTEX · gr. ${lenPL(ufTh(o))}`, elxL = g.measureText(elxT).width < o.len * s - 8 ? elxT : 'ELTEX';   // wymiary ramy są na liniach wymiarowych
+      g.fillText(o.t === 'eltex' ? elxL : o.t === 'door' ? '🚪 ' + lab : o.len0 ? '✂ ' + lab : lab, 0, 0); g.restore();
     }
     if (o.id === sel) { g.strokeStyle = '#2b6cb0'; g.lineWidth = 3; g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
   });
@@ -6545,7 +6554,7 @@ function ufDragEnd(e) {
     if (dr.moved && dr.ghost) {
       const geo = ufGeom(UF.d);
       if (ufPostClash(geo.parts, dr.ghost)) toast(UF_POST_MSG, 'error', 4500);
-      else { const n = { ...dr.ghost, id: ufUid() }; if (n.len0) toast(`Ścianka wystawała poza stoisko — ucięta do ${lenPL(n.len)} ${UNIT()} (z ${lenPL(n.len0)})`, '', 5000); if (dr.an && dr.an.owner) { const f = dr.an.owner; if (n.t !== 'post' && f.t !== 'post') { n.back = !!f.back; if (f.h) n.h = f.h; } } ufPush(); UF.d.pieces.push(n); UF.sel = n.id; UF.rot = false; }
+      else { const n = { ...dr.ghost, id: ufUid() }; if (n.len0) toast(`Ścianka wystawała poza stoisko — ucięta do ${lenPL(n.len)} ${UNIT()} (z ${lenPL(n.len0)})`, '', 5000); if (dr.an && dr.an.owner) { const f = dr.an.owner; if (n.t !== 'post' && f.t !== 'post') { n.back = !!f.back; if (f.h) n.h = f.h; } } ufPush(); UF.d.pieces.push(n); UF.sel = n.id; UF.rot = false; if (n.t === 'eltex') setTimeout(() => ufEltexDialog(n, true), 0); }
     } else if (!dr.moved) ufAddNext(dr.op);
     ufChanged(); return;
   }
@@ -6618,10 +6627,37 @@ function ufRoomMenu(e, m) {
   mn.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => { ufPush(); m.t = b.dataset.rt; closeMarkMenu(); ufChanged(); });
   mn.querySelector('[data-rdel]').onclick = () => { ufPush(); UF.d.rooms = UF.d.rooms.filter(x => x !== m); closeMarkMenu(); ufChanged(); };
 }
+// okno wymiarów ramy ELTEX (długość, wysokość, grubość); nowa rama — Anuluj ją usuwa
+function ufEltexDialog(p, fresh) {
+  const u = UNIT(), v = mm => numIn(fromMM(mm));
+  const m = openModal({ title: 'Rama ELTEX — wymiary', body: `
+    <div class="row2" style="grid-template-columns:repeat(3,1fr)">
+      <div class="fld"><label>Długość [${u}]</label><input type="text" inputmode="decimal" id="elx-l" value="${v(p.len)}"></div>
+      <div class="fld"><label>Wysokość [${u}]</label><input type="text" inputmode="decimal" id="elx-h" value="${v(p.h || UF.d.H)}"></div>
+      <div class="fld"><label>Grubość [${u}]</label><input type="text" inputmode="decimal" id="elx-t" value="${v(ufTh(p))}"></div>
+    </div>
+    <div class="hint">Rama ELTEX o indywidualnym rozmiarze — na planie niebieska. Nie skleja się z ramami E80 o innej grubości.</div>`,
+    footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="elx-ok">OK</button>`,
+    onClose: () => { if (fresh && !m.ok) ufUndo(); } });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  const ok = () => {
+    const L = toMM($('elx-l').value), H = toMM($('elx-h').value), Th = toMM($('elx-t').value);
+    if (!(L >= 100 && L <= 20000)) return toast(`Długość: od ${lenPL(100)} do ${lenPL(20000)} ${u}`, 'error');
+    if (!(H >= 300 && H <= 8000)) return toast(`Wysokość: od ${lenPL(300)} do ${lenPL(8000)} ${u}`, 'error');
+    if (!(Th >= 10 && Th <= 600)) return toast(`Grubość: od ${lenPL(10)} do ${lenPL(600)} ${u}`, 'error');
+    if (!fresh) ufPush();
+    p.len = Math.round(L); p.h = Math.round(H); p.th = Math.round(Th); delete p.len0;
+    m.ok = true; m.close(); ufChanged();
+  };
+  $('elx-ok').onclick = ok;
+  m.el.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } }));
+}
 function ufContext(e) {
   e.preventDefault(); closeMarkMenu();
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 6 / UF.tr.s;
   const rm = ufRoomAt(px, py); if (rm) return ufRoomMenu(e, rm);
+  const qe = (UF.geo || ufGeom(UF.d)).parts.find(q => q.op.t === 'eltex' && wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol);
+  if (qe) { UF.sel = qe.op.id; UF.rot = false; ufDraw(); ufSyncBar(); return ufEltexDialog(qe.op, false); }   // PPM na ramie ELTEX: wymiary
   const q = (UF.geo || ufGeom(UF.d)).parts.find(q => q.op.t === 'door' && wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol);
   if (!q) return;
   UF.sel = q.op.id; UF.rot = false; ufDraw(); ufSyncBar();
@@ -6744,7 +6780,7 @@ function ufRender3D(o) {
   (geo.zap || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
   geo.runs.forEach(r => {
     const k0 = r.ori === 0 ? 'x' : 'y', a = Math.min(...r.parts.map(q => q[k0 + '0'])), b = Math.max(...r.parts.map(q => q[k0 + '1']));
-    const inn0 = r.line >= (r.ori === 0 ? st.D : st.L) / 2 ? -1 : 1, fb = r.line - inn0 * UF_T / 2;
+    const inn0 = r.line >= (r.ori === 0 ? st.D : st.L) / 2 ? -1 : 1, fb = r.line - inn0 * (r.th || UF_T) / 2;
     if (r.backKind === 'manual') addCov(r.ori, fb, -inn0, a, b, 0, r.h);
     if (r.closed && geo.ext.some(e => e.side === r.closed)) addCov(r.ori, fb, -inn0, a, b, UF_EXT_FROM, r.h);
   });
@@ -6759,9 +6795,11 @@ function ufRender3D(o) {
       if (post) { poly([T(bx.x0, bx.y1, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], '#38a169'); poly([T(bx.x1, bx.y0, 0), T(bx.x1, bx.y1, 0), T(bx.x1, bx.y1, h), T(bx.x1, bx.y0, h)], '#2f855a'); } // słupek zielony
       else {
         // ramy piętrowo: 248 na dole, niższa rama na niej
-        let z0 = 0; const zs = ufStack(h).map(hh => { const r = [z0, hh]; z0 += hh; return r; }), at = (x, y, z) => T(x, y, z);
-        zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, '#a3acb8'); frame(at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, '#8f99a7'); });                     // tył: północ, zachód
-        zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, '#aeb6c1'); frame(at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, '#949eab'); }); // przód: południe, wschód
+        // ELTEX: jedna rama na całą wysokość, niebieska
+        const elx = bx.p.op.t === 'eltex', C = elx ? ['#90cdf4', '#63b3ed', '#4299e1', '#3182ce'] : ['#a3acb8', '#8f99a7', '#aeb6c1', '#949eab'];
+        let z0 = 0; const zs = (elx ? [h] : ufStack(h)).map(hh => { const r = [z0, hh]; z0 += hh; return r; }), at = (x, y, z) => T(x, y, z);
+        zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0]); frame(at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1]); });                     // tył: północ, zachód
+        zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, C[2]); frame(at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[3]); }); // przód: południe, wschód
       }
       poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#68d391' : '#c3cad3');
     } else {
@@ -7064,8 +7102,8 @@ async function ufGenerate() {
 // ---------- okno edytora ----------
 // paleta modułów: krótkie napisy (ikona + wymiar), pełna nazwa w dymku; drzwi — jedna ikona, wysokość pod prawym klawiszem
 function ufPalRender() {
-  const palShort = p => p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) : lenPL(p.op.len);
-  $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? ' · prawy klawisz = wysokość drzwi' : ''}">${p.op.t === 'door' ? '🚪' : p.op.t === 'post' ? '■' : '▭'} ${palShort(p)}</button>`).join('');
+  const palShort = p => p.op.t === 'eltex' ? 'ELTEX' : p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) : lenPL(p.op.len);
+  $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? ' · prawy klawisz = wysokość drzwi' : p.op.t === 'eltex' ? ' · po upuszczeniu okno wymiarów, prawy klawisz na ramie = zmiana wymiarów' : ''}"${p.op.t === 'eltex' ? ' style="color:#90cdf4;font-weight:800"' : ''}>${p.op.t === 'door' ? '🚪 ' : p.op.t === 'post' ? '■ ' : p.op.t === 'eltex' ? '' : '▭ '}${palShort(p)}</button>`).join('');
   // znacznik pokoju rozmów MT — przeciągany na środek zamkniętego pomieszczenia (bez znacznika pomieszczenie to zaplecze)
   $('uf-pal').insertAdjacentHTML('beforeend', Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-room="${k}" title="${v.txt}: ${v.name} — przeciągnij na środek zamkniętego pomieszczenia; na planie: przeciągnij, prawy klawisz = zmiana / usunięcie" style="color:#90cdf4;font-weight:800">${v.txt}</button>`).join(''));
   $('uf-pal').querySelectorAll('[data-room]').forEach(b => b.onpointerdown = e => {
