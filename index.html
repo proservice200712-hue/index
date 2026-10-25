@@ -6027,8 +6027,8 @@ function ufGeom(d) {
   // grafikę dostaje tylko odcinek widoczny od alejki — zamknięte pomieszczenie (np. magazyn) jest bez grafiki;
   // gdy za ścianką nie ma zamkniętego pomieszczenia (tył też widać od alejki, w obrębie stoiska) — grafika także z tyłu, tak samo pocięta
   const pub = ufPublic(st, parts), faces = [];
-  // znaczniki pomieszczeń (ikony ZAP / MT przeciągnięte do zamkniętego pomieszczenia): MT = pokój rozmów — grafiki jak od alejki, ZAP = zaplecze — wysłony
-  const rooms = (d.rooms || []).map(m => ({ ...m, reg: pub.region(m.x, m.y) })), roomKind = new Map(rooms.filter(m => m.reg).map(m => [m.reg, m.t]));
+  // znacznik MT przeciągnięty do zamkniętego pomieszczenia = pokój rozmów — grafiki jak od alejki; pomieszczenie bez znacznika = zaplecze
+  const rooms = (d.rooms || []).filter(m => m.t === 'mt').map(m => ({ ...m, reg: pub.region(m.x, m.y) })), roomKind = new Map(rooms.filter(m => m.reg).map(m => [m.reg, m.t]));
   const kindAt = (x, y) => roomKind.get(pub.region(x, y)) || '';
   const vis = (x, y) => pub(x, y) || kindAt(x, y) === 'mt';
   runs.forEach(r => { const mid0 = st ? (r.ori === 0 ? st.D : st.L) / 2 : 0, inn0 = r.line >= mid0 ? -1 : 1; [inn0, -inn0].forEach(inn => {
@@ -6053,7 +6053,7 @@ function ufGeom(d) {
   // wysłony zaplecza (opcja): każde lico ścianki zwrócone do zamkniętego pomieszczenia wewnątrz stoiska (niewidoczne od alejki) —
   // pocięte ściankami, które do niego dochodzą; szerokość = same moduły (bez słupków), wysokość ścianki
   const zap = [];
-  if (st && (st.zap || rooms.some(m => m.t === 'zap'))) runs.forEach(r => [-1, 1].forEach(sd => {
+  if (st && st.zap) runs.forEach(r => [-1, 1].forEach(sd => {
     const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + sd * UF_T / 2;
     const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
     const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + sd && q.y1 >= f + sd : q.x0 <= f + sd && q.x1 >= f + sd))
@@ -6065,7 +6065,7 @@ function ufGeom(d) {
       if (sb - sa < 100) return;
       const am = (sa + sb) / 2, px = r.ori === 0 ? am : f + sd * 60, py = r.ori === 0 ? f + sd * 60 : am;
       if (!(px > 0 && px < st.L && py > 0 && py < st.D) || pub(px, py)) return;           // tylko wnętrze stoiska niewidoczne od alejki
-      const kd = kindAt(px, py); if (kd === 'mt' || (!kd && !st.zap)) return;              // pokój rozmów — grafiki; pomieszczenie bez znacznika — wg opcji „wysłona zaplecza”
+      if (kindAt(px, py) === 'mt') return;                                                  // pokój rozmów — grafiki, nie wysłony
       const items = r.parts.map(q => ({ op: q.op, len: Math.min(sb, q[k0 + '1']) - Math.max(sa, q[k0 + '0']) })).filter(it => it.len > 1);
       const w0 = items.find(it => it.op.t !== 'post'); if (!w0) return;
       zap.push({ key: 'uf:zap:' + w0.op.id + ':' + (sd > 0 ? 'p' : 'm'), run: r, ori: r.ori, inn: sd, f, a: sa, b: sb, h: r.h, items });
@@ -6086,7 +6086,7 @@ function ufPublic(st, parts) {
   for (let i = 0; i < nx; i++) { if (st.open.n) push(i, 0); if (st.open.s) push(i, ny - 1); }
   for (let j = 0; j < ny; j++) { if (st.open.w) push(0, j); if (st.open.e) push(nx - 1, j); }
   while (todo.length) { const k = todo.pop(), i = k % nx, j = (k - i) / nx; push(i + 1, j); push(i - 1, j); push(i, j + 1); push(i, j - 1); }
-  // zamknięte pomieszczenia: każde z osobnym numerem (do znaczników ZAP / MT)
+  // zamknięte pomieszczenia: każde z osobnym numerem (do znacznika pokoju rozmów MT)
   const reg = new Int32Array(nx * ny); let nr = 0;
   for (let k0 = 0; k0 < nx * ny; k0++) {
     if (blk[k0] || seen[k0] || reg[k0]) continue;
@@ -6262,7 +6262,7 @@ function ufSyncBar() {
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) ? 'ramy ' + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + `<span class="uf-keys">ZAP / MT na środku pomieszczenia = zaplecze (wysłony) / pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
+  $('uf-info').innerHTML = t + `<span class="uf-keys">zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
 }
 
 // ---------- rysowanie widoku z góry ----------
@@ -6411,8 +6411,8 @@ function ufDraw() {
     const de = S.elements.find(e => e.doorFor === fe.id), dp = fc.run.parts.find(q => q.op.t === 'door' && fc.items.some(it => it.op === q.op));
     if (de && dp) pin(...at(fc.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 640), markOf(de), colorOf(de), 9.5);
   });
-  // znaczniki pomieszczeń: ZAP (zaplecze — wysłony) i MT (pokój rozmów — grafiki); przenoszone myszą, PPM = zmiana / usunięcie
-  (d.rooms || []).concat(UF.drag && UF.drag.kind === 'room' && !UF.drag.rid && UF.drag.over ? [{ t: UF.drag.t, x: UF.drag.wx, y: UF.drag.wy, ghost: true }] : []).forEach(m => {
+  // znaczniki pokoju rozmów MT (grafiki w pomieszczeniu); przenoszone myszą, PPM = usunięcie
+  (d.rooms || []).filter(m => m.t === 'mt').concat(UF.drag && UF.drag.kind === 'room' && !UF.drag.rid && UF.drag.over ? [{ t: UF.drag.t, x: UF.drag.wx, y: UF.drag.wy, ghost: true }] : []).forEach(m => {
     const r0 = geo.rooms.find(q => q.id === m.id), bad = !m.ghost && r0 && !r0.reg;   // poza zamkniętym pomieszczeniem — bez znaczenia
     ufRoomBadge(g, X(m.x), Y(m.y), m.t, m.ghost ? .6 : bad ? .45 : 1, F);
   });
@@ -6596,16 +6596,17 @@ function ufPointer(e) {
   ufDraw(); ufSyncBar();
 }
 // prawy klawisz na drzwiach: zawiasy lewe / prawe, otwieranie do środka / na zewnątrz
-// znacznik pomieszczenia na planie: zaokrąglony prostokąt z napisem ZAP / MT
-const UF_ROOM = { zap: { txt: 'ZAP', col: '#c05621', name: 'zaplecze — wysłony' }, mt: { txt: 'MT', col: '#2b6cb0', name: 'pokój rozmów — grafiki' } };
+// znacznik pokoju rozmów na planie: zaokrąglony prostokąt z napisem MT
+// zaplecze rozpoznawane samo (zamknięte pomieszczenie bez znacznika); znacznik MT = pokój rozmów (meeting room) — grafiki zamiast wysłon
+const UF_ROOM = { mt: { txt: 'MT', col: '#2b6cb0', name: 'pokój rozmów — grafiki' } };
 function ufRoomBadge(g, x, y, t, alpha, F) {
-  const k = UF_ROOM[t] || UF_ROOM.zap; g.save(); g.globalAlpha = alpha; g.font = `800 12px ${F}`;
+  const k = UF_ROOM[t] || UF_ROOM.mt; g.save(); g.globalAlpha = alpha; g.font = `800 12px ${F}`;
   const w = g.measureText(k.txt).width + 16, h = 22;
   g.beginPath(); g.roundRect ? g.roundRect(x - w / 2, y - h / 2, w, h, 6) : g.rect(x - w / 2, y - h / 2, w, h);
   g.fillStyle = k.col; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
   g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k.txt, x, y + .5); g.restore();
 }
-const ufRoomAt = (px, py) => (UF.d.rooms || []).find(m => UF.tr && Math.abs(UF.tr.ox + m.x * UF.tr.s - px) < 20 && Math.abs(UF.tr.oy + m.y * UF.tr.s - py) < 13);
+const ufRoomAt = (px, py) => (UF.d.rooms || []).find(m => m.t === 'mt' && UF.tr && Math.abs(UF.tr.ox + m.x * UF.tr.s - px) < 20 && Math.abs(UF.tr.oy + m.y * UF.tr.s - py) < 13);
 function ufRoomMenu(e, m) {
   const mn = document.createElement('div'); mn.className = 'menu mark-menu';
   mn.innerHTML = `<div class="mm-h">Pomieszczenie</div>` + Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-rt="${k}">${m.t === k ? '● ' : '○ '}${v.txt} · ${v.name}</button>`).join('')
@@ -7065,8 +7066,8 @@ async function ufGenerate() {
 function ufPalRender() {
   const palShort = p => p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) : lenPL(p.op.len);
   $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? ' · prawy klawisz = wysokość drzwi' : ''}">${p.op.t === 'door' ? '🚪' : p.op.t === 'post' ? '■' : '▭'} ${palShort(p)}</button>`).join('');
-  // znaczniki pomieszczeń: ZAP (zaplecze — wysłony), MT (pokój rozmów — grafiki) — przeciągane na środek zamkniętego pomieszczenia
-  $('uf-pal').insertAdjacentHTML('beforeend', Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-room="${k}" title="${v.txt}: ${v.name} — przeciągnij na środek zamkniętego pomieszczenia; na planie: przeciągnij, prawy klawisz = zmiana / usunięcie" style="color:${v.col === '#c05621' ? '#fbd38d' : '#90cdf4'};font-weight:800">${v.txt}</button>`).join(''));
+  // znacznik pokoju rozmów MT — przeciągany na środek zamkniętego pomieszczenia (bez znacznika pomieszczenie to zaplecze)
+  $('uf-pal').insertAdjacentHTML('beforeend', Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-room="${k}" title="${v.txt}: ${v.name} — przeciągnij na środek zamkniętego pomieszczenia; na planie: przeciągnij, prawy klawisz = zmiana / usunięcie" style="color:#90cdf4;font-weight:800">${v.txt}</button>`).join(''));
   $('uf-pal').querySelectorAll('[data-room]').forEach(b => b.onpointerdown = e => {
     if (e.button !== 0 || UF.busy) return; e.preventDefault();
     UF.drag = { kind: 'room', t: b.dataset.room, cx: e.clientX, cy: e.clientY, moved: false, over: false };
