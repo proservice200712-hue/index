@@ -1272,15 +1272,16 @@ function wCalcTxt(e) {
   const u = e.wExprUnit || 'cm', k = u === 'cm' ? 10 : 1;
   const terms = calcNorm(e.wExpr).split('+');
   const vals = terms.map(t => calcEval(t));
-  let mark = -1;
-  if (hasDoor(e) && !/[()]/.test(e.wExpr) && vals.every(Number.isFinite)) {
-    const p = doorPos(e), dw = p.w / k, dx = p.x / k;
-    let start = 0, best = Infinity;
+  const marks = new Set();
+  if (hasDoor(e) && !/[()]/.test(e.wExpr) && vals.every(Number.isFinite)) doorList(e).forEach(d => {
+    const p = doorPos(doorView(e, d)), dw = p.w / k, dx = p.x / k;
+    let start = 0, best = Infinity, mark = -1;
     vals.forEach((v, i) => { if (Math.abs(v - dw) < 0.06 && Math.abs(start - dx) < best) { best = Math.abs(start - dx); mark = i; } start += v; });
-  }
+    if (mark >= 0) marks.add(mark);
+  });
   const pretty = t => t.replace(/\*/g, ' × ').replace(/(\d)-/g, '$1 − ').replace(/\./g, ',');
   const pst = wallPosts(e), isPost = i => pst.length > 0 && Math.abs(vals[i] * k - POST_MM) < 0.6 && pst.some(q => Math.abs(q.x - vals.slice(0, i).reduce((a, b) => a + b, 0) * k) < 0.6);
-  return terms.map((t, i) => pretty(t) + (i === mark ? ' (drzwi)' : isPost(i) ? ' (słupek)' : '')).join(' + ') + ` = ${numIn(calcEval(e.wExpr))} ${u}`;
+  return terms.map((t, i) => pretty(t) + (marks.has(i) ? ' (drzwi)' : isPost(i) ? ' (słupek)' : '')).join(' + ') + ` = ${numIn(calcEval(e.wExpr))} ${u}`;
 }
 // SEG: składnik „8” (cm) w wyliczeniu szerokości = słupek 8 cm; położenie = suma składników przed nim (od lewej)
 const POST_MM = 80;
@@ -1969,12 +1970,13 @@ const isWys = el => !!(typeById(el.typeId).wyslona && el.wyslona);
 // numeracja elementów stoiska: A, B, C… (domyślnie) albo 1, 2, 3… (ustawienie „Oznaczenia” w stoisku)
 const numMark = n => S.project && S.project.numbering === '123' ? String(n | 0 || '?') : letterOf(n);
 // drzwi w ścianie dostają znak ściany z dopiskiem: A → A1, 1 → 1a (znak kończący się cyfrą dostaje literę)
-const doorMark = m => m + (/\d$/.test(m) ? 'a' : '1');
+const doorMarkI = (m, i) => m + (/\d$/.test(m) ? String.fromCharCode(97 + i) : String(i + 1));   // kolejne drzwi: A1, A2… / 1a, 1b…
+const doorMark = m => doorMarkI(m, 0);
 // znak własny elementu (pole mark): litery + cyfry (A1, B2, AB12) albo cyfry + litery (1A, 1B, 12C); zwykły znak = z numeru
 const MARK_RX = /^(?:([A-Z]{1,3})(\d{1,3})|(\d{1,3})([A-Z]{1,3}))$/;
 const customMark = el => el && !isWys(el) && !el.doorFor && el.mark && MARK_RX.test(el.mark) ? el.mark : '';
 const markOf = el => {
-  if (el && el.doorFor) { const w = S.elements.find(e => e.id === el.doorFor); if (w && !w.doorFor) return doorMark(markOf(w)); }
+  if (el && el.doorFor) { const w = S.elements.find(e => e.id === el.doorFor); if (w && !w.doorFor) return doorMarkI(markOf(w), el.doorIdx || 0); }
   return isWys(el) && el.wnum ? 'W' + el.wnum : customMark(el) || numMark(el.num);
 };
 // klucz kolejności: zwykły znak [numer, 0]; A1 → [A, 1]; 1A → [1, A] — znaki własne wchodzą między zwykłe (A < A1 < A2 < B)
@@ -2174,6 +2176,11 @@ const hasDims = el => isHang(el) ? planeBase(el).length > 0 : Number(el.w) > 0 &
 const DOOR_STD = { w: 800, h: 2000, side: 300, top: 200, bottom: 100 };
 const DOOR_TYPES = ['blackback', 'folia-laminat'];
 const hasDoor = el => DOOR_TYPES.includes(el.typeId) && !!(el.door && el.door.on);
+// kilkoro drzwi w jednej ścianie (np. Ultra Frame: zaplecze i pokój rozmów w tej samej ściance): el.door = pierwsze, el.doorsMore = kolejne;
+// każde drzwi mają swój element „Drzwi — A1 / A2 …” (doorFor = ściana, doorIdx = 0, 1, …)
+const doorList = el => hasDoor(el) ? [el.door].concat((el.doorsMore || []).filter(d => d && d.on)) : [];
+const doorView = (el, d) => !d || d === el.door ? el : { ...el, door: d };
+const doorOfEl = (main, de) => doorList(main)[(de && de.doorIdx) || 0] || main.door;
 function doorPos(el) {
   const d = el.door || {}, W = Number(el.w) || 0, H = Number(el.h) || 0;
   const std = !(el.seg || el.wyslona);
@@ -2195,10 +2202,24 @@ function doorBleed(el) {
 // prostokąt drzwi + wymiar od bliższej krawędzi, w układzie netto ściany (x0, y0, szer., wys. w px)
 function doorSvg(el, x0, y0, nw, nh, withPost = false) {
   if (!hasDoor(el) || !hasDims(el)) return '';
-  const p = doorPos(el), W = Number(el.w), H = Number(el.h), sx = nw / W, sy = nh / H, posts = withPost ? wallPosts(el) : [];
+  const W = Number(el.w), H = Number(el.h), sx = nw / W, sy = nh / H, posts = withPost ? wallPosts(el) : [];
+  const ps = doorList(el).map(d => doorPos(doorView(el, d)));
+  let o = `<defs><marker id="dArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2b6cb0"/></marker></defs>`;
+  // słupek (SEG): zielony prostokąt na całą wysokość ściany
+  posts.forEach(q => {
+    const px = x0 + q.x * sx, pw = q.w * sx;
+    o += `<rect x="${px}" y="${y0}" width="${pw}" height="${nh}" fill="rgba(56,161,105,.32)" stroke="#38a169" stroke-width="1"/>
+      <text transform="rotate(-90 ${px + pw / 2 + 3} ${y0 + nh / 2})" x="${px + pw / 2 + 3}" y="${y0 + nh / 2}" text-anchor="middle" fill="#276749" font-size="9" font-weight="700">słupek ${lenPL(q.w)}</text>`;
+  });
+  // każde drzwi: odległości do najbliższej przeszkody z lewej i z prawej (krawędź ściany, słupek, inne drzwi)
+  ps.forEach((p, di) => {
+    const obst = posts.map(q => [q.x, q.x + q.w]).concat(ps.filter((_, j) => j !== di).map(q => [q.x, q.x + q.w]));
+    o += doorOne(p, obst);
+  });
+  return o;
+  function doorOne(p, obst) {
   const x = x0 + p.x * sx, w = p.w * sx, h = p.h * sy, y = y0 + nh - h;
-  let o = `<defs><marker id="dArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2b6cb0"/></marker></defs>
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(49,130,206,.28)" stroke="${p.fits ? '#3182ce' : '#e53e3e'}" stroke-width="1.2" stroke-dasharray="4 2"/>`;
+  let o = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="rgba(49,130,206,.28)" stroke="${p.fits ? '#3182ce' : '#e53e3e'}" stroke-width="1.2" stroke-dasharray="4 2"/>`;
   const yy = y + Math.min(h / 2, 14);
   // odległość od obu boków (od lewej i od prawej krawędzi ściany): liczba zawsze nad swoją strzałką;
   // wąska szczelina — liczba nad drzwiami, nad tą szczeliną
@@ -2208,25 +2229,20 @@ function doorSvg(el, x0, y0, nw, nh, withPost = false) {
     return `<line x1="${ax}" y1="${yy}" x2="${bx}" y2="${yy}" stroke="#2b6cb0" stroke-width="1" marker-start="url(#dArrow)" marker-end="url(#dArrow)"/>
     <text x="${tx}" y="${ty}" text-anchor="middle" fill="#2b6cb0" font-size="10" font-weight="700">${lenPL(val)}</text>`;
   };
-  // słupek (SEG): zielony prostokąt na całą wysokość ściany; odległości od drzwi liczone do słupka
   let lEnd = 0, rStart = W;
-  posts.forEach(q => {
-    const px = x0 + q.x * sx, pw = q.w * sx;
-    o += `<rect x="${px}" y="${y0}" width="${pw}" height="${nh}" fill="rgba(56,161,105,.32)" stroke="#38a169" stroke-width="1"/>
-      <text transform="rotate(-90 ${px + pw / 2 + 3} ${y0 + nh / 2})" x="${px + pw / 2 + 3}" y="${y0 + nh / 2}" text-anchor="middle" fill="#276749" font-size="9" font-weight="700">słupek ${lenPL(q.w)}</text>`;
-    if (q.x + q.w <= p.x + 0.5) lEnd = Math.max(lEnd, q.x + q.w); else if (q.x >= p.x + p.w - 0.5) rStart = Math.min(rStart, q.x);
-  });
+  obst.forEach(([a, b]) => { if (b <= p.x + 0.5) lEnd = Math.max(lEnd, b); else if (a >= p.x + p.w - 0.5) rStart = Math.min(rStart, a); });
   o += gap(x0 + lEnd * sx, x, p.left - lEnd) + gap(x + w, x0 + rStart * sx, rStart - (p.x + p.w));
   o += `<text x="${x + w / 2}" y="${y + h - 4}" text-anchor="middle" fill="#2b6cb0" font-size="9">drzwi</text>`;
   return o;
+  }
 }
 // tekstura drzwi: wycinek grafiki ściany (jej miniatury) w miejscu drzwi, razem ze spadami grafiki na drzwi.
 // Obraz ściany leży w okienku jak na kafelku (object-fit: contain); drzwi stoją na dole ściany.
 // Z grafiką drzwi wgraną ręcznie (albo z Corela) nic się nie dzieje — nadpisywana jest tylko tekstura zrobiona tutaj.
-const doorCropKey = (m, d) => [m.thumb, m.w, m.h, JSON.stringify(m.door || null), m.bleedOverride, JSON.stringify(m.bleedBox || null), m.seg, m.wyslona, d.w, d.h, JSON.stringify(d.bleedBox || null)].join('|');
+const doorCropKey = (m, d) => [m.thumb, m.w, m.h, JSON.stringify(doorOfEl(m, d) || null), m.bleedOverride, JSON.stringify(m.bleedBox || null), m.seg, m.wyslona, d.w, d.h, JSON.stringify(d.bleedBox || null)].join('|');
 async function makeDoorTexture(main, door) {
   const img = await loadImg(main.thumb);
-  const g = grossOf(main), W = Number(main.w), H = Number(main.h), p = doorPos(main), bb = door.bleedBox || { l: 0, r: 0, t: 0, b: 0 };
+  const g = grossOf(main), W = Number(main.w), H = Number(main.h), p = doorPos(doorView(main, doorOfEl(main, door))), bb = door.bleedBox || { l: 0, r: 0, t: 0, b: 0 };
   const ox = g.box ? g.box.l : g.b, oy = g.box ? g.box.t : g.b;            // netto ściany w obrębie grafiki do druku
   const Dw = Number(door.w) + bb.l + bb.r, Dh = Number(door.h) + bb.t + bb.b;
   const cropX = ox + p.x - bb.l, cropY = oy + H - p.h - bb.t;               // lewy górny róg wycinka w układzie grafiki ściany [mm]
@@ -2239,8 +2255,8 @@ async function makeDoorTexture(main, door) {
   cg.drawImage(img, (ix - cropX) * sc, (iy - cropY) * sc, iw * sc, ih * sc);
   return new Promise(res => c.toBlob(res, 'image/jpeg', 0.94));
 }
-async function doorThumbFor(mainId) {
-  const main = S.elements.find(e => e.id === mainId), door = S.elements.find(e => e.doorFor === mainId);
+async function doorThumbFor(door) {
+  const main = door && S.elements.find(e => e.id === door.doorFor);
   if (!main || !door || !main.thumb || !hasDoor(main) || !hasDims(main) || !Number(door.w) || !Number(door.h)) return;
   if (door.thumb && door.thumb !== door.thumbAuto) return; // własna grafika drzwi
   const key = doorCropKey(main, door); if (door.thumb && door.thumbKey === key) return;
@@ -2253,29 +2269,30 @@ let doorThumbRun = false;
 async function autoDoorThumbs() {
   if (doorThumbRun || S.tour || !S.project || !S.me) return;
   doorThumbRun = true;
-  try { for (const d of S.elements.filter(e => e.doorFor)) await doorThumbFor(d.doorFor); }
+  try { for (const d of S.elements.filter(e => e.doorFor)) await doorThumbFor(d); }
   catch (e) { console.warn('tekstura drzwi:', e); }
   finally { doorThumbRun = false; }
 }
 // powiązany element „Drzwi — A”: tworzony / zmieniany / usuwany razem ze ścianą
 async function syncDoorElement(mainId, main) {
-  const pid = S.project.id;
-  const ex = S.elements.find(e => e.doorFor === mainId);
-  if (!hasDoor(main)) {
-    if (ex) { await DB.del(pElements(pid), ex.id); addLog(pid, `Usunięto drzwi ściany ${markOf(main)}`, mainId); }
-    return;
+  const pid = S.project.id, ds = doorList(main);
+  const exAll = S.elements.filter(e => e.doorFor === mainId);
+  // drzwi, których już nie ma w ścianie — ich elementy znikają
+  for (const ex of exAll.filter(e => (e.doorIdx || 0) >= ds.length)) { await DB.del(pElements(pid), ex.id); addLog(pid, `Usunięto drzwi ściany ${markOf(main)}`, mainId); }
+  for (const [i, d] of ds.entries()) {
+    const mv = doorView(main, d), ex = exAll.find(e => (e.doorIdx || 0) === i);
+    const p = doorPos(mv), bb = doorBleed(mv), side = d.from === 'right' ? 'od prawej' : 'od lewej', nm = ds.length > 1 ? doorMarkI(markOf(main), i) : markOf(main);
+    const fields = { typeId: main.typeId, variant: '', ...togValues(main, main.typeId), seg: !!main.seg, wyslona: !!main.wyslona, w: p.w, h: p.h, qty: 1,
+      bleedBox: bb, doorFor: mainId, doorIdx: i, name: 'Drzwi — ' + nm,
+      notes: `drzwi${ds.length > 1 ? ' ' + (i + 1) + ' z ' + ds.length : ''} w ścianie ${markOf(main)}, ${side} ${lenPL(d.dist || 0)} ${UNIT()}` + (bb && (bb.l !== DOOR_STD.side || bb.r !== DOOR_STD.side) ? ` · spad boczny ${lenPL(bb.l)} / ${lenPL(bb.r)} (za blisko krawędzi)` : ''),
+      updatedAt: nowIso(), updatedBy: S.me.id };
+    if (ex) { await DB.update(pElements(pid), ex.id, fields); continue; }
+    const rec = { ...fields, num: Math.max(nextNum(), (Number(main.num) || 0) + 1), createdAt: nowIso(), createdBy: S.me.id, photoId: main.photoId || '', shape: null };
+    if (rec.wyslona) rec.wnum = Math.max(wysNumFor(rec, null), (Number(main.wnum) || 0) + 1);
+    if (main.shape && main.photoId) { const [cx, cy] = shapeCenter(main.shape); rec.shape = { kind: 'point', pts: [[clamp(cx + 0.05 * (i + 1), 0, 1), clamp(cy + 0.05, 0, 1)]] }; }
+    const id = await DB.add(pElements(pid), rec);
+    addLog(pid, `Dodano drzwi do ściany ${markOf(main)} — grafika na drzwi ${grossTxt(rec)} ${UNIT()}`, id);
   }
-  const p = doorPos(main), bb = doorBleed(main), side = main.door.from === 'right' ? 'od prawej' : 'od lewej';
-  const fields = { typeId: main.typeId, variant: '', ...togValues(main, main.typeId), seg: !!main.seg, wyslona: !!main.wyslona, w: p.w, h: p.h, qty: 1,
-    bleedBox: bb, doorFor: mainId, name: 'Drzwi — ' + markOf(main),
-    notes: `drzwi w ścianie ${markOf(main)}, ${side} ${lenPL(main.door.dist || 0)} ${UNIT()}` + (bb && (bb.l !== DOOR_STD.side || bb.r !== DOOR_STD.side) ? ` · spad boczny ${lenPL(bb.l)} / ${lenPL(bb.r)} (za blisko krawędzi)` : ''),
-    updatedAt: nowIso(), updatedBy: S.me.id };
-  if (ex) { await DB.update(pElements(pid), ex.id, fields); return; }
-  const rec = { ...fields, num: Math.max(nextNum(), (Number(main.num) || 0) + 1), createdAt: nowIso(), createdBy: S.me.id, photoId: main.photoId || '', shape: null };
-  if (rec.wyslona) rec.wnum = Math.max(wysNumFor(rec, null), (Number(main.wnum) || 0) + 1);
-  if (main.shape && main.photoId) { const [cx, cy] = shapeCenter(main.shape); rec.shape = { kind: 'point', pts: [[clamp(cx + 0.05, 0, 1), clamp(cy + 0.05, 0, 1)]] }; }
-  const id = await DB.add(pElements(pid), rec);
-  addLog(pid, `Dodano drzwi do ściany ${markOf(main)} — grafika na drzwi ${grossTxt(rec)} ${UNIT()}`, id);
 }
 // =====================================================================
 //  WYSŁONA DO LIGHTBOXA SEG: osobny, powiązany element (jak drzwi przy ścianie) — wysłona W…,
@@ -5719,6 +5736,7 @@ const needsWallPic = e => hasDims(e) && hasDoor(e);
 async function wallDrawing(main) {
   if (!needsWallPic(main)) return null;
   const W = Number(main.w), H = Number(main.h), door = hasDoor(main), p = door ? doorPos(main) : { x: 0, w: 0, h: 0, left: 0, right: 0, fits: true }, gr = grossOf(main), posts = wallPosts(main);
+  const dps = door ? doorList(main).map(d => doorPos(doorView(main, d))) : [];   // wszystkie drzwi ściany (p = pierwsze)
   // cała ściana do druku (netto + spad ściany) z grafiką; na niej kontur netto, drzwi i spady grafiki na drzwi
   const wb = gr.box || { l: gr.b || 0, r: gr.b || 0, t: gr.b || 0, b: gr.b || 0 };
   // grafika na drzwi do druku: drzwi + spady (standard 30 / 30 / 20 / 10; za blisko krawędzi — przesunięte); SEG / wysłona bez spadu
@@ -5748,11 +5766,12 @@ async function wallDrawing(main) {
   }
   g.strokeStyle = '#2b2a29'; g.lineWidth = 1.6; g.strokeRect(x0, y0, rw, rh); // ściana netto (widoczna)
   const dx = x0 + p.x * s, dw = p.w * s, dh = p.h * s, dy = y0 + rh - dh;
-  if (door) {
-    g.fillStyle = 'rgba(49,130,206,.28)'; g.fillRect(dx, dy, dw, dh);
-    g.setLineDash([6, 3]); g.strokeStyle = p.fits ? '#3182ce' : '#e53e3e'; g.lineWidth = 1.8; g.strokeRect(dx, dy, dw, dh); g.setLineDash([]);
-    g.fillStyle = '#2b6cb0'; g.font = `600 13px ${F}`; g.textAlign = 'center'; g.fillText('drzwi', dx + dw / 2, dy + dh - 8);
-  }
+  dps.forEach((q, i) => {
+    const qx = x0 + q.x * s, qw = q.w * s, qh = q.h * s, qy = y0 + rh - qh;
+    g.fillStyle = 'rgba(49,130,206,.28)'; g.fillRect(qx, qy, qw, qh);
+    g.setLineDash([6, 3]); g.strokeStyle = q.fits ? '#3182ce' : '#e53e3e'; g.lineWidth = 1.8; g.strokeRect(qx, qy, qw, qh); g.setLineDash([]);
+    g.fillStyle = '#2b6cb0'; g.font = `600 13px ${F}`; g.textAlign = 'center'; g.fillText(dps.length > 1 ? 'drzwi ' + (i + 1) : 'drzwi', qx + qw / 2, qy + qh - 8);
+  });
   posts.forEach(q => { // słupek 8 cm (SEG): zielony prostokąt na całą wysokość ściany
     const px = x0 + q.x * s, pw = q.w * s;
     g.fillStyle = 'rgba(56,161,105,.32)'; g.fillRect(px, y0, pw, rh); g.strokeStyle = '#38a169'; g.lineWidth = 1.4; g.strokeRect(px, y0, pw, rh);
@@ -5782,7 +5801,7 @@ async function wallDrawing(main) {
   };
   const yb1 = gy + gh + 28, yb2 = gy + gh + 62; // wiersz 1: od lewej / drzwi / od prawej; wiersz 2: cała ściana (netto)
   // wiersz 1: kolejne odcinki ściany — odstępy (niebieskie), drzwi, słupki (zielone)
-  const items = [...(door ? [{ a: p.x, b: p.x + p.w, k: 'door' }] : []), ...posts.map(q => ({ a: q.x, b: q.x + q.w, k: 'post' }))].sort((u, v) => u.a - v.a);
+  const items = [...dps.map(q => ({ a: q.x, b: q.x + q.w, k: 'door' })), ...posts.map(q => ({ a: q.x, b: q.x + q.w, k: 'post' }))].sort((u, v) => u.a - v.a);
   const segs = []; let cur = 0;
   items.forEach(it => { if (it.a > cur + 0.5) segs.push({ a: cur, b: it.a, k: 'gap' }); segs.push(it); cur = Math.max(cur, it.b); });
   if (W > cur + 0.5) segs.push({ a: cur, b: W, k: 'gap' });
@@ -5805,7 +5824,7 @@ async function wallDrawing(main) {
   g.fillStyle = '#718096'; g.font = `400 12px ${F}`; g.textAlign = 'right'; g.fillText(UNIT(), CW - 8, CH - 6);
   return { u: c.toDataURL('image/png'), w: CW };
 }
-const wallKey = e => JSON.stringify([e.wExpr, e.wExprUnit, e.w, e.h, e.door, e.seg, e.wyslona, e.thumb, e.bleedOverride, e.bleedBox, e.typeId, e.variant, markOf(e), UNIT()]);
+const wallKey = e => JSON.stringify([e.wExpr, e.wExprUnit, e.w, e.h, e.door, e.doorsMore || null, e.seg, e.wyslona, e.thumb, e.bleedOverride, e.bleedBox, e.typeId, e.variant, markOf(e), UNIT()]);
 const wallCache = new Map();
 async function wallDrawingCached(e) {
   const k = e.id + '|' + wallKey(e); if (wallCache.has(k)) return wallCache.get(k);
@@ -5814,6 +5833,7 @@ async function wallDrawingCached(e) {
 }
 // zlecenie jako HTML (do maila): te same linijki co w tekście, a pod ścianą z drzwiami jej rysunek
 function orderHtml(list, draws = new Map()) {
+  const shownDraw = new Set();
   const P = t => `<p style="margin:0 0 10px">${esc(t).replace(/\n/g, '<br>').replace(/ {3}/g, '&nbsp;&nbsp;&nbsp;')}</p>`;
   const IMG = d => `<p style="margin:0 0 14px"><img src="${d.u}" width="${d.w}" style="max-width:100%;border:1px solid #cbd5e0" alt="rysunek ściany z drzwiami"></p>`;
   let h = '';
@@ -5822,7 +5842,7 @@ function orderHtml(list, draws = new Map()) {
     for (const e of l) {
       h += P(orderLine(e));
       // rysunek: pod drzwiami (a gdy drzwi nie zaznaczone albo ich nie ma — pod samą ścianą)
-      if (e.doorFor && draws.get(e.doorFor)) h += IMG(draws.get(e.doorFor));
+      if (e.doorFor && draws.get(e.doorFor)) { if (!shownDraw.has(e.doorFor)) { shownDraw.add(e.doorFor); h += IMG(draws.get(e.doorFor)); } } // kilkoro drzwi — rysunek ściany raz
       else if (draws.get(e.id) && !(hasDoor(e) && list.some(x => x.doorFor === e.id))) h += IMG(draws.get(e.id));
     }
   }
@@ -5917,6 +5937,7 @@ const UF_PAL = [
 ];
 const UF_ELTEX_COL = '#3182ce';
 const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : UF_T;          // grubość klocka: ELTEX — własna, reszta ramy E80
+const ufCorners = r => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];   // narożniki prostokąta klocka (świat, mm)
 const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
 // moduł z palety: drzwi w wysokości wybranej prawym klawiszem na ikonie (zapamiętanej w układzie)
 const ufPalOp = p => p.op.t === 'door' ? { ...p.op, size: (UF.d && UF.d.doorSize) || 'h2480' } : p.op;
@@ -6121,28 +6142,29 @@ function ufPublic(st, parts) {
 // dane elementu dla lica (grafika SEG z przodu): szerokość odcinka; składniki = moduły i słupki w tym odcinku,
 // po kolei od lewej patrząc na grafikę z wnętrza stoiska (np. ścianka pionowa oglądana od prawej: od dołu planu w górę)
 function ufFaceSpec(fc) {
-  const h = fc.h, rev = (fc.ori === 0) === (fc.inn < 0), items = rev ? fc.items.slice().reverse() : fc.items; let door = null, off = 0;
-  for (const it of items) {
+  const h = fc.h, rev = (fc.ori === 0) === (fc.inn < 0), items = rev ? fc.items.slice().reverse() : fc.items, doors = []; let off = 0;
+  for (const it of items) {   // wszystkie drzwi w licu, od lewej patrząc na grafikę (np. do zaplecza i do pokoju rozmów)
     const o = it.op;
-    if (o.t === 'door') { door = { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' }; break; }
+    if (o.t === 'door') doors.push({ on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' });
     off += it.len;
   }
+  const door = doors[0] || null, doorsMore = doors.slice(1);
   const terms = items.map(it => numIn(fromMM(it.len)));
   const elx = items.find(it => it.op.t === 'eltex');
-  return { w: fc.b - fc.a, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length,
+  return { w: fc.b - fc.a, h, door, doorsMore, doorOps: items.filter(it => it.op.t === 'door').map(it => it.op), wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: doors.length,
     notes: elx ? `rama ELTEX, grubość ${lenPL(ufTh(elx.op))} ${UNIT()}` : '' };
 }
 // wysłona zaplecza (Blackback od wewnątrz pomieszczenia): same moduły lica, po kolei od lewej patrząc na wysłonę z pomieszczenia; z drzwiami, gdy w licu są drzwi
 function ufZapSpec(zf) {
   const rev = (zf.ori === 0) === (zf.inn < 0), items = (rev ? zf.items.slice().reverse() : zf.items).filter(it => it.op.t !== 'post'), h = zf.h;
-  let door = null, off = 0;
-  for (const it of items) {
+  const doors = []; let off = 0;
+  for (const it of items) {   // wszystkie drzwi w licu zaplecza
     const o = it.op;
-    if (o.t === 'door') { door = { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' }; break; }
+    if (o.t === 'door') doors.push({ on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' });
     off += it.len;
   }
-  const terms = items.map(it => numIn(fromMM(it.len)));
-  return { w: items.reduce((s2, it) => s2 + it.len, 0), h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length,
+  const terms = items.map(it => numIn(fromMM(it.len))), door = doors[0] || null, doorsMore = doors.slice(1);
+  return { w: items.reduce((s2, it) => s2 + it.len, 0), h, door, doorsMore, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(it => it.op.t === 'door').length,
     notes: 'wysłona zaplecza — od wewnątrz pomieszczenia (strona bez grafiki)' };
 }
 const ufRuns = () => ufGeom(UF.d).runs;
@@ -6378,6 +6400,15 @@ function ufDraw() {
     }
     if (o.id === sel) { g.strokeStyle = '#2b6cb0'; g.lineWidth = 3; g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
   });
+  // ELTEX: kropki w narożnikach — chwyć narożnik i przyłóż go do narożnika słupka / ramy (przyciąga się)
+  geo.parts.forEach(q => {
+    if (q.op.t !== 'eltex') return;
+    ufCorners(q).forEach(([cx, cy], ci) => {
+      const act = UF.drag && UF.drag.kind === 'ecorner' && UF.drag.id === q.op.id && UF.drag.ci === ci;
+      g.beginPath(); g.arc(X(cx), Y(cy), act ? 7 : 5, 0, Math.PI * 2); g.fillStyle = act ? UF_ELTEX_COL : '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = UF_ELTEX_COL; g.stroke();
+    });
+  });
+  if (UF.drag && UF.drag.kind === 'ecorner' && UF.drag.snap) { const [sx2, sy2] = UF.drag.snap; g.beginPath(); g.arc(X(sx2), Y(sy2), 10, 0, Math.PI * 2); g.strokeStyle = '#38a169'; g.lineWidth = 2.5; g.stroke(); }
   // gołe końce ścianek: zaślepka PCW (fioletowa kreska w poprzek końca)
   geo.ends.forEach(e => {
     const hw = (e.th || UF_T) / 2 + 12, t = Math.max(5, 40 * s); g.fillStyle = UF_CAP_COL;
@@ -6432,8 +6463,10 @@ function ufDraw() {
     const fe = elOf(fc.key, 'front'); if (!fe) return;
     const at = (along, off) => fc.ori === 0 ? [along, fc.run.line + fc.inn * off] : [fc.run.line + fc.inn * off, along];
     pin(...at((fc.a + fc.b) / 2, 420), markOf(fe), colorOf(fe));
-    const de = S.elements.find(e => e.doorFor === fe.id), dp = fc.run.parts.find(q => q.op.t === 'door' && fc.items.some(it => it.op === q.op));
-    if (de && dp) pin(...at(fc.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 640), markOf(de), colorOf(de), 9.5);
+    ufFaceSpec(fc).doorOps.forEach((op, i) => {   // każde drzwi w licu: swój znacznik (A1, A2…)
+      const de = S.elements.find(e => e.doorFor === fe.id && (e.doorIdx || 0) === i), dp = (fc.runs2 ? fc.runs2.flatMap(r => r.parts) : fc.run.parts).find(q => q.op === op);
+      if (de && dp) pin(...at(fc.ori === 0 ? (dp.x0 + dp.x1) / 2 : (dp.y0 + dp.y1) / 2, 640), markOf(de), colorOf(de), 9.5);
+    });
   });
   // znaczniki pokoju rozmów MT (grafiki w pomieszczeniu); przenoszone myszą, PPM = usunięcie
   (d.rooms || []).filter(m => m.t === 'mt').concat(UF.drag && UF.drag.kind === 'room' && !UF.drag.rid && UF.drag.over ? [{ t: UF.drag.t, x: UF.drag.wx, y: UF.drag.wy, ghost: true }] : []).forEach(m => {
@@ -6540,6 +6573,17 @@ function ufDragMove(e) {
   if (!dr.moved && Math.hypot(e.clientX - dr.cx, e.clientY - dr.cy) < 6) return;
   if (dr.kind === 'pan') { dr.moved = true; UF.vw = { s: dr.s, ox: dr.ox0 + e.clientX - dr.cx, oy: dr.oy0 + e.clientY - dr.cy }; ufDraw(); return; }
   const [wx, wy] = ufWorld(px, py);
+  if (dr.kind === 'ecorner') { // ELTEX za narożnik: narożnik przyciąga się do narożników innych klocków i stoiska
+    const p = ufFind(dr.id); if (!p) return;
+    if (!dr.moved) { dr.moved = true; ufPush(); }
+    const geo = ufGeom(UF.d), thr = 40 / UF.tr.s;
+    const cands = geo.parts.filter(q => q.op.id !== dr.id).flatMap(ufCorners).concat([[0, 0], [UF.d.stand.L, 0], [UF.d.stand.L, UF.d.stand.D], [0, UF.d.stand.D]]);
+    let best = null, bd = thr; cands.forEach(c => { const dd = Math.hypot(c[0] - wx, c[1] - wy); if (dd < bd) { bd = dd; best = c; } });
+    const tx = best ? best[0] : Math.round(wx / 10) * 10, ty = best ? best[1] : Math.round(wy / 10) * 10;
+    p.len = p.len0 || p.len; delete p.len0;
+    const off = ufCorners({ ...ufRect(p) })[dr.ci]; p.x += tx - off[0]; p.y += ty - off[1]; ufFit(p);
+    dr.snap = best; ufDraw(); return;
+  }
   if (dr.kind === 'room') {
     dr.over = px >= 0 && py >= 0 && px <= $('uf-cv').clientWidth && py <= $('uf-cv').clientHeight;
     if (!dr.moved) { dr.moved = true; if (dr.rid) ufPush(); }
@@ -6567,6 +6611,7 @@ function ufDragEnd(e) {
   document.removeEventListener('pointermove', ufDragMove, true); document.removeEventListener('pointerup', ufDragEnd, true);
   const dr = UF.drag; UF.drag = null; if (!dr) return;
   if (dr.kind === 'pan') { if (!dr.moved) { UF.sel = null; UF.rot = false; } ufDraw(); ufSyncBar(); return; }
+  if (dr.kind === 'ecorner') { UF.sel = dr.id; ufChanged(); return; }
   if (dr.kind === 'room') {
     if (!dr.rid && dr.moved && dr.over) { ufPush(); (UF.d.rooms = UF.d.rooms || []).push({ id: ufUid(), t: dr.t, x: Math.round(dr.wx), y: Math.round(dr.wy) }); }
     else if (!dr.rid && !dr.moved) toast(`Przeciągnij ikonę ${UF_ROOM[dr.t].txt} na środek pomieszczenia (${UF_ROOM[dr.t].name})`, '', 4000);
@@ -6611,6 +6656,14 @@ function ufPointer(e) {
   const ar = (UF.arrows || []).find(q => Math.hypot(q.x - px, q.y - py) < 16);
   if (ar) { ufPush(); UF.d.stand.open[ar.k] = !UF.d.stand.open[ar.k]; ufChanged(); return; }
   if (UF.hit && Math.hypot(UF.hit.x - px, UF.hit.y - py) < 16) { ufRotate(true); return; }
+  // kropka w narożniku ramy ELTEX: przeciąganie za ten narożnik
+  const ec = (UF.geo || ufGeom(UF.d)).parts.filter(q => q.op.t === 'eltex').flatMap(q => ufCorners(q).map((c, ci) => ({ q, ci, c })))
+    .find(o => Math.hypot(UF.tr.ox + o.c[0] * UF.tr.s - px, UF.tr.oy + o.c[1] * UF.tr.s - py) < 9);
+  if (ec) {
+    if (!UF.vw) UF.vw = { s: UF.tr.s, ox: UF.tr.ox, oy: UF.tr.oy };   // widok stoi w miejscu podczas przeciągania (bez dopasowania do okna)
+    UF.sel = ec.q.op.id; UF.drag = { kind: 'ecorner', id: ec.q.op.id, ci: ec.ci, cx: e.clientX, cy: e.clientY, moved: false };
+    document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true); ufDraw(); return;
+  }
   const rm = ufRoomAt(px, py);
   if (rm) { // znacznik pomieszczenia: przeciąganie
     UF.drag = { kind: 'room', rid: rm.id, t: rm.t, cx: e.clientX, cy: e.clientY, moved: false };
@@ -7028,7 +7081,7 @@ async function ufGenerate() {
       if (ex) mark = markOf(ex);
       else {
         const wys = role === 'back';
-        rec = { num: wys ? 0 : take(usedNum), typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, thick: '',
+        rec = { num: wys ? 0 : take(usedNum), typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, doorsMore: spec.doorsMore || [], thick: '',
           ...togValues({ wyslona: wys }, 'blackback'), frontlit: false, sidelit: false, seg: !wys, wyslona: wys, wnum: wys ? take(usedW) : null, name: '', w: spec.w, h: spec.h, d: '', qty: 1, notes: spec.notes,
           wExpr: spec.wExpr, wExprUnit: spec.wExpr ? spec.wExprUnit : '', ufKey: run.key, ufRole: role, photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
         mark = markOf(rec);
@@ -7054,7 +7107,7 @@ async function ufGenerate() {
       let rec = null, mark;
       if (ex) mark = markOf(ex);
       else {
-        rec = { num: 0, typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, thick: '', ...togValues({ wyslona: true }, 'blackback'), frontlit: false, sidelit: false,
+        rec = { num: 0, typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, doorsMore: spec.doorsMore || [], thick: '', ...togValues({ wyslona: true }, 'blackback'), frontlit: false, sidelit: false,
           seg: false, wyslona: true, wnum: take(usedW), name: '', w: spec.w, h: spec.h, d: '', qty: 1, notes: spec.notes, wExpr: spec.wExpr, wExprUnit: spec.wExpr ? spec.wExprUnit : '', ufKey: zf.key, ufRole: 'zap', photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
         mark = markOf(rec);
       }
@@ -7108,10 +7161,10 @@ async function ufGenerate() {
       let id;
       if (j.ex) {
         id = j.ex.id;
-        await DB.update(pElements(pid), id, { w: j.spec.w, h: j.spec.h, door: j.spec.door, wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...more, photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
+        await DB.update(pElements(pid), id, { w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...more, photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
         nUpd++;
       } else { id = await DB.add(pElements(pid), { ...j.rec, ...more, photoId, shape }); nNew++; }
-      if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, photoId, shape });
+      if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], photoId, shape });
     }
     addLog(pid, `Ultra Frame: ${nNew} nowych elementów, ${nUpd} zaktualizowanych`);
     // trzecia wizka: wizualizacja bez znaczników, z grafikami elementów nałożonymi na ścianki (pełne ściany)
