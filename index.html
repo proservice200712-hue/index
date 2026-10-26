@@ -8026,6 +8026,7 @@ class PdfCtx {
     if (!window.svg2pdf) return false;
     try {
       const el = await vecSvgEl(url); if (!el) return false;
+      vecFitText(el, this.pdf);
       const [px, py] = this.T(x, y), sc = this.sc;
       this.pdf.saveGraphicsState();
       try { await (window.svg2pdf.svg2pdf || window.svg2pdf)(el, this.pdf, { x: px, y: py, width: w * sc, height: h * sc }); }
@@ -8037,6 +8038,40 @@ class PdfCtx {
 PdfCtx.n = 0;
 // SVG z Corela: pobrany raz; tekst dostaje czcionkę PDF z polskimi znakami (kształt liter jak Fira Sans), element w ukrytym pojemniku
 const _vecSvg = new Map();
+// Corel zapisuje w SVG kształty liter użytej czcionki (<font><glyph d="…">): napis zamieniamy na krzywe z tych kształtów —
+// w PDF wygląda dokładnie jak w Corelu (bez podmiany czcionki). Napis bez kompletu kształtów zostaje tekstem.
+function vecGlyphText(el) {
+  const fonts = [];
+  el.querySelectorAll('font').forEach(f => {
+    const ff = f.querySelector('font-face'), fam = ((ff && ff.getAttribute('font-family')) || '').replace(/['"]/g, '').trim().toLowerCase();
+    const upm = Number(ff && ff.getAttribute('units-per-em')) || 1000, def = Number(f.getAttribute('horiz-adv-x')) || 0, gl = new Map();
+    f.querySelectorAll('glyph').forEach(g => { const u = g.getAttribute('unicode'); if (u != null) gl.set(u, { d: g.getAttribute('d') || '', adv: Number(g.getAttribute('horiz-adv-x')) || def }); });
+    fonts.push({ fam, w: Number(f.getAttribute('font-weight')) || (f.getAttribute('font-weight') === 'bold' ? 700 : 400), it: f.getAttribute('font-style') === 'italic', upm, gl });
+  });
+  if (!fonts.length) return;
+  const NS = 'http://www.w3.org/2000/svg';
+  el.querySelectorAll('text').forEach(t => {
+    if (t.querySelector('tspan[x], tspan[y], tspan[dx], tspan[dy]')) return;   // napis z osobno ustawionymi kawałkami — zostaje tekstem
+    const cs = getComputedStyle(t), fam = cs.fontFamily.split(',')[0].replace(/['"]/g, '').trim().toLowerCase(), wt = Number(cs.fontWeight) || 400, it = cs.fontStyle === 'italic';
+    const cand = fonts.filter(f => f.fam === fam), fo = cand.find(f => Math.abs(f.w - wt) < 50 && f.it === it) || cand.find(f => Math.abs(f.w - wt) < 50) || cand[0];
+    const txt = t.textContent || '', fs = parseFloat(cs.fontSize) || 0; if (!fo || !txt || !(fs > 0)) return;
+    const chars = Array.from(txt); if (chars.some(ch => !fo.gl.has(ch) && ch !== ' ')) return;
+    const sc = fs / fo.upm, adv0 = ch => (fo.gl.get(ch) || { adv: fo.upm * 0.25 }).adv * sc, W0 = chars.reduce((s2, ch) => s2 + adv0(ch), 0);
+    // kerning: przeglądarka (i Corel) dosuwa pary liter — odstępy dopasowane do szerokości napisu zmierzonej w przeglądarce (do ±8%)
+    let kk = 1; try { const ow = t.getComputedTextLength(), r = ow / W0; if (r > 0.92 && r < 1.08) kk = r; } catch (e) { /* bez pomiaru */ }
+    const adv = ch => adv0(ch) * kk, W = W0 * kk;
+    const x = parseFloat(String(t.getAttribute('x') || '0').split(/[\s,]+/)[0]) || 0, y = parseFloat(String(t.getAttribute('y') || '0').split(/[\s,]+/)[0]) || 0;
+    let cx = x - (cs.textAnchor === 'middle' ? W / 2 : cs.textAnchor === 'end' ? W : 0);
+    const g = document.createElementNS(NS, 'g');
+    ['class', 'style', 'transform', 'fill', 'stroke'].forEach(a => { if (t.hasAttribute(a)) g.setAttribute(a, t.getAttribute(a)); });
+    chars.forEach(ch => {
+      const gd = fo.gl.get(ch);
+      if (gd && gd.d) { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', gd.d); p.setAttribute('transform', `translate(${cx} ${y}) scale(${sc} ${-sc})`); g.appendChild(p); }
+      cx += adv(ch);
+    });
+    t.replaceWith(g);
+  });
+}
 function vecSvgEl(url) {
   if (!_vecSvg.has(url)) _vecSvg.set(url, (async () => {
     const r = await fetch(url); if (!r.ok) return null;
@@ -8045,6 +8080,9 @@ function vecSvgEl(url) {
     let box = $('vec-svg-box');
     if (!box) { box = document.createElement('div'); box.id = 'vec-svg-box'; box.style.cssText = 'position:fixed;left:-20000px;top:0;width:10px;height:10px;overflow:hidden;visibility:hidden'; document.body.appendChild(box); }
     const el = document.importNode(svg, true); box.appendChild(el);
+    vecGlyphText(el);
+    // szerokość napisów w oryginalnej czcionce (z Corela) — po podmianie czcionki napis jest ściskany do tej szerokości (vecFitText)
+    el.querySelectorAll('text').forEach(t => { try { t.__ow = t.getComputedTextLength(); t.__fs = parseFloat(getComputedStyle(t).fontSize) || 0; } catch (e) { t.__ow = 0; } });
     el.querySelectorAll('text, tspan').forEach(t => {
       const cs = getComputedStyle(t), wt = Number(cs.fontWeight) || (cs.fontWeight === 'bold' ? 700 : 400), it = cs.fontStyle === 'italic';
       t.style.fontFamily = it ? 'F400i' : wt >= 800 ? 'F800' : wt >= 700 ? 'F700' : wt >= 550 ? 'F600' : 'F400'; t.style.fontWeight = 'normal'; t.style.fontStyle = 'normal';
@@ -8052,6 +8090,18 @@ function vecSvgEl(url) {
     return el;
   })());
   return _vecSvg.get(url);
+}
+// napis z podmienioną czcionką (Fira Sans) ma tę samą szerokość co w oryginale: skala w poziomie wokół punktu zaczepienia (x),
+// inaczej szersza czcionka wychodzi poza grafikę i jest obcinana
+function vecFitText(el, pdf) {
+  if (el.__fit) return; el.__fit = true;
+  el.querySelectorAll('text').forEach(t => {
+    const txt = (t.textContent || '').trim(); if (!(t.__ow > 0) || !(t.__fs > 0) || !txt) return;
+    try { pdf.setFont(t.style.fontFamily || 'F400', 'normal'); } catch (e) { return; }
+    const w2 = pdf.getStringUnitWidth(t.textContent) * t.__fs, k = t.__ow / w2; if (!(k > 0) || Math.abs(k - 1) < 0.02) return;
+    const x0 = parseFloat(String(t.getAttribute('x') || '0').split(/[\s,]+/)[0]) || 0, tr = t.getAttribute('transform');
+    t.setAttribute('transform', (tr ? tr + ' ' : '') + `translate(${x0} 0) scale(${k.toFixed(4)} 1) translate(${-x0} 0)`);
+  });
 }
 // cały dokument (index A3 albo tabela A4) jako PDF wektorowy
 async function vecPdf(w, stamp) {
