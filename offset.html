@@ -256,18 +256,20 @@ function computeLED() {
   if (!ref || !ref.length) { W.led = null; return; }
   const key = (kie ? 'k' + kie.d : 'p') + '|' + W.baseId; if (W.led && W.led.key === key) return;
   const bb = bboxOf(ref); let res = 0.5; while (((bb.x1 - bb.x0) / res) * ((bb.y1 - bb.y0) / res) > 5e6) res *= 1.4;
-  const x0 = bb.x0 - 2 * res, y0 = bb.y0 - 2 * res, nx = Math.ceil((bb.x1 - bb.x0) / res) + 5, ny = Math.ceil((bb.y1 - bb.y0) / res) + 5, N = nx * ny;
+  const pad = LED_W / 2 + 1, x0 = bb.x0 - pad, y0 = bb.y0 - pad, nx = Math.ceil((bb.x1 - bb.x0 + 2 * pad) / res) + 1, ny = Math.ceil((bb.y1 - bb.y0 + 2 * pad) / res) + 1, N = nx * ny;   // zapas: pasek może wyjść poza kontur
   const ins = new Uint8Array(N);
   for (let j = 0; j < ny; j++) { const y = y0 + (j + 0.5) * res; hSpans(ref, y).forEach(([a, b]) => { for (let i = Math.max(0, Math.ceil((a - x0) / res - 0.5)); i < nx && x0 + (i + 0.5) * res <= b; i++) ins[j * nx + i] = 1; }); }
   const out = new Uint8Array(N); for (let k = 0; k < N; k++) out[k] = ins[k] ? 0 : 1;
   const Db = edt2(out, nx, ny), Dm = new Float32Array(N); let dMax = 0;
   for (let k = 0; k < N; k++) { Dm[k] = Math.sqrt(Db[k]) * res; if (ins[k] && Dm[k] > dMax) dMax = Dm[k]; }
   // pas LED: odległość od brzegu kanału najwyżej 3 mm mniejsza niż lokalne maksimum (środek kreski) — odporne na łuki (bez szumu „osi”)
-  const R = Math.max(2, Math.ceil(Math.min(dMax, 15) / res)), M = new Float32Array(N), tmp = new Float32Array(N), q = new Int32Array(Math.max(nx, ny));
+  const R = Math.max(2, Math.ceil(4 / res)), M = new Float32Array(N), tmp = new Float32Array(N), q = new Int32Array(Math.max(nx, ny));
   const slide = (src, dst, len, stride, base) => { let h = 0, t = 0; for (let i2 = 0; i2 < len + R; i2++) { if (i2 < len) { const v = src[base + i2 * stride]; while (t > h && src[base + q[t - 1] * stride] <= v) t--; q[t++] = i2; } const c = i2 - R; if (c >= 0) { while (q[h] < c - R) h++; dst[base + c * stride] = src[base + q[h] * stride]; } } };
   for (let j = 0; j < ny; j++) slide(Dm, tmp, nx, 1, j * nx);
   for (let i = 0; i < nx; i++) slide(tmp, M, ny, nx, i);
-  const L = new Uint8Array(N); for (let k = 0; k < N; k++) if (ins[k] && Dm[k] >= M[k] - LED_W / 2) L[k] = 1;
+  // oś kanału = lokalne maksimum odległości od brzegu (okno ±4 mm); pasek = WSZYSTKO do 3 mm od osi — zawsze pełne 6 mm, także gdy kanał węższy (wtedy wychodzi poza kontur)
+  const AX = new Uint8Array(N); for (let k = 0; k < N; k++) if (ins[k] && Dm[k] >= 1 && Dm[k] >= M[k] - Math.max(0.35, res * 0.75)) AX[k] = 1;
+  const Da = edt2(AX, nx, ny), L = new Uint8Array(N); for (let k = 0; k < N; k++) if (Math.sqrt(Da[k]) * res <= LED_W / 2 - res / 2) L[k] = 1;
   const Ds = edt2(L, nx, ny), img = document.createElement('canvas'); img.width = nx; img.height = ny;
   const ig = img.getContext('2d'), id = ig.createImageData(nx, ny);
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i; if (L[k]) { const p = ((ny - 1 - j) * nx + i) * 4; id.data[p] = 255; id.data[p + 1] = 205; id.data[p + 2] = 0; id.data[p + 3] = 120; } }
