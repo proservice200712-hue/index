@@ -3194,6 +3194,7 @@ function renderProjectHeader() {
   updateClock();
   $('hdr-actions').innerHTML = `
     ${isAdmin() ? `<button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>` : ''}
+    ${isAdmin() ? `<button class="btn" onclick="window.open('offset.html', '_blank')" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : ''}
     <button class="btn" onclick="openExportDialog()">⇩ Eksport</button>`;
 }
 let statsTimer = null;
@@ -7461,7 +7462,7 @@ async function crispGraphThumbs(root) {
   }
 }
 function fitText(g, s, maxW) {
-  s = String(s || '');
+  s = tr(String(s || ''));                       // eksport w języku strony (całe zdanie, przed przycięciem)
   if (g.measureText(s).width <= maxW) return s;
   while (s.length && g.measureText(s + '…').width > maxW) s = s.slice(0, -1);
   return s + '…';
@@ -7470,7 +7471,7 @@ function fitText(g, s, maxW) {
 const PDF_FONT = 'Bahnschrift, Segoe UI, Arial, sans-serif';
 // tekst w kilku liniach na płótnie (max linii, ostatnia z „…")
 function wrapCanvas(g, text, maxW, maxLines = 3) {
-  const words = String(text || '').split(/\s+/), lines = [];
+  const words = tr(String(text || '')).split(/\s+/), lines = [];   // tłumaczenie przed podziałem na linie
   let line = '';
   for (const w of words) {
     const t = line ? line + ' ' + w : w;
@@ -7517,13 +7518,20 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
   if (sub) { g.font = `400 ${26 * sc}px ${PDF_FONT}`; g.fillStyle = '#cbd5e0'; g.fillText(sub, rx, 70 * sc); }
   g.textAlign = 'left';
   g.fillStyle = '#718096'; g.font = `400 ${22 * sc}px ${PDF_FONT}`;
-  const foot = [p.eventStart ? 'Targi: ' + fmtDateTime(p.eventStart) : '',
-    'Wygenerowano: ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
+  const foot = [p.eventStart ? TT('Targi', 'Виставка', 'Fair') + ': ' + fmtDateTime(p.eventStart) : '',
+    TT('Wygenerowano', 'Згенеровано', 'Generated') + ': ' + fmtDateTime(new Date()) + ' (' + S.me.login + ')'].filter(Boolean).join('    ·    ');
   g.fillText(foot, 40 * sc, PH - 28 * sc);
 }
 // płótno o rozmiarze logicznym PW × PH, rysowane w Q-krotnej rozdzielczości (ostry tekst i miniatury w PDF / druku)
 const EXP_Q = 2;
-function newCanvas(PW, PH, Q = 1) { if (VEC) return VEC.page(PW, PH); const c = document.createElement('canvas'); c.width = PW * Q; c.height = PH * Q; const g = c.getContext('2d'); g.scale(Q, Q); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.imageSmoothingQuality = 'high'; return [c, g]; }
+function newCanvas(PW, PH, Q = 1) { if (VEC) { const r = VEC.page(PW, PH); trCtx(r[1]); return r; } const c = document.createElement('canvas'); c.width = PW * Q; c.height = PH * Q; const g = c.getContext('2d'); g.scale(Q, Q); g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.imageSmoothingQuality = 'high'; return [c, trCtx(g)]; }
+// eksport (PDF / druk / podgląd) w języku strony: każdy napis na stronie eksportu przechodzi przez to samo tłumaczenie co strona
+function trCtx(g) {
+  if (LANG === 'pl' || g.__tr) return g; g.__tr = true;
+  const f = g.fillText.bind(g), m = g.measureText.bind(g);
+  g.fillText = (t, ...a) => f(tr(String(t)), ...a); g.measureText = t => m(tr(String(t)));
+  return g;
+}
 // wizka z kształtami, strzałkami i literami
 function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
   g.drawImage(img, ix, iy, iw, ih);
@@ -7778,7 +7786,7 @@ async function renderIndexA3(stamp) {
             else { ext(fx, sy, fx - 56, sy); ext(fx, sy + FH, fx - 56, sy + FH); vDim(sy, sy + FH, fx - 52, mh); }
           };
           hangDims(fy, hpl);
-          if (insA.length) { g.fillStyle = '#718096'; g.font = `700 ${FS * .8}px ${PDF_FONT}`; g.textAlign = 'left'; g.fillText('zadruk wewnątrz', fx, inFy - 12); hangDims(inFy, insA); }
+          if (insA.length) { g.fillStyle = '#718096'; g.font = `700 ${FS * .8}px ${PDF_FONT}`; g.textAlign = 'left'; g.fillText(TT('zadruk wewnątrz', 'друк усередині', 'inside print'), fx, inFy - 12); hangDims(inFy, insA); }
         } else if (gb) {
           ext(fx + bw, fy + FH, fx + bw, fy + FH + 40); ext(fx + FW - bwR, fy + FH, fx + FW - bwR, fy + FH + 40); hDim(fx + bw, fx + FW - bwR, fy + FH + 36, r.bw - bx2.l - bx2.r);
           ext(fx, fy + FH, fx, fy + FH + 86); ext(fx + FW, fy + FH, fx + FW, fy + FH + 86); hDim(fx, fx + FW, fy + FH + 82, r.bw);
@@ -7788,7 +7796,7 @@ async function renderIndexA3(stamp) {
           ext(fx, fy + FH, fx, fy + FH + 44); ext(fx + FW, fy + FH, fx + FW, fy + FH + 44); hDim(fx, fx + FW, fy + FH + 40, r.bw);
           ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh);
         }
-        if (dimsMode(r.el) !== 'flat') { g.fillStyle = '#4a5568'; g.font = `400 ${FS * .9}px ${PDF_FONT}`; g.fillText(fitText(g, `konstrukcja ${r.net} ${UNIT()} · do druku: ${planesTxt(r.el)}`, Math.max(FW, 900)), bx, fy + FH + BM + 30); }
+        if (dimsMode(r.el) !== 'flat') { g.fillStyle = '#4a5568'; g.font = `400 ${FS * .9}px ${PDF_FONT}`; g.fillText(fitText(g, `${TT('konstrukcja', 'конструкція', 'structure')} ${r.net} ${UNIT()} · ${TT('do druku', 'до друку', 'to print')}: ${planesTxt(r.el)}`, Math.max(FW, 900)), bx, fy + FH + BM + 30); }
       }
       if (cd.nlines.length) {
         g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
@@ -7814,13 +7822,13 @@ async function renderTableA4(stamp) {
   while (!done) {
     pageNo++;
     const [c, g] = newCanvas(PW, PH, EXP_Q); pages.push(c);
-    pageHeader(g, PW, PH, logo, `Tabela ${pageNo} / ${total}`, stamp, 1);
+    pageHeader(g, PW, PH, logo, `${TT('Tabela', 'Таблиця', 'Table')} ${pageNo} / ${total}`, stamp, 1);
     g.fillStyle = '#1a202c'; g.font = `700 32px ${PDF_FONT}`;
-    g.fillText(`Lista elementów (${rows.length})`, 40, 175);
+    g.fillText(`${TT('Lista elementów', 'Список елементів', 'Element list')} (${rows.length})`, 40, 175);
     let x = 40;
     g.fillStyle = '#edf2f7'; g.fillRect(40, TOP, PW - 80, RH);
     g.fillStyle = '#4a5568'; g.font = `700 21px ${PDF_FONT}`;
-    cols.forEach(([n, w]) => { g.fillText(n.toUpperCase(), x + 10, TOP + 32); x += w; });
+    cols.forEach(([n, w]) => { g.fillText(tr(n).toUpperCase(), x + 10, TOP + 32); x += w; });
     let y = TOP + RH;
     while (idx < rows.length && y + RH <= PH - 90) {
       const r = rows[idx++];
@@ -7847,16 +7855,16 @@ async function renderTableA4(stamp) {
       const need = (Object.keys(summary).length + 2) * 42 + 40;
       if (y + need <= PH - 90 || !rows.length) {
         y += 40;
-        g.fillStyle = '#1a202c'; g.font = `700 26px ${PDF_FONT}`; g.fillText('Podsumowanie wg typu', 40, y); y += 14;
+        g.fillStyle = '#1a202c'; g.font = `700 26px ${PDF_FONT}`; g.fillText(TT('Podsumowanie wg typu', 'Підсумок за типом', 'Summary by type'), 40, y); y += 14;
         Object.entries(summary).forEach(([typ, s]) => {
           y += 40;
           g.fillStyle = s.color; g.fillRect(40, y - 20, 18, 18);
           g.fillStyle = '#1a202c'; g.font = `400 23px ${PDF_FONT}`;
-          g.fillText(`${typ}: ${s.n} szt. · ${numPL(s.m2)} m²`, 72, y - 3);
+          g.fillText(`${tr(typ)}: ${s.n} ${TT('szt.', 'шт.', 'pcs')} · ${numPL(s.m2)} m²`, 72, y - 3);
         });
         const tot = rows.reduce((s, r) => s + (r.m2 || 0), 0), nd = rows.filter(r => r.w === '').length;
         y += 46; g.font = `700 24px ${PDF_FONT}`;
-        g.fillText(`Razem: ${rows.reduce((s, r) => s + r.qty, 0)} szt. · ${numPL(tot)} m² do druku` + (nd ? `   (${nd} el. bez wymiaru — nie wliczone)` : ''), 40, y);
+        g.fillText(`${TT('Razem', 'Разом', 'Total')}: ${rows.reduce((s, r) => s + r.qty, 0)} ${TT('szt.', 'шт.', 'pcs')} · ${numPL(tot)} m² ${TT('do druku', 'до друку', 'to print')}` + (nd ? `   (${nd} ${TT('el. bez wymiaru — nie wliczone', 'ел. без розміру — не враховано', 'items without size — not counted')})` : ''), 40, y);
         done = true;
       }
     }

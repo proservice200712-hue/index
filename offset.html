@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offset Wizard</title>
+<!-- Offset Wizard: to samo co makro Corela „Offsety dla Fusion” (A_START), ale na żywo w przeglądarce.
+     Wejście: DXF albo PDF z Corela (kontur bazy = pleksa). Wyjście: DXF z warstwami dla wtyczki Fusion LiteryPrzestrzenne. -->
+<script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root { --dark: #1a202c; --dark2: #2d3748; --line: #e2e8f0; --gray: #718096; --accent: #67b437; --bg: #f4f6f8; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: Bahnschrift, 'Segoe UI', Arial, sans-serif; color: var(--dark); background: var(--bg); }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: var(--dark); color: #fff; flex-wrap: wrap; }
+  header h1 { font-size: 1.05rem; margin: 0 10px 0 0; letter-spacing: .4px; }
+  header .fn { color: #cbd5e0; font-size: .85rem; }
+  .btn { background: #2d3748; border: 1px solid #4a5568; color: #e2e8f0; padding: 6px 11px; cursor: pointer; font: 600 .8rem inherit; font-family: inherit; }
+  .btn:hover { background: #3b475b; }
+  .btn.go { background: #38a169; border-color: #2f855a; color: #fff; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .sp { flex: 1; }
+  main { flex: 1; display: flex; min-height: 0; }
+  aside { width: 300px; flex: 0 0 300px; overflow-y: auto; background: #fff; border-right: 1px solid var(--line); padding: 10px 12px 30px; font-size: .82rem; }
+  aside h3 { font-size: .74rem; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 14px 0 6px; }
+  .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+  .row label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+  .fld { display: grid; grid-template-columns: 1fr 86px; gap: 6px; align-items: center; margin: 4px 0; }
+  .fld input { width: 86px; padding: 4px 6px; border: 1px solid #cbd5e0; font: inherit; }
+  input[type=radio], input[type=checkbox] { accent-color: #38a169; }
+  .vals { font-variant-numeric: tabular-nums; background: #f7fafc; border: 1px solid var(--line); padding: 6px 8px; line-height: 1.55; }
+  .vals b { display: inline-block; min-width: 74px; }
+  .warn { color: #c05621; font-size: .78rem; margin-top: 6px; white-space: pre-line; }
+  .lay { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  .lay i { width: 14px; height: 3px; display: inline-block; }
+  .hint { color: var(--gray); font-size: .76rem; line-height: 1.45; }
+  #stage { flex: 1; position: relative; min-width: 0; }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  #cv.drag { cursor: grabbing; }
+  #drop { position: absolute; inset: 20px; border: 3px dashed #a0aec0; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--gray); font-size: 1.05rem; pointer-events: none; }
+  #drop.hidden { display: none; }
+  #info { position: absolute; left: 10px; bottom: 10px; background: rgba(255,255,255,.94); border: 1px solid var(--line); padding: 6px 10px; font-size: .78rem; max-width: 70%; }
+  #selbox { position: absolute; right: 10px; top: 10px; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.12); padding: 8px 10px; font-size: .8rem; min-width: 210px; }
+  #selbox.hidden { display: none; }
+  #selbox .fld { grid-template-columns: 1fr 80px; }
+  #selbox .fld input { width: 80px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 9px 16px; font-size: .85rem; z-index: 50; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⌖ Offset Wizard</h1>
+  <button class="btn" id="b-open" title="Wczytaj kontur bazy (pleksy) — DXF albo PDF wyeksportowany z Corela">📂 Wczytaj DXF / PDF</button>
+  <input type="file" id="file" accept=".dxf,.pdf" hidden>
+  <span class="fn" id="fname">—</span>
+  <span class="sp"></span>
+  <button class="btn" id="b-undo" title="Cofnij (Ctrl+Z)">⟲ Cofnij</button>
+  <button class="btn" id="b-auto" title="Otwory i profile ułożone od nowa automatycznie (ręczne zmiany znikną)">↺ Ułóż automatycznie</button>
+  <button class="btn" id="b-fit" title="Dopasuj widok (F)">⤢ Dopasuj</button>
+  <button class="btn go" id="b-dxf" title="Eksport DXF dla Fusion (warstwy jak z Corela, środek kompletu w 0,0)" disabled>⬇ Eksport DXF</button>
+</header>
+<main>
+  <aside>
+    <h3>Rodzaj liter</h3>
+    <div class="row"><label><input type="radio" name="typ" value="F" checked> Frontlit</label><label><input type="radio" name="typ" value="S"> Sidelit</label></div>
+    <h3>Dysza</h3>
+    <div class="row"><label><input type="radio" name="dysza" value="4"> 0,4 mm</label><label><input type="radio" name="dysza" value="6" checked> 0,6 mm</label></div>
+    <h3>Offsety [mm]</h3>
+    <div class="fld"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
+    <div class="fld"><span>Offset podstawy B</span><input type="text" inputmode="decimal" id="p-B" value="0,1"></div>
+    <div class="vals" id="vals"></div>
+    <h3>Otwory na przewody (fi <span id="d-otw">4,5</span>)</h3>
+    <div class="row"><label><input type="radio" name="gdzie" value="1"> góra</label><label><input type="radio" name="gdzie" value="2" checked> środek</label><label><input type="radio" name="gdzie" value="3"> dół</label><label><input type="radio" name="gdzie" value="0"> bez</label></div>
+    <div class="row"><label><input type="radio" name="wielk" value="2" checked> duże litery — od kieszeni</label></div>
+    <div class="row"><label><input type="radio" name="wielk" value="1"> małe — od wewn. podstawy</label></div>
+    <div class="fld"><span>Przesunięcie <span class="hint">(+ w górę, − w dół)</span></span><input type="text" inputmode="decimal" id="p-prz" value="0"></div>
+    <div class="fld"><span>Luz otworu od konturu</span><input type="text" inputmode="decimal" id="p-luz" value="1"></div>
+    <h3>Profil montażowy</h3>
+    <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
+    <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
+    <div class="row"><label><input type="checkbox" id="p-fix"> otwory montażowe fi 2 na środku profilu</label></div>
+    <div class="hint">Z profilem otwory na przewody liczą się od górnej krawędzi profilu (+ przesunięcie).</div>
+    <h3>Nazwa (do pliku)</h3>
+    <div class="fld"><span>Nazwa elementu</span><input type="text" id="p-name" placeholder="np. DS"></div>
+    <h3>Warstwy</h3>
+    <div id="lays"></div>
+    <div class="warn" id="warn"></div>
+    <h3>Mysz</h3>
+    <div class="hint">kółko = zoom · przeciągnięcie tła = przesuwanie widoku · przeciągnij otwór / profil = przesuń (zostaje ręcznie) · dwuklik = nowy otwór na przewód (Shift = montażowy fi 2) · Delete = usuń zaznaczone · ↺ = ułóż od nowa</div>
+  </aside>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="drop">Upuść tu plik DXF albo PDF z Corela<br><span class="hint">(kontur bazy = pleksy, napis zamieniony na krzywe)</span></div>
+    <div id="selbox" class="hidden"></div>
+    <div id="info"></div>
+  </div>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const S = 1000;                                       // Clipper: liczby całkowite w µm
+const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',').replace(/,?0+$/, m => m.startsWith(',') ? '' : m).replace(/,$/, '');
+const num = s => { const v = parseFloat(String(s).replace(',', '.')); return Number.isFinite(v) ? v : 0; };
+const toast = (t, ms = 3500) => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); };
+// --- stałe modelu jak w makrze Corela (Offsety_dla_Fusion.bas) ---
+const DYSZA = { 4: { out: 0.8, in: 1.2, kie: 2.0 }, 6: { out: 1.2, in: 1.2, kie: 2.4 } };
+const OTWOR_MM = 4.5, OTWOR_MONT_MM = 2, PROFIL_ZAPAS = 10;
+const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
+  ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
+  ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4]];
+const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
+const W = { base: null, name: '', lay: {}, show: Object.fromEntries(LAYERS.map(l => [l[0], true])), holes: [], rails: [], sel: null, view: null, undo: [], warn: [] };
+let uid = 1;
+
+// ===================== geometria (Clipper) =====================
+const C = ClipperLib;
+const toCl = pts => pts.map(([x, y]) => ({ X: Math.round(x * S), Y: Math.round(y * S) }));
+const fromCl = p => p.map(q => [q.X / S, q.Y / S]);
+function offsetPolys(polys, d) {                        // polys: ścieżki Clippera (zewnętrzne + dziury), d w mm (+ na zewnątrz)
+  if (Math.abs(d) < 1e-9) return polys.map(p => p.slice());
+  const co = new C.ClipperOffset(2, 0.008 * S), out = new C.Paths();
+  co.AddPaths(polys, C.JoinType.jtRound, C.EndType.etClosedPolygon); co.Execute(out, d * S);
+  return C.Clipper.CleanPolygons(out, 0.002 * S).filter(p => p.length > 2);
+}
+const area = p => C.Clipper.Area(p) / (S * S);
+function bboxOf(paths) { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; paths.forEach(p => p.forEach(q => { const x = q.X !== undefined ? q.X / S : q[0], y = q.Y !== undefined ? q.Y / S : q[1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; })); return { x0, y0, x1, y1 }; }
+// zewnętrzne kontury (litery) z ich dziurami (brzuszki); kolejność od lewej
+function letters(polys) {
+  const outs = polys.filter(p => area(p) > 0).map(p => ({ p, bb: bboxOf([p]), holes: [] }));
+  polys.filter(p => area(p) < 0).forEach(h => { const pt = h[0], o = outs.filter(o => C.Clipper.PointInPolygon(pt, o.p) !== 0).sort((a, b) => area(a.p) - area(b.p))[0]; if (o) o.holes.push(h); });
+  return outs.sort((a, b) => a.bb.x0 - b.bb.x0);
+}
+// przecięcia poziomej linii y z obszarem (parzysto-nieparzyście) → odcinki [x0, x1] w mm
+function hSpans(polys, y) {
+  const Y = y * S, xs = [];
+  polys.forEach(p => { for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; if ((a.Y <= Y) !== (b.Y <= Y)) xs.push((a.X + (Y - a.Y) / (b.Y - a.Y) * (b.X - a.X)) / S); } });
+  xs.sort((a, b) => a - b); const sp = []; for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i + 1] - xs[i] > 0.01) sp.push([xs[i], xs[i + 1]]);
+  return sp;
+}
+// odległość punktu od brzegu obszaru [mm] (dodatnia = w środku)
+function edgeDist(polys, x, y) {
+  let best = Infinity; const X = x * S, Y = y * S;
+  polys.forEach(p => { for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], dx = b.X - a.X, dy = b.Y - a.Y, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((X - a.X) * dx + (Y - a.Y) * dy) / l2)), ex = a.X + t * dx - X, ey = a.Y + t * dy - Y, dd = Math.hypot(ex, ey) / S; if (dd < best) best = dd; } });
+  let ins = 0; polys.forEach(p => { if (C.Clipper.PointInPolygon({ X: Math.round(X), Y: Math.round(Y) }, p) !== 0) ins ^= 1; });
+  return ins ? best : -best;
+}
+// litery w wiersze: nakładanie w pionie > 40% niższej litery (jak GrupujWiersze w makrze)
+function rowsOf(ls) {
+  const row = ls.map(() => 0); let n = 0;
+  ls.forEach((a, i) => { if (row[i]) return; row[i] = ++n; ls.forEach((b, j) => { if (j <= i || row[j]) return; const ov = Math.min(a.bb.y1, b.bb.y1) - Math.max(a.bb.y0, b.bb.y0), mh = Math.min(a.bb.y1 - a.bb.y0, b.bb.y1 - b.bb.y0); if (mh > 0 && ov > 0.4 * mh) row[j] = n; }); });
+  return Array.from({ length: n }, (_, k) => ls.filter((_, i) => row[i] === k + 1)).sort((a, b) => Math.max(...b.map(l => l.bb.y1)) - Math.max(...a.map(l => l.bb.y1)));
+}
+
+// ===================== parametry i warstwy (jak A_START) =====================
+function params() {
+  const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
+  return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), wielk: Number(r('wielk')),
+    przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, name: $('p-name').value.trim() };
+}
+function model(pr) {
+  const d = DYSZA[pr.dysza] || DYSZA[6], k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
+  const spec = pr.typ === 'S' ? [['Klosz', [0, k1, k2, k3]], ['Podstawa', [0, p1, p2]], ['Kieszen', [kie]]] : [['Pleksa', [0]], ['Klosz', [k1, k2, k3]], ['Podstawa', [p1, p2]], ['Kieszen', [kie]]];
+  return { k1, k2, k3, p1, p2, kie, spec, scianka: k2 - k3 };
+}
+function computeLayers() {
+  const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.m = m; W.pr = pr;
+  $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br><b>Kieszeń</b> ${fmt(m.kie)}<br>`
+    + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
+  if (!W.base) return;
+  m.spec.forEach(([name, ds]) => {
+    W.lay[name] = ds.map(d => { const r = offsetPolys(W.base, d); if (!r.length) W.warn.push(`${name} ${fmt(d)} mm — nie powstał (kształt za wąski)`); return { d, polys: r }; }).filter(x => x.polys.length);
+  });
+}
+// kontur odniesienia otworów: kieszeń (duże litery) albo wewnętrzna podstawa (małe)
+function refPolys() {
+  const pr = W.pr, kie = (W.lay.Kieszen || [])[0];
+  if (pr.wielk === 2 && kie) return { polys: kie.polys, name: 'Kieszen' };
+  const pod = W.lay.Podstawa || []; const inner = pod.slice().sort((a, b) => a.d - b.d)[0];
+  return inner ? { polys: inner.polys, name: 'Podstawa' } : null;
+}
+// ===================== profile i otwory (jak RysujProfileAuto / RozmiescOtwory) =====================
+function autoRails() {
+  const pr = W.pr; W.rails = W.rails.filter(r => r.manual);
+  if (!(pr.profG > 0) || !W.base) { W.rails = []; return; }
+  const src = ((W.lay.Klosz || []).slice().sort((a, b) => b.d - a.d)[0] || { polys: W.base }).polys;   // najszerszy kontur klosza
+  rowsOf(letters(src)).forEach((row, i) => {
+    if (W.rails.some(r => r.row === i)) return;           // ręcznie przesunięty profil tego wiersza zostaje
+    const x0 = Math.min(...row.map(l => l.bb.x0)), x1 = Math.max(...row.map(l => l.bb.x1)), y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1));
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, L = pr.profL > 0 ? pr.profL : x1 - x0 + 2 * PROFIL_ZAPAS;
+    W.rails.push({ id: uid++, row: i, x0: cx - L / 2, x1: cx + L / 2, yc: cy, h: pr.profG });
+  });
+  W.rails.forEach(r => { if (!r.manualH) r.h = pr.profG; });
+}
+// po jednym otworze na literę, na wspólnej wysokości wiersza (albo narzuconej), przy LEWEJ krawędzi pasma krzywej środków
+function placeHoles(kind, dOtw, rowY) {
+  const ref = refPolys(); if (!ref) { W.warn.push('brak konturu kieszeni / podstawy — otwory pominięte'); return []; }
+  let srodki = null, luzU = -1, srodkowo = false;
+  for (const lz of [W.pr.luz, 0.5, 0.25, 0].filter((v, i, a) => i === 0 || v < a[0])) { const r = offsetPolys(ref.polys, -(dOtw / 2 + lz)); if (r.length) { srodki = r; luzU = lz; break; } }
+  if (!srodki) { srodki = offsetPolys(ref.polys, -0.2); srodkowo = true; }
+  if (!srodki.length) { W.warn.push(`${ref.name} za wąski na otwór fi ${fmt(dOtw)}`); return []; }
+  if (srodkowo) W.warn.push(`${ref.name} wąski: otwory fi ${fmt(dOtw)} na środku kanału — ścianki cienkie`);
+  else if (luzU < W.pr.luz) W.warn.push(`${ref.name} wąski: luz otworu fi ${fmt(dOtw)} zmniejszony do ${fmt(luzU)} mm`);
+  const ls = letters(ref.polys), parts = letters(srodki), out = [];
+  rowsOf(ls).forEach((row, ri) => {
+    const maxH = Math.max(...row.map(l => l.bb.y1 - l.bb.y0)), main = row.filter(l => l.bb.y1 - l.bb.y0 >= 0.3 * maxH);   // kropki nad i/j — osobno
+    const inL = l => parts.filter(q => { const cx = (q.bb.x0 + q.bb.x1) / 2, cy = (q.bb.y0 + q.bb.y1) / 2; return cx >= l.bb.x0 && cx <= l.bb.x1 && cy >= l.bb.y0 && cy <= l.bb.y1; });
+    let minTop = Infinity, maxBot = -Infinity;
+    main.forEach(l => { const q = inL(l); if (!q.length) return; minTop = Math.min(minTop, Math.max(...q.map(z => z.bb.y1))); maxBot = Math.max(maxBot, Math.min(...q.map(z => z.bb.y0))); });
+    let celY;
+    if (rowY && rowY[ri] != null) celY = rowY[ri];
+    else if (minTop > maxBot) {
+      celY = W.pr.gdzie === 1 ? minTop - 0.5 : W.pr.gdzie === 3 ? maxBot + 0.5 : (minTop + maxBot) / 2;
+      celY = Math.min(minTop - 0.2, Math.max(maxBot + 0.2, celY + W.pr.przesun));
+    } else { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)); celY = (W.pr.gdzie === 1 ? y1 - 0.5 : W.pr.gdzie === 3 ? y0 + 0.5 : (y0 + y1) / 2) + W.pr.przesun; }
+    row.forEach(l => {
+      const dot = !main.includes(l), y = dot ? (l.bb.y0 + l.bb.y1) / 2 : celY;
+      const sp = hSpans(srodki, y).filter(s => { const mx = (s[0] + s[1]) / 2; return mx >= l.bb.x0 && mx <= l.bb.x1; });
+      if (!sp.length) { if (!dot) W.warn.push(`litera bez otworu fi ${fmt(dOtw)} (na tej wysokości brak materiału)`); return; }
+      const s = sp.sort((a, b) => a[0] - b[0])[0];
+      out.push({ id: uid++, kind, d: dOtw, x: srodkowo ? (s[0] + s[1]) / 2 : s[0], y });
+    });
+  });
+  return out;
+}
+function autoHoles() {
+  const pr = W.pr; W.holes = W.holes.filter(h => h.manual);
+  if (!W.base) return;
+  const railY = W.rails.length ? W.rails.slice().sort((a, b) => b.yc - a.yc) : null;
+  if (pr.gdzie > 0) W.holes.push(...placeHoles('otw', OTWOR_MM, railY ? railY.map(r => r.yc + r.h / 2 + pr.przesun) : null));
+  if (pr.fix && railY) W.holes.push(...placeHoles('fix', OTWOR_MONT_MM, railY.map(r => r.yc)));
+  if (pr.fix && !railY) W.warn.push('otwory montażowe fi 2 — potrzebny profil (grubość > 0)');
+}
+function recompute(keepView = true) {
+  computeLayers(); autoRails(); autoHoles(); renderSide(); draw(); if (!keepView) fitView(); save();
+}
+// ===================== wczytywanie DXF / PDF =====================
+function parseDXF(txt) {
+  const L = txt.split(/\r?\n/), pr = [];
+  for (let i = 0; i + 1 < L.length; i += 2) pr.push([parseInt(L[i], 10), L[i + 1].trim()]);
+  let units = 4, i = 0;
+  for (let k = 0; k < pr.length - 2; k++) if (pr[k][0] === 9 && pr[k][1] === '$INSUNITS') { units = parseInt(pr[k + 1][1], 10) || 4; break; }
+  const sc = units === 1 ? 25.4 : units === 5 ? 10 : units === 6 ? 1000 : 1;
+  while (i < pr.length && !(pr[i][0] === 2 && pr[i][1] === 'ENTITIES')) i++;
+  const ents = []; let cur = null;
+  for (i++; i < pr.length; i++) {
+    const [c, v] = pr[i];
+    if (c === 0) { if (cur) ents.push(cur); if (v === 'ENDSEC') { cur = null; break; } cur = { t: v, g: [] }; } else if (cur) cur.g.push([c, v]);
+  }
+  const all = (e, c) => e.g.filter(q => q[0] === c).map(q => parseFloat(q[1])), one = (e, c, d = 0) => { const q = e.g.find(z => z[0] === c); return q ? parseFloat(q[1]) : d; }, lay = e => (e.g.find(z => z[0] === 8) || [0, '0'])[1];
+  const closed = [], open = [];
+  const arcPts = (cx, cy, r, a0, a1) => { if (a1 < a0) a1 += Math.PI * 2; const n = Math.max(8, Math.ceil((a1 - a0) / (Math.PI * 2) * 96)); return Array.from({ length: n + 1 }, (_, k) => { const a = a0 + (a1 - a0) * k / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }); };
+  const bulgeSeg = (p, q, b) => { if (!b) return [q]; const th = 4 * Math.atan(b), dx = q[0] - p[0], dy = q[1] - p[1], ch = Math.hypot(dx, dy), r = ch / (2 * Math.sin(th / 2)), mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, h = r * Math.cos(th / 2), nx = -dy / ch, ny = dx / ch, cx = mx + nx * h * Math.sign(b), cy = my + ny * h * Math.sign(b); const n = Math.max(4, Math.ceil(Math.abs(th) / (Math.PI * 2) * 96)), a0 = Math.atan2(p[1] - cy, p[0] - cx); return Array.from({ length: n }, (_, k) => { const a = a0 + th * (k + 1) / n; return [cx + Math.abs(r) * Math.cos(a), cy + Math.abs(r) * Math.sin(a)]; }); };
+  const push = (pts, isClosed, layer) => { if (pts.length < 2) return; (isClosed ? closed : open).push({ pts, layer }); };
+  for (let k = 0; k < ents.length; k++) {
+    const e = ents[k], ly = lay(e);
+    if (e.t === 'LWPOLYLINE') {
+      const xs = all(e, 10), ys = all(e, 20), fl = one(e, 70), bul = []; let vi = -1;
+      e.g.forEach(([c, v]) => { if (c === 10) { vi++; bul[vi] = 0; } else if (c === 42 && vi >= 0) bul[vi] = parseFloat(v); });
+      const P = xs.map((x, j) => [x, ys[j]]), out = [P[0]], cl = (fl & 1) === 1;
+      for (let j = 0; j < P.length - 1 + (cl ? 1 : 0); j++) out.push(...bulgeSeg(P[j], P[(j + 1) % P.length], bul[j]));
+      push(out, cl, ly);
+    } else if (e.t === 'POLYLINE') {
+      const fl = one(e, 70), P = [], bul = [];
+      for (k++; k < ents.length && ents[k].t === 'VERTEX'; k++) { P.push([one(ents[k], 10), one(ents[k], 20)]); bul.push(one(ents[k], 42)); }
+      const cl = (fl & 1) === 1, out = [P[0]];
+      for (let j = 0; j < P.length - 1 + (cl ? 1 : 0); j++) out.push(...bulgeSeg(P[j], P[(j + 1) % P.length], bul[j]));
+      push(out, cl, ly);
+    } else if (e.t === 'LINE') push([[one(e, 10), one(e, 20)], [one(e, 11), one(e, 21)]], false, ly);
+    else if (e.t === 'CIRCLE') push(arcPts(one(e, 10), one(e, 20), one(e, 40), 0, Math.PI * 2).slice(0, -1), true, ly);
+    else if (e.t === 'ARC') push(arcPts(one(e, 10), one(e, 20), one(e, 40), one(e, 50) * Math.PI / 180, one(e, 51) * Math.PI / 180), false, ly);
+    else if (e.t === 'ELLIPSE') {
+      const cx = one(e, 10), cy = one(e, 20), mx = one(e, 11), my = one(e, 21), ra = one(e, 40, 1); let t0 = one(e, 41, 0), t1 = one(e, 42, Math.PI * 2); if (t1 <= t0) t1 += Math.PI * 2;
+      const full = t1 - t0 > Math.PI * 2 - 1e-6, n = 96, pts = Array.from({ length: n + (full ? 0 : 1) }, (_, j) => { const t = t0 + (t1 - t0) * j / n; return [cx + mx * Math.cos(t) - my * ra * Math.sin(t), cy + my * Math.cos(t) + mx * ra * Math.sin(t)]; });
+      push(pts, full, ly);
+    } else if (e.t === 'SPLINE') {
+      const p = one(e, 71, 3), fl = one(e, 70), kn = all(e, 40), xs = all(e, 10), ys = all(e, 20), ws = all(e, 41), fx = all(e, 11), fy = all(e, 21);
+      let pts;
+      if (xs.length >= 2 && kn.length >= xs.length + p + 1) {
+        const cp = xs.map((x, j) => [x, ys[j], ws[j] || 1]), n = cp.length, t0 = kn[p], t1 = kn[n], seg = Math.max(8, (n - p) * 12);
+        const deBoor = t => { let s = p; while (s < n - 1 && t >= kn[s + 1]) s++; const dd = []; for (let j = 0; j <= p; j++) { const c = cp[s - p + j]; dd.push([c[0] * c[2], c[1] * c[2], c[2]]); } for (let r = 1; r <= p; r++) for (let j = p; j >= r; j--) { const ii = s - p + j, den = kn[ii + p - r + 1] - kn[ii], a = den ? (t - kn[ii]) / den : 0; dd[j] = [(1 - a) * dd[j - 1][0] + a * dd[j][0], (1 - a) * dd[j - 1][1] + a * dd[j][1], (1 - a) * dd[j - 1][2] + a * dd[j][2]]; } return [dd[p][0] / dd[p][2], dd[p][1] / dd[p][2]]; };
+        pts = Array.from({ length: seg + 1 }, (_, j) => deBoor(t0 + (t1 - t0) * Math.min(j / seg, 1 - 1e-9)));
+      } else pts = fx.map((x, j) => [x, fy[j]]);
+      const cl = (fl & 1) === 1 || (pts.length > 2 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 1e-4);
+      push(pts, cl, ly);
+    }
+  }
+  // otwarte kawałki (linie, łuki, splajny) łączone w zamknięte kontury po końcach
+  const tol = 0.05, segs = open.slice();
+  while (segs.length) {
+    let ch = segs.shift(), grow = true;
+    while (grow) {
+      grow = false; const a = ch.pts[0], b = ch.pts[ch.pts.length - 1];
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) < tol && ch.pts.length > 2) break;
+      for (let j = 0; j < segs.length; j++) {
+        const s = segs[j].pts, s0 = s[0], s1 = s[s.length - 1], d = (u, v) => Math.hypot(u[0] - v[0], u[1] - v[1]);
+        if (d(b, s0) < tol) ch.pts = ch.pts.concat(s.slice(1)); else if (d(b, s1) < tol) ch.pts = ch.pts.concat(s.slice(0, -1).reverse()); else if (d(a, s1) < tol) ch.pts = s.concat(ch.pts.slice(1)); else if (d(a, s0) < tol) ch.pts = s.slice().reverse().concat(ch.pts.slice(1)); else continue;
+        segs.splice(j, 1); grow = true; break;
+      }
+    }
+    const a = ch.pts[0], b = ch.pts[ch.pts.length - 1];
+    if (ch.pts.length > 2 && Math.hypot(a[0] - b[0], a[1] - b[1]) < tol) closed.push(ch);
+  }
+  return closed.map(c => ({ pts: c.pts.map(([x, y]) => [x * sc, y * sc]), layer: c.layer }));
+}
+async function parsePDF(buf) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise, page = await doc.getPage(1), ol = await page.getOperatorList(), O = pdfjsLib.OPS;
+  const vb = page.view, pw = vb[2] - vb[0], ph = vb[3] - vb[1], k = 25.4 / 72;
+  let ctm = [1, 0, 0, 1, 0, 0]; const st = [], out = [];
+  const ap = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]], mul = (a, b) => [a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1], a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3], a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5]];
+  const bez = (p0, p1, p2, p3) => Array.from({ length: 16 }, (_, j) => { const t = (j + 1) / 16, u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]; });
+  for (let i = 0; i < ol.fnArray.length; i++) {
+    const fn = ol.fnArray[i], a = ol.argsArray[i];
+    if (fn === O.save) st.push(ctm.slice()); else if (fn === O.restore) ctm = st.pop() || [1, 0, 0, 1, 0, 0]; else if (fn === O.transform) ctm = mul(ctm, a);
+    else if (fn === O.constructPath) {
+      const ops = a[0], cs = a[1]; let j = 0, sub = null, cur = [0, 0], start = [0, 0];
+      const fin = (isC) => { if (sub && sub.length > 2) out.push({ pts: sub.map(p => ap(ctm, p[0], p[1])), closed: isC }); sub = null; };
+      for (const op of ops) {
+        if (op === O.moveTo) { fin(false); cur = [cs[j++], cs[j++]]; start = cur; sub = [cur]; }
+        else if (op === O.lineTo) { cur = [cs[j++], cs[j++]]; (sub = sub || [start]).push(cur); }
+        else if (op === O.curveTo) { const p1 = [cs[j++], cs[j++]], p2 = [cs[j++], cs[j++]], p3 = [cs[j++], cs[j++]]; (sub = sub || [cur]).push(...bez(cur, p1, p2, p3)); cur = p3; }
+        else if (op === O.curveTo2) { const p2 = [cs[j++], cs[j++]], p3 = [cs[j++], cs[j++]]; (sub = sub || [cur]).push(...bez(cur, cur, p2, p3)); cur = p3; }
+        else if (op === O.curveTo3) { const p1 = [cs[j++], cs[j++]], p3 = [cs[j++], cs[j++]]; (sub = sub || [cur]).push(...bez(cur, p1, p3, p3)); cur = p3; }
+        else if (op === O.closePath) { fin(true); cur = start; }
+        else if (op === O.rectangle) { fin(false); const x = cs[j++], y = cs[j++], w = cs[j++], h = cs[j++]; sub = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]; fin(true); }
+      }
+      fin(false);
+    }
+  }
+  return out.filter(o => { const bb = bboxOf([o.pts]); return !(bb.x1 - bb.x0 > pw * 0.97 && bb.y1 - bb.y0 > ph * 0.97); })   // tło strony — pomijamy
+    .filter(o => o.closed || Math.hypot(o.pts[0][0] - o.pts[o.pts.length - 1][0], o.pts[0][1] - o.pts[o.pts.length - 1][1]) < 0.5)
+    .map(o => ({ pts: o.pts.map(([x, y]) => [x * k, y * k]), layer: '' }));
+}
+async function loadFile(f) {
+  try {
+    const isPdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+    let paths = isPdf ? await parsePDF(await f.arrayBuffer()) : parseDXF(await f.text());
+    // DXF z warstwami kompletu (np. wcześniejszy eksport): bazą jest Pleksa (albo najmniejszy kontur Klosza w Sidelit)
+    const lays = [...new Set(paths.map(p => p.layer))];
+    if (lays.includes('Pleksa')) paths = paths.filter(p => p.layer === 'Pleksa');
+    if (!paths.length) return toast('Nie znalazłem zamkniętych konturów — w Corelu zamień napis na krzywe i wyeksportuj sam kontur bazy');
+    let base = C.Clipper.SimplifyPolygons(paths.map(p => toCl(p.pts)), C.PolyFillType.pftEvenOdd);
+    base = C.Clipper.CleanPolygons(base, 0.002 * S).filter(p => p.length > 2 && Math.abs(area(p)) > 0.01);
+    if (!base.length) return toast('Kontury są puste albo otwarte');
+    const bb = bboxOf(base), dx = -(bb.x0 + bb.x1) / 2, dy = -(bb.y0 + bb.y1) / 2;      // środek bazy w (0,0)
+    W.base = base.map(p => p.map(q => ({ X: q.X + Math.round(dx * S), Y: q.Y + Math.round(dy * S) })));
+    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.undo = []; W.sel = null;
+    $('fname').textContent = `${f.name} · ${letters(W.base).length} kształtów · ${fmt(bb.x1 - bb.x0, 1)} × ${fmt(bb.y1 - bb.y0, 1)} mm`;
+    $('drop').classList.add('hidden'); $('b-dxf').disabled = false;
+    recompute(false);
+  } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
+}
+// ===================== eksport DXF (R12: zamknięte polilinie + okręgi na warstwach) =====================
+// uproszczenie łamanej (Douglas-Peucker) — mniejszy plik, odchyłka poniżej 0,01 mm (przy dyszy 0,4–0,6 bez znaczenia)
+function simplify(pts, eps = 0.01) {
+  if (pts.length < 5) return pts;
+  const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1; const st = [[0, pts.length - 1]];
+  while (st.length) { const [a, b] = st.pop(); let md = 0, mi = -1; const [ax, ay] = pts[a], [bx, by] = pts[b], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1e-9;
+    for (let i = a + 1; i < b; i++) { const d = Math.abs((pts[i][0] - ax) * dy - (pts[i][1] - ay) * dx) / L; if (d > md) { md = d; mi = i; } }
+    if (md > eps && mi > 0) { keep[mi] = 1; st.push([a, mi], [mi, b]); } }
+  return pts.filter((_, i) => keep[i]);
+}
+// zamknięty kontur: dzielony w punkcie najdalszym od pierwszego (początek = koniec psułby odległości)
+function simplifyRing(q) {
+  if (q.length < 6) return q;
+  let m = 0, md = -1; q.forEach((p, i) => { const d = Math.hypot(p[0] - q[0][0], p[1] - q[0][1]); if (d > md) { md = d; m = i; } });
+  const a = simplify(q.slice(0, m + 1)), b = simplify(q.slice(m).concat([q[0]]));
+  return a.concat(b.slice(1, -1));
+}
+function exportDXF() {
+  if (!W.base) return;
+  const ents = [];   // [warstwa, 'poly'|'circle', dane]
+  LAYERS.slice(0, 4).forEach(([n]) => (W.lay[n] || []).forEach(o => o.polys.forEach(p => { const q = fromCl(p); ents.push([n, 'poly', simplifyRing(q)]); })));
+  W.holes.forEach(h => ents.push([h.kind === 'fix' ? 'FIX' : 'Otwory', 'circle', [h.x, h.y, h.d / 2]]));
+  W.rails.forEach(r => ents.push(['Profil', 'poly', [[r.x0, r.yc - r.h / 2], [r.x1, r.yc - r.h / 2], [r.x1, r.yc + r.h / 2], [r.x0, r.yc + r.h / 2]]]));
+  // środek kompletu w (0,0) — jak EksportujDXF w makrze
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  ents.forEach(([, t, d]) => { const pts = t === 'circle' ? [[d[0] - d[2], d[1] - d[2]], [d[0] + d[2], d[1] + d[2]]] : d; pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); });
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, f = v => (Math.round(v * 10000) / 10000).toFixed(4), o = [];
+  const add = (...kv) => { for (let i = 0; i < kv.length; i += 2) o.push(String(kv[i]), String(kv[i + 1])); };
+  add(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 4, 9, '$EXTMIN', 10, f(x0 - cx), 20, f(y0 - cy), 9, '$EXTMAX', 10, f(x1 - cx), 20, f(y1 - cy), 0, 'ENDSEC');
+  add(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, '0.0', 0, 'ENDTAB');
+  const used = LAYERS.filter(([n]) => ents.some(e => e[0] === n));
+  add(0, 'TABLE', 2, 'LAYER', 70, used.length); used.forEach(([n, , aci]) => add(0, 'LAYER', 2, n, 70, 0, 62, aci, 6, 'CONTINUOUS')); add(0, 'ENDTAB', 0, 'ENDSEC');
+  add(0, 'SECTION', 2, 'ENTITIES');
+  ents.forEach(([n, t, d]) => {
+    if (t === 'circle') add(0, 'CIRCLE', 8, n, 10, f(d[0] - cx), 20, f(d[1] - cy), 30, '0.0', 40, f(d[2]));
+    else { add(0, 'POLYLINE', 8, n, 66, 1, 70, 1, 10, '0.0', 20, '0.0', 30, '0.0'); d.forEach(([x, y]) => add(0, 'VERTEX', 8, n, 10, f(x - cx), 20, f(y - cy), 30, '0.0')); add(0, 'SEQEND', 8, n); }
+  });
+  add(0, 'ENDSEC', 0, 'EOF');
+  const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
+  const fn = `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}${pr.name ? '_' + pr.name.replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}.dxf`;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([o.join('\r\n') + '\r\n'], { type: 'application/dxf' })); a.download = fn; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast(`Zapisano ${fn} — ${ents.length} kształtów (otwory: ${W.holes.length}, profile: ${W.rails.length})`, 5000);
+}
+// ===================== widok =====================
+const cv = $('cv'), g = cv.getContext('2d');
+const X = x => W.view.ox + x * W.view.s, Y = y => W.view.oy - y * W.view.s, wx = px => (px - W.view.ox) / W.view.s, wy = py => (W.view.oy - py) / W.view.s;
+function fitView() {
+  const r = cv.getBoundingClientRect(); if (!W.base) { W.view = { s: 2, ox: r.width / 2, oy: r.height / 2 }; return draw(); }
+  const all = [W.base].concat(Object.values(W.lay).flatMap(a => a.map(o => o.polys))).flat(), bb = bboxOf(all);
+  const s = Math.min((r.width - 80) / (bb.x1 - bb.x0 || 1), (r.height - 80) / (bb.y1 - bb.y0 || 1));
+  W.view = { s, ox: r.width / 2 - (bb.x0 + bb.x1) / 2 * s, oy: r.height / 2 + (bb.y0 + bb.y1) / 2 * s }; draw();
+}
+function draw() {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, r.width, r.height);
+  if (!W.base || !W.view) return;
+  // siatka co 10 mm
+  const st = W.view.s * 10 >= 14 ? 10 : 50; g.strokeStyle = '#f0f2f5'; g.lineWidth = 1; g.beginPath();
+  for (let x = Math.floor(wx(0) / st) * st; X(x) < r.width; x += st) { g.moveTo(X(x), 0); g.lineTo(X(x), r.height); }
+  for (let y = Math.floor(wy(r.height) / st) * st; Y(y) > 0; y += st) { g.moveTo(0, Y(y)); g.lineTo(r.width, Y(y)); }
+  g.stroke();
+  const path = polys => { g.beginPath(); polys.forEach(p => { p.forEach((q, i) => i ? g.lineTo(X(q.X / S), Y(q.Y / S)) : g.moveTo(X(q.X / S), Y(q.Y / S))); g.closePath(); }); };
+  path(W.base); g.fillStyle = 'rgba(66,153,225,.08)'; g.fill('evenodd');
+  ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(o.polys); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
+  if (W.show.Profil) W.rails.forEach(rl => { g.strokeStyle = LCOL.Profil; g.lineWidth = W.sel && W.sel.t === 'rail' && W.sel.id === rl.id ? 2.5 : 1.4; g.setLineDash(rl.manual ? [6, 3] : []); g.strokeRect(X(rl.x0), Y(rl.yc + rl.h / 2), (rl.x1 - rl.x0) * W.view.s, rl.h * W.view.s); g.setLineDash([]); });
+  W.holes.forEach(h => {
+    const lay = h.kind === 'fix' ? 'FIX' : 'Otwory'; if (!W.show[lay]) return;
+    const sel = W.sel && W.sel.t === 'hole' && W.sel.id === h.id;
+    g.beginPath(); g.arc(X(h.x), Y(h.y), Math.max(2, h.d / 2 * W.view.s), 0, Math.PI * 2); g.fillStyle = sel ? 'rgba(255,128,0,.35)' : 'rgba(255,255,255,.6)'; g.fill();
+    g.strokeStyle = LCOL[lay]; g.lineWidth = sel ? 2.5 : 1.5; g.setLineDash(h.manual ? [3, 2] : []); g.stroke(); g.setLineDash([]);
+  });
+  // zaznaczony otwór: luz do konturu odniesienia
+  if (W.sel && W.sel.t === 'hole') { const h = W.holes.find(q => q.id === W.sel.id), ref = refPolys(); if (h && ref) { const cl = edgeDist(ref.polys, h.x, h.y) - h.d / 2; g.fillStyle = cl < 0.3 ? '#c53030' : '#276749'; g.font = '700 12px Segoe UI, Arial'; g.fillText(`luz ${fmt(cl)} mm`, X(h.x) + h.d / 2 * W.view.s + 6, Y(h.y) - 6); } }
+  $('info').innerHTML = `zoom ${fmt(W.view.s, 1)} px/mm · otwory: ${W.holes.filter(h => h.kind === 'otw').length} fi ${fmt(OTWOR_MM)}${W.holes.some(h => h.kind === 'fix') ? ` + ${W.holes.filter(h => h.kind === 'fix').length} fi ${fmt(OTWOR_MONT_MM)}` : ''} · profile: ${W.rails.length}`;
+}
+function renderSide() {
+  $('lays').innerHTML = LAYERS.map(([n, col]) => { const cnt = n === 'Otwory' ? W.holes.filter(h => h.kind === 'otw').length : n === 'FIX' ? W.holes.filter(h => h.kind === 'fix').length : n === 'Profil' ? W.rails.length : (W.lay[n] || []).reduce((s, o) => s + o.polys.length, 0);
+    return `<label class="lay"><input type="checkbox" data-lay="${n}" ${W.show[n] ? 'checked' : ''}><i style="background:${col}"></i>${n} <span class="hint">(${cnt})</span></label>`; }).join('');
+  $('lays').querySelectorAll('[data-lay]').forEach(c => c.onchange = () => { W.show[c.dataset.lay] = c.checked; draw(); });
+  $('warn').textContent = [...new Set(W.warn)].map(w => '• ' + w).join('\n');
+  renderSel();
+}
+function renderSel() {
+  const b = $('selbox'), s = W.sel; if (!s) { b.classList.add('hidden'); return; }
+  const o = s.t === 'hole' ? W.holes.find(h => h.id === s.id) : W.rails.find(r => r.id === s.id); if (!o) { W.sel = null; b.classList.add('hidden'); return; }
+  b.classList.remove('hidden');
+  const fld = (k, lab, v) => `<div class="fld"><span>${lab}</span><input type="text" inputmode="decimal" data-k="${k}" value="${fmt(v, 2)}"></div>`;
+  b.innerHTML = s.t === 'hole' ? `<b>${o.kind === 'fix' ? 'Otwór montażowy (FIX)' : 'Otwór na przewody'}</b>${fld('x', 'X [mm]', o.x)}${fld('y', 'Y [mm]', o.y)}${fld('d', 'Średnica', o.d)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`
+    : `<b>Profil</b>${fld('yc', 'Środek Y', o.yc)}${fld('h', 'Grubość', o.h)}${fld('x0', 'Od X', o.x0)}${fld('x1', 'Do X', o.x1)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`;
+  b.querySelectorAll('[data-k]').forEach(inp => inp.onchange = () => { pushUndo(); o[inp.dataset.k] = num(inp.value); o.manual = true; if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') autoHoles(); renderSide(); draw(); save(); });
+}
+// ===================== mysz =====================
+let drag = null;
+const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails });
+function pushUndo() { W.undo.push(snapState()); if (W.undo.length > 80) W.undo.shift(); }
+function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.sel = null; renderSide(); draw(); save(); }
+function hit(px, py) {
+  const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
+  if (hh) return { t: 'hole', id: hh.id, o: hh };
+  const rr = W.rails.find(r => px >= X(r.x0) - 3 && px <= X(r.x1) + 3 && py >= Y(r.yc + r.h / 2) - 3 && py <= Y(r.yc - r.h / 2) + 3);
+  return rr ? { t: 'rail', id: rr.id, o: rr } : null;
+}
+cv.addEventListener('pointerdown', e => {
+  if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  const h = e.button === 0 ? hit(px, py) : null;
+  W.sel = h ? { t: h.t, id: h.id } : null; renderSel();
+  drag = h ? { kind: 'obj', o: h.o, t: h.t, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0, moved: false }
+    : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
+  cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); draw();
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
+  if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
+  if (!drag.moved) { if (Math.hypot(px - drag.sx, py - drag.sy) < 3) return; drag.moved = true; pushUndo(); }
+  const sn = v => e.altKey ? v : Math.round(v * 10) / 10;           // co 0,1 mm (Alt = bez przyciągania)
+  if (drag.t === 'hole') { drag.o.x = sn(drag.ox + dx); drag.o.y = sn(drag.oy + dy); drag.o.manual = true; }
+  else { const nx = e.shiftKey ? drag.ox : sn(drag.ox + dx); drag.o.x0 = nx; drag.o.x1 = nx + drag.ow; drag.o.yc = sn(drag.oy + dy); drag.o.manual = true; autoHoles(); }
+  renderSel(); draw();
+});
+const endDrag = () => { if (drag && drag.moved) { renderSide(); save(); } drag = null; cv.classList.remove('drag'); };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('dblclick', e => {
+  if (!W.base) return; const r = cv.getBoundingClientRect(); pushUndo();
+  const h = { id: uid++, kind: e.shiftKey ? 'fix' : 'otw', d: e.shiftKey ? OTWOR_MONT_MM : OTWOR_MM, x: Math.round(wx(e.clientX - r.left) * 10) / 10, y: Math.round(wy(e.clientY - r.top) * 10) / 10, manual: true };
+  W.holes.push(h); W.sel = { t: 'hole', id: h.id }; renderSide(); draw(); save();
+});
+cv.addEventListener('wheel', e => { e.preventDefault(); if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, k = Math.pow(1.0015, -e.deltaY), x0 = wx(px), y0 = wy(py); W.view.s *= k; W.view.ox = px - x0 * W.view.s; W.view.oy = py + y0 * W.view.s; draw(); }, { passive: false });
+document.addEventListener('keydown', e => {
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
+  else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { undo(); e.preventDefault(); }
+  else if (e.key === 'f' || e.key === 'F') fitView();
+  else if (W.sel && /^Arrow/.test(e.key)) { const o = W.sel.t === 'hole' ? W.holes.find(h => h.id === W.sel.id) : W.rails.find(r => r.id === W.sel.id); if (!o) return; pushUndo(); const st = e.shiftKey ? 1 : 0.1, dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? st : e.key === 'ArrowDown' ? -st : 0;
+    if (W.sel.t === 'hole') { o.x += dx; o.y += dy; } else { o.x0 += dx; o.x1 += dx; o.yc += dy; autoHoles(); } o.manual = true; renderSel(); draw(); save(); e.preventDefault(); }
+});
+// ===================== ustawienia (pamiętane w przeglądarce) =====================
+const KEY = 'OFFSET_WIZARD_V1';
+function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr })); } catch (e) { /* bez pamięci */ } }
+function restore() {
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; const pr = o.pr;
+    const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
+    setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('wielk', pr.wielk);
+    const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
+    sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-pg', pr.profG); sv('p-pl', pr.profL); $('p-fix').checked = !!pr.fix; sv('p-name', pr.name);
+  } catch (e) { /* zostają domyślne */ }
+}
+// ===================== start =====================
+restore();
+document.querySelectorAll('aside input').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => { if (i.id === 'p-name') return save(); recompute(); }));
+$('b-open').onclick = () => $('file').click();
+$('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
+$('b-dxf').onclick = exportDXF; $('b-fit').onclick = fitView; $('b-undo').onclick = undo;
+$('b-auto').onclick = () => { pushUndo(); W.holes = []; W.rails = []; W.sel = null; recompute(); };
+const stage = $('stage');
+['dragover', 'dragenter'].forEach(t => stage.addEventListener(t, e => { e.preventDefault(); }));
+stage.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+new ResizeObserver(() => draw()).observe(stage);
+computeLayers(); renderSide(); fitView();
+</script>
+</body>
+</html>
