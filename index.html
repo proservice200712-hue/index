@@ -666,6 +666,9 @@
   .exp-m { padding: 12px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-weight: 700; font-size: .9rem; }
   .exp-m.on { border-color: var(--dark); background: var(--dark); color: #fff; }
   .exp-m:disabled { opacity: .35; cursor: default; }
+  .exp-langs { grid-template-columns: 1fr 1fr 1fr; }
+  .exp-langs .exp-m { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; }
+  .exp-langs svg { flex: none; }
   .exp-file { margin-top: 8px; font-size: .8rem; color: var(--gray); word-break: break-all; }
   .exp-file b { color: var(--dark); }
   /* toasty */
@@ -1386,7 +1389,10 @@ const safeName = s => String(s || 'projekt').normalize('NFD').replace(/[̀-ͯ]/g
 //  Tłumaczymy na żywo napisy na stronie (słownik + reguły dla tekstów z liczbami).
 //  Dane wpisane przez ludzi (nazwy stoisk, uwagi, historia) zostają bez zmian.
 // =====================================================================
-const LANG = (() => { try { const l = localStorage.getItem('INDEX_LANG'); return ['pl', 'uk', 'en'].includes(l) ? l : 'pl'; } catch (e) { return 'pl'; } })();
+let LANG = (() => { try { const l = localStorage.getItem('INDEX_LANG'); return ['pl', 'uk', 'en'].includes(l) ? l : 'pl'; } catch (e) { return 'pl'; } })();
+// eksport w innym języku niż strona: na czas rysowania stron podmieniamy LANG (tr / TT / trCtx czytają go na bieżąco)
+const PAGE_LANG = LANG;
+async function withLang(l, fn) { LANG = l || PAGE_LANG; try { return await fn(); } finally { LANG = PAGE_LANG; } }
 const I18N_PAIRS = [
   // ogólne, logowanie
   ['Projekty', 'Проєкти', 'Projects'], ['Projekt', 'Проєкт', 'Project'], ['Eksport', 'Експорт', 'Export'],
@@ -1580,6 +1586,7 @@ I18N_PAIRS.push(['✎ zmień znak', '✎ змінити позначку', '✎ 
   ['Kliknij, aby zmienić znak', 'Клікни, щоб змінити позначку', 'Click to change the mark'], ['Gdy ten znak ma już inny element, zamienią się znakami.', 'Якщо цю позначку вже має інший елемент, вони поміняються позначками.', 'If another element already has this mark, they will swap marks.'],
   ['Zmień', 'Змінити', 'Change']);
 I18N_PAIRS.push(['Podświetlenie', 'Підсвічування', 'Lighting']);
+I18N_PAIRS.push(['spad: skarpeta', 'виліт: шкарпетка', 'bleed: sock'], ['bez spadów', 'без вильотів', 'no bleed'], ['spad indywidualny', 'індивідуальний виліт', 'custom bleed']);
 I18N_PAIRS.push(['Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)', 'Сховати: напівпрозорий на візуалізації й пропущений в експорті (таблиця й замовлення без змін)', 'Hide: semi-transparent on the visual and left out of the export (table and order unchanged)'],
   ['Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny', 'Схований: напівпрозорий на візуалізації й пропущений в експорті — клікни, щоб знову був видимий', 'Hidden: semi-transparent on the visual and left out of the export — click to show it again']);
 I18N_PAIRS.push(['🔗 Połącz z drugim typem (np. logo z pleksi + folia)', '🔗 Поєднати з другим типом (напр. логотип з плексу + плівка)', '🔗 Combine with a second type (e.g. plexi logo + foil)'],
@@ -2481,7 +2488,7 @@ function goHome() {
   showScreen('screen-home');
   $('hdr-project').classList.add('hidden');
   $('hdr-cd').innerHTML = '';
-  $('hdr-actions').innerHTML = isAdmin() ? `<button class="btn" onclick="openProjectForm()">+ Nowy projekt</button>` : '';
+  $('hdr-actions').innerHTML = isAdmin() ? `<button class="btn" onclick="openProjectForm()">+ Nowy projekt</button>` + owBtn() : '';
   history.replaceState(null, '', location.pathname + (MODE_QS ? '?' + MODE_QS : ''));
   renderHome();
   renderSide();
@@ -3194,9 +3201,10 @@ function renderProjectHeader() {
   updateClock();
   $('hdr-actions').innerHTML = `
     ${isAdmin() ? `<button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>` : ''}
-    ${isAdmin() ? `<button class="btn" onclick="window.open('offset.html', '_blank')" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : ''}
-    <button class="btn" onclick="openExportDialog()">⇩ Eksport</button>`;
+    ${isAdmin() ? `<button class="btn" onclick="openExportDialog()">⇩ Eksport</button>` : ''}${owBtn()}`;
 }
+// Offset Wizard (admin) — zawsze ostatni w nagłówku, tuż przed flagami
+const owBtn = () => isAdmin() ? `<button class="btn" onclick="window.open('offset.html', '_blank')" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : '';
 let statsTimer = null;
 function syncProjectStats() {
   clearTimeout(statsTimer);
@@ -7311,6 +7319,8 @@ function openExportDialog() {
           <button type="button" class="exp-m on" data-m="print">🖨 Druk</button>
           <button type="button" class="exp-m" data-m="save">💾 Eksport (zapis pliku)</button>
         </div></div>
+      <div class="fld exp-lang-fld"><label>Język wydruku / PDF</label>
+        <div class="exp-mode exp-langs">${['pl', 'uk', 'en'].map(l => `<button type="button" class="exp-m" data-l="${l}" data-noi18n><svg viewBox="0 0 24 24" width="22" height="22">${FLAGS[l]}<circle cx="12" cy="12" r="11" fill="none" stroke="#bbb" stroke-width="1"/></svg>${LANG_NAMES[l]}</button>`).join('')}</div></div>
       <div class="fld exp-ver hidden"><label>Numer wersji indexu</label>
         <div style="display:flex;gap:10px;align-items:center"><span style="font-weight:700">v</span><input type="number" id="exp-v" min="1" step="1" value="${nextV}" style="max-width:110px">
           <span class="hint" style="margin:0">ostatnio: ${p.indexVersion ? 'v' + p.indexVersion : '—'}</span></div>
@@ -7318,11 +7328,11 @@ function openExportDialog() {
       <div class="fld"><label>Podgląd</label><div class="exp-prev" id="exp-prev"></div></div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="exp-go">Drukuj</button>`,
   });
-  let w = 'a3', mode = 'print', prevFor = '', prevNr = 0;
+  let w = 'a3', mode = 'print', lang = LANG, prevFor = '', prevNr = 0;
   // mały podgląd strony (to samo, co pójdzie do druku / PDF); dla CSV i JSON — kilka pierwszych wierszy
   const preview = async () => {
-    if (prevFor === w) return;
-    prevFor = w; const nr = ++prevNr, box = $('exp-prev');
+    if (prevFor === w + lang) return;
+    prevFor = w + lang; const nr = ++prevNr, box = $('exp-prev');
     if (w === 'csv' || w === 'json') {
       const rows = exportRows().slice(0, 6);
       box.innerHTML = `<pre class="exp-txt">${esc(w === 'csv' ? rows.map(r => [r.znak, r.typ, r.gross, r.qty].join(';')).join('\n') : JSON.stringify(rows.map(r => ({ znak: r.znak, typ: r.typ, wymiar: r.gross })), null, 1))}${exportRows().length > 6 ? '\n…' : ''}</pre>`;
@@ -7331,7 +7341,7 @@ function openExportDialog() {
     box.innerHTML = '<div class="hint">Tworzę podgląd…</div>';
     try {
       const stamp = 'Index  ' + dateStamp();
-      const pages = w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp);
+      const pages = await withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
       if (nr !== prevNr || !document.body.contains(box)) return;
       box.innerHTML = pages.slice(0, 3).map(c => `<img src="${c.toDataURL('image/jpeg', 0.7)}" alt="">`).join('') + (pages.length > 3 ? `<span class="hint">+ ${pages.length - 3} str.</span>` : '');
     } catch (e) { box.innerHTML = '<div class="hint">Nie udało się zrobić podglądu: ' + esc(e.message) + '</div>'; }
@@ -7341,7 +7351,9 @@ function openExportDialog() {
     const printable = what.find(x => x[0] === w)[4];
     if (!printable) mode = 'save';
     m.el.querySelectorAll('.exp-opt').forEach(x => x.classList.toggle('on', x.dataset.w === w));
-    m.el.querySelectorAll('.exp-m').forEach(x => { x.classList.toggle('on', x.dataset.m === mode); x.disabled = x.dataset.m === 'print' && !printable; });
+    m.el.querySelectorAll('.exp-m[data-m]').forEach(x => { x.classList.toggle('on', x.dataset.m === mode); x.disabled = x.dataset.m === 'print' && !printable; });
+    m.el.querySelectorAll('.exp-m[data-l]').forEach(x => x.classList.toggle('on', x.dataset.l === lang));
+    m.el.querySelector('.exp-lang-fld').classList.toggle('hidden', !printable);
     m.el.querySelector('.exp-ver').classList.toggle('hidden', mode !== 'save');
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     $('exp-file').innerHTML = `Plik: <b>${esc(fileBase(v) + ext())}</b>`;
@@ -7349,7 +7361,8 @@ function openExportDialog() {
     preview();
   };
   m.el.querySelectorAll('.exp-opt').forEach(x => x.onclick = () => { w = x.dataset.w; sync(); });
-  m.el.querySelectorAll('.exp-m').forEach(x => x.onclick = () => { if (!x.disabled) { mode = x.dataset.m; sync(); } });
+  m.el.querySelectorAll('.exp-m[data-m]').forEach(x => x.onclick = () => { if (!x.disabled) { mode = x.dataset.m; sync(); } });
+  m.el.querySelectorAll('.exp-m[data-l]').forEach(x => x.onclick = () => { lang = x.dataset.l; sync(); });
   $('exp-v').addEventListener('input', sync);
   m.el.querySelector('[data-c]').onclick = () => m.close();
   $('exp-go').onclick = async () => {
@@ -7358,7 +7371,7 @@ function openExportDialog() {
     m.close();
     if (w === 'csv') return exportCsv(fileBase(v) + '.csv');
     if (w === 'json') return exportJson(fileBase(v) + '.json');
-    await exportDoc(w, mode, v);
+    await exportDoc(w, mode, v, lang);
   };
   sync();
 }
@@ -8123,13 +8136,13 @@ async function vecPdf(w, stamp) {
   return pdf;
 }
 // Index A3 / Tabela A4: druk albo zapis PDF z nazwą FIRMA_Index_vN_data
-async function exportDoc(w, mode, v) {
+async function exportDoc(w, mode, v, lang = LANG) {
   if (mode === 'save' && !window.jspdf) return toast('Brak biblioteki PDF (sprawdź internet)', 'error');
   const t = toast(w === 'a3' ? 'Tworzenie indexu A3…' : 'Tworzenie tabeli A4…', '', 120000);
   try {
     const p = S.project, ver = mode === 'save' ? v : (Number(p.indexVersion) || 0);
     const stamp = (ver ? `Index_v${ver}  ` : 'Index  ') + dateStamp();
-    const raster = async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp);
+    const raster = () => withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
     if (mode === 'print') {
       const pages = await raster();
       printPages(pages, w === 'a3' ? 'A3' : 'A4');
@@ -8137,7 +8150,7 @@ async function exportDoc(w, mode, v) {
     } else {
       // PDF wektorowy (tekst, linie, grafiki SVG z Corela); gdy się nie uda — jak dawniej: strony jako obrazy
       let pdf = null;
-      try { pdf = await vecPdf(w, stamp); } catch (e) { console.warn('PDF wektorowy', e); toast('PDF wektorowy się nie udał (' + e.message + ') — zapisuję strony jako obraz', 'error', 6000); }
+      try { pdf = await withLang(lang, () => vecPdf(w, stamp)); } catch (e) { console.warn('PDF wektorowy', e); toast('PDF wektorowy się nie udał (' + e.message + ') — zapisuję strony jako obraz', 'error', 6000); }
       if (!pdf) {
         const fmt = w === 'a3' ? [420, 297] : [297, 210], pages = await raster();
         pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: w === 'a3' ? 'a3' : 'a4', compress: true });

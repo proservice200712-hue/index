@@ -28,6 +28,7 @@
   .row label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
   .fld { display: grid; grid-template-columns: 1fr 86px; gap: 6px; align-items: center; margin: 4px 0; }
   .fld input { width: 86px; padding: 4px 6px; border: 1px solid #cbd5e0; font: inherit; }
+  .fld select { width: 86px; padding: 3px 4px; border: 1px solid #cbd5e0; font: inherit; background: #fff; }
   input[type=radio], input[type=checkbox] { accent-color: #38a169; }
   .vals { font-variant-numeric: tabular-nums; background: #f7fafc; border: 1px solid var(--line); padding: 6px 8px; line-height: 1.55; }
   .vals b { display: inline-block; min-width: 74px; }
@@ -65,7 +66,7 @@
   <button class="btn" id="b-undo" title="Cofnij (Ctrl+Z)">⟲ Cofnij</button>
   <button class="btn" id="b-auto" title="Otwory i profile ułożone od nowa automatycznie (ręczne zmiany znikną)">↺ Ułóż automatycznie</button>
   <button class="btn" id="b-fit" title="Dopasuj widok (F)">⤢ Dopasuj</button>
-  <button class="btn go" id="b-dxf" title="Eksport DXF dla Fusion (warstwy jak z Corela, środek kompletu w 0,0)" disabled>⬇ Eksport DXF</button>
+  <button class="btn go" id="b-dxf" title="Eksport DXF dla Fusion (warstwy jak z Corela, środek kompletu w 0,0) + drugi plik: szablon z profilem, otworami i wszystkimi konturami" disabled>⬇ Eksport DXF</button>
 </header>
 <main>
   <aside>
@@ -86,7 +87,8 @@
     <h3>Profil montażowy</h3>
     <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
     <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
-    <div class="row"><label><input type="checkbox" id="p-fix"> otwory montażowe FIX fi 2,5 — 2–3 na literę, po przekątnej w profilu</label></div>
+    <div class="row"><label><input type="checkbox" id="p-fix"> otwory montażowe FIX fi 2,5 — po przekątnej w profilu</label></div>
+    <div class="fld"><span>Liczba FIX na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
     <div class="hint">Z profilem otwory na przewody liczą się od górnej krawędzi profilu (+ przesunięcie).</div>
     <h3>Nazwa (do pliku)</h3>
     <div class="fld"><span>Nazwa elementu</span><input type="text" id="p-name" placeholder="np. DS"></div>
@@ -165,7 +167,7 @@ function rowsOf(ls) {
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), wielk: Number(r('wielk')),
-    przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, name: $('p-name').value.trim() };
+    przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim() };
 }
 function model(pr) {
   const d = DYSZA[pr.dysza] || DYSZA[6], k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
@@ -277,7 +279,7 @@ function computeLED() {
   W.led = { key, x0, y0, res, nx, ny, img, dist: (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); if (i < 0 || j < 0 || i >= nx || j >= ny) return Infinity; return Math.sqrt(Ds[j * nx + i]) * res; } };
 }
 const ledClear = (x, y, d) => !W.led || W.led.dist(x, y) >= d / 2 + 0.3;   // otwór nie wchodzi na pasek LED (dist = odległość od paska)
-// otwory montażowe FIX: na każdą literę 2 (szersza niż 40 mm — 3), w obrębie profilu, po przekątnej:
+// otwory montażowe FIX: na każdą literę 2 (szersza niż 40 mm — 3) albo tyle, ile wybrano, w obrębie profilu, po przekątnej:
 // rzędy 5 mm od górnej i dolnej krawędzi profilu (z dala od paska LED na środku), naprzemiennie góra / dół
 function placeFix(rails) {
   const ref = refPolys(), d = OTWOR_MONT_MM; if (!ref) return [];
@@ -292,18 +294,22 @@ function placeFix(rails) {
       const T = spans(yT), B = spans(yB), three = l.bb.x1 - l.bb.x0 > FIX_SZER_3, cx = (l.bb.x0 + l.bb.x1) / 2;
       // otwór przy krawędzi pasma (przy krawędzi litery), nigdy na pasku LED: jak koniec pasma wchodzi na LED — przesuwamy wzdłuż pasma do krawędzi paska
       const free = (x, y, dir, s) => { for (let k = 0; k < 400; k++) { const xx = x + dir * k * 0.25; if (xx < s[0] - 1e-6 || xx > s[1] + 1e-6) return null; if (ledClear(xx, y, d)) return xx; } return null; };
-      const add = (x, y, dir, s) => { const xx = free(x, y, dir, s); if (xx != null) out.push({ id: uid++, kind: 'fix', d, x: xx, y }); else { out.push({ id: uid++, kind: 'fix', d, x, y, led: true }); W.warn.push('otwór FIX przy krawędzi, ale wąska litera — nachodzi na pasek LED (czerwony)'); } };
-      // środkowy (3. otwór): koniec pasma najbliższy środka litery, odsunięty od paska LED
-      const midAdd = (sp, y) => { const c = sp.flatMap(s => [[s[0], 1, s], [s[1], -1, s]]).sort((a, b) => Math.abs(a[0] - cx) - Math.abs(b[0] - cx)); for (const [x, dir, s] of c) { const xx = free(x, y, dir, s); if (xx != null) { out.push({ id: uid++, kind: 'fix', d, x: xx, y }); return; } } if (c[0]) { out.push({ id: uid++, kind: 'fix', d, x: c[0][0], y, led: true }); W.warn.push('otwór FIX przy krawędzi, ale wąska litera — nachodzi na pasek LED (czerwony)'); } };
+      // otwory tej litery nie obok siebie (min. 3 średnice)
+      const mine = [], near = (x, y) => mine.some(h => Math.hypot(h.x - x, h.y - y) < 3 * d);
+      const put = (x, y, led) => { const h = { id: uid++, kind: 'fix', d, x, y }; if (led) { h.led = true; W.warn.push('otwór FIX przy krawędzi, ale wąska litera — nachodzi na pasek LED (czerwony)'); } mine.push(h); out.push(h); return true; };
+      const end = (x, y, dir, s) => { const xx = free(x, y, dir, s); if (xx != null) return !near(xx, y) && put(xx, y); return !near(x, y) && put(x, y, true); };
+      // środkowy: koniec pasma najbliższy środka litery, odsunięty od paska LED
+      const mid = (sp, y) => { const c = sp.flatMap(s => [[s[0], 1, s], [s[1], -1, s]]).sort((a, b) => Math.abs(a[0] - cx) - Math.abs(b[0] - cx)); for (const [x, dir, s] of c) { const xx = free(x, y, dir, s); if (xx != null && !near(xx, y)) return put(xx, y); } return !!(c[0] && !near(c[0][0], y) && put(c[0][0], y, true)); };
       const wide = three && T.length && T[T.length - 1][1] - T[0][0] >= 15;   // trzeci otwór tylko gdy górne krańce są daleko od siebie (nie obok siebie na jednej kresce)
-      if (T.length && B.length) {
-        add(T[0][0], yT, 1, T[0]);                               // góra z lewej
-        if (wide) { midAdd(B, yB); add(T[T.length - 1][1], yT, -1, T[T.length - 1]); }   // dół przy środku (przy krawędzi kreski), góra z prawej
-        else add(B[B.length - 1][1], yB, -1, B[B.length - 1]);  // dół z prawej — po przekątnej
-      } else if (T.length || B.length) {                         // tylko jeden rząd ma materiał — dwa otwory na krańcach (ostrzeżenie)
-        const R = T.length ? T : B, y = T.length ? yT : yB; add(R[0][0], y, 1, R[0]); if (R[R.length - 1][1] - R[0][0] > d * 2) add(R[R.length - 1][1], y, -1, R[R.length - 1]);
-        W.warn.push('litera z otworami FIX w jednym rzędzie (w drugim brak materiału w profilu)');
-      } else W.warn.push('litera bez otworów FIX (w profilu brak materiału)');
+      const at = { TL: () => T.length && end(T[0][0], yT, 1, T[0]), TR: () => T.length && end(T[T.length - 1][1], yT, -1, T[T.length - 1]),
+        BL: () => B.length && end(B[0][0], yB, 1, B[0]), BR: () => B.length && end(B[B.length - 1][1], yB, -1, B[B.length - 1]), BM: () => B.length && mid(B, yB), TM: () => T.length && mid(T, yT) };
+      // kolejność miejsc: 2 = po przekątnej (góra z lewej, dół z prawej); 3 = góra z lewej, dół przy środku, góra z prawej; 4 = narożniki
+      const want = W.pr.fixN || (wide ? 3 : 2);
+      const order = want === 1 ? ['TL', 'BR', 'TR', 'BL'] : want === 2 ? ['TL', 'BR', 'TR', 'BL', 'BM', 'TM'] : want === 3 && wide ? ['TL', 'BM', 'TR', 'BR', 'BL', 'TM'] : want === 3 ? ['TL', 'BR', 'TR', 'BL', 'BM', 'TM'] : ['TL', 'TR', 'BL', 'BR', 'BM', 'TM'];
+      let got = 0; for (const k of order) { if (got >= want) break; if (at[k]()) got++; }
+      if (!T.length && !B.length) W.warn.push('litera bez otworów FIX (w profilu brak materiału)');
+      else if (!T.length || !B.length) W.warn.push('litera z otworami FIX w jednym rzędzie (w drugim brak materiału w profilu)');
+      if (got < want && (T.length || B.length)) W.warn.push(`litera: zmieściło się ${got} z ${want} otworów FIX`);
     });
   });
   return out;
@@ -483,6 +489,30 @@ function fitArcs(ring, tol = 0.01) {
   }
   return out;
 }
+// DXF R12 z listy kształtów [warstwa, 'poly'|'circle'|'text', dane]; punkt (cx, cy) trafia w (0,0)
+const SZ_LAYERS = [['Szablon', '#ff00ff', 6]];
+function dxfText(ents, cx, cy) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  ents.forEach(([, t, d]) => { const pts = t === 'circle' ? [[d[0] - d[2], d[1] - d[2]], [d[0] + d[2], d[1] + d[2]]] : t === 'text' ? [[d[0], d[1]]] : d; pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); });
+  const f = v => (Math.round(v * 10000) / 10000).toFixed(4), o = [];
+  const add = (...kv) => { for (let i = 0; i < kv.length; i += 2) o.push(String(kv[i]), String(kv[i + 1])); };
+  add(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 4, 9, '$EXTMIN', 10, f(x0 - cx), 20, f(y0 - cy), 9, '$EXTMAX', 10, f(x1 - cx), 20, f(y1 - cy), 0, 'ENDSEC');
+  add(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, '0.0', 0, 'ENDTAB');
+  const used = LAYERS.concat(SZ_LAYERS).filter(([n]) => ents.some(e => e[0] === n));
+  add(0, 'TABLE', 2, 'LAYER', 70, used.length); used.forEach(([n, , aci]) => add(0, 'LAYER', 2, n, 70, 0, 62, aci, 6, 'CONTINUOUS')); add(0, 'ENDTAB', 0, 'ENDSEC');
+  add(0, 'SECTION', 2, 'ENTITIES');
+  ents.forEach(([n, t, d]) => {
+    if (t === 'circle') add(0, 'CIRCLE', 8, n, 10, f(d[0] - cx), 20, f(d[1] - cy), 30, '0.0', 40, f(d[2]));
+    else if (t === 'text') add(0, 'TEXT', 8, n, 10, f(d[0] - cx), 20, f(d[1] - cy), 30, '0.0', 40, f(d[2]), 1, d[3]);
+    else { add(0, 'POLYLINE', 8, n, 66, 1, 70, 1, 10, '0.0', 20, '0.0', 30, '0.0'); d.forEach(([x, y, b]) => { add(0, 'VERTEX', 8, n, 10, f(x - cx), 20, f(y - cy), 30, '0.0'); if (b) add(42, (Math.round(b * 1e8) / 1e8).toFixed(8)); }); add(0, 'SEQEND', 8, n); }
+  });
+  add(0, 'ENDSEC', 0, 'EOF');
+  return o.join('\r\n') + '\r\n';
+}
+const bboxEnts = ents => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; ents.forEach(([, t, d]) => { const pts = t === 'circle' ? [[d[0] - d[2], d[1] - d[2]], [d[0] + d[2], d[1] + d[2]]] : d; pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); }); return { x0, y0, x1, y1 }; };
+const saveFile = (fn, txt) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'application/dxf' })); a.download = fn; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+// tekst do DXF R12 bez polskich znaków (stare DXF nie mają UTF-8)
+const ascii = s => String(s).replace(/ł/g, 'l').replace(/Ł/g, 'L').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '_');
 function exportDXF() {
   if (!W.base) return;
   const ents = [];   // [warstwa, 'poly'|'circle', dane]
@@ -490,24 +520,22 @@ function exportDXF() {
   W.holes.forEach(h => ents.push([h.kind === 'fix' ? 'FIX' : 'Otwory', 'circle', [h.x, h.y, h.d / 2]]));
   W.rails.forEach(r => ents.push(['Profil', 'poly', [[r.x0, r.yc - r.h / 2], [r.x1, r.yc - r.h / 2], [r.x1, r.yc + r.h / 2], [r.x0, r.yc + r.h / 2]]]));
   // środek kompletu w (0,0) — jak EksportujDXF w makrze
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  ents.forEach(([, t, d]) => { const pts = t === 'circle' ? [[d[0] - d[2], d[1] - d[2]], [d[0] + d[2], d[1] + d[2]]] : d; pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); });
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, f = v => (Math.round(v * 10000) / 10000).toFixed(4), o = [];
-  const add = (...kv) => { for (let i = 0; i < kv.length; i += 2) o.push(String(kv[i]), String(kv[i + 1])); };
-  add(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 4, 9, '$EXTMIN', 10, f(x0 - cx), 20, f(y0 - cy), 9, '$EXTMAX', 10, f(x1 - cx), 20, f(y1 - cy), 0, 'ENDSEC');
-  add(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, '0.0', 0, 'ENDTAB');
-  const used = LAYERS.filter(([n]) => ents.some(e => e[0] === n));
-  add(0, 'TABLE', 2, 'LAYER', 70, used.length); used.forEach(([n, , aci]) => add(0, 'LAYER', 2, n, 70, 0, 62, aci, 6, 'CONTINUOUS')); add(0, 'ENDTAB', 0, 'ENDSEC');
-  add(0, 'SECTION', 2, 'ENTITIES');
-  ents.forEach(([n, t, d]) => {
-    if (t === 'circle') add(0, 'CIRCLE', 8, n, 10, f(d[0] - cx), 20, f(d[1] - cy), 30, '0.0', 40, f(d[2]));
-    else { add(0, 'POLYLINE', 8, n, 66, 1, 70, 1, 10, '0.0', 20, '0.0', 30, '0.0'); d.forEach(([x, y, b]) => { add(0, 'VERTEX', 8, n, 10, f(x - cx), 20, f(y - cy), 30, '0.0'); if (b) add(42, (Math.round(b * 1e8) / 1e8).toFixed(8)); }); add(0, 'SEQEND', 8, n); }
-  });
-  add(0, 'ENDSEC', 0, 'EOF');
+  const bb = bboxEnts(ents), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
   const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
-  const fn = `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}${pr.name ? '_' + pr.name.replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}.dxf`;
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([o.join('\r\n') + '\r\n'], { type: 'application/dxf' })); a.download = fn; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast(`Zapisano ${fn} — ${ents.length} kształtów (otwory: ${W.holes.length}, profile: ${W.rails.length})`, 5000);
+  const base = `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}${pr.name ? '_' + pr.name.replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
+  saveFile(base + '.dxf', dxfText(ents, cx, cy));
+  // drugi plik: SZABLON (jak BudujSzablon w makrze) — obrys najszerszego klosza bez brzuszków +0,5 mm, ramka 50 mm, napis,
+  // a na nim wszystkie kontury, otwory i profile (ten sam środek co komplet — oba pliki się pokrywają)
+  const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
+  const src = ((W.lay.Klosz || []).slice().sort((a, b) => b.d - a.d)[0] || { polys: W.base }).polys;
+  const outer = offsetPolys(src.filter(p => area(p) > 0), SZ_OFF).filter(p => area(p) > 0).map(p => fitArcs(simplifyRing(fromCl(p))));
+  const sz = outer.map(p => ['Szablon', 'poly', p]), sb = bboxEnts(sz.length ? sz : ents), lab = (sb.y1 - sb.y0) * 0.25;
+  const fr = { x0: sb.x0 - SZ_RAMKA, x1: sb.x1 + SZ_RAMKA, y0: sb.y0 - SZ_RAMKA, y1: sb.y1 + SZ_RAMKA };
+  sz.push(['Szablon', 'poly', [[fr.x0, fr.y0], [fr.x1, fr.y0], [fr.x1, fr.y1], [fr.x0, fr.y1]]]);
+  sz.push(['Szablon', 'text', [fr.x0, fr.y1 + 10, lab, 'Szablon']]);
+  if (pr.name) sz.push(['Szablon', 'text', [fr.x0 + SZ_NAZWA, fr.y1 - SZ_NAZWA - lab * 0.6, lab * 0.6, ascii(pr.name)]]);
+  setTimeout(() => saveFile(base + '_Szablon.dxf', dxfText(sz.concat(ents), cx, cy)), 400);
+  toast(`Zapisano ${base}.dxf — ${ents.length} kształtów (otwory: ${W.holes.length}, profile: ${W.rails.length}) + ${base}_Szablon.dxf`, 6000);
 }
 // ===================== widok =====================
 const cv = $('cv'), g = cv.getContext('2d');
@@ -646,7 +674,7 @@ function restore() {
     const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
     setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('wielk', pr.wielk);
     const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
-    sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-pg', pr.profG); sv('p-pl', pr.profL); $('p-fix').checked = !!pr.fix; sv('p-name', pr.name);
+    sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-pg', pr.profG); sv('p-pl', pr.profL); $('p-fix').checked = !!pr.fix; $('p-fixn').value = String(pr.fixN || 0); sv('p-name', pr.name);
   } catch (e) { /* zostają domyślne */ }
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
@@ -662,7 +690,7 @@ function addSpin(inp, step, after) {
 // ===================== start =====================
 restore();
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => recompute()));
-document.querySelectorAll('aside input').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => { if (i.id === 'p-name') return save(); recompute(); }));
+document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => { if (i.id === 'p-name') return save(); recompute(); }));
 $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
 $('b-dxf').onclick = exportDXF; $('b-fit').onclick = fitView; $('b-undo').onclick = undo;
