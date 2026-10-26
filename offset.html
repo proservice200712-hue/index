@@ -45,6 +45,13 @@
   #selbox.hidden { display: none; }
   #selbox .fld { grid-template-columns: 1fr 80px; }
   #selbox .fld input { width: 80px; }
+  .spin { display: inline-flex; align-items: stretch; }
+  .spin input { border-right: none !important; }
+  .spin .sb { display: flex; flex-direction: column; }
+  .spin .sb button { flex: 1; width: 20px; padding: 0; border: 1px solid #cbd5e0; background: #f7fafc; color: #4a5568; font-size: 9px; line-height: 1; cursor: pointer; }
+  .spin .sb button:hover { background: #38a169; color: #fff; border-color: #2f855a; }
+  .spin .sb button + button { border-top: none; }
+  .fld .spin input { width: 66px; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 9px 16px; font-size: .85rem; z-index: 50; }
 </style>
 </head>
@@ -79,7 +86,7 @@
     <h3>Profil montażowy</h3>
     <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
     <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
-    <div class="row"><label><input type="checkbox" id="p-fix"> otwory montażowe fi 2 na środku profilu</label></div>
+    <div class="row"><label><input type="checkbox" id="p-fix"> otwory montażowe FIX fi 2,5 — 2–3 na literę, po przekątnej w profilu</label></div>
     <div class="hint">Z profilem otwory na przewody liczą się od górnej krawędzi profilu (+ przesunięcie).</div>
     <h3>Nazwa (do pliku)</h3>
     <div class="fld"><span>Nazwa elementu</span><input type="text" id="p-name" placeholder="np. DS"></div>
@@ -105,7 +112,8 @@ const num = s => { const v = parseFloat(String(s).replace(',', '.')); return Num
 const toast = (t, ms = 3500) => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); };
 // --- stałe modelu jak w makrze Corela (Offsety_dla_Fusion.bas) ---
 const DYSZA = { 4: { out: 0.8, in: 1.2, kie: 2.0 }, 6: { out: 1.2, in: 1.2, kie: 2.4 } };
-const OTWOR_MM = 4.5, OTWOR_MONT_MM = 2, PROFIL_ZAPAS = 10;
+const OTWOR_MM = 4.5, OTWOR_MONT_MM = 2.5, PROFIL_ZAPAS = 10;
+const FIX_OD_KRAW = 5, FIX_SZER_3 = 40;               // FIX: rzędy 5 mm od góry / dołu profilu; litera szersza niż 40 mm — 3 otwory
 const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
   ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
   ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4]];
@@ -119,8 +127,8 @@ const toCl = pts => pts.map(([x, y]) => ({ X: Math.round(x * S), Y: Math.round(y
 const fromCl = p => p.map(q => [q.X / S, q.Y / S]);
 function offsetPolys(polys, d) {                        // polys: ścieżki Clippera (zewnętrzne + dziury), d w mm (+ na zewnątrz)
   if (Math.abs(d) < 1e-9) return polys.map(p => p.slice());
-  const co = new C.ClipperOffset(2, 0.008 * S), out = new C.Paths();
-  co.AddPaths(polys, C.JoinType.jtRound, C.EndType.etClosedPolygon); co.Execute(out, d * S);
+  const co = new C.ClipperOffset(6, 0.008 * S), out = new C.Paths();           // ostre narożniki (bez zaokrągleń), jak kontur w Corelu
+  co.AddPaths(polys, C.JoinType.jtMiter, C.EndType.etClosedPolygon); co.Execute(out, d * S);
   return C.Clipper.CleanPolygons(out, 0.002 * S).filter(p => p.length > 2);
 }
 const area = p => C.Clipper.Area(p) / (S * S);
@@ -223,13 +231,40 @@ function placeHoles(kind, dOtw, rowY) {
   });
   return out;
 }
+// otwory montażowe FIX: na każdą literę 2 (szersza niż 40 mm — 3), w obrębie profilu, po przekątnej:
+// rzędy 5 mm od górnej i dolnej krawędzi profilu (z dala od paska LED na środku), naprzemiennie góra / dół
+function placeFix(rails) {
+  const ref = refPolys(), d = OTWOR_MONT_MM; if (!ref) return [];
+  let srodki = null; for (const lz of [W.pr.luz, 0.5, 0.25, 0]) { const r = offsetPolys(ref.polys, -(d / 2 + lz)); if (r.length) { srodki = r; break; } }
+  if (!srodki) { W.warn.push(`${ref.name} za wąski na otwory montażowe fi ${fmt(d)}`); return []; }
+  const ls = letters(ref.polys), out = [];
+  rails.forEach(rl => {
+    const half = rl.h / 2, off = Math.max(d / 2 + 3.5, half - FIX_OD_KRAW);   // przy cienkim profilu i tak ponad paskiem LED (6 mm)
+    const yT = rl.yc + off, yB = rl.yc - off;
+    ls.filter(l => l.bb.x1 > rl.x0 && l.bb.x0 < rl.x1 && l.bb.y1 > yB && l.bb.y0 < yT).forEach(l => {
+      const spans = y => hSpans(srodki, y).filter(s => { const mx = (s[0] + s[1]) / 2; return mx >= l.bb.x0 && mx <= l.bb.x1 && s[0] >= rl.x0 - 0.01 && s[1] <= rl.x1 + 0.01; }).sort((a, b) => a[0] - b[0]);
+      const T = spans(yT), B = spans(yB), three = l.bb.x1 - l.bb.x0 > FIX_SZER_3, cx = (l.bb.x0 + l.bb.x1) / 2, add = (x, y) => out.push({ id: uid++, kind: 'fix', d, x, y });
+      const mid = sp => { const s = sp.slice().sort((a, b) => Math.abs((a[0] + a[1]) / 2 - cx) - Math.abs((b[0] + b[1]) / 2 - cx))[0]; return Math.max(s[0], Math.min(s[1], cx)); };
+      const wide = three && T.length && T[T.length - 1][1] - T[0][0] >= 15;   // trzeci otwór tylko gdy górne krańce są daleko od siebie (nie obok siebie na jednej kresce)
+      if (T.length && B.length) {
+        add(T[0][0], yT);                                        // góra z lewej
+        if (wide) { add(mid(B), yB); add(T[T.length - 1][1], yT); }  // dół na środku, góra z prawej
+        else add(B[B.length - 1][1], yB);                        // dół z prawej — po przekątnej
+      } else if (T.length || B.length) {                         // tylko jeden rząd ma materiał — dwa otwory na krańcach (ostrzeżenie)
+        const R = T.length ? T : B, y = T.length ? yT : yB; add(R[0][0], y); if (R[R.length - 1][1] - R[0][0] > d * 2) add(R[R.length - 1][1], y);
+        W.warn.push('litera z otworami FIX w jednym rzędzie (w drugim brak materiału w profilu)');
+      } else W.warn.push('litera bez otworów FIX (w profilu brak materiału)');
+    });
+  });
+  return out;
+}
 function autoHoles() {
   const pr = W.pr; W.holes = W.holes.filter(h => h.manual);
   if (!W.base) return;
   const railY = W.rails.length ? W.rails.slice().sort((a, b) => b.yc - a.yc) : null;
   if (pr.gdzie > 0) W.holes.push(...placeHoles('otw', OTWOR_MM, railY ? railY.map(r => r.yc + r.h / 2 + pr.przesun) : null));
-  if (pr.fix && railY) W.holes.push(...placeHoles('fix', OTWOR_MONT_MM, railY.map(r => r.yc)));
-  if (pr.fix && !railY) W.warn.push('otwory montażowe fi 2 — potrzebny profil (grubość > 0)');
+  if (pr.fix && railY) W.holes.push(...placeFix(railY));
+  if (pr.fix && !railY) W.warn.push(`otwory montażowe fi ${fmt(OTWOR_MONT_MM)} — potrzebny profil (grubość > 0)`);
 }
 function recompute(keepView = true) {
   computeLayers(); autoRails(); autoHoles(); renderSide(); draw(); if (!keepView) fitView(); save();
@@ -250,7 +285,7 @@ function parseDXF(txt) {
   const all = (e, c) => e.g.filter(q => q[0] === c).map(q => parseFloat(q[1])), one = (e, c, d = 0) => { const q = e.g.find(z => z[0] === c); return q ? parseFloat(q[1]) : d; }, lay = e => (e.g.find(z => z[0] === 8) || [0, '0'])[1];
   const closed = [], open = [];
   const arcPts = (cx, cy, r, a0, a1) => { if (a1 < a0) a1 += Math.PI * 2; const n = Math.max(8, Math.ceil((a1 - a0) / (Math.PI * 2) * 96)); return Array.from({ length: n + 1 }, (_, k) => { const a = a0 + (a1 - a0) * k / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }); };
-  const bulgeSeg = (p, q, b) => { if (!b) return [q]; const th = 4 * Math.atan(b), dx = q[0] - p[0], dy = q[1] - p[1], ch = Math.hypot(dx, dy), r = ch / (2 * Math.sin(th / 2)), mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, h = r * Math.cos(th / 2), nx = -dy / ch, ny = dx / ch, cx = mx + nx * h * Math.sign(b), cy = my + ny * h * Math.sign(b); const n = Math.max(4, Math.ceil(Math.abs(th) / (Math.PI * 2) * 96)), a0 = Math.atan2(p[1] - cy, p[0] - cx); return Array.from({ length: n }, (_, k) => { const a = a0 + th * (k + 1) / n; return [cx + Math.abs(r) * Math.cos(a), cy + Math.abs(r) * Math.sin(a)]; }); };
+  const bulgeSeg = (p, q, b) => { if (!b) return [q]; const th = 4 * Math.atan(b), dx = q[0] - p[0], dy = q[1] - p[1], ch = Math.hypot(dx, dy), r = ch / (2 * Math.sin(th / 2)), mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, h = r * Math.cos(th / 2), nx = -dy / ch, ny = dx / ch, cx = mx + nx * h, cy = my + ny * h; const n = Math.max(4, Math.ceil(Math.abs(th) / (Math.PI * 2) * 96)), a0 = Math.atan2(p[1] - cy, p[0] - cx); return Array.from({ length: n }, (_, k) => { const a = a0 + th * (k + 1) / n; return [cx + Math.abs(r) * Math.cos(a), cy + Math.abs(r) * Math.sin(a)]; }); };
   const push = (pts, isClosed, layer) => { if (pts.length < 2) return; (isClosed ? closed : open).push({ pts, layer }); };
   for (let k = 0; k < ents.length; k++) {
     const e = ents[k], ly = lay(e);
@@ -368,10 +403,37 @@ function simplifyRing(q) {
   const a = simplify(q.slice(0, m + 1)), b = simplify(q.slice(m).concat([q[0]]));
   return a.concat(b.slice(1, -1));
 }
+// łamana → odcinki i ŁUKI (wierzchołki z wypukłością „bulge”) z dokładnością tol — kilkanaście elementów zamiast tysięcy
+// krótkich kresek (Fusion przy tysiącach odcinków w szkicu się zawieszał)
+function fitArcs(ring, tol = 0.01) {
+  const P = ring.concat([ring[0]]), n = P.length, out = [];
+  const lineOk = (i, j) => { const [ax, ay] = P[i], [bx, by] = P[j], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy); if (L < 1e-9) return false; for (let k = i + 1; k < j; k++) if (Math.abs((P[k][0] - ax) * dy - (P[k][1] - ay) * dx) / L > tol) return false; return true; };
+  const circ = (a, b, c) => { const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1])); if (Math.abs(d) < 1e-12) return null; const a2 = a[0] * a[0] + a[1] * a[1], b2 = b[0] * b[0] + b[1] * b[1], c2 = c[0] * c[0] + c[1] * c[1]; const x = (a2 * (b[1] - c[1]) + b2 * (c[1] - a[1]) + c2 * (a[1] - b[1])) / d, y = (a2 * (c[0] - b[0]) + b2 * (a[0] - c[0]) + c2 * (b[0] - a[0])) / d; return [x, y, Math.hypot(a[0] - x, a[1] - y)]; };
+  const arcOk = (i, j) => {
+    if (j - i < 3) return null; const m = (i + j) >> 1, c = circ(P[i], P[m], P[j]); if (!c || c[2] > 3000 || c[2] < 0.05) return null;
+    const ccw = ((P[m][0] - P[i][0]) * (P[j][1] - P[m][1]) - (P[m][1] - P[i][1]) * (P[j][0] - P[m][0])) > 0;
+    let sweep = 0, prev = Math.atan2(P[i][1] - c[1], P[i][0] - c[0]);
+    for (let k = i + 1; k <= j; k++) {
+      if (Math.abs(Math.hypot(P[k][0] - c[0], P[k][1] - c[1]) - c[2]) > tol) return null;
+      const a = Math.atan2(P[k][1] - c[1], P[k][0] - c[0]); let da = a - prev; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+      if (ccw ? da < -1e-9 : da > 1e-9) return null; sweep += da; prev = a;
+      // środek odcinka też na łuku (krótkie cięciwy)
+      const mx = (P[k][0] + P[k - 1][0]) / 2, my = (P[k][1] + P[k - 1][1]) / 2; if (c[2] - Math.hypot(mx - c[0], my - c[1]) > tol) return null;
+    }
+    return Math.abs(sweep) > Math.PI * 0.95 ? null : Math.tan(sweep / 4);
+  };
+  let i = 0;
+  while (i < n - 1) {
+    let jl = i + 1; while (jl + 1 < n && lineOk(i, jl + 1)) jl++;
+    let ja = -1, bul = 0; for (let j = i + 3; j < n; j++) { const b = arcOk(i, j); if (b === null) { if (j - i > 6) break; continue; } ja = j; bul = b; }
+    if (ja > jl) { out.push([P[i][0], P[i][1], bul]); i = ja; } else { out.push([P[i][0], P[i][1], 0]); i = jl; }
+  }
+  return out;
+}
 function exportDXF() {
   if (!W.base) return;
   const ents = [];   // [warstwa, 'poly'|'circle', dane]
-  LAYERS.slice(0, 4).forEach(([n]) => (W.lay[n] || []).forEach(o => o.polys.forEach(p => { const q = fromCl(p); ents.push([n, 'poly', simplifyRing(q)]); })));
+  LAYERS.slice(0, 4).forEach(([n]) => (W.lay[n] || []).forEach(o => o.polys.forEach(p => { const q = fromCl(p); ents.push([n, 'poly', fitArcs(simplifyRing(q))]); })));
   W.holes.forEach(h => ents.push([h.kind === 'fix' ? 'FIX' : 'Otwory', 'circle', [h.x, h.y, h.d / 2]]));
   W.rails.forEach(r => ents.push(['Profil', 'poly', [[r.x0, r.yc - r.h / 2], [r.x1, r.yc - r.h / 2], [r.x1, r.yc + r.h / 2], [r.x0, r.yc + r.h / 2]]]));
   // środek kompletu w (0,0) — jak EksportujDXF w makrze
@@ -386,7 +448,7 @@ function exportDXF() {
   add(0, 'SECTION', 2, 'ENTITIES');
   ents.forEach(([n, t, d]) => {
     if (t === 'circle') add(0, 'CIRCLE', 8, n, 10, f(d[0] - cx), 20, f(d[1] - cy), 30, '0.0', 40, f(d[2]));
-    else { add(0, 'POLYLINE', 8, n, 66, 1, 70, 1, 10, '0.0', 20, '0.0', 30, '0.0'); d.forEach(([x, y]) => add(0, 'VERTEX', 8, n, 10, f(x - cx), 20, f(y - cy), 30, '0.0')); add(0, 'SEQEND', 8, n); }
+    else { add(0, 'POLYLINE', 8, n, 66, 1, 70, 1, 10, '0.0', 20, '0.0', 30, '0.0'); d.forEach(([x, y, b]) => { add(0, 'VERTEX', 8, n, 10, f(x - cx), 20, f(y - cy), 30, '0.0'); if (b) add(42, (Math.round(b * 1e8) / 1e8).toFixed(8)); }); add(0, 'SEQEND', 8, n); }
   });
   add(0, 'ENDSEC', 0, 'EOF');
   const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
@@ -441,7 +503,8 @@ function renderSel() {
   const fld = (k, lab, v) => `<div class="fld"><span>${lab}</span><input type="text" inputmode="decimal" data-k="${k}" value="${fmt(v, 2)}"></div>`;
   b.innerHTML = s.t === 'hole' ? `<b>${o.kind === 'fix' ? 'Otwór montażowy (FIX)' : 'Otwór na przewody'}</b>${fld('x', 'X [mm]', o.x)}${fld('y', 'Y [mm]', o.y)}${fld('d', 'Średnica', o.d)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`
     : `<b>Profil</b>${fld('yc', 'Środek Y', o.yc)}${fld('h', 'Grubość', o.h)}${fld('x0', 'Od X', o.x0)}${fld('x1', 'Do X', o.x1)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`;
-  b.querySelectorAll('[data-k]').forEach(inp => inp.onchange = () => { pushUndo(); o[inp.dataset.k] = num(inp.value); o.manual = true; if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') autoHoles(); renderSide(); draw(); save(); });
+  const apply = inp => { pushUndo(); o[inp.dataset.k] = num(inp.value); o.manual = true; if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') autoHoles(); renderSide(); draw(); save(); };
+  b.querySelectorAll('[data-k]').forEach(inp => { inp.onchange = () => apply(inp); addSpin(inp, { x: 0.5, y: 0.5, d: 0.5, yc: 0.5, h: 1, x0: 1, x1: 1 }[inp.dataset.k] || 0.5, () => apply(inp)); });
 }
 // ===================== mysz =====================
 let drag = null;
@@ -498,8 +561,19 @@ function restore() {
     sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-pg', pr.profG); sv('p-pl', pr.profL); $('p-fix').checked = !!pr.fix; sv('p-name', pr.name);
   } catch (e) { /* zostają domyślne */ }
 }
+// strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10 };
+function addSpin(inp, step, after) {
+  if (inp.parentElement.classList.contains('spin')) return;
+  const w = document.createElement('span'); w.className = 'spin'; inp.parentElement.insertBefore(w, inp); w.appendChild(inp);
+  const sb = document.createElement('span'); sb.className = 'sb'; sb.innerHTML = '<button type="button" tabindex="-1" title="więcej">▲</button><button type="button" tabindex="-1" title="mniej">▼</button>'; w.appendChild(sb);
+  const bump = (dir, big) => { const v = Math.round((num(inp.value) + dir * step * (big ? 10 : 1)) * 1000) / 1000; inp.value = fmt(v, 3); after(); };
+  sb.children[0].onclick = e => bump(1, e.shiftKey); sb.children[1].onclick = e => bump(-1, e.shiftKey);
+  inp.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); bump(e.key === 'ArrowUp' ? 1 : -1, e.shiftKey); } });
+}
 // ===================== start =====================
 restore();
+Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => recompute()));
 document.querySelectorAll('aside input').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => { if (i.id === 'p-name') return save(); recompute(); }));
 $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
