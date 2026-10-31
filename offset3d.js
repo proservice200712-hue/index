@@ -19,7 +19,6 @@ function load3D() {
 const CL = () => ClipperLib;
 function offJoin(polys, d, join) { const c = CL(), co = new c.ClipperOffset(2, 0.005 * S), out = new c.Paths(); co.AddPaths(polys, join, c.EndType.etClosedPolygon); co.Execute(out, d * S); return c.Clipper.CleanPolygons(out, 0.002 * S).filter(p => p.length > 2); }
 const offRound = (polys, d) => offJoin(polys, d, CL().JoinType.jtRound);
-const offSquare = (polys, d) => offJoin(polys, d, CL().JoinType.jtSquare);
 function clip(type, a, b) {
   if (!a || !a.length) return [];
   const c = CL(), cl = new c.Clipper(), sol = new c.Paths(); cl.AddPaths(a, c.PolyType.ptSubject, true); if (b && b.length) cl.AddPaths(b, c.PolyType.ptClip, true);
@@ -31,8 +30,29 @@ const circlePoly = (x, y, d, n = 48) => Array.from({ length: n }, (_, i) => ({ X
 const toPolys = reg => reg.map(p => p.map(q => [q.X / S, q.Y / S]));
 // wypukłe narożniki materiału zaokrąglone promieniem r / to samo od strony pustki
 const openR = (reg, r) => r > 0 ? offRound(offRound(reg, -r), r) : reg, closeR = (reg, r) => r > 0 ? offRound(offRound(reg, r), -r) : reg;
-// faza zakrętów kieszeni: tam, gdzie materiał wcina się w kanał; 1,7 × faza = taki sam ubytek jak faza na narożniku 90°
-function fazaKieszeni(v, f) { if (!(f > 0)) return v; const d = 1.7 * f; return inter(offSquare(offsetPolys(v, d), -d), offsetPolys(v, 0.41 * d + 0.05)); }
+// faza zakrętów kieszeni: ostry narożnik materiału wcinający się w kanał ścięty prostą, f mm wzdłuż obu ścian (jak faza we Fusion).
+// Łagodne załamania łuków (poniżej 15°) i narożniki odsunięte od kanału zostają bez zmian.
+function fazaKieszeni(v, f) {
+  if (!(f > 0)) return v;
+  const rings = v.map(ring => {
+    const P = ring.map(q => [q.X / S, q.Y / S]), n = P.length, len = P.map((p, i) => Math.hypot(P[(i + 1) % n][0] - p[0], P[(i + 1) % n][1] - p[1]));
+    const turn = P.map((p, i) => { const a = P[(i + n - 1) % n], b = P[(i + 1) % n], ux = p[0] - a[0], uy = p[1] - a[1], vx = b[0] - p[0], vy = b[1] - p[1]; return Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy); });
+    const sharp = turn.map(t => Math.abs(t) > 0.26), idx = sharp.flatMap((s, i) => s ? [i] : []);
+    if (!idx.some(i => turn[i] < 0)) return ring;     // wnętrze pustki po lewej: skręt w prawo = narożnik materiału
+    const between = (a, b) => { let s = 0; for (let k = a; k !== b; k = (k + 1) % n) s += len[k]; return s; };
+    const skip = new Uint8Array(n), cut = new Map();
+    const walk = (i, dir, leg) => { let k = i, rem = leg; for (let c = 0; c < n; c++) { const q = (k + dir + n) % n, L = dir > 0 ? len[k] : len[q]; if (L >= rem) { const t = L > 0 ? rem / L : 0; return [P[k][0] + (P[q][0] - P[k][0]) * t, P[k][1] + (P[q][1] - P[k][1]) * t]; } rem -= L; k = q; skip[k] = 1; } return P[i]; };
+    idx.forEach((i, j) => {
+      if (turn[i] >= 0) return;
+      const prev = idx[(j + idx.length - 1) % idx.length], next = idx[(j + 1) % idx.length], total = len.reduce((s, x) => s + x, 0);
+      const dPrev = idx.length > 1 ? between(prev, i) : total, dNext = idx.length > 1 ? between(i, next) : total, leg = Math.min(f, 0.45 * dPrev, 0.45 * dNext);
+      if (leg > 0.01) cut.set(i, [walk(i, -1, leg), walk(i, 1, leg)]);
+    });
+    const out = []; for (let i = 0; i < n; i++) { if (cut.has(i)) out.push(...cut.get(i)); else if (!skip[i]) out.push(P[i]); }
+    return out.map(([x, y]) => ({ X: Math.round(x * S), Y: Math.round(y * S) }));
+  });
+  return clip('ctUnion', rings);
+}
 
 function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
