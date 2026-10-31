@@ -8,6 +8,9 @@
      Wejście: DXF albo PDF z Corela (kontur bazy = pleksa). Wyjście: DXF z warstwami dla wtyczki Fusion LiteryPrzestrzenne. -->
 <script src="https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <style>
   :root { --dark: #1a202c; --dark2: #2d3748; --line: #e2e8f0; --gray: #718096; --accent: #67b437; --bg: #f4f6f8; }
   * { box-sizing: border-box; }
@@ -20,6 +23,22 @@
   .btn:hover { background: #3b475b; }
   .btn.go { background: #38a169; border-color: #2f855a; color: #fff; }
   .btn:disabled { opacity: .45; cursor: default; }
+  .btn.on { background: var(--accent); border-color: #4f8f28; color: #fff; }
+  #target { color: #9ae6b4; font-size: .82rem; font-weight: 600; }
+  #ex-back { position: fixed; inset: 0; z-index: 60; background: rgba(26,32,44,.55); display: flex; align-items: flex-start; justify-content: center; padding: 40px 12px; overflow-y: auto; }
+  #ex-box { background: #fff; width: 520px; max-width: 100%; padding: 16px 18px; font-size: .86rem; }
+  #ex-box h2 { font-size: 1.05rem; margin: 0 0 10px; }
+  #ex-box h4 { font-size: .74rem; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 14px 0 6px; }
+  #ex-box select, #ex-box input[type=text] { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; font: inherit; background: #fff; margin-bottom: 6px; }
+  .ex-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ex-kind label { display: block; border: 1.5px solid var(--line); padding: 9px 10px; cursor: pointer; }
+  .ex-kind label b { display: block; }
+  .ex-kind label small { color: var(--gray); }
+  .ex-kind label:has(input:checked) { border-color: var(--accent); background: #f0fbe8; }
+  .ex-kind input { margin-right: 5px; }
+  .ex-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  #ex-box .btn { color: #fff; }
+  #ex-files { color: var(--gray); font-size: .78rem; line-height: 1.45; }
   .sp { flex: 1; }
   main { flex: 1; display: flex; min-height: 0; }
   aside { width: 300px; flex: 0 0 300px; overflow-y: auto; background: #fff; border-right: 1px solid var(--line); padding: 10px 12px 30px; font-size: .82rem; }
@@ -40,6 +59,7 @@
   #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
   #cv.drag { cursor: grabbing; }
   #drop { position: absolute; inset: 20px; border: 3px dashed #a0aec0; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--gray); font-size: 1.05rem; pointer-events: none; }
+  .hidden { display: none !important; }
   #drop.hidden { display: none; }
   #info { position: absolute; left: 10px; bottom: 10px; background: rgba(255,255,255,.94); border: 1px solid var(--line); padding: 6px 10px; font-size: .78rem; max-width: 70%; }
   #selbox { position: absolute; right: 10px; top: 10px; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.12); padding: 8px 10px; font-size: .8rem; min-width: 210px; }
@@ -59,14 +79,15 @@
 <body>
 <header>
   <h1>⌖ Offset Wizard</h1>
-  <button class="btn" id="b-open" title="Wczytaj kontur bazy (pleksy) — DXF albo PDF wyeksportowany z Corela">📂 Wczytaj DXF / PDF</button>
+  <button class="btn" id="b-open" title="Wczytaj kontur bazy (pleksy) — DXF albo PDF z Corela; wczytany komplet (wcześniejszy eksport z warstwami) można dalej poprawiać">📂 Wczytaj DXF / PDF</button>
   <input type="file" id="file" accept=".dxf,.pdf" hidden>
   <span class="fn" id="fname">—</span>
+  <span id="target"></span>
   <span class="sp"></span>
   <button class="btn" id="b-undo" title="Cofnij (Ctrl+Z)">⟲ Cofnij</button>
   <button class="btn" id="b-auto" title="Otwory i profile ułożone od nowa automatycznie (ręczne zmiany znikną)">↺ Ułóż automatycznie</button>
   <button class="btn" id="b-fit" title="Dopasuj widok (F)">⤢ Dopasuj</button>
-  <button class="btn go" id="b-dxf" title="Eksport DXF dla Fusion (warstwy jak z Corela, środek kompletu w 0,0) + drugi plik: szablon z profilem, otworami i wszystkimi konturami" disabled>⬇ Eksport DXF</button>
+  <button class="btn go" id="b-dxf" title="Eksport: DXF dla Fusion (warstwy jak z Corela, środek kompletu w 0,0) + szablon PDF; zapis przy elemencie w INDEX" disabled>⬇ Eksport</button>
 </header>
 <main>
   <aside>
@@ -78,7 +99,8 @@
     <div class="fld"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
     <div class="fld"><span>Offset podstawy B</span><input type="text" inputmode="decimal" id="p-B" value="0,1"></div>
     <div class="vals" id="vals"></div>
-    <h3>Otwory na przewody (fi <span id="d-otw">4,5</span>)</h3>
+    <h3>Otwory na przewody</h3>
+    <div class="fld"><span>Średnica otworu</span><input type="text" inputmode="decimal" id="p-dotw" value="4,5"></div>
     <div class="row"><label><input type="radio" name="gdzie" value="1"> góra</label><label><input type="radio" name="gdzie" value="2" checked> środek</label><label><input type="radio" name="gdzie" value="3"> dół</label><label><input type="radio" name="gdzie" value="0"> bez</label></div>
     <div class="row"><label><input type="radio" name="wielk" value="2" checked> duże litery — od kieszeni</label></div>
     <div class="row"><label><input type="radio" name="wielk" value="1"> małe — od wewn. podstawy</label></div>
@@ -87,16 +109,27 @@
     <h3>Profil montażowy</h3>
     <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
     <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
-    <div class="row"><label><input type="checkbox" id="p-fix"> otwory montażowe FIX fi 2,5 — po przekątnej w profilu</label></div>
+    <div class="row"><button type="button" class="btn" id="b-pin" title="Włączone: przesuwasz profil — otwory na przewody jadą razem z nim. Wyłączone: zostają na swojej wysokości.">📌 Przypnij do profila</button></div>
+    <div class="fld"><span>Wysokość = grubość profilu <span class="hint">(wymiar widać przy profilu)</span></span><span></span></div>
+    <div class="row"><label><input type="checkbox" id="p-fix"> otwory montażowe FIX — po przekątnej w profilu</label></div>
+    <div class="fld"><span>Średnica FIX</span><input type="text" inputmode="decimal" id="p-dfix" value="2,5"></div>
+    <div class="fld"><span>Łeb śruby <span class="hint">(pomocniczy: na szablonie, nie w DXF do Fusion)</span></span><input type="text" inputmode="decimal" id="p-dleb" value="7"></div>
     <div class="fld"><span>Liczba FIX na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
     <div class="hint">Z profilem otwory na przewody liczą się od górnej krawędzi profilu (+ przesunięcie).</div>
+    <h3>Podział na stół drukarki</h3>
+    <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
+    <div class="fld"><span>Stół X [mm]</span><input type="text" inputmode="decimal" id="p-stx" value="320"></div>
+    <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
+    <div class="vals" id="podz-info"></div>
+    <h3>Pasek LED</h3>
+    <div class="vals" id="led-info">—</div>
     <h3>Nazwa (do pliku)</h3>
     <div class="fld"><span>Nazwa elementu</span><input type="text" id="p-name" placeholder="np. DS"></div>
     <h3>Warstwy</h3>
     <div id="lays"></div>
     <div class="warn" id="warn"></div>
     <h3>Mysz</h3>
-    <div class="hint">kółko = zoom · przeciągnięcie tła = przesuwanie widoku · przeciągnij otwór / profil = przesuń (zostaje ręcznie) · dwuklik = nowy otwór na przewód (Shift = montażowy fi 2) · Delete = usuń zaznaczone · ↺ = ułóż od nowa</div>
+    <div class="hint">kółko = zoom · przeciągnięcie tła = przesuwanie widoku · przeciągnij otwór / profil / linię podziału = przesuń (zostaje ręcznie) · dwuklik = nowy otwór na przewód (Shift = FIX, Alt = linia podziału pionowa, Alt+Shift = pozioma) · Delete = usuń zaznaczone · ↺ = ułóż od nowa</div>
   </aside>
   <div id="stage">
     <canvas id="cv"></canvas>
@@ -105,6 +138,24 @@
     <div id="info"></div>
   </div>
 </main>
+<div id="ex-back" class="hidden"><div id="ex-box">
+  <h2>⬇ Eksport</h2>
+  <h4>Szablon (wybierz)</h4>
+  <div class="ex-kind">
+    <label><input type="radio" name="ex-kind" value="papier"><b>Z papieru</b><small>PDF 1:1 do plotera: napisy, celowniki na otworach, wymiar profilu, podziałka</small></label>
+    <label><input type="radio" name="ex-kind" value="cnc"><b>CNC</b><small>PDF 1:1 z samych konturów (cienkie linie, bez napisów) + DXF z warstwami</small></label>
+  </div>
+  <div id="ex-target">
+    <h4>Którego stoiska dotyczy</h4>
+    <input type="text" id="ex-q" placeholder="szukaj stoiska lub targów…">
+    <select id="ex-p"></select>
+    <div id="ex-e-box" class="hidden"><h4>Element</h4><select id="ex-e"></select></div>
+  </div>
+  <div class="hint" id="ex-note"></div>
+  <h4>Pliki</h4>
+  <div id="ex-files"></div>
+  <div class="ex-foot"><button class="btn" id="ex-no">Anuluj</button><button class="btn go" id="ex-go" disabled>⬇ Eksportuj</button></div>
+</div></div>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -114,14 +165,14 @@ const num = s => { const v = parseFloat(String(s).replace(',', '.')); return Num
 const toast = (t, ms = 3500) => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); };
 // --- stałe modelu jak w makrze Corela (Offsety_dla_Fusion.bas) ---
 const DYSZA = { 4: { out: 0.8, in: 1.2, kie: 2.0 }, 6: { out: 1.2, in: 1.2, kie: 2.4 } };
-const OTWOR_MM = 4.5, OTWOR_MONT_MM = 2.5, PROFIL_ZAPAS = 10;
+const PROFIL_ZAPAS = 10;
 const FIX_OD_KRAW = 5, FIX_SZER_3 = 40;               // FIX: rzędy 5 mm od góry / dołu profilu; litera szersza niż 40 mm — 3 otwory
 const LED_W = 6;                                      // pasek LED 6 mm na środku kanału (kieszeni)
 const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
   ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
-  ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4]];
+  ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4], ['Podzial', '#dd6b20', 2]];
 const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
-const W = { base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true }, holes: [], rails: [], sel: null, view: null, undo: [], warn: [] };
+const W = { base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: true }, holes: [], rails: [], cutG: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, frozen: false, cutManual: false, target: null };
 let uid = 1;
 
 // ===================== geometria (Clipper) =====================
@@ -167,7 +218,8 @@ function rowsOf(ls) {
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), wielk: Number(r('wielk')),
-    przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim() };
+    przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
+    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)) };
 }
 function model(pr) {
   const d = DYSZA[pr.dysza] || DYSZA[6], k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
@@ -192,6 +244,7 @@ function refPolys() {
 }
 // ===================== profile i otwory (jak RysujProfileAuto / RozmiescOtwory) =====================
 function autoRails() {
+  if (W.frozen) return;       // komplet wczytany z pliku: profile i otwory jak w pliku, do „Ułóż automatycznie”
   const pr = W.pr; W.rails = W.rails.filter(r => r.manual);
   if (!(pr.profG > 0) || !W.base) { W.rails = []; return; }
   const src = ((W.lay.Klosz || []).slice().sort((a, b) => b.d - a.d)[0] || { polys: W.base }).polys;   // najszerszy kontur klosza
@@ -272,17 +325,18 @@ function computeLED() {
   // oś kanału = lokalne maksimum odległości od brzegu (okno ±4 mm); pasek = WSZYSTKO do 3 mm od osi — zawsze pełne 6 mm, także gdy kanał węższy (wtedy wychodzi poza kontur)
   const AX = new Uint8Array(N); for (let k = 0; k < N; k++) if (ins[k] && Dm[k] >= 1 && Dm[k] >= M[k] - Math.max(0.35, res * 0.75)) AX[k] = 1;
   const Da = edt2(AX, nx, ny), L = new Uint8Array(N); for (let k = 0; k < N; k++) if (Math.sqrt(Da[k]) * res <= LED_W / 2 - res / 2) L[k] = 1;
+  let ledCells = 0; for (let k = 0; k < N; k++) ledCells += L[k];     // metry bieżące = pole paska / szerokość
   const Ds = edt2(L, nx, ny), img = document.createElement('canvas'); img.width = nx; img.height = ny;
   const ig = img.getContext('2d'), id = ig.createImageData(nx, ny);
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i; if (L[k]) { const p = ((ny - 1 - j) * nx + i) * 4; id.data[p] = 255; id.data[p + 1] = 205; id.data[p + 2] = 0; id.data[p + 3] = 120; } }
   ig.putImageData(id, 0, 0);
-  W.led = { key, x0, y0, res, nx, ny, img, dist: (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); if (i < 0 || j < 0 || i >= nx || j >= ny) return Infinity; return Math.sqrt(Ds[j * nx + i]) * res; } };
+  W.led = { key, x0, y0, res, nx, ny, img, m: ledCells * res * res / LED_W / 1000, dist: (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); if (i < 0 || j < 0 || i >= nx || j >= ny) return Infinity; return Math.sqrt(Ds[j * nx + i]) * res; } };
 }
 const ledClear = (x, y, d) => !W.led || W.led.dist(x, y) >= d / 2 + 0.3;   // otwór nie wchodzi na pasek LED (dist = odległość od paska)
 // otwory montażowe FIX: na każdą literę 2 (szersza niż 40 mm — 3) albo tyle, ile wybrano, w obrębie profilu, po przekątnej:
 // rzędy 5 mm od górnej i dolnej krawędzi profilu (z dala od paska LED na środku), naprzemiennie góra / dół
 function placeFix(rails) {
-  const ref = refPolys(), d = OTWOR_MONT_MM; if (!ref) return [];
+  const ref = refPolys(), d = W.pr.dFix; if (!ref) return [];
   let srodki = null; for (const lz of [W.pr.luz, 0.5, 0.25, 0]) { const r = offsetPolys(ref.polys, -(d / 2 + lz)); if (r.length) { srodki = r; break; } }
   if (!srodki) { W.warn.push(`${ref.name} za wąski na otwory montażowe fi ${fmt(d)}`); return []; }
   const ls = letters(ref.polys), out = [];
@@ -315,19 +369,128 @@ function placeFix(rails) {
   return out;
 }
 function autoHoles() {
+  if (W.frozen) return;
   const pr = W.pr; W.holes = W.holes.filter(h => h.manual);
   if (!W.base) return;
   const railY = W.rails.length ? W.rails.slice().sort((a, b) => b.yc - a.yc) : null;
-  if (pr.gdzie > 0) W.holes.push(...placeHoles('otw', OTWOR_MM, railY ? railY.map(r => r.yc + r.h / 2 + pr.przesun) : null));
+  // otwory na przewody: przypięte liczą się od profilu; nieprzypięte zostają na wysokości sprzed przesunięcia profilu (holeY)
+  if (pr.gdzie > 0) W.holes.push(...placeHoles('otw', pr.dOtw, railY ? railY.map(r => pr.pin || r.holeY == null ? r.yc + r.h / 2 + pr.przesun : r.holeY) : null));
   if (pr.fix && railY) W.holes.push(...placeFix(railY));
-  if (pr.fix && !railY) W.warn.push(`otwory montażowe fi ${fmt(OTWOR_MONT_MM)} — potrzebny profil (grubość > 0)`);
+  if (pr.fix && !railY) W.warn.push(`otwory montażowe fi ${fmt(pr.dFix)} — potrzebny profil (grubość > 0)`);
 }
+// przesuwany profil: ręczne FIX jadą zawsze, ręczne otwory na przewody — gdy przypięte
+const nearestRail = h => W.rails.slice().sort((a, b) => Math.abs(a.yc - h.y) - Math.abs(b.yc - h.y))[0];
+const railFollowers = r => W.holes.filter(h => h.manual && h.x >= r.x0 - 1 && h.x <= r.x1 + 1 && nearestRail(h) === r && (h.kind === 'fix' || W.pr.pin));
+const railHold = r => { if (!W.pr.pin && r.holeY == null) r.holeY = r.yc + r.h / 2 + W.pr.przesun; };
+const shiftFollowers = (list, dc, dt) => list.forEach(h => { h.y += h.kind === 'fix' ? dc : dt; });
+function pinUI() { $('b-pin').classList.toggle('on', W.pin); }
 function recompute(keepView = true) {
-  computeLayers(); autoRails(); autoHoles(); renderSide(); draw(); if (!keepView) fitView(); save(); scheduleLED();
+  const old = W.pr;
+  computeLayers();
+  if (old) {
+    W.holes.forEach(h => { if (h.manual && h.kind === 'otw' && h.d === old.dOtw) h.d = W.pr.dOtw; if (h.manual && h.kind === 'fix' && h.d === old.dFix) h.d = W.pr.dFix; });
+    if (old.przesun !== W.pr.przesun) W.rails.forEach(r => { delete r.holeY; });
+  }
+  autoRails(); autoHoles(); autoCuts(); refreshBeds(); renderSide(); draw(); if (!keepView) fitView(); save(); scheduleLED();
+}
+// ===================== podział liter większych niż stół drukarki (jak D_Podzial w makrze Corela) =====================
+// Część leży na stole pod dowolnym kątem, więc szukamy kąta dającego najmniej części; przy tej samej liczbie części
+// wygrywa cięcie przez najmniej materiału (z dala od otworów), a przy podobnym — kąt prosty.
+// Linie idą na warstwę Podzial w DXF: wtyczka Fusion tnie po nich bryły (opcja „Tnij wzdłuż linii”).
+const CUT_ZAPAS = 2;
+const bedSrc = () => ((W.lay.Klosz || []).slice().sort((a, b) => b.d - a.d)[0] || { polys: W.base }).polys;   // najszerszy kontur klosza
+const toUV = (g, x, y) => { const c = Math.cos(g.a * Math.PI / 180), s = Math.sin(g.a * Math.PI / 180), dx = x - g.cx, dy = y - g.cy; return [dx * c + dy * s, -dx * s + dy * c]; };
+const fromUV = (g, u, v) => { const c = Math.cos(g.a * Math.PI / 180), s = Math.sin(g.a * Math.PI / 180); return [g.cx + u * c - v * s, g.cy + u * s + v * c]; };
+const nParts = (len, bed) => len <= bed ? 1 : Math.floor((len - 0.001) / bed) + 1;
+function uvBox(pts, a, cx, cy) { const c = Math.cos(a * Math.PI / 180), s = Math.sin(a * Math.PI / 180); let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity; for (const p of pts) { const dx = p[0] - cx, dy = p[1] - cy, u = dx * c + dy * s, v = -dx * s + dy * c; if (u < u0) u0 = u; if (u > u1) u1 = u; if (v < v0) v0 = v; if (v > v1) v1 = v; } return { u0, u1, v0, v1 }; }
+// najlepsze miejsca cięć wzdłuż jednej osi (programowanie dynamiczne): każda część ≤ stół, koszt = długość cięcia przez materiał + kara za otwór na linii
+function bestCuts(rings, axis, lo, hi, n, bed, holes) {
+  if (n < 2) return { pos: [], cost: 0 };
+  const A = axis === 'x' ? 0 : 1, B = 1 - A, step = Math.max(1, (hi - lo) / 400), m = Math.round((hi - lo) / step), P = [], cost = [];
+  for (let i = 0; i <= m; i++) {
+    const p = lo + (hi - lo) * i / m; P.push(p); const xs = [];
+    rings.forEach(r => { for (let k = 0; k < r.length; k++) { const a = r[k], b = r[(k + 1) % r.length]; if ((a[A] <= p) !== (b[A] <= p)) xs.push(a[B] + (p - a[A]) / (b[A] - a[A]) * (b[B] - a[B])); } });
+    xs.sort((a, b) => a - b); let c = 0; for (let k = 0; k + 1 < xs.length; k += 2) c += xs[k + 1] - xs[k];
+    holes.forEach(h => { if (Math.abs(h[A] - p) < h[2] / 2 + 1.5) c += 1000; });
+    cost.push(c);
+  }
+  const minP = Math.min(25, (hi - lo) / n / 2);
+  let dp = P.map((p, i) => p - lo <= bed && p - lo >= minP ? cost[i] : Infinity); const back = [];
+  for (let k = 1; k < n - 1; k++) {
+    const nd = P.map(() => Infinity), bk = P.map(() => -1);
+    for (let i = 0; i <= m; i++) for (let j = 0; j < i; j++) { const d = P[i] - P[j]; if (d <= bed && d >= minP && dp[j] + cost[i] < nd[i]) { nd[i] = dp[j] + cost[i]; bk[i] = j; } }
+    dp = nd; back.push(bk);
+  }
+  let best = -1, bc = Infinity; for (let i = 0; i <= m; i++) { const d = hi - P[i]; if (d <= bed && d >= minP && dp[i] < bc) { bc = dp[i]; best = i; } }
+  if (best < 0) return { pos: Array.from({ length: n - 1 }, (_, i) => lo + (hi - lo) * (i + 1) / n), cost: 1e6 };   // równe części, gdy nie ma lepszego ułożenia
+  const pos = [P[best]]; for (let k = back.length - 1, i = best; k >= 0; k--) { i = back[k][i]; pos.unshift(P[i]); }
+  return { pos, cost: bc };
+}
+function autoCuts() {
+  if (W.cutManual) return;
+  W.cutG = []; const pr = W.pr; if (!pr.podz || !W.base) return;
+  letters(bedSrc()).forEach((l, li) => {
+    if (l.bb.x1 - l.bb.x0 <= pr.stX && l.bb.y1 - l.bb.y0 <= pr.stY) return;     // mieści się wprost
+    const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2, pts = simplifyRing(fromCl(l.p));
+    const partsAt = a => { const b = uvBox(pts, a, cx, cy); return { a, b, nx: nParts(b.u1 - b.u0, pr.stX), ny: nParts(b.v1 - b.v0, pr.stY) }; };
+    let cand = []; for (let a = 0; a < 180; a += 5) cand.push(partsAt(a));
+    const min0 = Math.min(...cand.map(q => q.nx * q.ny)), around = cand.filter(q => q.nx * q.ny === min0).map(q => q.a);
+    around.forEach(a0 => { for (let a = Math.max(0, a0 - 4); a <= Math.min(179, a0 + 4); a++) if (a % 5) cand.push(partsAt(a)); });
+    const min1 = Math.min(...cand.map(q => q.nx * q.ny)); cand = cand.filter(q => q.nx * q.ny === min1);
+    const prost = q => q.a % 90 === 0;
+    if (min1 === 1) { const q = cand.find(prost) || cand[0]; W.cutG.push({ id: uid++, li, cx, cy, a: q.a, xs: [], ys: [], u0: q.b.u0, u1: q.b.u1, v0: q.b.v0, v1: q.b.v1 }); return; }   // zmieści się pod kątem — bez cięcia
+    // najwyżej kilka kątów do policzenia kosztu: proste + rozłożone po liście
+    const pick = cand.filter(prost).concat(cand.filter(q => !prost(q)).filter((_, i, a) => i % Math.max(1, Math.ceil(a.length / 6)) === 0));
+    const uvRings = a => [l.p].concat(l.holes).map(p => { const g = { a, cx, cy }; return simplifyRing(fromCl(p)).map(q => toUV(g, q[0], q[1])); });
+    let best = null;
+    pick.forEach(q => {
+      const g = { a: q.a, cx, cy }, rings = uvRings(q.a), hs = W.holes.filter(h => h.x >= l.bb.x0 && h.x <= l.bb.x1 && h.y >= l.bb.y0 && h.y <= l.bb.y1).map(h => { const [u, v] = toUV(g, h.x, h.y); return [u, v, h.d]; });
+      const X = bestCuts(rings, 'x', q.b.u0, q.b.u1, q.nx, pr.stX, hs), Y = bestCuts(rings, 'y', q.b.v0, q.b.v1, q.ny, pr.stY, hs), c = (X.cost + Y.cost) * (prost(q) ? 1 : 1.15);
+      if (!best || c < best.c) best = { c, q, X, Y };
+    });
+    const q = best.q; W.cutG.push({ id: uid++, li, cx, cy, a: q.a, xs: best.X.pos, ys: best.Y.pos, u0: q.b.u0, u1: q.b.u1, v0: q.b.v0, v1: q.b.v1 });
+  });
+}
+// odcinki linii podziału w układzie strony
+function cutSegs() {
+  const out = [];
+  W.cutG.forEach(g => {
+    g.xs.forEach((p, i) => out.push({ g, axis: 'x', i, a: fromUV(g, p, g.v0 - CUT_ZAPAS), b: fromUV(g, p, g.v1 + CUT_ZAPAS) }));
+    g.ys.forEach((p, i) => out.push({ g, axis: 'y', i, a: fromUV(g, g.u0 - CUT_ZAPAS, p), b: fromUV(g, g.u1 + CUT_ZAPAS, p) }));
+  });
+  return out;
+}
+// prostokąty stołu: po jednym na każdą część; bez żadnych cięć — jeden na największej literze (do porównania)
+function refreshBeds() {
+  W.beds = []; W.cutWarn = []; const pr = W.pr; $('podz-info').textContent = ''; if (!pr || !pr.podz || !W.base) return;
+  const ls = letters(bedSrc()); let parts = 0, cutL = 0;
+  const bedRect = (g, u0, u1, v0, v1) => {
+    const w = u1 - u0, h = v1 - v0, swap = !(w <= pr.stX && h <= pr.stY) && h <= pr.stX && w <= pr.stY, ok = (w <= pr.stX + 0.01 && h <= pr.stY + 0.01) || swap;
+    const bw = swap ? pr.stY : pr.stX, bh = swap ? pr.stX : pr.stY, cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+    W.beds.push({ ok, w, h, pts: [[cu - bw / 2, cv - bh / 2], [cu + bw / 2, cv - bh / 2], [cu + bw / 2, cv + bh / 2], [cu - bw / 2, cv + bh / 2]].map(q => fromUV(g, q[0], q[1])) });
+    if (!ok) W.cutWarn.push(`część ${fmt(w, 1)} × ${fmt(h, 1)} mm nie mieści się na stole ${fmt(pr.stX, 0)} × ${fmt(pr.stY, 0)} mm`);
+  };
+  W.cutG.forEach(g => {
+    const l = ls[g.li]; if (!l) return;
+    const K = 1000, uv = [l.p].concat(l.holes).map(p => fromCl(p).map(q => { const [u, v] = toUV(g, q[0], q[1]); return { X: Math.round(u * K), Y: Math.round(v * K) }; }));
+    const eu = [g.u0 - 1].concat(g.xs.slice().sort((a, b) => a - b), g.u1 + 1), ev = [g.v0 - 1].concat(g.ys.slice().sort((a, b) => a - b), g.v1 + 1);
+    if (g.xs.length || g.ys.length) cutL++;
+    for (let i = 0; i + 1 < eu.length; i++) for (let j = 0; j + 1 < ev.length; j++) {
+      const c = new C.Clipper(), sol = new C.Paths(), rect = [[eu[i], ev[j]], [eu[i + 1], ev[j]], [eu[i + 1], ev[j + 1]], [eu[i], ev[j + 1]]].map(q => ({ X: Math.round(q[0] * K), Y: Math.round(q[1] * K) }));
+      c.AddPaths(uv, C.PolyType.ptSubject, true); c.AddPath(rect, C.PolyType.ptClip, true); c.Execute(C.ClipType.ctIntersection, sol, C.PolyFillType.pftEvenOdd, C.PolyFillType.pftNonZero);
+      if (!sol.length) continue;
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity; sol.forEach(p => p.forEach(q => { u0 = Math.min(u0, q.X / K); u1 = Math.max(u1, q.X / K); v0 = Math.min(v0, q.Y / K); v1 = Math.max(v1, q.Y / K); }));
+      parts++; bedRect(g, u0, u1, v0, v1);
+    }
+  });
+  if (!W.beds.length && ls.length) { const l = ls.slice().sort((a, b) => Math.max(b.bb.x1 - b.bb.x0, b.bb.y1 - b.bb.y0) - Math.max(a.bb.x1 - a.bb.x0, a.bb.y1 - a.bb.y0))[0]; const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2, w = l.bb.x1 - l.bb.x0, h = l.bb.y1 - l.bb.y0; bedRect({ a: 0, cx, cy }, -w / 2, w / 2, -h / 2, h / 2); }
+  // wtyczka Fusion tnie każdą bryłę, której prostokąt obejmujący dotyka linii — ostrzeżenie, gdy linia zahacza o sąsiednią literę
+  cutSegs().forEach(c => { const x0 = Math.min(c.a[0], c.b[0]), x1 = Math.max(c.a[0], c.b[0]), y0 = Math.min(c.a[1], c.b[1]), y1 = Math.max(c.a[1], c.b[1]); if (ls.some((l, i) => i !== c.g.li && x0 <= l.bb.x1 && x1 >= l.bb.x0 && y0 <= l.bb.y1 && y1 >= l.bb.y0)) W.cutWarn.push('linia podziału zahacza o prostokąt sąsiedniej litery — Fusion potnie też ją; przesuń linię'); });
+  $('podz-info').innerHTML = cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : 'liter'}, razem ${parts} części; linie idą do DXF (warstwa Podzial).<br><span class="hint">We Fusion zaznacz „Tnij wzdłuż linii”.</span>` : 'Wszystkie litery mieszczą się na stole.';
 }
 // pasek LED liczony w tle (ok. 1–2 s przy dużym napisie), po chwili bez zmian; potem otwory FIX jeszcze raz (omijają pasek)
 let ledTmr = 0;
-function scheduleLED() { clearTimeout(ledTmr); ledTmr = setTimeout(() => { const k0 = W.led && W.led.key; computeLED(); if (W.led && W.led.key !== k0) { autoHoles(); renderSide(); draw(); } }, 350); }
+function scheduleLED() { clearTimeout(ledTmr); ledTmr = setTimeout(() => { const k0 = W.led && W.led.key; computeLED(); if (W.led && W.led.key !== k0) { autoHoles(); autoCuts(); refreshBeds(); renderSide(); draw(); } }, 350); }
 // ===================== wczytywanie DXF / PDF =====================
 function parseDXF(txt) {
   const L = txt.split(/\r?\n/), pr = [];
@@ -341,11 +504,13 @@ function parseDXF(txt) {
     const [c, v] = pr[i];
     if (c === 0) { if (cur) ents.push(cur); if (v === 'ENDSEC') { cur = null; break; } cur = { t: v, g: [] }; } else if (cur) cur.g.push([c, v]);
   }
+  const metaTxt = pr.filter(q => q[0] === 999 && q[1].startsWith('OW:')).map(q => q[1].slice(3)).join('');
   const all = (e, c) => e.g.filter(q => q[0] === c).map(q => parseFloat(q[1])), one = (e, c, d = 0) => { const q = e.g.find(z => z[0] === c); return q ? parseFloat(q[1]) : d; }, lay = e => (e.g.find(z => z[0] === 8) || [0, '0'])[1];
-  const closed = [], open = [];
+  const closed = [], open = [], cutRaw = [];
   const arcPts = (cx, cy, r, a0, a1) => { if (a1 < a0) a1 += Math.PI * 2; const n = Math.max(8, Math.ceil((a1 - a0) / (Math.PI * 2) * 96)); return Array.from({ length: n + 1 }, (_, k) => { const a = a0 + (a1 - a0) * k / n; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }); };
   const bulgeSeg = (p, q, b) => { if (!b) return [q]; const th = 4 * Math.atan(b), dx = q[0] - p[0], dy = q[1] - p[1], ch = Math.hypot(dx, dy), r = ch / (2 * Math.sin(th / 2)), mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, h = r * Math.cos(th / 2), nx = -dy / ch, ny = dx / ch, cx = mx + nx * h, cy = my + ny * h; const n = Math.max(4, Math.ceil(Math.abs(th) / (Math.PI * 2) * 96)), a0 = Math.atan2(p[1] - cy, p[0] - cx); return Array.from({ length: n }, (_, k) => { const a = a0 + th * (k + 1) / n; return [cx + Math.abs(r) * Math.cos(a), cy + Math.abs(r) * Math.sin(a)]; }); };
-  const push = (pts, isClosed, layer) => { if (pts.length < 2) return; (isClosed ? closed : open).push({ pts, layer }); };
+  // linie podziału osobno: odcinek od końca do końca (z Corela przychodzą też jako splajny)
+  const push = (pts, isClosed, layer) => { if (pts.length < 2) return; if (/podzial/i.test(layer)) { cutRaw.push([pts[0], pts[pts.length - 1]].map(([x, y]) => [x * sc, y * sc])); return; } (isClosed ? closed : open).push({ pts, layer }); };
   for (let k = 0; k < ents.length; k++) {
     const e = ents[k], ly = lay(e);
     if (e.t === 'LWPOLYLINE') {
@@ -395,7 +560,51 @@ function parseDXF(txt) {
     const a = ch.pts[0], b = ch.pts[ch.pts.length - 1];
     if (ch.pts.length > 2 && Math.hypot(a[0] - b[0], a[1] - b[1]) < tol) closed.push(ch);
   }
-  return closed.map(c => ({ pts: c.pts.map(([x, y]) => [x * sc, y * sc]), layer: c.layer }));
+  const res = closed.map(c => ({ pts: c.pts.map(([x, y]) => [x * sc, y * sc]), layer: c.layer }));
+  res.cuts = cutRaw; try { res.meta = metaTxt ? JSON.parse(metaTxt) : null; } catch (e) { res.meta = null; }
+  return res;
+}
+// wczytany komplet (eksport z Wizarda albo z Corela) da się dalej poprawiać: baza, ustawienia, otwory, profile i linie podziału wracają z pliku
+const KIT_LAYS = ['pleksa', 'klosz', 'podstawa', 'kieszen'], lowLay = p => String(p.layer || '').toLowerCase();
+const isKitFile = paths => KIT_LAYS.filter(k => paths.some(p => lowLay(p) === k)).length >= 2;
+function kitBasePaths(paths, meta) {
+  const pl = paths.filter(p => lowLay(p) === 'pleksa'); if (pl.length) return pl;
+  const kl = paths.filter(p => lowLay(p) === 'klosz'); if (meta && meta.n0 > 0) return kl.slice(0, meta.n0);
+  // Sidelit z Corela: baza (offset 0) jest i w Kloszu, i w Podstawie
+  const bb = p => bboxOf([p.pts]), pod = paths.filter(p => lowLay(p) === 'podstawa').map(bb);
+  const same = kl.filter(p => { const b = bb(p); return pod.some(q => Math.abs(q.x0 - b.x0) + Math.abs(q.x1 - b.x1) + Math.abs(q.y0 - b.y0) + Math.abs(q.y1 - b.y1) < 0.05); });
+  return same.length ? same : kl;
+}
+// ustawienia odczytane z samych konturów, gdy plik ich nie niesie (np. DXF z Corela)
+function inferKit(paths, basePaths) {
+  const box = p => bboxOf([p.pts]), wid = b => b.x1 - b.x0, big = basePaths.map(box).sort((a, b) => wid(b) - wid(a))[0]; if (!big) return null;
+  const cx = (big.x0 + big.x1) / 2, cy = (big.y0 + big.y1) / 2, w0 = wid(big);
+  const ds = n => [...new Set(paths.filter(p => lowLay(p) === n).map(box).filter(b => Math.abs((b.x0 + b.x1) / 2 - cx) < 1.5 && Math.abs((b.y0 + b.y1) / 2 - cy) < 1.5 && Math.abs(wid(b) - w0) / 2 < 8).map(b => Math.round((wid(b) - w0) / 2 * 100) / 100))].sort((a, b) => a - b);
+  const kl = ds('klosz'), pod = ds('podstawa'); if (kl.length < 2 || !pod.length) return null;
+  const k3 = kl[0], k2 = kl[kl.length - 1], mid = kl.slice(1, -1).filter(d => Math.abs(d) > 0.001), k1 = mid.length ? mid[mid.length - 1] : k2 - 1.2;
+  return { typ: paths.some(p => lowLay(p) === 'pleksa') ? 'F' : 'S', dysza: k2 - k1 < 1 ? 4 : 6, P: k1, B: Math.round((k3 - pod[0]) * 100) / 100 };
+}
+function readKit(paths, basePaths, dx, dy) {
+  const pr = paths.meta || inferKit(paths, basePaths) || {}, box = p => bboxOf([p.pts]), holes = [], rails = [];
+  setParams(pr);
+  paths.filter(p => lowLay(p) === 'otwory' || lowLay(p) === 'fix').forEach(p => { const b = box(p), fix = lowLay(p) === 'fix'; holes.push({ id: uid++, kind: fix ? 'fix' : 'otw', d: Math.round((b.x1 - b.x0) * 100) / 100, x: (b.x0 + b.x1) / 2 + dx, y: (b.y0 + b.y1) / 2 + dy, manual: true }); });
+  paths.filter(p => lowLay(p) === 'profil').forEach(p => { const b = box(p); rails.push({ id: uid++, x0: b.x0 + dx, x1: b.x1 + dx, yc: (b.y0 + b.y1) / 2 + dy, h: b.y1 - b.y0, manual: true, manualH: true }); });
+  W.holes = holes; W.rails = rails; W.frozen = true; W.cutManual = true;
+  if (holes.length) { const o = holes.find(h => h.kind === 'otw'), f = holes.find(h => h.kind === 'fix'); if (o) $('p-dotw').value = fmt(o.d, 3); if (f) { $('p-dfix').value = fmt(f.d, 3); $('p-fix').checked = true; } }
+  $('p-pg').value = rails.length ? fmt(rails[0].h, 3) : '0';
+  return (paths.cuts || []).map(c => c.map(([x, y]) => [x + dx, y + dy]));
+}
+// linie podziału z pliku → grupy per litera (układ obrócony wg kąta linii)
+function cutsFromLines(lines) {
+  const ls = letters(bedSrc()); W.cutG = [];
+  lines.forEach(([a, b]) => {
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, li = ls.findIndex(l => mx >= l.bb.x0 - 3 && mx <= l.bb.x1 + 3 && my >= l.bb.y0 - 3 && my <= l.bb.y1 + 3); if (li < 0) return;
+    const l = ls[li], th = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI + 360) % 180, ang = Math.round(th % 90 * 100) / 100, cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2;
+    let g = W.cutG.find(q => q.li === li && Math.abs(q.a - ang) < 1);
+    if (!g) { const bx = uvBox(fromCl(l.p), ang, cx, cy); g = { id: uid++, li, cx, cy, a: ang, xs: [], ys: [], ...bx }; W.cutG.push(g); }
+    const [u, v] = toUV(g, mx, my), along = Math.abs(((th - g.a) % 180 + 180) % 180) < 45 || Math.abs(((th - g.a) % 180 + 180) % 180) > 135;   // linia wzdłuż osi u = cięcie poziome w układzie grupy
+    if (along) g.ys.push(v); else g.xs.push(u);
+  });
 }
 async function parsePDF(buf) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -430,19 +639,21 @@ async function loadFile(f) {
   try {
     const isPdf = /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
     let paths = isPdf ? await parsePDF(await f.arrayBuffer()) : parseDXF(await f.text());
-    // DXF z warstwami kompletu (np. wcześniejszy eksport): bazą jest Pleksa (albo najmniejszy kontur Klosza w Sidelit)
-    const lays = [...new Set(paths.map(p => p.layer))];
-    if (lays.includes('Pleksa')) paths = paths.filter(p => p.layer === 'Pleksa');
+    // DXF z warstwami kompletu (wcześniejszy eksport): bazą jest Pleksa (albo kontur 0 Klosza w Sidelit), reszta wraca do edycji
+    const kit = !isPdf && isKitFile(paths), source = paths, basePaths = kit ? kitBasePaths(paths, paths.meta) : paths;
+    paths = basePaths;
     if (!paths.length) return toast('Nie znalazłem zamkniętych konturów — w Corelu zamień napis na krzywe i wyeksportuj sam kontur bazy');
     let base = C.Clipper.SimplifyPolygons(paths.map(p => toCl(p.pts)), C.PolyFillType.pftEvenOdd);
     base = C.Clipper.CleanPolygons(base, 0.002 * S).filter(p => p.length > 2 && Math.abs(area(p)) > 0.01);
     if (!base.length) return toast('Kontury są puste albo otwarte');
     const bb = bboxOf(base), dx = -(bb.x0 + bb.x1) / 2, dy = -(bb.y0 + bb.y1) / 2;      // środek bazy w (0,0)
     W.base = base.map(p => p.map(q => ({ X: q.X + Math.round(dx * S), Y: q.Y + Math.round(dy * S) })));
-    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null;
+    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.cutG = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null; W.frozen = false; W.cutManual = false;
+    const kitLines = kit ? readKit(source, basePaths, dx, dy) : null;
     $('fname').textContent = `${f.name} · ${letters(W.base).length} kształtów · ${fmt(bb.x1 - bb.x0, 1)} × ${fmt(bb.y1 - bb.y0, 1)} mm`;
     $('drop').classList.add('hidden'); $('b-dxf').disabled = false;
-    recompute(false);
+    W.pr = null; recompute(false);
+    if (kitLines) { cutsFromLines(kitLines); refreshBeds(); renderSide(); draw(); toast(`Wczytano komplet do edycji: ${W.holes.length} otworów, ${W.rails.length} profili, ${kitLines.length} linii podziału. „Ułóż automatycznie” liczy je od nowa.`, 6000); }
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
 // ===================== eksport DXF (R12: zamknięte polilinie + okręgi na warstwach) =====================
@@ -489,13 +700,14 @@ function fitArcs(ring, tol = 0.01) {
   }
   return out;
 }
-// DXF R12 z listy kształtów [warstwa, 'poly'|'circle'|'text', dane]; punkt (cx, cy) trafia w (0,0)
-const SZ_LAYERS = [['Szablon', '#ff00ff', 6]];
-function dxfText(ents, cx, cy) {
+// DXF R12 z listy kształtów [warstwa, 'poly'|'circle'|'line', dane]; punkt (cx, cy) trafia w (0,0); meta = ustawienia w komentarzach 999 (do ponownej edycji)
+const SZ_LAYERS = [['Szablon', '#ff00ff', 6], ['Leb', '#805ad5', 5]];
+function dxfText(ents, cx, cy, meta) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  ents.forEach(([, t, d]) => { const pts = t === 'circle' ? [[d[0] - d[2], d[1] - d[2]], [d[0] + d[2], d[1] + d[2]]] : t === 'text' ? [[d[0], d[1]]] : d; pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); });
+  ents.forEach(([, t, d]) => { const pts = t === 'circle' ? [[d[0] - d[2], d[1] - d[2]], [d[0] + d[2], d[1] + d[2]]] : d; pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); });
   const f = v => (Math.round(v * 10000) / 10000).toFixed(4), o = [];
   const add = (...kv) => { for (let i = 0; i < kv.length; i += 2) o.push(String(kv[i]), String(kv[i + 1])); };
+  if (meta) { const js = JSON.stringify(meta).replace(/[\u0080-￿]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')); for (let i = 0; i < js.length; i += 200) add(999, 'OW:' + js.slice(i, i + 200)); }
   add(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 4, 9, '$EXTMIN', 10, f(x0 - cx), 20, f(y0 - cy), 9, '$EXTMAX', 10, f(x1 - cx), 20, f(y1 - cy), 0, 'ENDSEC');
   add(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, '0.0', 0, 'ENDTAB');
   const used = LAYERS.concat(SZ_LAYERS).filter(([n]) => ents.some(e => e[0] === n));
@@ -503,39 +715,214 @@ function dxfText(ents, cx, cy) {
   add(0, 'SECTION', 2, 'ENTITIES');
   ents.forEach(([n, t, d]) => {
     if (t === 'circle') add(0, 'CIRCLE', 8, n, 10, f(d[0] - cx), 20, f(d[1] - cy), 30, '0.0', 40, f(d[2]));
-    else if (t === 'text') add(0, 'TEXT', 8, n, 10, f(d[0] - cx), 20, f(d[1] - cy), 30, '0.0', 40, f(d[2]), 1, d[3]);
+    else if (t === 'line') add(0, 'LINE', 8, n, 10, f(d[0][0] - cx), 20, f(d[0][1] - cy), 30, '0.0', 11, f(d[1][0] - cx), 21, f(d[1][1] - cy), 31, '0.0');
     else { add(0, 'POLYLINE', 8, n, 66, 1, 70, 1, 10, '0.0', 20, '0.0', 30, '0.0'); d.forEach(([x, y, b]) => { add(0, 'VERTEX', 8, n, 10, f(x - cx), 20, f(y - cy), 30, '0.0'); if (b) add(42, (Math.round(b * 1e8) / 1e8).toFixed(8)); }); add(0, 'SEQEND', 8, n); }
   });
   add(0, 'ENDSEC', 0, 'EOF');
   return o.join('\r\n') + '\r\n';
 }
 const bboxEnts = ents => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; ents.forEach(([, t, d]) => { const pts = t === 'circle' ? [[d[0] - d[2], d[1] - d[2]], [d[0] + d[2], d[1] + d[2]]] : d; pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); }); return { x0, y0, x1, y1 }; };
-const saveFile = (fn, txt) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'application/dxf' })); a.download = fn; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
-// tekst do DXF R12 bez polskich znaków (stare DXF nie mają UTF-8)
+const saveBlob = (fn, blob) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+// tekst do PDF bez polskich znaków (podstawowa czcionka PDF ich nie ma)
 const ascii = s => String(s).replace(/ł/g, 'l').replace(/Ł/g, 'L').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7e]/g, '_');
-function exportDXF() {
-  if (!W.base) return;
-  const ents = [];   // [warstwa, 'poly'|'circle', dane]
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+function fileBase() {
+  const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
+  return `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}${pr.name ? '_' + ascii(pr.name).replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
+}
+// DXF dla Fusion: kontury, otwory, profile, linie podziału — bez łba śruby
+function buildKit() {
+  const ents = [];
   LAYERS.slice(0, 4).forEach(([n]) => (W.lay[n] || []).forEach(o => o.polys.forEach(p => { const q = fromCl(p); ents.push([n, 'poly', fitArcs(simplifyRing(q))]); })));
   W.holes.forEach(h => ents.push([h.kind === 'fix' ? 'FIX' : 'Otwory', 'circle', [h.x, h.y, h.d / 2]]));
   W.rails.forEach(r => ents.push(['Profil', 'poly', [[r.x0, r.yc - r.h / 2], [r.x1, r.yc - r.h / 2], [r.x1, r.yc + r.h / 2], [r.x0, r.yc + r.h / 2]]]));
-  // środek kompletu w (0,0) — jak EksportujDXF w makrze
+  // środek kompletu w (0,0) — jak EksportujDXF w makrze; linie podziału (wystają poza litery) go nie przesuwają
   const bb = bboxEnts(ents), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
-  const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
-  const base = `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}${pr.name ? '_' + pr.name.replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
-  saveFile(base + '.dxf', dxfText(ents, cx, cy));
-  // drugi plik: SZABLON (jak BudujSzablon w makrze) — obrys najszerszego klosza bez brzuszków +0,5 mm, ramka 50 mm, napis,
-  // a na nim wszystkie kontury, otwory i profile (ten sam środek co komplet — oba pliki się pokrywają)
-  const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
-  const src = ((W.lay.Klosz || []).slice().sort((a, b) => b.d - a.d)[0] || { polys: W.base }).polys;
-  const outer = offsetPolys(src.filter(p => area(p) > 0), SZ_OFF).filter(p => area(p) > 0).map(p => fitArcs(simplifyRing(fromCl(p))));
-  const sz = outer.map(p => ['Szablon', 'poly', p]), sb = bboxEnts(sz.length ? sz : ents), lab = (sb.y1 - sb.y0) * 0.25;
-  const fr = { x0: sb.x0 - SZ_RAMKA, x1: sb.x1 + SZ_RAMKA, y0: sb.y0 - SZ_RAMKA, y1: sb.y1 + SZ_RAMKA };
-  sz.push(['Szablon', 'poly', [[fr.x0, fr.y0], [fr.x1, fr.y0], [fr.x1, fr.y1], [fr.x0, fr.y1]]]);
-  sz.push(['Szablon', 'text', [fr.x0, fr.y1 + 10, lab, 'Szablon']]);
-  if (pr.name) sz.push(['Szablon', 'text', [fr.x0 + SZ_NAZWA, fr.y1 - SZ_NAZWA - lab * 0.6, lab * 0.6, ascii(pr.name)]]);
-  setTimeout(() => saveFile(base + '_Szablon.dxf', dxfText(sz.concat(ents), cx, cy)), 400);
-  toast(`Zapisano ${base}.dxf — ${ents.length} kształtów (otwory: ${W.holes.length}, profile: ${W.rails.length}) + ${base}_Szablon.dxf`, 6000);
+  cutSegs().forEach(c => ents.push(['Podzial', 'line', [c.a, c.b]]));
+  const { typ, dysza, P, B, gdzie, wielk, przesun, luz, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY } = W.pr;
+  const n0 = typ === 'S' && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, wielk, przesun, luz, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, n0 } };
+}
+// SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
+const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
+function szablonGeo() {
+  const outer = offsetPolys(bedSrc().filter(p => area(p) > 0), SZ_OFF).filter(p => area(p) > 0).map(p => simplifyRing(fromCl(p)));
+  const sb = bboxEnts(outer.map(p => ['', 'poly', p]));
+  return { outer, sb, fr: { x0: sb.x0 - SZ_RAMKA, x1: sb.x1 + SZ_RAMKA, y0: sb.y0 - SZ_RAMKA, y1: sb.y1 + SZ_RAMKA } };
+}
+function szablonPdf(kind, title) {
+  const { outer, sb, fr } = szablonGeo(), paper = kind === 'papier', M = 15, lab = Math.min(30, (sb.y1 - sb.y0) * 0.25), top = paper ? lab + 8 : 0, bot = paper ? 28 : 0;
+  const PW = fr.x1 - fr.x0 + 2 * M, PH = fr.y1 - fr.y0 + 2 * M + top + bot;
+  if (Math.max(PW, PH) > 5000) throw new Error('szablon za duży na jedną stronę PDF (limit 5 m)');
+  const doc = new jspdf.jsPDF({ orientation: PW > PH ? 'landscape' : 'portrait', unit: 'mm', format: [PW, PH], compress: true });
+  doc.setProperties({ title: ascii(title || 'Szablon') });
+  const PX = x => x - fr.x0 + M, PY = y => PH - M - bot - (y - fr.y0), LW = paper ? 0.25 : 0.05;
+  const ring = pts => { const q = pts.map(([x, y]) => [PX(x), PY(y)]), d = q.slice(1).map((p, i) => [p[0] - q[i][0], p[1] - q[i][1]]); doc.lines(d, q[0][0], q[0][1], [1, 1], 'S', true); };
+  doc.setLineWidth(LW);
+  // kontur i ramka (magenta), profile, otwory na przewody, FIX + łeb śruby
+  doc.setDrawColor(255, 0, 255); outer.forEach(ring); doc.rect(PX(fr.x0), PY(fr.y1), fr.x1 - fr.x0, fr.y1 - fr.y0, 'S');
+  doc.setDrawColor(0, 160, 160); W.rails.forEach(r => doc.rect(PX(r.x0), PY(r.yc + r.h / 2), r.x1 - r.x0, r.h, 'S'));
+  W.holes.forEach(h => {
+    const x = PX(h.x), y = PY(h.y), fix = h.kind === 'fix';
+    doc.setDrawColor(fix ? 26 : 255, fix ? 32 : 128, fix ? 44 : 0); doc.circle(x, y, h.d / 2, 'S');
+    if (paper) { const c = h.d / 2 + 1.5; doc.line(x - c, y, x + c, y); doc.line(x, y - c, x, y + c); }
+    if (fix) { doc.setDrawColor(128, 90, 213); doc.circle(x, y, W.pr.dLeb / 2, 'S'); }
+  });
+  if (paper) {
+    // napis, nazwa elementu, wysokość profilu, podziałka 100 mm do sprawdzenia skali wydruku
+    doc.setTextColor(26, 32, 44); doc.setFont('helvetica', 'bold'); doc.setFontSize(lab / 0.3528 * 0.7); doc.text('Szablon', PX(fr.x0), PY(fr.y1) - 3);
+    if (W.pr.name) { doc.setFontSize(lab / 0.3528 * 0.42); doc.text(ascii(W.pr.name), PX(fr.x0) + SZ_NAZWA, PY(fr.y1) + SZ_NAZWA, { baseline: 'top' }); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(0, 120, 120);
+    W.rails.forEach(r => doc.text(`${fmt(r.h, 2)} mm`, PX(r.x1) + 2, PY(r.yc) + 1.2));
+    const bx = PX(fr.x0), by = PH - M - 8; doc.setDrawColor(26, 32, 44); doc.setLineWidth(0.3); doc.line(bx, by, bx + 100, by);
+    for (let i = 0; i <= 10; i++) doc.line(bx + i * 10, by, bx + i * 10, by - (i % 5 ? 2 : 4));
+    doc.setTextColor(26, 32, 44); doc.setFontSize(9); doc.text('100 mm - drukuj w skali 1:1, sprawdz podzialke', bx + 104, by);
+    doc.setFontSize(8); doc.setTextColor(113, 128, 150);
+    doc.text(ascii(`Otwory na przewody fi ${fmt(W.pr.dOtw)} · FIX fi ${fmt(W.pr.dFix)} · leb sruby fi ${fmt(W.pr.dLeb)}`).replace(/_/g, '-') + (title ? '   ' + ascii(title) : ''), bx, by + 5);
+  }
+  return doc.output('blob');
+}
+// CNC: ta sama geometria także jako DXF z warstwami (bez napisów)
+function szablonDxf(cx, cy) {
+  const { outer, fr } = szablonGeo(), ents = outer.map(p => ['Szablon', 'poly', fitArcs(p)]);
+  ents.push(['Szablon', 'poly', [[fr.x0, fr.y0], [fr.x1, fr.y0], [fr.x1, fr.y1], [fr.x0, fr.y1]]]);
+  W.holes.forEach(h => { ents.push([h.kind === 'fix' ? 'FIX' : 'Otwory', 'circle', [h.x, h.y, h.d / 2]]); if (h.kind === 'fix') ents.push(['Leb', 'circle', [h.x, h.y, W.pr.dLeb / 2]]); });
+  W.rails.forEach(r => ents.push(['Profil', 'poly', [[r.x0, r.yc - r.h / 2], [r.x1, r.yc - r.h / 2], [r.x1, r.yc + r.h / 2], [r.x0, r.yc + r.h / 2]]]));
+  return dxfText(ents, cx, cy);
+}
+// ===================== INDEX: stoiska, elementy, zapis plików =====================
+const QS = new URLSearchParams(location.search), TEST = QS.has('test'), DEMO = QS.has('demo'), PFX = TEST ? 'zztest_index_' : 'index_', AX_PFX = TEST ? 'zztest_' : '';
+const FIREBASE_CONFIG = { apiKey: 'AIzaSyB5qDeta9NuJX0Ixy3NTK1UttjAdatpw5o', authDomain: 'archiwum-x-3d094.firebaseapp.com', projectId: 'archiwum-x-3d094', storageBucket: 'archiwum-x-3d094.firebasestorage.app', messagingSenderId: '773383997184', appId: '1:773383997184:web:c29e4ab46c26a9bf78d5e5' };
+const CLOUD = 'dahvxm9me', CLOUD_PRESET = 'ProService';
+let fdbCache = null, meCache;
+function fdb() { if (DEMO || !window.firebase) return null; if (!fdbCache) { if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); fdbCache = firebase.firestore(); } return fdbCache; }
+// zalogowany administrator INDEX (sesja zapamiętana przez stronę główną)
+async function whoAmI() {
+  if (meCache !== undefined) return meCache; meCache = null; const db = fdb(); if (!db) return null;
+  try { const s = JSON.parse(localStorage.getItem('INDEX_SESSION') || 'null'); if (!s) return null; const d = await db.collection(PFX + 'users').doc(s.id).get(), u = d.exists ? d.data() : null; if (u && u.passHash === s.h && (u.admin || s.id === 'kg' || s.id === 'dm')) meCache = { id: s.id, login: u.login || s.id.toUpperCase() }; } catch (e) { console.warn(e); }
+  return meCache;
+}
+// pliki na Cloudinary jako .dat (PDF ma tam zablokowane pobieranie); prawdziwa nazwa zostaje w bazie
+async function uploadRaw(blob) {
+  const fd = new FormData(); fd.append('file', blob, 'plik.dat'); fd.append('upload_preset', CLOUD_PRESET);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/raw/upload`, { method: 'POST', body: fd });
+  if (!r.ok) throw new Error(r.status === 400 ? 'plik za duży (limit 10 MB)' : 'Cloudinary ' + r.status);
+  return (await r.json()).secure_url;
+}
+const letterOf = n => { let s = ''; n = Number(n) || 0; while (n > 0) { n--; s = String.fromCharCode(65 + n % 26) + s; n = Math.floor(n / 26); } return s || '?'; };
+const MARK_OK = /^(?:[A-Z]{1,3}\d{1,3}|\d{1,3}[A-Z]{1,3})$/;
+function markIn(el, all, p) {
+  if (el.doorFor) { const w = all.find(e => e.id === el.doorFor); if (w && !w.doorFor) { const m = markIn(w, all, p), i = el.doorIdx || 0; return m + (/\d$/.test(m) ? String.fromCharCode(97 + i) : String(i + 1)); } }
+  if (el.wyslona && el.wnum) return 'W' + el.wnum;
+  if (el.mark && MARK_OK.test(el.mark)) return el.mark;
+  return p && p.numbering === '123' ? String(el.num | 0 || '?') : letterOf(el.num);
+}
+let exProjects = null;
+async function exLoadProjects() {
+  if (exProjects) return exProjects; const db = fdb(); if (!db) return [];
+  const snap = await db.collection(PFX + 'projects').get();
+  exProjects = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.archived && String(p.name || '').trim().toLowerCase() !== 'gog testy').sort((a, b) => String(a.fair || '').localeCompare(String(b.fair || ''), 'pl') || String(a.name || '').localeCompare(String(b.name || ''), 'pl'));
+  return exProjects;
+}
+async function exLoadElements(pid) {
+  const db = fdb(); if (!db || !pid) return [];
+  const p = (exProjects || []).find(x => x.id === pid), snap = await db.collection(`${PFX}projects/${pid}/elements`).get(), all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return all.map(e => ({ ...e, _m: markIn(e, all, p) })).sort((a, b) => (b.typeId === 'logo3d') - (a.typeId === 'logo3d') || String(a._m).localeCompare(String(b._m), 'pl', { numeric: true }));
+}
+function targetUI(txt) { $('target').textContent = txt ? '→ ' + txt : ''; }
+function exFillStands(q) {
+  const sel = $('ex-p'), cur = sel.value || (W.target && W.target.p) || '', low = String(q || '').toLowerCase(), rows = (exProjects || []).filter(p => !low || (String(p.name) + ' ' + String(p.fair || '')).toLowerCase().includes(low));
+  const groups = new Map(); rows.forEach(p => { const k = p.fair || 'bez targów'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); });
+  sel.innerHTML = `<option value="">— nie zapisuj w INDEX (tylko pliki na dysk) —</option>` + [...groups].map(([k, l]) => `<optgroup label="${esc(k)}">${l.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</optgroup>`).join('');
+  sel.value = rows.some(p => p.id === cur) ? cur : '';
+}
+async function exFillElements() {
+  const sel = $('ex-e'), pid = $('ex-p').value; $('ex-e-box').classList.toggle('hidden', !pid); if (!pid) return;
+  sel.innerHTML = '<option value="">wczytywanie…</option>'; const els = await exLoadElements(pid); if ($('ex-p').value !== pid) return;
+  const cur = W.target && W.target.p === pid ? W.target.e || '' : '';
+  sel.innerHTML = `<option value="">— całe stoisko (plik pomocniczy, bez elementu) —</option>` + els.map(e => `<option value="${esc(e.id)}">${esc(e._m)} — ${esc(e.name || e.typeId || '')}${e.offset ? ' (ma już offset: nadpisze)' : ''}</option>`).join('');
+  sel.value = els.some(e => e.id === cur) ? cur : '';
+  W.exEls = els;
+}
+function exKind() { const r = document.querySelector('input[name=ex-kind]:checked'); return r ? r.value : ''; }
+function exSync() {
+  const k = exKind(), b = fileBase();
+  $('ex-go').disabled = !k;
+  $('ex-files').innerHTML = `Pliki na dysk: <b>${esc(b)}.dxf</b> (do Fusion)${k ? `, <b>${esc(b)}_Szablon_${k === 'cnc' ? 'CNC' : 'papier'}.pdf</b>${k === 'cnc' ? `, <b>${esc(b)}_Szablon_CNC.dxf</b>` : ''}` : ''}`;
+}
+async function openExport() {
+  if (!W.base) return;
+  document.querySelectorAll('input[name=ex-kind]').forEach(r => { r.checked = false; });   // rodzaj szablonu wybierany za każdym razem
+  $('ex-back').classList.remove('hidden'); exSync();
+  const me = await whoAmI(), box = $('ex-target'), note = $('ex-note');
+  box.classList.toggle('hidden', !me);
+  note.textContent = me ? '' : DEMO ? 'Tryb demo: pliki tylko na dysk.' : 'Nie jesteś zalogowany w INDEX jako administrator — pliki tylko na dysk. Zaloguj się w INDEX w tej przeglądarce, aby zapisywać przy elemencie.';
+  if (!me) return;
+  try { await exLoadProjects(); exFillStands(''); await exFillElements(); } catch (e) { note.textContent = 'Nie udało się wczytać listy stoisk: ' + e.message; }
+}
+async function doExport() {
+  const kind = exKind(); if (!kind) return;
+  const go = $('ex-go'); go.disabled = true;
+  try {
+    W.pr = params();
+    const base = fileBase(), kit = buildKit(), dxfTxt = dxfText(kit.ents, kit.cx, kit.cy, kit.meta), dxfBlob = new Blob([dxfTxt], { type: 'application/dxf' }), kindTag = kind === 'cnc' ? 'CNC' : 'papier';
+    const pdfBlob = szablonPdf(kind, base), szDxf = kind === 'cnc' ? new Blob([szablonDxf(kit.cx, kit.cy)], { type: 'application/dxf' }) : null;
+    const names = { dxfName: base + '.dxf', szablonName: `${base}_Szablon_${kindTag}.pdf`, szablonDxfName: szDxf ? `${base}_Szablon_CNC.dxf` : '' };
+    saveBlob(names.dxfName, dxfBlob);
+    setTimeout(() => saveBlob(names.szablonName, pdfBlob), 400);
+    if (szDxf) setTimeout(() => saveBlob(names.szablonDxfName, szDxf), 800);
+    const me = await whoAmI(), pid = me && !$('ex-target').classList.contains('hidden') ? $('ex-p').value : '';
+    if (pid) await saveToIndex(pid, $('ex-e').value, kind, names, dxfBlob, pdfBlob, szDxf, me);
+    else toast(`Zapisano na dysk: ${names.dxfName} (${kit.ents.length} kształtów) + szablon PDF`, 6000);
+    $('ex-back').classList.add('hidden');
+  } catch (e) { console.error(e); toast('Błąd eksportu: ' + e.message, 7000); }
+  go.disabled = false;
+}
+async function saveToIndex(pid, eid, kind, names, dxfBlob, pdfBlob, szDxf, me) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = 'Zapisuję pliki w INDEX…'; document.body.appendChild(t);
+  try {
+    const db = fdb(), [dxf, szablon, szablonDxf0] = await Promise.all([uploadRaw(dxfBlob), uploadRaw(pdfBlob), szDxf ? uploadRaw(szDxf) : Promise.resolve('')]);
+    const at = new Date().toISOString(), off = { ...names, name: W.pr.name || W.name || '', dxf, szablon, szablonDxf: szablonDxf0, typ: kind, ledM: W.led ? Math.round(W.led.m * 100) / 100 : 0, at, by: me.id };
+    const pRef = db.collection(PFX + 'projects').doc(pid); let where = '';
+    if (eid) {
+      const el = (W.exEls || []).find(e => e.id === eid) || {};
+      await pRef.collection('elements').doc(eid).update({ offset: off, updatedAt: at, updatedBy: me.id });
+      if (el.archiwumId) await db.collection(AX_PFX + 'records').doc(el.archiwumId).update({ offsetFiles: off }).catch(e => { console.warn(e); toast('Nie udało się dopisać plików do Archiwum X: ' + e.message, 6000); });
+      where = 'element ' + (el._m || '');
+    } else {
+      // plik pomocniczy stoiska; ponowny zapis otwartego offsetu zastępuje poprzedni wpis
+      const d = await pRef.get(), list = (d.exists && d.data().files) || [], fid = W.target && W.target.f;
+      const entry = { id: fid || 'f' + Date.now().toString(36), kind: 'offset', ...off, name: off.name || names.dxfName };
+      await pRef.update({ files: fid && list.some(f => f.id === fid) ? list.map(f => f.id === fid ? entry : f) : [...list, entry] });
+      W.target = { ...(W.target || {}), f: entry.id }; where = 'pliki stoiska';
+    }
+    await pRef.collection('log').add({ at, user: me.id, text: `Offset Wizard: zapisano DXF i szablon (${kind === 'cnc' ? 'CNC' : 'papier'}) — ${where}`, eid: eid || '' }).catch(e => console.warn(e));
+    const p = (exProjects || []).find(x => x.id === pid);
+    W.target = { ...(W.target || {}), p: pid, e: eid || '' }; targetUI(`${p ? p.name : ''} · ${where}`);
+    const u = new URLSearchParams(location.search); u.set('p', pid); if (eid) u.set('e', eid); else u.delete('e'); u.delete('dxf'); u.delete('n'); if (W.target.f && !eid) u.set('f', W.target.f); history.replaceState(null, '', '?' + u);
+    toast(`Zapisano na dysk i w INDEX: ${p ? p.name : ''} · ${where}`, 6000);
+  } catch (e) { console.error(e); toast('Pliki są na dysku, ale zapis w INDEX się nie udał: ' + e.message, 8000); }
+  t.remove();
+}
+// otwarcie z INDEX / Archiwum X: ?p=stoisko&e=element (ostatni zapisany offset) albo ?dxf=adres pliku
+async function loadFromUrl(url, name) {
+  if (!/^https:\/\/res\.cloudinary\.com\/dahvxm9me\//.test(url)) return toast('Niedozwolony adres pliku');
+  const r = await fetch(url); if (!r.ok) throw new Error('plik: ' + r.status);
+  await loadFile(new File([await r.text()], name || 'offset.dxf'));
+}
+async function startFromUrl() {
+  const p = QS.get('p'), e = QS.get('e'), f = QS.get('f'), dxf = QS.get('dxf'), n = QS.get('n');
+  W.target = p ? { p, e: e || '', f: f || '' } : null;
+  try {
+    let pName = '', elTxt = '', offset = null; const db = fdb();
+    if (p && db) {
+      const pd = await db.collection(PFX + 'projects').doc(p).get(), pr0 = pd.exists ? { id: pd.id, ...pd.data() } : null; pName = pr0 ? pr0.name : '';
+      if (e && pr0) { const all = (await db.collection(`${PFX}projects/${p}/elements`).get()).docs.map(d => ({ id: d.id, ...d.data() })), el = all.find(x => x.id === e); if (el) { elTxt = 'element ' + markIn(el, all, pr0); offset = el.offset || null; } }
+      targetUI([pName, elTxt].filter(Boolean).join(' · '));
+    }
+    if (dxf) await loadFromUrl(dxf, n);
+    else if (offset && offset.dxf) await loadFromUrl(offset.dxf, offset.dxfName);
+  } catch (err) { console.error(err); toast('Nie udało się otworzyć zapisanego offsetu: ' + err.message, 7000); }
 }
 // ===================== widok =====================
 const cv = $('cv'), g = cv.getContext('2d');
@@ -562,6 +949,19 @@ function draw() {
   ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(o.polys); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
   if (drag && drag.snapLine) { const [t, v] = drag.snapLine; g.strokeStyle = '#38a169'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath(); if (t === 'x') { g.moveTo(X(v), 0); g.lineTo(X(v), r.height); } else { g.moveTo(0, Y(v)); g.lineTo(r.width, Y(v)); } g.stroke(); g.setLineDash([]); }
   if (W.show.Profil) W.rails.forEach(rl => { g.strokeStyle = LCOL.Profil; g.lineWidth = W.sel && W.sel.t === 'rail' && W.sel.id === rl.id ? 2.5 : 1.4; g.setLineDash(rl.manual ? [6, 3] : []); g.strokeRect(X(rl.x0), Y(rl.yc + rl.h / 2), (rl.x1 - rl.x0) * W.view.s, rl.h * W.view.s); g.setLineDash([]); });
+  // wymiar wysokości profilu: strzałki przy prawym końcu
+  if (W.show.Profil) W.rails.forEach(rl => {
+    const x = X(rl.x1) + 16, yT = Y(rl.yc + rl.h / 2), yB = Y(rl.yc - rl.h / 2), inner = yB - yT >= 16, ah = 5;
+    g.strokeStyle = LCOL.Profil; g.fillStyle = LCOL.Profil; g.lineWidth = 1; g.beginPath(); g.moveTo(X(rl.x1) + 2, yT); g.lineTo(x + 6, yT); g.moveTo(X(rl.x1) + 2, yB); g.lineTo(x + 6, yB); g.moveTo(x, inner ? yT : yT - 14); g.lineTo(x, inner ? yB : yB + 14); g.stroke();
+    const tip = (yy, d) => { g.beginPath(); g.moveTo(x, yy); g.lineTo(x - 3, yy + d * ah); g.lineTo(x + 3, yy + d * ah); g.closePath(); g.fill(); };
+    tip(yT, inner ? 1 : -1); tip(yB, inner ? -1 : 1);
+    g.font = '700 12px Segoe UI, Arial'; g.textAlign = 'left'; g.fillText(`${fmt(rl.h, 2)} mm`, x + 8, (yT + yB) / 2 + 4);
+  });
+  // linie podziału i prostokąty stołu drukarki
+  if (W.show.Stol) W.beds.forEach(b => { g.beginPath(); b.pts.forEach((q, i) => i ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1]))); g.closePath(); g.fillStyle = b.ok ? 'rgba(56,161,105,.05)' : 'rgba(229,62,62,.1)'; g.fill(); g.strokeStyle = b.ok ? '#38a169' : '#e53e3e'; g.lineWidth = 1; g.setLineDash([8, 5]); g.stroke(); g.setLineDash([]); });
+  if (W.show.Podzial) cutSegs().forEach(c => { const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.g.id && W.sel.axis === c.axis && W.sel.i === c.i; g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial; g.lineWidth = sel ? 3 : 1.8; g.stroke(); });
+  // łeb śruby dookoła FIX — pomocniczy (na szablon, nie do DXF dla Fusion)
+  if (W.show.Leb && W.show.FIX) W.holes.forEach(h => { if (h.kind !== 'fix') return; g.beginPath(); g.arc(X(h.x), Y(h.y), W.pr.dLeb / 2 * W.view.s, 0, Math.PI * 2); g.strokeStyle = '#805ad5'; g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); });
   W.holes.forEach(h => {
     const lay = h.kind === 'fix' ? 'FIX' : 'Otwory'; if (!W.show[lay]) return;
     const sel = W.sel && W.sel.t === 'hole' && W.sel.id === h.id;
@@ -571,34 +971,39 @@ function draw() {
   });
   // zaznaczony otwór: luz do konturu odniesienia
   if (W.sel && W.sel.t === 'hole') { const h = W.holes.find(q => q.id === W.sel.id), ref = refPolys(); if (h && ref) { const cl = edgeDist(ref.polys, h.x, h.y) - h.d / 2; g.fillStyle = cl < 0.3 ? '#c53030' : '#276749'; g.font = '700 12px Segoe UI, Arial'; g.fillText(`luz ${fmt(cl)} mm`, X(h.x) + h.d / 2 * W.view.s + 6, Y(h.y) - 6); } }
-  $('info').innerHTML = `zoom ${fmt(W.view.s, 1)} px/mm · otwory: ${W.holes.filter(h => h.kind === 'otw').length} fi ${fmt(OTWOR_MM)}${W.holes.some(h => h.kind === 'fix') ? ` + ${W.holes.filter(h => h.kind === 'fix').length} fi ${fmt(OTWOR_MONT_MM)}` : ''} · profile: ${W.rails.length}`;
+  $('info').innerHTML = `zoom ${fmt(W.view.s, 1)} px/mm · otwory: ${W.holes.filter(h => h.kind === 'otw').length} fi ${fmt(W.pr.dOtw)}${W.holes.some(h => h.kind === 'fix') ? ` + ${W.holes.filter(h => h.kind === 'fix').length} fi ${fmt(W.pr.dFix)}` : ''} · profile: ${W.rails.length}${W.led ? ` · LED ${fmt(W.led.m, 2)} m` : ''}`;
 }
 function renderSide() {
-  $('lays').innerHTML = LAYERS.map(([n, col]) => { const cnt = n === 'Otwory' ? W.holes.filter(h => h.kind === 'otw').length : n === 'FIX' ? W.holes.filter(h => h.kind === 'fix').length : n === 'Profil' ? W.rails.length : (W.lay[n] || []).reduce((s, o) => s + o.polys.length, 0);
+  $('led-info').innerHTML = W.led ? `<b>${fmt(W.led.m, 2)} m</b> bieżących paska ${LED_W} mm` : '—';
+  $('lays').innerHTML = LAYERS.map(([n, col]) => { const cnt = n === 'Otwory' ? W.holes.filter(h => h.kind === 'otw').length : n === 'FIX' ? W.holes.filter(h => h.kind === 'fix').length : n === 'Profil' ? W.rails.length : n === 'Podzial' ? cutSegs().length : (W.lay[n] || []).reduce((s, o) => s + o.polys.length, 0);
     return `<label class="lay"><input type="checkbox" data-lay="${n}" ${W.show[n] ? 'checked' : ''}><i style="background:${col}"></i>${n} <span class="hint">(${cnt})</span></label>`; }).join('');
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pasek LED ${LED_W} mm wzdłuż środka kanału (kieszeni) — tylko podgląd, nie idzie do DXF; otwory FIX go omijają"><input type="checkbox" data-lay="LED" ${W.show.LED ? 'checked' : ''}><i style="background:rgba(255,205,0,.8);height:8px"></i>pasek LED ${LED_W} mm <span class="hint">(podgląd)</span></label>`);
+  $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pomocniczy okrąg dookoła FIX: jest na szablonie, nie idzie do DXF dla Fusion"><input type="checkbox" data-lay="Leb" ${W.show.Leb ? 'checked' : ''}><i style="background:#805ad5"></i>łeb śruby <span class="hint">(pomocniczy)</span></label>`);
+  $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Blat drukarki 3D — tylko podgląd"><input type="checkbox" data-lay="Stol" ${W.show.Stol ? 'checked' : ''}><i style="background:#38a169"></i>stół drukarki <span class="hint">(podgląd)</span></label>`);
   $('lays').querySelectorAll('[data-lay]').forEach(c => c.onchange = () => { W.show[c.dataset.lay] = c.checked; draw(); save(); });
-  $('warn').textContent = [...new Set(W.warn)].map(w => '• ' + w).join('\n');
+  $('warn').textContent = [...new Set(W.warn.concat(W.cutWarn))].map(w => '• ' + w).join('\n');
   renderSel();
 }
 function renderSel() {
   const b = $('selbox'), s = W.sel; if (!s) { b.classList.add('hidden'); return; }
+  if (s.t === 'cut') { b.classList.remove('hidden'); b.innerHTML = '<b>Linia podziału</b><div class="hint">przeciągnij, aby przesunąć · Delete = usuń</div>'; return; }
   const o = s.t === 'hole' ? W.holes.find(h => h.id === s.id) : W.rails.find(r => r.id === s.id); if (!o) { W.sel = null; b.classList.add('hidden'); return; }
   b.classList.remove('hidden');
   const fld = (k, lab, v) => `<div class="fld"><span>${lab}</span><input type="text" inputmode="decimal" data-k="${k}" value="${fmt(v, 2)}"></div>`;
   b.innerHTML = s.t === 'hole' ? `<b>${o.kind === 'fix' ? 'Otwór montażowy (FIX)' : 'Otwór na przewody'}</b>${fld('x', 'X [mm]', o.x)}${fld('y', 'Y [mm]', o.y)}${fld('d', 'Średnica', o.d)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`
     : `<b>Profil</b>${fld('yc', 'Środek Y', o.yc)}${fld('h', 'Grubość', o.h)}${fld('x0', 'Od X', o.x0)}${fld('x1', 'Do X', o.x1)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`;
-  const apply = inp => { pushUndo(); o[inp.dataset.k] = num(inp.value); o.manual = true; if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') autoHoles(); renderSide(); draw(); save(); };
+  const apply = inp => { pushUndo(); const fol = s.t === 'rail' ? (railHold(o), railFollowers(o)) : [], c0 = o.yc, t0 = o.yc + o.h / 2; o[inp.dataset.k] = num(inp.value); o.manual = true; if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') { shiftFollowers(fol, o.yc - c0, o.yc + o.h / 2 - t0); autoHoles(); } renderSide(); draw(); save(); };
   b.querySelectorAll('[data-k]').forEach(inp => { inp.onchange = () => apply(inp); addSpin(inp, { x: 0.5, y: 0.5, d: 0.5, yc: 0.5, h: 1, x0: 1, x1: 1 }[inp.dataset.k] || 0.5, () => apply(inp)); });
 }
 // ===================== mysz =====================
 let drag = null;
-const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails });
+const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cutG: W.cutG, cutManual: W.cutManual });
 function pushUndo() { W.undo.push(snapState()); if (W.undo.length > 80) W.undo.shift(); }
-function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.sel = null; renderSide(); draw(); save(); }
+function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.cutG = o.cutG || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); renderSide(); draw(); save(); }
 function hit(px, py) {
   const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
   if (hh) return { t: 'hole', id: hh.id, o: hh };
+  if (W.show.Podzial) { const c = cutSegs().find(q => { const ax = X(q.a[0]), ay = Y(q.a[1]), bx = X(q.b[0]), by = Y(q.b[1]), dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(ax + t * dx - px, ay + t * dy - py) <= 5; }); if (c) return { t: 'cut', id: c.g.id, axis: c.axis, i: c.i, g: c.g }; }
   const rr = W.rails.find(r => px >= X(r.x0) - 5 && px <= X(r.x1) + 5 && py >= Y(r.yc + r.h / 2) - 5 && py <= Y(r.yc - r.h / 2) + 5);
   if (!rr) return null;
   // profil: za krawędź = zmiana rozmiaru, w środku = przesuwanie
@@ -614,18 +1019,24 @@ const snapTo = (v, arr, thrMm) => { let b = null, bd = thrMm; arr.forEach(a => {
 cv.addEventListener('pointerdown', e => {
   if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
   const h = e.button === 0 ? hit(px, py) : null;
-  W.sel = h ? { t: h.t, id: h.id } : null; renderSel();
-  drag = h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
+  W.sel = h ? { t: h.t, id: h.id, axis: h.axis, i: h.i } : null; renderSel();
+  drag = h && h.t === 'cut' ? { kind: 'cut', g: h.g, axis: h.axis, i: h.i, sx: px, sy: py, p0: (h.axis === 'x' ? h.g.xs : h.g.ys)[h.i], moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
   cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); draw();
 });
 cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = !h ? '' : h.t === 'hole' ? 'move' : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
+  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = !h ? '' : h.t === 'hole' ? 'move' : h.t === 'cut' ? 'grab' : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
   const dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
   if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
-  if (!drag.moved) { if (Math.hypot(px - drag.sx, py - drag.sy) < 3) return; drag.moved = true; pushUndo(); }
+  if (!drag.moved) { if (Math.hypot(px - drag.sx, py - drag.sy) < 3) return; drag.moved = true; pushUndo(); if (drag.t === 'rail') { railHold(drag.o); drag.fol = railFollowers(drag.o).map(h => [h, h.y]); } }
+  if (drag.kind === 'cut') {
+    // linia podziału: przesuwana w poprzek siebie, w granicach litery
+    const g0 = drag.g, c = Math.cos(g0.a * Math.PI / 180), s = Math.sin(g0.a * Math.PI / 180), arr = drag.axis === 'x' ? g0.xs : g0.ys, d = drag.axis === 'x' ? dx * c + dy * s : -dx * s + dy * c;
+    const lo = drag.axis === 'x' ? g0.u0 : g0.v0, hi = drag.axis === 'x' ? g0.u1 : g0.v1;
+    arr[drag.i] = Math.max(lo + 1, Math.min(hi - 1, Math.round((drag.p0 + d) * 10) / 10)); W.cutManual = true; refreshBeds(); renderSel(); return draw();
+  }
   const sn = v => e.altKey ? v : Math.round(v * 10) / 10;           // co 0,1 mm (Alt = bez przyciągania)
   if (drag.t === 'hole') { drag.o.x = sn(drag.ox + dx); drag.o.y = sn(drag.oy + dy); drag.o.manual = true; }
   else {
@@ -646,7 +1057,9 @@ cv.addEventListener('pointermove', e => {
       }
       x0 = r0.x0 + ddx; x1 = r0.x1 + ddx; top = r0.top + ddy; bot = r0.bot + ddy;
     }
-    o.x0 = x0; o.x1 = x1; o.yc = (top + bot) / 2; o.h = top - bot; o.manual = true; autoHoles();
+    o.x0 = x0; o.x1 = x1; o.yc = (top + bot) / 2; o.h = top - bot; o.manual = true;
+    (drag.fol || []).forEach(([h, y0]) => { h.y = y0 + (h.kind === 'fix' ? o.yc - (r0.top + r0.bot) / 2 : o.yc + o.h / 2 - r0.top); });
+    autoHoles();
   }
   renderSel(); draw();
 });
@@ -654,31 +1067,44 @@ const endDrag = () => { const had = drag && drag.moved; drag = null; cv.classLis
 cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('dblclick', e => {
   if (!W.base) return; const r = cv.getBoundingClientRect(); pushUndo();
-  const h = { id: uid++, kind: e.shiftKey ? 'fix' : 'otw', d: e.shiftKey ? OTWOR_MONT_MM : OTWOR_MM, x: Math.round(wx(e.clientX - r.left) * 10) / 10, y: Math.round(wy(e.clientY - r.top) * 10) / 10, manual: true };
+  if (e.altKey) { // nowa linia podziału przez literę pod kursorem
+    const x = wx(e.clientX - r.left), y = wy(e.clientY - r.top), ls = letters(bedSrc()), li = ls.findIndex(l => x >= l.bb.x0 && x <= l.bb.x1 && y >= l.bb.y0 && y <= l.bb.y1); if (li < 0) return;
+    const l = ls[li]; let g = W.cutG.find(q => q.li === li);
+    if (!g) { const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2; g = { id: uid++, li, cx, cy, a: 0, xs: [], ys: [], u0: l.bb.x0 - cx, u1: l.bb.x1 - cx, v0: l.bb.y0 - cy, v1: l.bb.y1 - cy }; W.cutG.push(g); }
+    const [u, v] = toUV(g, x, y); if (e.shiftKey) g.ys.push(v); else g.xs.push(u);
+    W.cutManual = true; refreshBeds(); renderSide(); return draw();
+  }
+  const h = { id: uid++, kind: e.shiftKey ? 'fix' : 'otw', d: e.shiftKey ? W.pr.dFix : W.pr.dOtw, x: Math.round(wx(e.clientX - r.left) * 10) / 10, y: Math.round(wy(e.clientY - r.top) * 10) / 10, manual: true };
   W.holes.push(h); W.sel = { t: 'hole', id: h.id }; renderSide(); draw(); save();
 });
 cv.addEventListener('wheel', e => { e.preventDefault(); if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, k = Math.pow(1.0015, -e.deltaY), x0 = wx(px), y0 = wy(py); W.view.s *= k; W.view.ox = px - x0 * W.view.s; W.view.oy = py + y0 * W.view.s; draw(); }, { passive: false });
 document.addEventListener('keydown', e => {
   if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
-  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'cut') { const g0 = W.cutG.find(q => q.id === W.sel.id); if (g0) (W.sel.axis === 'x' ? g0.xs : g0.ys).splice(W.sel.i, 1); W.cutManual = true; refreshBeds(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
   else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { undo(); e.preventDefault(); }
   else if (e.key === 'f' || e.key === 'F') fitView();
   else if (W.sel && /^Arrow/.test(e.key)) { const o = W.sel.t === 'hole' ? W.holes.find(h => h.id === W.sel.id) : W.rails.find(r => r.id === W.sel.id); if (!o) return; pushUndo(); const st = e.shiftKey ? 1 : 0.1, dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? st : e.key === 'ArrowDown' ? -st : 0;
-    if (W.sel.t === 'hole') { o.x += dx; o.y += dy; } else { o.x0 += dx; o.x1 += dx; o.yc += dy; autoHoles(); } o.manual = true; renderSel(); draw(); save(); e.preventDefault(); }
+    if (W.sel.t === 'hole') { o.x += dx; o.y += dy; } else { railHold(o); shiftFollowers(railFollowers(o), dy, dy); o.x0 += dx; o.x1 += dx; o.yc += dy; autoHoles(); } o.manual = true; renderSel(); draw(); save(); e.preventDefault(); }
 });
 // ===================== ustawienia (pamiętane w przeglądarce) =====================
 const KEY = 'OFFSET_WIZARD_V1';
 function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr })); } catch (e) { /* bez pamięci */ } }
+function setParams(pr) {
+  const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
+  setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('wielk', pr.wielk);
+  const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
+  sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-pg', pr.profG); sv('p-pl', pr.profL); sv('p-name', pr.name);
+  sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stX); sv('p-sty', pr.stY);
+  if (pr.fix != null) $('p-fix').checked = !!pr.fix;
+  if (pr.fixN != null) $('p-fixn').value = String(pr.fixN);
+  if (pr.podz != null) $('p-podz').checked = !!pr.podz;
+  if (pr.pin != null) { W.pin = !!pr.pin; pinUI(); }
+}
 function restore() {
-  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; const pr = o.pr;
-    const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
-    setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('wielk', pr.wielk);
-    const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
-    sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-pg', pr.profG); sv('p-pl', pr.profL); $('p-fix').checked = !!pr.fix; $('p-fixn').value = String(pr.fixN || 0); sv('p-name', pr.name);
-  } catch (e) { /* zostają domyślne */ }
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; setParams(o.pr); } catch (e) { /* zostają domyślne */ }
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10 };
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5 };
 function addSpin(inp, step, after) {
   if (inp.parentElement.classList.contains('spin')) return;
   const w = document.createElement('span'); w.className = 'spin'; inp.parentElement.insertBefore(w, inp); w.appendChild(inp);
@@ -693,13 +1119,17 @@ Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => recompute()
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => { if (i.id === 'p-name') return save(); recompute(); }));
 $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
-$('b-dxf').onclick = exportDXF; $('b-fit').onclick = fitView; $('b-undo').onclick = undo;
-$('b-auto').onclick = () => { pushUndo(); W.holes = []; W.rails = []; W.sel = null; recompute(); };
+$('b-dxf').onclick = openExport; $('b-fit').onclick = fitView; $('b-undo').onclick = undo;
+$('b-auto').onclick = () => { pushUndo(); W.holes = []; W.rails = []; W.cutG = []; W.frozen = false; W.cutManual = false; W.sel = null; recompute(); };
+$('b-pin').onclick = () => { W.pin = !W.pin; pinUI(); if (W.pin) { W.rails.forEach(r => { delete r.holeY; }); } W.pr = params(); autoHoles(); renderSide(); draw(); save(); };
 const stage = $('stage');
 ['dragover', 'dragenter'].forEach(t => stage.addEventListener(t, e => { e.preventDefault(); }));
 stage.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
 new ResizeObserver(() => draw()).observe(stage);
-computeLayers(); renderSide(); fitView();
+$('ex-no').onclick = () => $('ex-back').classList.add('hidden'); $('ex-go').onclick = doExport;
+$('ex-q').oninput = e => { exFillStands(e.target.value); exFillElements(); }; $('ex-p').onchange = exFillElements;
+document.querySelectorAll('input[name=ex-kind]').forEach(r => { r.onchange = exSync; });
+pinUI(); computeLayers(); renderSide(); fitView(); startFromUrl();
 </script>
 </body>
 </html>

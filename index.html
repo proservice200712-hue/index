@@ -300,6 +300,27 @@
   #clock-pane.ph-none #clock-svg { opacity: .45; }
   .cl-legend { display: flex; gap: 8px; font-size: .62rem; color: var(--gray); margin-top: 3px; flex: 0 0 auto; }
   .cl-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 3px; vertical-align: 0; }
+  /* zegar o połowę mniejszy, wisi pod środkową belką — bez pustego pola pod spodem; okienka mają całą szerokość */
+  #pane-bottom { position: relative; }
+  #clock-pane { position: absolute; top: 0; right: 16px; z-index: 6; flex: none; width: 118px; padding: 4px 5px 5px; justify-content: flex-start; border: 1px solid var(--line); border-top: none; background: #fff; box-shadow: 0 3px 8px rgba(26,32,44,.12); }
+  #clock-svg { flex: 0 0 85px; width: 85px; height: 85px; max-width: 85px; max-height: 85px; }
+  #cl-small { font-size: 12px; }
+  .cl-lab { font-size: .56rem; letter-spacing: .2px; margin-top: 2px; line-height: 1.15; }
+  .cl-sub { font-size: .58rem; line-height: 1.15; }
+  .cl-legend { gap: 2px 5px; font-size: .5rem; flex-wrap: wrap; justify-content: center; }
+  .cl-legend i { width: 6px; height: 6px; margin-right: 2px; }
+  .el-bar { padding-right: 142px; }
+  /* grafika o innych proporcjach niż ramka */
+  .gc-ratio { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; width: 26px; height: 26px; border-radius: 50% !important; pointer-events: none; background: #e53e3e; color: #fff; font: 800 18px/26px Arial, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.4); }
+  .gc-frame.has-thumb { cursor: default; }
+  .gc-frame.has-thumb:hover { background: #fff; }
+  /* pliki stoiska */
+  .fl-sec { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--gray); margin: 12px 0 5px; }
+  .fl-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); margin-bottom: 4px; background: #fff; }
+  .fl-row .fl-n { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 600; font-size: .85rem; }
+  .fl-row .fl-n small { display: block; color: var(--gray); font-weight: 400; font-size: .72rem; }
+  .fl-drop { outline: 2px dashed transparent; outline-offset: 3px; min-height: 60px; }
+  .fl-drop.drag { outline-color: var(--accent); }
 
   /* znaczniki na wizce: łagodne pulsowanie; najechanie na wiersz = duży, mocniej pulsujący */
   #overlay .mk { transform-box: fill-box; transform-origin: center; animation: mkPulse 2s ease-in-out infinite; }
@@ -1586,6 +1607,14 @@ I18N_PAIRS.push(['✎ zmień znak', '✎ змінити позначку', '✎ 
   ['Kliknij, aby zmienić znak', 'Клікни, щоб змінити позначку', 'Click to change the mark'], ['Gdy ten znak ma już inny element, zamienią się znakami.', 'Якщо цю позначку вже має інший елемент, вони поміняються позначками.', 'If another element already has this mark, they will swap marks.'],
   ['Zmień', 'Змінити', 'Change']);
 I18N_PAIRS.push(['Podświetlenie', 'Підсвічування', 'Lighting']);
+I18N_PAIRS.push(['📎 Pliki', '📎 Файли', '📎 Files'], ['📎 Pliki stoiska', '📎 Файли стенда', '📎 Stand files'], ['+ Dodaj pliki', '+ Додати файли', '+ Add files'], ['Zamknij', 'Закрити', 'Close'],
+  ['Pobierz', 'Завантажити', 'Download'], ['Otwórz w edytorze', 'Відкрити в редакторі', 'Open in the editor'], ['Offsety elementów', 'Офсети елементів', 'Element offsets'], ['Offsety stoiska', 'Офсети стенда', 'Stand offsets'],
+  ['Pliki pomocnicze', 'Допоміжні файли', 'Helper files'], ['⌖ Nowy offset do tego stoiska', '⌖ Новий офсет для цього стенда', '⌖ New offset for this stand'], ['Szablon', 'Шаблон', 'Template'],
+  ['Upuść tu pliki albo użyj przycisku „+ Dodaj pliki”: przygotowanie offsetów, informacje dla produkcji…', 'Перетягніть сюди файли або скористайтеся кнопкою «+ Додати файли»: підготовка офсетів, інформація для виробництва…', 'Drop files here or use “+ Add files”: offset preparation, production information…'],
+  ['Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)', 'Клікни, щоб вставити графіку з буфера (або перетягни сюди файл)', 'Click to paste the graphic from the clipboard (or drop a file here)'],
+  ['Aby wkleić nową grafikę, najpierw usuń obecną (✕)', 'Щоб вставити нову графіку, спочатку видали поточну (✕)', 'To paste a new graphic, first remove the current one (✕)'],
+  ['Najpierw usuń obecną grafikę (✕)', 'Спочатку видали поточну графіку (✕)', 'First remove the current graphic (✕)'],
+  ['Proporcje grafiki są inne niż ramki', 'Пропорції графіки відрізняються від рамки', 'The graphic’s proportions differ from the frame']);
 I18N_PAIRS.push(['spad: skarpeta', 'виліт: шкарпетка', 'bleed: sock'], ['bez spadów', 'без вильотів', 'no bleed'], ['spad indywidualny', 'індивідуальний виліт', 'custom bleed']);
 I18N_PAIRS.push(['Ukryj: półprzezroczysty na wizce i pominięty w eksporcie (tabela i zlecenie bez zmian)', 'Сховати: напівпрозорий на візуалізації й пропущений в експорті (таблиця й замовлення без змін)', 'Hide: semi-transparent on the visual and left out of the export (table and order unchanged)'],
   ['Ukryty: półprzezroczysty na wizce i pominięty w eksporcie — kliknij, aby był znów widoczny', 'Схований: напівпрозорий на візуалізації й пропущений в експорті — клікни, щоб знову був видимий', 'Hidden: semi-transparent on the visual and left out of the export — click to show it again']);
@@ -3156,6 +3185,7 @@ async function openProject(pid) {
   }));
   S.unsubProject.push(DB.sub(pElements(pid), rows => {
     S.elements = elOrder(rows.map(normalizeEl));
+    if (S.project && isAdmin()) { const b = [...$('hdr-actions').querySelectorAll('button')].find(x => /openFilesDialog/.test(x.getAttribute('onclick') || '')); if (b) { const n = standFileCount(S.project); b.textContent = '📎 Pliki' + (n ? ' (' + n + ')' : ''); } }
     if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
     renderOverlay(); renderElements(); syncProjectStats(); updateHint();
     autoDoorThumbs();
@@ -3201,10 +3231,13 @@ function renderProjectHeader() {
   updateClock();
   $('hdr-actions').innerHTML = `
     ${isAdmin() ? `<button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>` : ''}
+    ${isAdmin() ? `<button class="btn" onclick="openFilesDialog()" title="Pliki pomocnicze stoiska: offsety, informacje dla produkcji…">📎 Pliki${standFileCount(p) ? ' (' + standFileCount(p) + ')' : ''}</button>` : ''}
     ${isAdmin() ? `<button class="btn" onclick="openExportDialog()">⇩ Eksport</button>` : ''}${owBtn()}`;
 }
-// Offset Wizard (admin) — zawsze ostatni w nagłówku, tuż przed flagami
-const owBtn = () => isAdmin() ? `<button class="btn" onclick="window.open('offset.html', '_blank')" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : '';
+// Offset Wizard (admin) — zawsze ostatni w nagłówku, tuż przed flagami; w projekcie od razu wie, którego stoiska dotyczy
+const owBtn = () => isAdmin() ? `<button class="btn" onclick="openOffsetWizard()" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : '';
+const owUrl = q => { const u = new URLSearchParams(q || {}); if (TEST) u.set('test', '1'); if (DEMO) u.set('demo', '1'); const s = u.toString(); return 'offset.html' + (s ? '?' + s : ''); };
+function openOffsetWizard(eid, extra) { window.open(owUrl({ ...(S.project ? { p: S.project.id } : {}), ...(eid ? { e: eid } : {}), ...(extra || {}) }), '_blank'); }
 let statsTimer = null;
 function syncProjectStats() {
   clearTimeout(statsTimer);
@@ -3215,6 +3248,74 @@ function syncProjectStats() {
     if (d.photosCount !== p.photosCount || d.elementsCount !== p.elementsCount || d.cover !== p.cover)
       DB.update(C_PROJECTS, p.id, d).catch(e => console.warn(e));
   }, 800);
+}
+// =====================================================================
+//  PLIKI STOISKA: przygotowanie offsetów, informacje dla produkcji… (tylko administrator)
+//  Lista w project.files. Na Cloudinary zawsze jako „raw” z końcówką .dat: PDF i ZIP mają tam
+//  zablokowane pobieranie, a prawdziwa nazwa pliku zostaje w bazie i wraca przy pobieraniu.
+// =====================================================================
+const standFileCount = p => (p.files || []).length + (S.elements || []).filter(e => e.offset).length;
+async function storeRawFile(file) {
+  if (DEMO) return blobToDataUrl(file);
+  const fd = new FormData(); fd.append('file', file, 'plik.dat'); fd.append('upload_preset', CLOUDINARY_PRESET);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`, { method: 'POST', body: fd });
+  if (!r.ok) throw new Error(r.status === 400 ? 'plik za duży (limit 10 MB)' : 'Cloudinary ' + r.status);
+  return (await r.json()).secure_url;
+}
+async function fetchNamedFile(url, name) {
+  const t = toast('Pobieranie…', '', 60000);
+  try { const r = await fetch(url); if (!r.ok) throw new Error(String(r.status)); download(name, await r.blob()); }
+  catch (e) { toast('Nie udało się pobrać: ' + e.message, 'error'); }
+  t.remove();
+}
+const fileSizeTxt = n => !n ? '' : n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
+function openFilesDialog() {
+  const p0 = S.project; if (!p0 || !isAdmin()) return;
+  const m = openModal({ title: '📎 Pliki stoiska', wide: true, body: '<div class="fl-drop" id="fl-body"></div>',
+    footer: `<input type="file" id="fl-in" multiple class="hidden"><button class="btn" id="fl-ow">⌖ Nowy offset do tego stoiska</button><button class="btn" id="fl-add">+ Dodaj pliki</button><button class="btn btn-solid" data-c>Zamknij</button>` });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  const files = () => S.project ? (S.project.files || []) : [];
+  const save = async list => { S.project.files = list; await DB.update(C_PROJECTS, S.project.id, { files: list }); renderProjectHeader(); render(); };
+  const getBtn = (url, name, lab) => url ? `<button class="btn btn-sm" data-url="${esc(url)}" data-name="${esc(name || 'plik')}">⬇ ${lab}</button>` : '';
+  const render = () => {
+    const box = $('fl-body'); if (!box) return;
+    const els = elOrder(S.elements.filter(e => e.offset)), fl = files(), off = fl.filter(f => f.kind === 'offset'), rest = fl.filter(f => f.kind !== 'offset');
+    const offRow = (o, title, open, del) => `<div class="fl-row"><div class="fl-n">${title}<small>${esc(o.dxfName || o.name || '')}${o.typ ? ' · szablon: ' + (o.typ === 'cnc' ? 'CNC' : 'papier') : ''}${o.ledM ? ' · LED ' + String(o.ledM).replace('.', ',') + ' m' : ''}${o.at ? ' · ' + fmtDateTime(o.at) : ''}${o.by ? ' · ' + esc(userLabel(o.by)) : ''}</small></div>
+      ${getBtn(o.dxf, o.dxfName, 'DXF')}${getBtn(o.szablon, o.szablonName, 'Szablon')}${getBtn(o.szablonDxf, o.szablonDxfName, 'Szablon DXF')}<button class="btn btn-sm" ${open}>⌖ Otwórz w edytorze</button>${del || ''}</div>`;
+    box.innerHTML = (els.length ? `<div class="fl-sec">Offsety elementów</div>` + els.map(e => offRow(e.offset, `${esc(markOf(e))} — ${esc(e.name || typeLabel(e))}`, `data-oe="${e.id}"`)).join('') : '')
+      + (off.length ? `<div class="fl-sec">Offsety stoiska</div>` + off.map(f => offRow(f, esc(f.name), `data-of="${f.id}"`, `<button class="btn btn-sm btn-red" data-del="${f.id}">✕</button>`)).join('') : '')
+      + `<div class="fl-sec">Pliki pomocnicze</div>` + (rest.length ? rest.map(f => `<div class="fl-row"><div class="fl-n">${esc(f.name)}<small>${[fileSizeTxt(f.size), f.at ? fmtDateTime(f.at) : '', f.by ? userLabel(f.by) : ''].filter(Boolean).map(esc).join(' · ')}</small></div>${getBtn(f.url, f.name, 'Pobierz')}<button class="btn btn-sm btn-red" data-del="${f.id}">✕</button></div>`).join('')
+        : '<div class="hint">Upuść tu pliki albo użyj przycisku „+ Dodaj pliki”: przygotowanie offsetów, informacje dla produkcji…</div>');
+    box.querySelectorAll('[data-url]').forEach(b => b.onclick = () => fetchNamedFile(b.dataset.url, b.dataset.name));
+    box.querySelectorAll('[data-oe]').forEach(b => b.onclick = () => openOffsetWizard(b.dataset.oe));
+    box.querySelectorAll('[data-of]').forEach(b => b.onclick = () => { const f = files().find(x => x.id === b.dataset.of); if (f) openOffsetWizard('', { f: f.id, dxf: f.dxf, n: f.dxfName || f.name }); });
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      const f = files().find(x => x.id === b.dataset.del); if (!f) return;
+      if (!await confirmBox(`Usunąć plik <b>${esc(f.name)}</b> ze stoiska?`, 'Usuń')) return;
+      await save(files().filter(x => x.id !== f.id)); addLog(S.project.id, `Usunięto plik stoiska: ${f.name}`);
+    });
+  };
+  const addFiles = async list => {
+    const pid = S.project.id;
+    for (const file of list) {
+      const t = toast(`Wgrywanie: ${file.name}…`, '', 120000);
+      try {
+        const url = await storeRawFile(file);
+        await save([...files(), { id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind: 'file', name: file.name, size: file.size, url, at: nowIso(), by: S.me.id }]);
+        addLog(pid, `Dodano plik stoiska: ${file.name}`);
+      } catch (e) { toast(`Nie udało się wgrać ${file.name}: ${e.message}`, 'error', 6000); }
+      t.remove();
+    }
+  };
+  const fi = $('fl-in');
+  fi.onchange = () => { const l = [...fi.files]; fi.value = ''; if (l.length) addFiles(l); };
+  $('fl-add').onclick = () => fi.click();
+  $('fl-ow').onclick = () => openOffsetWizard();
+  const box = $('fl-body');
+  box.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); e.stopPropagation(); box.classList.add('drag'); } });
+  box.addEventListener('dragleave', () => box.classList.remove('drag'));
+  box.addEventListener('drop', e => { box.classList.remove('drag'); if (!hasFiles(e)) return; e.preventDefault(); e.stopPropagation(); addFiles([...e.dataTransfer.files]); });
+  render();
 }
 function addLog(pid, text, eid) {
   return DB.add(pLog(pid), { at: nowIso(), user: S.me.id, text, eid: eid || '' }).catch(e => console.warn('log', e));
@@ -4359,6 +4460,8 @@ function axGuess(el) {
 }
 const axLink = el => { const id = el.archiwumId || (el.archiwumIds || [])[0]; return id ? AX_URL + '?id=' + encodeURIComponent(id) : ''; };
 const axLinked = el => !!(el.archiwumId || el.archiwumKind);
+// offset elementu przechodzi też do jego eksponatu w Archiwum X
+function axPutOffset(recId, off) { if (DEMO || S.practice || !db || !recId || !off) return; db.collection((TEST ? 'zztest_' : '') + 'records').doc(recId).update({ offsetFiles: off }).catch(e => console.warn('offset → Archiwum X', e)); }
 // znaczek powiązania: eksponat „AX #12”, komplet „AX K3”, grupa „AX G5”
 function axBadge(el, cls = 'ax-badge') {
   if (!axLinked(el)) return '';
@@ -4384,6 +4487,7 @@ function openArchiwumDialog(eid) {
     width: hasDims(el) ? dim(el.w) : '', height: hasDims(el) ? dim(el.h) : '', thickness: dim(el.thick), dimUnit: mm ? 'mm' : 'cm',
     notesList: [{ text: `Z INDEX: stoisko ${p.name}${p.fair ? ' (' + p.fair + ')' : ''}, element ${markOf(el)} — ${typeLabel(el)}${el.notes ? '. ' + el.notes : ''}`, date: today }],
     fairHistory: p.fair ? [{ text: [p.fair, p.city].filter(Boolean).join(', '), date: today }] : [],
+    ...(el.offset ? { offsetFiles: el.offset } : {}),
   };
   const ref = { projectId: p.id, elementId: el.id, stand: p.name || '', mark: markOf(el) };
   closeArchiwumFrame();
@@ -4502,7 +4606,7 @@ function axClearPick(el) {
 function axApplyPick(el, pick) {
   axClearPick(el);
   const items = pick.kind === 'rec' ? [pick.rec] : pick.cont.items, r0 = items[0];
-  if (pick.kind === 'rec') Object.assign(el, { archiwumId: r0.id, archiwumNo: r0.number || '' });
+  if (pick.kind === 'rec') { Object.assign(el, { archiwumId: r0.id, archiwumNo: r0.number || '' }); if (el.offset) axPutOffset(r0.id, el.offset); }
   else Object.assign(el, { archiwumKind: pick.kind, archiwumName: pick.cont.name, archiwumTag: pick.cont.fullTag || pick.cont.tag,
     archiwumIds: items.map(r => r.id), archiwumNos: items.map(r => r.number || '') });
   const v = axVariant(r0); if (v) el.variant = v;
@@ -4647,7 +4751,8 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     if (axf) axf.innerHTML = t && t.id === 'logo3d' && isAdmin()
       ? `${axLinked(el) ? axBadge(el, 'btn') + '<button type="button" class="btn" id="ed-axclear" title="Odłącz od Archiwum X (wymiary zostają)">✕</button>' : ''}
         <button type="button" class="btn" id="ed-axpick" title="Gotowe logo z magazynu: eksponat, komplet albo grupa">🗄 Z Archiwum X</button>
-        ${editing && !axLinked(el) ? '<button type="button" class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}`
+        ${editing && !axLinked(el) ? '<button type="button" class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}
+        ${editing ? `<button type="button" class="btn" id="ed-ow" title="${editing.offset ? 'Otwórz zapisany offset tego elementu w edytorze' : 'Przygotuj offsety tego elementu'}">⌖ Offset${editing.offset ? ' ✓' : ''}</button>` : ''}`
       : '';
     if (t && t.variants && t.variants.length) {
       h += `<div class="fld"><label>${t.id === 'podwieszana' ? 'Kształt konstrukcji' : 'Wykonanie'}</label>
@@ -4723,6 +4828,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const axc = $('ed-axclear'); if (axc) axc.onclick = () => { axClearPick(el); renderOpts(); refresh(); };
     // (w tej funkcji „m” to rodzaj wymiaru, nie okno — okno zamykamy przez listę otwartych okien)
     const axb = $('ed-ax'); if (axb) axb.onclick = () => { const md = modalStack.find(x => x.el === axb.closest('.modal-back')); if (md) md.close(); openArchiwumDialog(editing.id); };
+    const owb = $('ed-ow'); if (owb) owb.onclick = () => openOffsetWizard(editing.id);
     const ins = $('ed-inside'); if (ins) ins.addEventListener('change', () => { el.inside = ins.checked; refresh(); });
     const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
     $('ed-doorslot').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
@@ -5247,17 +5353,18 @@ function renderGraph() {
     // (wypełnia też spady), linie podziału płaszczyzn zostają na wierzchu; zadruk wewnątrz — drugi pasek z własnym obrazkiem
     const hasCells = hangPl.length > 0;
     const cellsOf = (pls, whole) => { const tw = pls.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...pls.map(q => q.gh)); let cx = 0;
-      return pls.map(q => { const c = `<div class="gc-pl" title="${esc(planeName(q))}" style="left:${(cx / tw * 100).toFixed(3)}%;width:${(q.gw / tw * 100).toFixed(3)}%;height:${(q.gh / mh * 100).toFixed(3)}%">${q.thumb ? `<img src="${esc(q.thumb)}" alt="" draggable="false">` : whole ? '' : '<span>+</span>'}</div>`; cx += q.gw; return c; }).join(''); };
+      return pls.map(q => { const c = `<div class="gc-pl" title="${esc(planeName(q))}"${q.thumb ? ` data-ar="${(q.gw / q.gh).toFixed(5)}" data-th="${esc(q.thumb)}"` : ''} style="left:${(cx / tw * 100).toFixed(3)}%;width:${(q.gw / tw * 100).toFixed(3)}%;height:${(q.gh / mh * 100).toFixed(3)}%">${q.thumb ? `<img src="${esc(q.thumb)}" alt="" draggable="false">` : whole ? '' : '<span>+</span>'}</div>`; cx += q.gw; return c; }).join(''); };
     const himg = (url, inn) => url ? `<img class="gc-himg" src="${esc(url)}" alt="" draggable="false"><span class="x" data-rm="${e.id}"${inn ? ' data-in="1"' : ''} title="Usuń miniaturę">✕</span>` : '';
-    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}${hasCells && e.thumb ? ' has-img' : ''}" data-eid="${e.id}" style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
-        title="Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">
+    const ratioAttr = url => url && dims && !axLinked(e) ? ` data-ar="${(g.w / g.h).toFixed(5)}" data-th="${esc(url)}"` : '';
+    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}${hasCells && e.thumb ? ' has-img' : ''}${e.thumb ? ' has-thumb' : ''}" data-eid="${e.id}"${ratioAttr(e.thumb)} style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
+        title="${e.thumb ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">
       ${hasCells ? himg(e.thumb, false) + cellsOf(hangPl, !!e.thumb) : (e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika')}</div>`;
-    const frameIn = insPl.length ? `<div class="gc-frame gc-frame-in${e.thumbIn ? ' has-img' : ''}" data-eid="${e.id}" data-in="1" style="left:${LM}px;top:${inTop}px;width:${FW}px;height:${FH}px"
-        title="Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
+    const frameIn = insPl.length ? `<div class="gc-frame gc-frame-in${e.thumbIn ? ' has-img has-thumb' : ''}" data-eid="${e.id}" data-in="1"${ratioAttr(e.thumbIn)} style="left:${LM}px;top:${inTop}px;width:${FW}px;height:${FH}px"
+        title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W + QW, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
-      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span><button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
+      <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${e.offset && isAdmin() ? `<button type="button" class="gc-ed" data-eid="${e.id}" data-ow="1" title="Offset Wizard: otwórz zapisany offset tego elementu">⌖</button>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       <div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${frameIn}${doorLayer}${doorFrame}${netFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
@@ -5287,7 +5394,7 @@ function renderGraph() {
   });
   box.querySelectorAll('.gc-ed').forEach(b => {
     b.onpointerdown = e => e.stopPropagation();
-    b.onclick = e => { e.stopPropagation(); openElementDialog({ id: b.dataset.eid }); };
+    b.onclick = e => { e.stopPropagation(); if (b.dataset.ow) openOffsetWizard(b.dataset.eid); else openElementDialog({ id: b.dataset.eid }); };
   });
   box.querySelectorAll('.gc-h').forEach(h => {
     const card = h.closest('.gc'), eid = h.dataset.eid;
@@ -5367,7 +5474,10 @@ function renderGraph() {
       if (S.graphMove) return; // w trybie przesuwania klik nie wkleja grafiki
       const rm = e.target.closest('[data-rm]');
       if (rm) { e.stopPropagation(); removeThumb(eid, rm.dataset.in ? 'in' : ''); return; }
-      e.stopPropagation(); pasteThumb(eid, which);
+      e.stopPropagation();
+      // grafika już jest: klik tylko zaznacza (przypadkowy klik nie wkleja ze schowka) — nową wkleja się po usunięciu ✕
+      if (f.classList.contains('has-thumb')) { selectElement(eid, false); return; }
+      pasteThumb(eid, which);
     };
     f.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); f.classList.add('drag'); } });
     f.addEventListener('dragleave', () => f.classList.remove('drag'));
@@ -5375,10 +5485,25 @@ function renderGraph() {
       f.classList.remove('drag');
       if (!hasFiles(e)) return;
       e.preventDefault(); e.stopPropagation();
+      if (f.classList.contains('has-thumb')) { toast('Najpierw usuń obecną grafikę (✕)', '', 3500); return; }
       const file = [...e.dataTransfer.files].find(x => x.type.startsWith('image/'));
       if (file) setThumb(eid, file, which);
     });
   });
+  box.querySelectorAll('[data-ar]').forEach(markRatio);
+}
+// grafika o innych proporcjach niż ramka w podglądzie: czerwony wykrzyknik na środku (tolerancja 2%)
+const RATIO_TOL = 0.02;
+async function markRatio(host) {
+  const url = host.dataset.th, ar = parseFloat(host.dataset.ar); if (!url || !(ar > 0)) return;
+  try {
+    if (!_crispImgs.has(url)) _crispImgs.set(url, loadImg(url));
+    const img = await _crispImgs.get(url), r = img.width / img.height;
+    if (!host.isConnected || !(Math.abs(r / ar - 1) > RATIO_TOL)) return;
+    const d = document.createElement('div'); d.className = 'gc-ratio'; d.textContent = '!';
+    d.title = `Proporcje grafiki są inne niż ramki (grafika ${r.toFixed(2).replace('.', ',')} : 1, ramka ${ar.toFixed(2).replace('.', ',')} : 1)`;
+    host.appendChild(d);
+  } catch (e) { /* obrazek się nie wczytał — bez alarmu */ }
 }
 // miniatura grafiki w okienku elementu: kliknięcie od razu wkleja obrazek ze schowka;
 // gdy w schowku nie ma obrazka (albo przeglądarka nie da dostępu) — wybór pliku z dysku
