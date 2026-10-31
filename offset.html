@@ -493,24 +493,28 @@ const ledClear = (x, y, d) => !W.led || W.led.dist(x, y) >= d / 2 + 0.3;   // ot
 // rzędy 5 mm od górnej i dolnej krawędzi profilu (z dala od paska LED na środku), naprzemiennie góra / dół
 function placeFix(rails) {
   const ref = refPolys(), d = W.pr.dFix; if (!ref) return [];
-  const luz0 = W.pr.luzF, luzy = [luz0, 3, 2, 1, 0.5, 0.25, 0].filter((v, i) => i === 0 || v < luz0), ls = letters(ref.polys), out = [];
+  const luz0 = W.pr.luzF, luzy = [luz0], ls = letters(ref.polys), out = []; let nMniej = 0, lzMin = luz0;
+  for (let v = Math.floor((luz0 - 1e-6) / 0.2) * 0.2; v > 0.001; v -= 0.2) luzy.push(Math.round(v * 10) / 10); if (luz0 > 0) luzy.push(0);     // drabinka co 0,2 mm: luz maleje tylko tyle, ile trzeba
   rails.forEach(rl => {
     const half = rl.h / 2, off = Math.max(d / 2 + 3.5, half - FIX_OD_KRAW);   // przy cienkim profilu i tak ponad paskiem LED (6 mm)
     const yT = rl.yc + off, yB = rl.yc - off;
     ls.filter(l => l.bb.x1 > rl.x0 && l.bb.x0 < rl.x1 && l.bb.y1 > yB && l.bb.y0 < yT).forEach(l => {
       // luz liczony osobno dla każdej litery: wąska kreska dostaje mniejszy (z ostrzeżeniem), reszta liter zostaje przy swoim
       const wProfilu = s => s[0] >= rl.x0 - 0.01 && s[1] <= rl.x1 + 0.01;
-      let srodki = []; for (const lz of luzy) { const r = offsetPolys([l.p].concat(l.holes), -(d / 2 + lz)); if (r.length && (hSpans(r, yT).some(wProfilu) || hSpans(r, yB).some(wProfilu))) { srodki = r; if (lz < luz0) W.warn.push(`wąska kreska: luz FIX zmniejszony do ${fmt(lz)} mm`); break; } }
+      const regs = new Map(), regAt = lz => { if (!regs.has(lz)) regs.set(lz, offsetPolys([l.p].concat(l.holes), -(d / 2 + lz))); return regs.get(lz); };
+      let srodki = [], lzB = luz0; for (const lz of luzy) { const r = regAt(lz); if (r.length && (hSpans(r, yT).some(wProfilu) || hSpans(r, yB).some(wProfilu))) { srodki = r; lzB = lz; if (lz < luz0) W.warn.push(`wąska kreska: luz FIX zmniejszony do ${fmt(lz)} mm`); break; } }
       const spans = y => hSpans(srodki, y).filter(s => { const mx = (s[0] + s[1]) / 2; return mx >= l.bb.x0 && mx <= l.bb.x1 && wProfilu(s); }).sort((a, b) => a[0] - b[0]);
       const T = spans(yT), B = spans(yB), three = l.bb.x1 - l.bb.x0 > FIX_SZER_3, cx = (l.bb.x0 + l.bb.x1) / 2;
       // otwór przy krawędzi pasma (przy krawędzi litery), nigdy na pasku LED: jak koniec pasma wchodzi na LED — przesuwamy wzdłuż pasma do krawędzi paska
       const free = (x, y, dir, s) => { for (let k = 0; k < 400; k++) { const xx = x + dir * k * 0.25; if (xx < s[0] - 1e-6 || xx > s[1] + 1e-6) return null; if (ledClear(xx, y, d)) return xx; } return null; };
       // otwory tej litery nie obok siebie (min. 3 średnice)
       const mine = [], near = (x, y) => mine.some(h => Math.hypot(h.x - x, h.y - y) < 3 * d);
-      const put = (x, y, led) => { const h = { id: uid++, kind: 'fix', d, x, y }; if (led) { h.led = true; W.warn.push('otwór FIX przy krawędzi, ale wąska litera — nachodzi na pasek LED (czerwony)'); } mine.push(h); out.push(h); return true; };
-      const end = (x, y, dir, s) => { const xx = free(x, y, dir, s); if (xx != null) return !near(xx, y) && put(xx, y); return !near(x, y) && put(x, y, true); };
+      const put = (x, y, led) => { const h = { id: uid++, kind: 'fix', d, x, y }; if (led) { h.led = true; W.warn.push('otwór FIX nie mieści się obok paska LED nawet przy samym konturze (czerwony)'); } mine.push(h); out.push(h); return true; };
+      // pasek LED ważniejszy od luzu: otwór, który w tym pasmie nie ma miejsca obok paska, idzie bliżej konturu — o tyle, ile trzeba
+      const ulga = (s, y, dir) => { for (const lz of luzy) { if (lz >= lzB) continue; const sp = hSpans(regAt(lz), y).filter(wProfilu).find(q => q[0] <= s[1] && q[1] >= s[0]); if (!sp) continue; const xx = free(dir > 0 ? sp[0] : sp[1], y, dir, sp); if (xx != null && !near(xx, y)) { nMniej++; lzMin = Math.min(lzMin, lz); return xx; } } return null; };
+      const end = (x, y, dir, s) => { const xx = free(x, y, dir, s); if (xx != null) return !near(xx, y) && put(xx, y); const u = ulga(s, y, dir); if (u != null) return put(u, y); return !near(x, y) && put(x, y, true); };
       // środkowy: koniec pasma najbliższy środka litery, odsunięty od paska LED
-      const mid = (sp, y) => { const c = sp.flatMap(s => [[s[0], 1, s], [s[1], -1, s]]).sort((a, b) => Math.abs(a[0] - cx) - Math.abs(b[0] - cx)); for (const [x, dir, s] of c) { const xx = free(x, y, dir, s); if (xx != null && !near(xx, y)) return put(xx, y); } return !!(c[0] && !near(c[0][0], y) && put(c[0][0], y, true)); };
+      const mid = (sp, y) => { const c = sp.flatMap(s => [[s[0], 1, s], [s[1], -1, s]]).sort((a, b) => Math.abs(a[0] - cx) - Math.abs(b[0] - cx)); for (const [x, dir, s] of c) { const xx = free(x, y, dir, s); if (xx != null && !near(xx, y)) return put(xx, y); } for (const [, dir, s] of c) { const u = ulga(s, y, dir); if (u != null) return put(u, y); } return !!(c[0] && !near(c[0][0], y) && put(c[0][0], y, true)); };
       const wide = three && T.length && T[T.length - 1][1] - T[0][0] >= 15;   // trzeci otwór tylko gdy górne krańce są daleko od siebie (nie obok siebie na jednej kresce)
       const at = { TL: () => T.length && end(T[0][0], yT, 1, T[0]), TR: () => T.length && end(T[T.length - 1][1], yT, -1, T[T.length - 1]),
         BL: () => B.length && end(B[0][0], yB, 1, B[0]), BR: () => B.length && end(B[B.length - 1][1], yB, -1, B[B.length - 1]), BM: () => B.length && mid(B, yB), TM: () => T.length && mid(T, yT) };
@@ -523,6 +527,7 @@ function placeFix(rails) {
       if (got < want && (T.length || B.length)) W.warn.push(`litera: zmieściło się ${got} z ${want} otworów FIX`);
     });
   });
+  if (nMniej) W.warn.push(`luz FIX mniejszy niż ${fmt(luz0)} mm przy ${nMniej} otworach (najmniej ${fmt(lzMin)} mm), żeby nie wchodziły na pasek LED`);
   return out;
 }
 function autoHoles() {
