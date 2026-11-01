@@ -150,7 +150,6 @@
     <button data-pan="litery" title="Frontlit / Sidelit, dysza, offsety"><svg viewBox="0 0 24 24"><path d="M5 20 12 4l7 16M8 14h8"/></svg><span>Litery</span></button>
     <button data-pan="otwory" title="Profil montażowy, otwory na przewody i FIX"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg><span>Otwory</span></button>
     <button data-pan="podzial" title="Podział na stół drukarki"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M12 2v20" stroke-dasharray="3 2.5"/></svg><span>Podział</span></button>
-    <button data-pan="led" title="Pasek LED i metry bieżące"><svg viewBox="0 0 24 24"><path d="M3 12h18"/><circle cx="7" cy="12" r="2"/><circle cx="17" cy="12" r="2"/><path d="M7 5v2M17 5v2M7 17v2M17 17v2"/></svg><span>LED</span></button>
     <button data-pan="warstwy" title="Co widać na rysunku"><svg viewBox="0 0 24 24"><path d="m12 4 9 5-9 5-9-5zM3 14l9 5 9-5"/></svg><span>Warstwy</span></button>
     <button data-pan="bryla" title="Bryły 3D: wymiary, kolory, STL / 3MF"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span>Bryła 3D</span></button>
     <span class="sp"></span>
@@ -190,6 +189,9 @@
         <div class="fld"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
         <div class="fld"><span>Offset podstawy B</span><input type="text" inputmode="decimal" id="p-B" value="0,1"></div>
         <div class="vals" id="vals"></div>
+        <h3>Pasek LED</h3>
+        <div class="vals" id="led-info">—</div>
+        <div class="hint">Oś paska biegnie środkiem litery, także tam, gdzie pasek wchodzi na kontury. Długość to długość tej osi.</div>
       </section>
       <section class="pan" data-pan="otwory" data-t="Otwory i profil">
         <h3>Profil montażowy</h3>
@@ -234,10 +236,6 @@
         <div class="hint">Klik w plasterek na rysunku też go wybiera. Długość 0 = bez tego plasterka. Są w DXF i w bryłach 3D, nie ma ich na szablonie.</div>
         <div class="hint">Pomarańczowa linia tnie podstawę, niebieska przerywana klosz; niebieską można przeciągnąć osobno. Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem (widać go po włączeniu warstwy „stół drukarki”).</div>
       </section>
-      <section class="pan" data-pan="led" data-t="Pasek LED">
-        <div class="vals" id="led-info">—</div>
-        <div class="hint">Oś paska biegnie środkiem litery, także tam, gdzie pasek wchodzi na kontury. Długość to długość tej osi.</div>
-      </section>
       <section class="pan" data-pan="warstwy" data-t="Warstwy"><div id="lays"></div></section>
       <section class="pan" data-pan="bryla" data-t="Bryła 3D">
         <button type="button" class="btn wide go" id="b3-open">Pokaż bryły 3D</button>
@@ -273,6 +271,8 @@
         <div class="fld"><span>Rowek: szerokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rg" placeholder="auto"></div>
         <div class="fld"><span>Rowek: głębokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rd" placeholder="auto"></div>
         <div class="fld"><span>Rowek: od krawędzi</span><input type="text" inputmode="decimal" id="b3-rm" value="1,2"></div>
+        <h3>Cyfry na literach</h3>
+        <div class="fld" title="Cyfrę dodajesz prawym klawiszem na literze. Gdy nie zmieści się w tej wielkości obok paska LED, program ją zmniejszy i pokaże uwagę."><span>Wysokość cyfry [mm]</span><input type="text" inputmode="decimal" id="b3-cyf" value="5"></div>
         <h3>Kanty</h3>
         <div class="row"><label><input type="checkbox" id="b3-rnd" checked> zaokrąglaj kanty pasowania</label></div>
         <div class="fld"><span>Promień</span><input type="text" inputmode="decimal" id="b3-r" value="0,1"></div>
@@ -1654,7 +1654,7 @@ function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 2) && o.pr.dOtw === 4.5) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 function addSpin(inp, step, after) {
   if (inp.parentElement.classList.contains('spin')) return;
   const w = document.createElement('span'); w.className = 'spin'; inp.parentElement.insertBefore(w, inp); w.appendChild(inp);
@@ -1665,11 +1665,12 @@ function addSpin(inp, step, after) {
 }
 // ===================== start =====================
 restore();
-Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id.startsWith('b3-')) { save(); if (window.mark3D) mark3D(); } else if (!id.startsWith('tx-')) recompute(); }));
+Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id.startsWith('b3-')) { save(); if (window.mark3D) mark3D(); if (id === 'b3-cyf') draw(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
   if (i.id.startsWith('tx-') || i.type === 'file' || i.type === 'range') return;
   if (i.id === 'p-name') return save();
   if (i.id === 'b3-wgl') { W.plReg = null; refreshPlates(); draw(); }
+  if (i.id === 'b3-cyf') draw();
   if (i.id.startsWith('b3-')) { save(); if (window.mark3D) mark3D(); return; }
   if (i.name === 'dysza') { $('p-P').value = '0,1'; $('p-B').value = '0,1'; }   // standard offsetów dla obu dysz
   if (i.name === 'wielk') $('b3-wgl').checked = i.value === '2';                  // duże: wybranie na LED, małe: pełny środek

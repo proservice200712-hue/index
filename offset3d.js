@@ -57,7 +57,7 @@ function fazaKieszeni(v, f) {
 function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
-    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0 };
+    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5) };
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
   p.kCalk = p.sf + p.ss; p.pCalk = p.sh - p.kCalk; p.sw = au('b3-sw', p.ss - 0.5);
   return p;
@@ -100,23 +100,25 @@ function cyfryDno(p, m) {
 }
 function cyfryMiejsca() {
   if (!W.marks.length || !W.base || !W.pr) return [];
-  const p = params3D(), key = JSON.stringify([W.baseId, W.pr.typ, W.pr.dysza, W.pr.dLeb, W.m, p.st, p.pl, p.wgl, p.gw, p.f, p.r, p.sd, p.t3, p.rg, W.marks, W.holes.map(h => [h.x, h.y, h.d, h.kind]), W.rails.map(r => [r.x0, r.x1, r.yc, r.h]), W.cuts.map(c => [c.li, c.x, c.y, c.ang]), W.plates.map(q => q.L), W.led && W.led.key]);
+  const p = params3D(), key = JSON.stringify([W.baseId, W.pr.typ, W.pr.dysza, W.pr.dLeb, W.m, p.st, p.pl, p.wgl, p.gw, p.f, p.r, p.sd, p.t3, p.rg, p.cyf, W.marks, W.holes.map(h => [h.x, h.y, h.d, h.kind]), W.rails.map(r => [r.x0, r.x1, r.yc, r.h]), W.cuts.map(c => [c.li, c.x, c.y, c.ang]), W.plates.map(q => q.L), W.led && W.led.key]);
   if (V3.cyfKey === key) return V3.cyf;
-  const dno = cyfryDno(p, W.m), ls = bedLetters(), sw = W.pr.dysza === 4 ? 0.6 : 0.8, plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
+  const dno = cyfryDno(p, W.m), ls = bedLetters(), sw0 = W.pr.dysza === 4 ? 0.6 : 0.8, plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
   const twarde = W.holes.map(h => circlePoly(h.x, h.y, h.kind === 'fix' ? Math.max(h.d, W.pr.dLeb) : h.d)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().map(c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); })));
   const profile = plus(W.rails.map(r => { const m = p.rg + 0.5; return toCl([[r.x0 - m, r.yc - r.h / 2 - m], [r.x1 + m, r.yc - r.h / 2 - m], [r.x1 + m, r.yc + r.h / 2 + m], [r.x0 - m, r.yc + r.h / 2 + m]]); }));
   V3.cyf = W.marks.filter(m => ls[m.li]).map(m => {
     const l = ls[m.li], pole = inter(dno.reg, [l.p]), led = W.led ? plus(rowekLED(pole, LED_W)) : [];
-    for (const [h, naLED, naProfilu] of [[5, 0, 0], [4, 0, 0], [5, 1, 0], [4, 1, 0], [5, 1, 1], [4, 1, 1]]) {
-      const zajete = clip('ctUnion', twarde.concat(naLED ? [] : led, naProfilu ? [] : profile)), wolne = offsetPolys(diff(pole, zajete), -(Math.hypot(cyfraSzer(m.t, h), h) / 2 + 0.5));
+    // wielkość ustawiona w panelu; gdy się nie mieści, mniejsza (najmniej 4 mm), a dopiero potem pod paskiem LED lub na profilu
+    const wys = [p.cyf]; while (wys[wys.length - 1] * 0.8 >= 4) wys.push(wys[wys.length - 1] * 0.8); if (wys[wys.length - 1] > 4) wys.push(4);
+    for (const [naLED, naProfilu] of [[0, 0], [1, 0], [1, 1]]) for (const h0 of wys) {
+      const h = Math.round(h0 * 10) / 10, sw = Math.max(sw0, h * 0.14), zajete = clip('ctUnion', twarde.concat(naLED ? [] : led, naProfilu ? [] : profile)), wolne = offsetPolys(diff(pole, zajete), -(Math.hypot(cyfraSzer(m.t, h), h) / 2 + 0.5));
       let best = null; wolne.forEach(q => q.forEach(v => { if (!best || v.Y - v.X > best.Y - best.X) best = v; }));
-      if (best) { const x = best.X / S, y = best.Y / S; return { li: m.li, t: m.t, h, x, y, naLED: !!naLED, naProfilu: !!naProfilu, front: cyfraPolys(m.t, x, y, h, sw), back: cyfraPolys(m.t, x, y, h, sw, true) }; }
+      if (best) { const x = best.X / S, y = best.Y / S; return { li: m.li, t: m.t, h, hChce: p.cyf, x, y, naLED: !!naLED, naProfilu: !!naProfilu, front: cyfraPolys(m.t, x, y, h, sw), back: cyfraPolys(m.t, x, y, h, sw, true) }; }
     }
     return { li: m.li, t: m.t, h: 0, x: l.bb.x0, y: l.bb.y1, brak: true, front: [], back: [] };
   });
   V3.cyfKey = key; return V3.cyf;
 }
-const cyfraUwaga = q => q.brak ? `cyfra ${q.t} na literze ${q.li + 1}: za mało miejsca, nie będzie jej na bryle` : q.naProfilu ? `cyfra ${q.t} na literze ${q.li + 1} leży na profilu` : q.naLED ? `cyfra ${q.t} na literze ${q.li + 1} leży pod paskiem LED` : '';
+const cyfraUwaga = q => q.brak ? `cyfra ${q.t} na literze ${q.li + 1}: za mało miejsca, nie będzie jej na bryle` : q.naProfilu ? `cyfra ${q.t} na literze ${q.li + 1} leży na profilu` : q.naLED ? `cyfra ${q.t} na literze ${q.li + 1} leży pod paskiem LED` : q.h < q.hChce - 0.05 ? `cyfra ${q.t} na literze ${q.li + 1} zmniejszona do ${fmt(q.h, 1)} mm: większa nie zmieści się obok paska LED` : '';
 function cyfryReg(p, zDna) {
   const c = cyfryMiejsca(), back = c.flatMap(q => q.back);
   return { front: c.flatMap(q => q.front), back, gl: back.length ? Math.min(p.rd > 0 ? p.rd : 0.3, zDna / 2) : 0, zDna };
