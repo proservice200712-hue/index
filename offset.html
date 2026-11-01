@@ -78,6 +78,21 @@
   .vals { font-variant-numeric: tabular-nums; background: #f7fafc; border: 1px solid var(--line); padding: 6px 8px; line-height: 1.55; }
   .vals b { display: inline-block; min-width: 74px; }
   .warn { position: absolute; left: 10px; top: 10px; max-width: min(460px, 60%); max-height: 40%; overflow-y: auto; background: rgba(255,250,240,.96); border: 1px solid #f6ad55; color: #c05621; font-size: .78rem; padding: 6px 9px; white-space: pre-line; cursor: pointer; z-index: 3; }
+  /* wykrzyknik: litery się łączą */
+  #alarms { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+  .alarm-x { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: #e53e3e; border: 4px solid #fff; color: #fff; font: 800 44px/52px Arial, sans-serif; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,.35); animation: alarmPuls 1s ease-in-out infinite; }
+  @keyframes alarmPuls { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(229,62,62,.7); } 50% { transform: scale(1.22); box-shadow: 0 0 0 16px rgba(229,62,62,0); } }
+  /* kafelki z podglądem */
+  .picks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .pick { position: relative; display: block; border: 1.5px solid var(--line); padding: 4px; cursor: pointer; text-align: center; line-height: 1.2; background: #fff; }
+  .pick:hover { border-color: #a0aec0; }
+  .pick:has(input:checked) { border-color: var(--accent); background: #f0fbe8; }
+  .pick input { position: absolute; left: 5px; top: 5px; margin: 0; }
+  .pick img, .pick svg { display: block; width: 100%; height: auto; margin-bottom: 3px; }
+  .pick svg rect, .pick svg circle { vector-effect: non-scaling-stroke; }
+  .pick b { display: block; font-size: .78rem; }
+  .pick small { display: block; color: var(--gray); font-size: .68rem; }
+  .sch { display: block; width: 100%; height: auto; margin-bottom: 6px; border: 1px solid var(--line); }
   #rail-warn { position: relative; }
   #warn-n { position: absolute; top: 3px; right: 10px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e53e3e; color: #fff; font: 700 .66rem/17px Arial, sans-serif; text-align: center; }
   #warn-list div { color: #c05621; padding: 7px 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
@@ -149,7 +164,15 @@
       </section>
       <section class="pan" data-pan="litery" data-t="Litery">
         <h3>Rodzaj</h3>
-        <div class="row"><label><input type="radio" name="typ" value="F" checked> Frontlit</label><label><input type="radio" name="typ" value="S"> Sidelit</label></div>
+        <div class="picks">
+          <label class="pick"><input type="radio" name="typ" value="F" checked><img src="frontlit_schemat.png" alt=""><b>Frontlit</b></label>
+          <label class="pick"><input type="radio" name="typ" value="S"><img src="sidelit_schemat.png" alt=""><b>Sidelit</b></label>
+        </div>
+        <h3>Wielkość liter <span class="hint">(gdzie otwór na przewód)</span></h3>
+        <div class="picks">
+          <label class="pick" title="Szeroka kreska: otwór mieści się w kieszeni LED, luz liczony od kieszeni"><input type="radio" name="wielk" value="2" checked><svg viewBox="0 0 120 60"><rect x="28" y="3" width="64" height="54" fill="#fff" stroke="#ff0000"/><rect x="35" y="3" width="50" height="54" fill="#f7fafc" stroke="#00a000"/><rect x="43" y="3" width="34" height="54" fill="#faf5ff" stroke="#a000a0"/><rect x="55" y="3" width="10" height="54" fill="#ffe680"/><circle cx="51" cy="30" r="5.5" fill="#fff" stroke="#ff8000" stroke-width="1.6"/></svg><b>duże litery</b><small>od kieszeni</small></label>
+          <label class="pick" title="Wąska kreska: otwór wchodzi w ściankę kieszeni, luz liczony od wewnętrznego konturu podstawy"><input type="radio" name="wielk" value="1"><svg viewBox="0 0 120 60"><rect x="38" y="3" width="44" height="54" fill="#fff" stroke="#ff0000"/><rect x="44" y="3" width="32" height="54" fill="#f7fafc" stroke="#00a000"/><rect x="51" y="3" width="18" height="54" fill="#faf5ff" stroke="#a000a0"/><rect x="55" y="3" width="10" height="54" fill="#ffe680"/><circle cx="51" cy="30" r="5.5" fill="#fff" stroke="#ff8000" stroke-width="1.6"/></svg><b>małe litery</b><small>od wewn. podstawy</small></label>
+        </div>
         <h3>Dysza</h3>
         <div class="row"><label><input type="radio" name="dysza" value="4"> 0,4 mm</label><label><input type="radio" name="dysza" value="6" checked> 0,6 mm</label></div>
         <h3>Offsety [mm]</h3>
@@ -161,8 +184,6 @@
         <h3>Na przewody</h3>
         <div class="fld"><span>Średnica</span><input type="text" inputmode="decimal" id="p-dotw" value="3"></div>
         <div class="row"><label><input type="radio" name="gdzie" value="1"> góra</label><label><input type="radio" name="gdzie" value="2" checked> środek</label><label><input type="radio" name="gdzie" value="3"> dół</label><label><input type="radio" name="gdzie" value="0"> bez</label></div>
-        <div class="row"><label><input type="radio" name="wielk" value="2" checked> duże litery — od kieszeni</label></div>
-        <div class="row"><label><input type="radio" name="wielk" value="1"> małe — od wewn. podstawy</label></div>
         <div class="fld"><span>Przesunięcie <span class="hint">(+ w górę, − w dół)</span></span><input type="text" inputmode="decimal" id="p-prz" value="0"></div>
         <div class="fld"><span>Luz od konturu</span><input type="text" inputmode="decimal" id="p-luz" value="1"></div>
         <div class="hint">Z profilem liczą się od jego górnej krawędzi (+ przesunięcie).</div>
@@ -184,7 +205,7 @@
         <div class="fld"><span>Stół X [mm]</span><input type="text" inputmode="decimal" id="p-stx" value="320"></div>
         <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
         <div class="vals" id="podz-info"></div>
-        <div class="hint">Linię przeciągasz myszą. Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń.</div>
+        <div class="hint">Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem.</div>
       </section>
       <section class="pan" data-pan="led" data-t="Pasek LED">
         <div class="vals" id="led-info">—</div>
@@ -195,25 +216,27 @@
         <button type="button" class="btn wide go" id="b3-open">Pokaż bryły 3D</button>
         <div id="g3-f">
           <h3>Wymiary Frontlit [mm]</h3>
-          <div class="fld"><span>Grubość pleksy</span><input type="text" inputmode="decimal" id="b3-gp" value="3"></div>
-          <div class="fld"><span>Wysokość litery (z pleksą)</span><input type="text" inputmode="decimal" id="b3-h" value="40"></div>
-          <div class="fld"><span>Stopień podstawy</span><input type="text" inputmode="decimal" id="b3-st" value="2"></div>
-          <div class="fld"><span>Grubość płyty podstawy</span><input type="text" inputmode="decimal" id="b3-pl" value="6"></div>
-          <div class="fld"><span>Ścianka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-wk" placeholder="auto"></div>
-          <div class="fld"><span>Stopka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-ws" placeholder="auto"></div>
-          <div class="row"><label><input type="checkbox" id="b3-wgl" checked> wytnij kieszeń LED</label></div>
+          <img class="sch" src="frontlit_schemat.png" alt="Przekrój litery Frontlit">
+          <div class="fld"><span>1. Grubość pleksy</span><input type="text" inputmode="decimal" id="b3-gp" value="3"></div>
+          <div class="fld"><span>2. Wysokość litery (z pleksą)</span><input type="text" inputmode="decimal" id="b3-h" value="40"></div>
+          <div class="fld"><span>3. Stopień podstawy</span><input type="text" inputmode="decimal" id="b3-st" value="2"></div>
+          <div class="fld"><span>4. Grubość płyty podstawy</span><input type="text" inputmode="decimal" id="b3-pl" value="6"></div>
+          <div class="fld"><span>5. Ścianka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-wk" placeholder="auto"></div>
+          <div class="fld"><span>6. Stopka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-ws" placeholder="auto"></div>
+          <div class="row"><label><input type="checkbox" id="b3-wgl" checked> 7. wytnij kieszeń LED</label></div>
           <div class="fld"><span>Głębokość kieszeni</span><input type="text" inputmode="decimal" id="b3-gw" value="6"></div>
         </div>
         <div id="g3-s">
           <h3>Wymiary Sidelit [mm]</h3>
-          <div class="fld"><span>Grubość litery</span><input type="text" inputmode="decimal" id="b3-sh" value="20"></div>
-          <div class="fld"><span>Ścianka boczna klosza</span><input type="text" inputmode="decimal" id="b3-ss" value="5"></div>
-          <div class="fld"><span>Front klosza</span><input type="text" inputmode="decimal" id="b3-sf" value="2"></div>
-          <div class="fld"><span>Dno podstawy</span><input type="text" inputmode="decimal" id="b3-sd" value="2"></div>
+          <img class="sch" src="sidelit_schemat.png" alt="Przekrój litery Sidelit">
+          <div class="fld"><span>1. Grubość litery</span><input type="text" inputmode="decimal" id="b3-sh" value="20"></div>
+          <div class="fld"><span>2. Ścianka boczna klosza</span><input type="text" inputmode="decimal" id="b3-ss" value="5"></div>
+          <div class="fld"><span>3. Front klosza</span><input type="text" inputmode="decimal" id="b3-sf" value="2"></div>
+          <div class="fld"><span>4. Dno podstawy</span><input type="text" inputmode="decimal" id="b3-sd" value="2"></div>
           <div class="fld"><span>Ścianka klosza: grubość</span><input type="text" inputmode="decimal" id="b3-st1" value="0,8"></div>
           <div class="fld"><span>Rant podstawy: grubość</span><input type="text" inputmode="decimal" id="b3-st2" value="0,9"></div>
           <div class="fld"><span>Ścianka podstawy: do</span><input type="text" inputmode="decimal" id="b3-st3" value="1,7"></div>
-          <div class="fld"><span>Pasowanie <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-sw" placeholder="auto"></div>
+          <div class="fld"><span>8. Pasowanie <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-sw" placeholder="auto"></div>
         </div>
         <h3>Wycięcia</h3>
         <div class="row"><label><input type="checkbox" id="b3-otw" checked> otwory na przewody</label></div>
@@ -248,6 +271,7 @@
   <div id="stage">
     <canvas id="cv"></canvas>
     <div id="drop">Upuść tu plik DXF albo PDF z Corela<br><span class="hint">(kontur bazy = pleksy, napis zamieniony na krzywe)</span></div>
+    <div id="alarms"></div>
     <div class="warn hidden" id="warn" title="Kliknij, aby zobaczyć wszystkie ostrzeżenia"></div>
     <div id="selbox" class="hidden"></div>
     <div id="info"></div>
@@ -298,7 +322,7 @@ const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
   ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
   ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4], ['Podzial', '#dd6b20', 2]];
 const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
-const W = { overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: true }, holes: [], rails: [], cutG: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
+const W = { cuts: [], bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
 let uid = 1;
 
 // ===================== geometria (Clipper) =====================
@@ -359,7 +383,7 @@ function model(pr) {
   return { k1, k2, k3, p1, p2, kie, spec, scianka: k2 - k3 };
 }
 function computeLayers() {
-  const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.m = m; W.pr = pr;
+  const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.m = m; W.pr = pr;
   $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br><b>Kieszeń</b> ${fmt(m.kie)}<br>`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
   if (!W.base) return;
@@ -579,6 +603,13 @@ function checkOverlaps() {
 // Linie idą na warstwę Podzial w DXF: wtyczka Fusion tnie po nich bryły (opcja „Tnij wzdłuż linii”).
 const CUT_ZAPAS = 2;
 const bedSrc = () => ((W.lay.Klosz || []).slice().sort((a, b) => b.d - a.d)[0] || { polys: W.base }).polys;   // najszerszy kontur klosza
+const bedLetters = () => W.bedLs || (W.bedLs = letters(bedSrc()));
+// wiersz liter przecinany przez profil (bez kropek nad i/j) — do wymiarów profilu
+function railDims(rl) {
+  if (!W.rowsC || W.rowsC.id !== W.baseId) W.rowsC = { id: W.baseId, rows: rowsOf(letters(W.base)).map(row => { const mh = Math.max(...row.map(l => l.bb.y1 - l.bb.y0)), m = row.filter(l => l.bb.y1 - l.bb.y0 >= 0.5 * mh); return { y0: Math.min(...m.map(l => l.bb.y0)), y1: Math.max(...m.map(l => l.bb.y1)), x0: Math.min(...m.map(l => l.bb.x0)), x1: Math.max(...m.map(l => l.bb.x1)) }; }) };
+  const t = rl.yc + rl.h / 2, b = rl.yc - rl.h / 2, r = W.rowsC.rows.filter(q => q.x1 > rl.x0 && q.x0 < rl.x1 && t > q.y0 && b < q.y1).sort((p, q) => Math.abs((p.y0 + p.y1) / 2 - rl.yc) - Math.abs((q.y0 + q.y1) / 2 - rl.yc))[0];
+  return r ? { y0: r.y0, y1: r.y1, x0: r.x0, below: b - r.y0, above: r.y1 - t } : null;
+}
 const toUV = (g, x, y) => { const c = Math.cos(g.a * Math.PI / 180), s = Math.sin(g.a * Math.PI / 180), dx = x - g.cx, dy = y - g.cy; return [dx * c + dy * s, -dx * s + dy * c]; };
 const fromUV = (g, u, v) => { const c = Math.cos(g.a * Math.PI / 180), s = Math.sin(g.a * Math.PI / 180); return [g.cx + u * c - v * s, g.cy + u * s + v * c]; };
 const nParts = (len, bed) => len <= bed ? 1 : Math.floor((len - 0.001) / bed) + 1;
@@ -606,67 +637,97 @@ function bestCuts(rings, axis, lo, hi, n, bed, holes) {
   const pos = [P[best]]; for (let k = back.length - 1, i = best; k >= 0; k--) { i = back[k][i]; pos.unshift(P[i]); }
   return { pos, cost: bc };
 }
+// otoczka wypukła + kąt stołu: część może leżeć na stole pod dowolnym kątem, więc każda ma własny obrót (najpierw prosto, potem co 5°, 1°)
+function hullOf(pts) {
+  const P = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+  for (const p of P) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+function fitBed(pts, stX, stY) {
+  const hull = hullOf(pts), bb = bboxOf([pts]), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+  const test = a => { const b = uvBox(hull, a, cx, cy), w = b.u1 - b.u0, h = b.v1 - b.v0; return { a, b, w, h, over: Math.max(w - stX, h - stY) }; };
+  for (const a of [0, 90]) { const t = test(a); if (t.over <= 0.01) return { ...t, ok: true, cx, cy }; }
+  let best = null; for (let a = 5; a < 180; a += 5) { const t = test(a); if (!best || t.over < best.over) best = t; }
+  for (let a = Math.max(0, best.a - 4); a <= Math.min(179, best.a + 4); a++) { const t = test(a); if (t.over < best.over) best = t; }
+  return { ...best, ok: best.over <= 0.01, cx, cy };
+}
+// litera pocięta liniami (każda tnie całą literę): osobne kawałki materiału
+function cutPieces(l, cuts) {
+  let pcs = [[l.p].concat(l.holes)];
+  cuts.forEach(c => {
+    const R = 20000, dx = Math.cos(c.ang * Math.PI / 180), dy = Math.sin(c.ang * Math.PI / 180), half = sg => [[c.x - dx * R, c.y - dy * R], [c.x + dx * R, c.y + dy * R], [c.x + dx * R - sg * dy * R, c.y + dy * R + sg * dx * R], [c.x - dx * R - sg * dy * R, c.y - dy * R + sg * dx * R]];
+    const next = [];
+    pcs.forEach(p => [1, -1].forEach(sg => { let poly = toCl(half(sg)); if (C.Clipper.Area(poly) < 0) poly = poly.reverse(); const cl = new C.Clipper(), sol = new C.Paths(); cl.AddPaths(p, C.PolyType.ptSubject, true); cl.AddPath(poly, C.PolyType.ptClip, true); cl.Execute(C.ClipType.ctIntersection, sol, C.PolyFillType.pftEvenOdd, C.PolyFillType.pftNonZero); if (sol.length) next.push(sol); }));
+    pcs = next;
+  });
+  return pcs.flatMap(p => letters(p)).filter(q => area(q.p) > 1);
+}
 function autoCuts() {
   if (W.cutManual) return;
-  W.cutG = []; const pr = W.pr; if (!pr.podz || !W.base) return;
-  letters(bedSrc()).forEach((l, li) => {
+  W.cuts = []; const pr = W.pr; if (!pr.podz || !W.base) return;
+  const add = (li, x, y, ang) => W.cuts.push({ id: uid++, li, x, y, ang: (ang % 180 + 180) % 180 });
+  bedLetters().forEach((l, li) => {
     if (l.bb.x1 - l.bb.x0 <= pr.stX && l.bb.y1 - l.bb.y0 <= pr.stY) return;     // mieści się wprost
     const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2, pts = simplifyRing(fromCl(l.p));
+    if (fitBed(pts, pr.stX, pr.stY).ok) return;                                 // mieści się po obróceniu stołu — bez cięcia
     const partsAt = a => { const b = uvBox(pts, a, cx, cy); return { a, b, nx: nParts(b.u1 - b.u0, pr.stX), ny: nParts(b.v1 - b.v0, pr.stY) }; };
     let cand = []; for (let a = 0; a < 180; a += 5) cand.push(partsAt(a));
     const min0 = Math.min(...cand.map(q => q.nx * q.ny)), around = cand.filter(q => q.nx * q.ny === min0).map(q => q.a);
     around.forEach(a0 => { for (let a = Math.max(0, a0 - 4); a <= Math.min(179, a0 + 4); a++) if (a % 5) cand.push(partsAt(a)); });
     const min1 = Math.min(...cand.map(q => q.nx * q.ny)); cand = cand.filter(q => q.nx * q.ny === min1);
-    const prost = q => q.a % 90 === 0;
-    if (min1 === 1) { const q = cand.find(prost) || cand[0]; W.cutG.push({ id: uid++, li, cx, cy, a: q.a, xs: [], ys: [], u0: q.b.u0, u1: q.b.u1, v0: q.b.v0, v1: q.b.v1 }); return; }   // zmieści się pod kątem — bez cięcia
-    // najwyżej kilka kątów do policzenia kosztu: proste + rozłożone po liście
+    const prost = q => q.a % 90 === 0, ringsUV = g => [l.p].concat(l.holes).map(p => simplifyRing(fromCl(p)).map(q => toUV(g, q[0], q[1])));
+    const holesUV = g => W.holes.filter(h => h.x >= l.bb.x0 && h.x <= l.bb.x1 && h.y >= l.bb.y0 && h.y <= l.bb.y1).map(h => { const [u, v] = toUV(g, h.x, h.y); return [u, v, h.d]; });
+    // więcej niż 2 części w siatce: może wystarczy jedna linia, gdy obie połowy leżą na stole pod własnym kątem
+    if (min1 > 2) {
+      let one = null;
+      for (let a = 0; a < 180; a += 15) {
+        const g = { a, cx, cy }, b = uvBox(pts, a, cx, cy), rings = ringsUV(g), hs = holesUV(g), opts = [];
+        for (let i = 1; i < 12; i++) { const p = b.u0 + (b.u1 - b.u0) * i / 12, xs = []; rings.forEach(r => { for (let k = 0; k < r.length; k++) { const q = r[k], s = r[(k + 1) % r.length]; if ((q[0] <= p) !== (s[0] <= p)) xs.push(q[1] + (p - q[0]) / (s[0] - q[0]) * (s[1] - q[1])); } }); xs.sort((m, n) => m - n); let c0 = 0; for (let k = 0; k + 1 < xs.length; k += 2) c0 += xs[k + 1] - xs[k]; hs.forEach(h => { if (Math.abs(h[0] - p) < h[2] / 2 + 1.5) c0 += 1000; }); opts.push({ p, c0: c0 * (a % 90 === 0 ? 1 : 1.15) }); }
+        opts.sort((m, n) => m.c0 - n.c0).slice(0, 3).forEach(o => { if (one && o.c0 >= one.c0) return; const [x, y] = fromUV(g, o.p, 0), c = { x, y, ang: a + 90 }; if (cutPieces(l, [c]).every(q => fitBed(fromCl(q.p), pr.stX, pr.stY).ok)) one = { ...c, c0: o.c0 }; });
+      }
+      if (one) { add(li, one.x, one.y, one.ang); return; }
+    }
+    // kąt z najmniejszą liczbą części; przy tej samej liczbie — cięcie przez najmniej materiału, kąt prosty ma pierwszeństwo
     const pick = cand.filter(prost).concat(cand.filter(q => !prost(q)).filter((_, i, a) => i % Math.max(1, Math.ceil(a.length / 6)) === 0));
-    const uvRings = a => [l.p].concat(l.holes).map(p => { const g = { a, cx, cy }; return simplifyRing(fromCl(p)).map(q => toUV(g, q[0], q[1])); });
     let best = null;
     pick.forEach(q => {
-      const g = { a: q.a, cx, cy }, rings = uvRings(q.a), hs = W.holes.filter(h => h.x >= l.bb.x0 && h.x <= l.bb.x1 && h.y >= l.bb.y0 && h.y <= l.bb.y1).map(h => { const [u, v] = toUV(g, h.x, h.y); return [u, v, h.d]; });
-      const X = bestCuts(rings, 'x', q.b.u0, q.b.u1, q.nx, pr.stX, hs), Y = bestCuts(rings, 'y', q.b.v0, q.b.v1, q.ny, pr.stY, hs), c = (X.cost + Y.cost) * (prost(q) ? 1 : 1.15);
-      if (!best || c < best.c) best = { c, q, X, Y };
+      const g = { a: q.a, cx, cy }, rings = ringsUV(g), hs = holesUV(g);
+      const XX = bestCuts(rings, 'x', q.b.u0, q.b.u1, q.nx, pr.stX, hs), YY = bestCuts(rings, 'y', q.b.v0, q.b.v1, q.ny, pr.stY, hs), c = (XX.cost + YY.cost) * (prost(q) ? 1 : 1.15);
+      if (!best || c < best.c) best = { c, q, XX, YY };
     });
-    const q = best.q; W.cutG.push({ id: uid++, li, cx, cy, a: q.a, xs: best.X.pos, ys: best.Y.pos, u0: q.b.u0, u1: q.b.u1, v0: q.b.v0, v1: q.b.v1 });
+    const g = { a: best.q.a, cx, cy };
+    best.XX.pos.forEach(p => { const [x, y] = fromUV(g, p, 0); add(li, x, y, g.a + 90); });
+    best.YY.pos.forEach(p => { const [x, y] = fromUV(g, 0, p); add(li, x, y, g.a); });
   });
 }
-// odcinki linii podziału w układzie strony
+// odcinki linii podziału: przez punkt (x, y) pod kątem ang, od końca do końca litery + zapas
 function cutSegs() {
-  const out = [];
-  W.cutG.forEach(g => {
-    g.xs.forEach((p, i) => out.push({ g, axis: 'x', i, a: fromUV(g, p, g.v0 - CUT_ZAPAS), b: fromUV(g, p, g.v1 + CUT_ZAPAS) }));
-    g.ys.forEach((p, i) => out.push({ g, axis: 'y', i, a: fromUV(g, g.u0 - CUT_ZAPAS, p), b: fromUV(g, g.u1 + CUT_ZAPAS, p) }));
+  const ls = bedLetters();
+  return W.cuts.map(c => {
+    const l = ls[c.li], dx = Math.cos(c.ang * Math.PI / 180), dy = Math.sin(c.ang * Math.PI / 180); let t0 = -50, t1 = 50;
+    if (l) { const P = l.pts || (l.pts = fromCl(l.p)); t0 = Infinity; t1 = -Infinity; P.forEach(q => { const t = (q[0] - c.x) * dx + (q[1] - c.y) * dy; if (t < t0) t0 = t; if (t > t1) t1 = t; }); }
+    return { c, id: c.id, li: c.li, a: [c.x + dx * (t0 - CUT_ZAPAS), c.y + dy * (t0 - CUT_ZAPAS)], b: [c.x + dx * (t1 + CUT_ZAPAS), c.y + dy * (t1 + CUT_ZAPAS)] };
   });
-  return out;
 }
-// prostokąty stołu: po jednym na każdą część; bez żadnych cięć — jeden na największej literze (do porównania)
+// prostokąty stołu: po jednym na każdą część, każdy pod swoim kątem; bez żadnych cięć — jeden na największej literze (do porównania)
 function refreshBeds() {
   W.beds = []; W.cutWarn = []; const pr = W.pr; $('podz-info').textContent = ''; if (!pr || !pr.podz || !W.base) return;
-  const ls = letters(bedSrc()); let parts = 0, cutL = 0;
-  const bedRect = (g, u0, u1, v0, v1) => {
-    const w = u1 - u0, h = v1 - v0, swap = !(w <= pr.stX && h <= pr.stY) && h <= pr.stX && w <= pr.stY, ok = (w <= pr.stX + 0.01 && h <= pr.stY + 0.01) || swap;
-    const bw = swap ? pr.stY : pr.stX, bh = swap ? pr.stX : pr.stY, cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
-    W.beds.push({ ok, w, h, pts: [[cu - bw / 2, cv - bh / 2], [cu + bw / 2, cv - bh / 2], [cu + bw / 2, cv + bh / 2], [cu - bw / 2, cv + bh / 2]].map(q => fromUV(g, q[0], q[1])) });
-    if (!ok) W.cutWarn.push(`część ${fmt(w, 1)} × ${fmt(h, 1)} mm nie mieści się na stole ${fmt(pr.stX, 0)} × ${fmt(pr.stY, 0)} mm`);
+  const ls = bedLetters(); let parts = 0, cutL = 0, turned = 0;
+  const bedOf = pts => {
+    const f = fitBed(pts, pr.stX, pr.stY), g = { a: f.a, cx: f.cx, cy: f.cy }, cu = (f.b.u0 + f.b.u1) / 2, cv = (f.b.v0 + f.b.v1) / 2;
+    W.beds.push({ ok: f.ok, a: f.a, w: f.w, h: f.h, pts: [[cu - pr.stX / 2, cv - pr.stY / 2], [cu + pr.stX / 2, cv - pr.stY / 2], [cu + pr.stX / 2, cv + pr.stY / 2], [cu - pr.stX / 2, cv + pr.stY / 2]].map(q => fromUV(g, q[0], q[1])) });
+    if (!f.ok) W.cutWarn.push(`część ${fmt(f.w, 1)} × ${fmt(f.h, 1)} mm nie mieści się na stole ${fmt(pr.stX, 0)} × ${fmt(pr.stY, 0)} mm nawet po obróceniu`);
+    if (f.ok && f.a % 90) turned++;
   };
-  W.cutG.forEach(g => {
-    const l = ls[g.li]; if (!l) return;
-    const K = 1000, uv = [l.p].concat(l.holes).map(p => fromCl(p).map(q => { const [u, v] = toUV(g, q[0], q[1]); return { X: Math.round(u * K), Y: Math.round(v * K) }; }));
-    const eu = [g.u0 - 1].concat(g.xs.slice().sort((a, b) => a - b), g.u1 + 1), ev = [g.v0 - 1].concat(g.ys.slice().sort((a, b) => a - b), g.v1 + 1);
-    if (g.xs.length || g.ys.length) cutL++;
-    for (let i = 0; i + 1 < eu.length; i++) for (let j = 0; j + 1 < ev.length; j++) {
-      const c = new C.Clipper(), sol = new C.Paths(), rect = [[eu[i], ev[j]], [eu[i + 1], ev[j]], [eu[i + 1], ev[j + 1]], [eu[i], ev[j + 1]]].map(q => ({ X: Math.round(q[0] * K), Y: Math.round(q[1] * K) }));
-      c.AddPaths(uv, C.PolyType.ptSubject, true); c.AddPath(rect, C.PolyType.ptClip, true); c.Execute(C.ClipType.ctIntersection, sol, C.PolyFillType.pftEvenOdd, C.PolyFillType.pftNonZero);
-      if (!sol.length) continue;
-      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity; sol.forEach(p => p.forEach(q => { u0 = Math.min(u0, q.X / K); u1 = Math.max(u1, q.X / K); v0 = Math.min(v0, q.Y / K); v1 = Math.max(v1, q.Y / K); }));
-      parts++; bedRect(g, u0, u1, v0, v1);
-    }
+  ls.forEach((l, li) => {
+    const cs = W.cuts.filter(c => c.li === li), fits = l.bb.x1 - l.bb.x0 <= pr.stX && l.bb.y1 - l.bb.y0 <= pr.stY; if (!cs.length && fits) return;
+    if (cs.length) { const pcs = cutPieces(l, cs); cutL++; parts += pcs.length; pcs.forEach(q => bedOf(fromCl(q.p))); } else bedOf(fromCl(l.p));
   });
-  if (!W.beds.length && ls.length) { const l = ls.slice().sort((a, b) => Math.max(b.bb.x1 - b.bb.x0, b.bb.y1 - b.bb.y0) - Math.max(a.bb.x1 - a.bb.x0, a.bb.y1 - a.bb.y0))[0]; const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2, w = l.bb.x1 - l.bb.x0, h = l.bb.y1 - l.bb.y0; bedRect({ a: 0, cx, cy }, -w / 2, w / 2, -h / 2, h / 2); }
+  if (!W.beds.length && ls.length) { const l = ls.slice().sort((a, b) => Math.max(b.bb.x1 - b.bb.x0, b.bb.y1 - b.bb.y0) - Math.max(a.bb.x1 - a.bb.x0, a.bb.y1 - a.bb.y0))[0]; bedOf(fromCl(l.p)); }
   // wtyczka Fusion tnie każdą bryłę, której prostokąt obejmujący dotyka linii — ostrzeżenie, gdy linia zahacza o sąsiednią literę
-  cutSegs().forEach(c => { const x0 = Math.min(c.a[0], c.b[0]), x1 = Math.max(c.a[0], c.b[0]), y0 = Math.min(c.a[1], c.b[1]), y1 = Math.max(c.a[1], c.b[1]); if (ls.some((l, i) => i !== c.g.li && x0 <= l.bb.x1 && x1 >= l.bb.x0 && y0 <= l.bb.y1 && y1 >= l.bb.y0)) W.cutWarn.push('linia podziału zahacza o prostokąt sąsiedniej litery — Fusion potnie też ją; przesuń linię'); });
-  $('podz-info').innerHTML = cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : cutL < 5 ? 'litery' : 'liter'}, razem ${parts} części.<br><span class="hint">Linie tną bryły 3D i idą do DXF (warstwa Podzial; we Fusion zaznacz „Tnij wzdłuż linii”).</span>` : 'Wszystkie litery mieszczą się na stole.';
+  cutSegs().forEach(c => { const x0 = Math.min(c.a[0], c.b[0]), x1 = Math.max(c.a[0], c.b[0]), y0 = Math.min(c.a[1], c.b[1]), y1 = Math.max(c.a[1], c.b[1]); if (ls.some((l, i) => i !== c.li && x0 <= l.bb.x1 && x1 >= l.bb.x0 && y0 <= l.bb.y1 && y1 >= l.bb.y0)) W.cutWarn.push('linia podziału zahacza o prostokąt sąsiedniej litery: we Fusion potnie też ją (w bryłach 3D Wizarda nie)'); });
+  $('podz-info').innerHTML = (cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : cutL < 5 ? 'litery' : 'liter'}, razem ${parts} części.` : 'Żadna litera nie wymaga cięcia.') + (turned ? `<br>Stół obrócony przy ${turned} ${turned === 1 ? 'części' : 'częściach'}.` : '') + '<br><span class="hint">Pleksy nie dzielimy: jest cięta laserem w całości.</span>';
 }
 // pasek LED liczony w tle (ok. 1–2 s przy dużym napisie), po chwili bez zmian
 let ledTmr = 0;
@@ -787,16 +848,12 @@ function adoptKitHoles() {
   });
   return { kept, redone };
 }
-// linie podziału z pliku → grupy per litera (układ obrócony wg kąta linii)
+// linie podziału z pliku
 function cutsFromLines(lines) {
-  const ls = letters(bedSrc()); W.cutG = [];
+  const ls = bedLetters(); W.cuts = [];
   lines.forEach(([a, b]) => {
     const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, li = ls.findIndex(l => mx >= l.bb.x0 - 3 && mx <= l.bb.x1 + 3 && my >= l.bb.y0 - 3 && my <= l.bb.y1 + 3); if (li < 0) return;
-    const l = ls[li], th = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI + 360) % 180, ang = Math.round(th % 90 * 100) / 100, cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2;
-    let g = W.cutG.find(q => q.li === li && Math.abs(q.a - ang) < 1);
-    if (!g) { const bx = uvBox(fromCl(l.p), ang, cx, cy); g = { id: uid++, li, cx, cy, a: ang, xs: [], ys: [], ...bx }; W.cutG.push(g); }
-    const [u, v] = toUV(g, mx, my), along = Math.abs(((th - g.a) % 180 + 180) % 180) < 45 || Math.abs(((th - g.a) % 180 + 180) % 180) > 135;   // linia wzdłuż osi u = cięcie poziome w układzie grupy
-    if (along) g.ys.push(v); else g.xs.push(u);
+    W.cuts.push({ id: uid++, li, x: mx, y: my, ang: Math.round((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI + 360) % 180 * 100) / 100 });
   });
 }
 async function parsePDF(buf) {
@@ -841,7 +898,7 @@ async function loadFile(f) {
     if (!base.length) return toast('Kontury są puste albo otwarte');
     const bb = bboxOf(base), dx = -(bb.x0 + bb.x1) / 2, dy = -(bb.y0 + bb.y1) / 2;      // środek bazy w (0,0)
     W.base = base.map(p => p.map(q => ({ X: q.X + Math.round(dx * S), Y: q.Y + Math.round(dy * S) })));
-    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.cutG = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null; W.railsFixed = false; W.cutManual = false; W.kitHoles = null;
+    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.cuts = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null; W.railsFixed = false; W.cutManual = false; W.kitHoles = null;
     const kitLines = kit ? readKit(source, basePaths, dx, dy) : null;
     $('fname').textContent = `${f.name} · ${letters(W.base).length} kształtów · ${fmt(bb.x1 - bb.x0, 1)} × ${fmt(bb.y1 - bb.y0, 1)} mm`;
     $('drop').classList.add('hidden'); $('b-dxf').disabled = false;
@@ -971,7 +1028,7 @@ function szablonPdf(kind, title) {
     doc.setTextColor(26, 32, 44); doc.setFont('helvetica', 'bold'); doc.setFontSize(lab / 0.3528 * 0.7); doc.text('Szablon', PX(fr.x0), PY(fr.y1) - 3);
     if (W.pr.name) { doc.setFontSize(lab / 0.3528 * 0.42); doc.text(ascii(W.pr.name), PX(fr.x0) + SZ_NAZWA, PY(fr.y1) + SZ_NAZWA, { baseline: 'top' }); }
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(0, 120, 120);
-    W.rails.forEach(r => doc.text(`${fmt(r.h, 2)} mm`, PX(r.x1) + 2, PY(r.yc) + 1.2));
+    W.rails.forEach(r => { const dm = railDims(r), tx = PX(r.x0) - 2; doc.text(`${fmt(r.h, 2)} mm`, tx, PY(r.yc) + 1.2, { align: 'right' }); if (dm && dm.above > 0.01) doc.text(`${fmt(dm.above, 1)} mm`, tx, PY((dm.y1 + r.yc + r.h / 2) / 2) + 1.2, { align: 'right' }); if (dm && dm.below > 0.01) doc.text(`${fmt(dm.below, 1)} mm`, tx, PY((dm.y0 + r.yc - r.h / 2) / 2) + 1.2, { align: 'right' }); });
     const bx = PX(fr.x0), by = PH - M - 8; doc.setDrawColor(26, 32, 44); doc.setLineWidth(0.3); doc.line(bx, by, bx + 100, by);
     for (let i = 0; i <= 10; i++) doc.line(bx + i * 10, by, bx + i * 10, by - (i % 5 ? 2 : 4));
     doc.setTextColor(26, 32, 44); doc.setFontSize(9); doc.text('100 mm - drukuj w skali 1:1, sprawdz podzialke', bx + 104, by);
@@ -1173,17 +1230,27 @@ function draw() {
   ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(o.polys); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
   if (drag && drag.snapLine) { const [t, v] = drag.snapLine; g.strokeStyle = '#38a169'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath(); if (t === 'x') { g.moveTo(X(v), 0); g.lineTo(X(v), r.height); } else { g.moveTo(0, Y(v)); g.lineTo(r.width, Y(v)); } g.stroke(); g.setLineDash([]); }
   if (W.show.Profil) W.rails.forEach(rl => { g.strokeStyle = LCOL.Profil; g.lineWidth = W.sel && W.sel.t === 'rail' && W.sel.id === rl.id ? 2.5 : 1.4; g.setLineDash(rl.manual ? [6, 3] : []); g.strokeRect(X(rl.x0), Y(rl.yc + rl.h / 2), (rl.x1 - rl.x0) * W.view.s, rl.h * W.view.s); g.setLineDash([]); });
-  // wymiar wysokości profilu: strzałki przy prawym końcu
+  // wymiary profilu po lewej: od dołu litery do profilu, sam profil, od profilu do góry litery
   if (W.show.Profil) W.rails.forEach(rl => {
-    const x = X(rl.x1) + 16, yT = Y(rl.yc + rl.h / 2), yB = Y(rl.yc - rl.h / 2), inner = yB - yT >= 16, ah = 5;
-    g.strokeStyle = LCOL.Profil; g.fillStyle = LCOL.Profil; g.lineWidth = 1; g.beginPath(); g.moveTo(X(rl.x1) + 2, yT); g.lineTo(x + 6, yT); g.moveTo(X(rl.x1) + 2, yB); g.lineTo(x + 6, yB); g.moveTo(x, inner ? yT : yT - 14); g.lineTo(x, inner ? yB : yB + 14); g.stroke();
-    const tip = (yy, d) => { g.beginPath(); g.moveTo(x, yy); g.lineTo(x - 3, yy + d * ah); g.lineTo(x + 3, yy + d * ah); g.closePath(); g.fill(); };
-    tip(yT, inner ? 1 : -1); tip(yB, inner ? -1 : 1);
-    g.font = '700 12px Segoe UI, Arial'; g.textAlign = 'left'; g.fillText(`${fmt(rl.h, 2)} mm`, x + 8, (yT + yB) / 2 + 4);
+    const x = X(rl.x0) - 16, d = railDims(rl), yRT = rl.yc + rl.h / 2, yRB = rl.yc - rl.h / 2, seg = (y0, y1, txt, col, bold) => {
+      const a = Y(y1), b = Y(y0), inner = b - a >= 14;
+      g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 1; g.beginPath(); g.moveTo(x, inner ? a : a - 12); g.lineTo(x, inner ? b : b + 12); g.stroke();
+      [[a, inner ? 1 : -1], [b, inner ? -1 : 1]].forEach(([yy, dir]) => { g.beginPath(); g.moveTo(x, yy); g.lineTo(x - 3, yy + dir * 6); g.lineTo(x + 3, yy + dir * 6); g.closePath(); g.fill(); });
+      g.font = `${bold ? 700 : 600} 12px Segoe UI, Arial`; g.textAlign = 'right'; g.fillText(txt, x - 7, (a + b) / 2 + 4); g.textAlign = 'left';
+    };
+    const ext = (yy, xTo, col) => { g.strokeStyle = col; g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x - 6, Y(yy)); g.lineTo(xTo, Y(yy)); g.stroke(); g.setLineDash([]); };
+    ext(yRT, X(rl.x0), LCOL.Profil); ext(yRB, X(rl.x0), LCOL.Profil);
+    seg(yRB, yRT, `${fmt(rl.h, 2)} mm`, LCOL.Profil, true);
+    if (d && d.below > 0.01) { ext(d.y0, X(d.x0), '#718096'); seg(d.y0, yRB, `${fmt(d.below, 1)} mm`, '#4a5568'); }
+    if (d && d.above > 0.01) { ext(d.y1, X(d.x0), '#718096'); seg(yRT, d.y1, `${fmt(d.above, 1)} mm`, '#4a5568'); }
   });
   // linie podziału i prostokąty stołu drukarki
   if (W.show.Stol) W.beds.forEach(b => { g.beginPath(); b.pts.forEach((q, i) => i ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1]))); g.closePath(); g.fillStyle = b.ok ? 'rgba(56,161,105,.05)' : 'rgba(229,62,62,.1)'; g.fill(); g.strokeStyle = b.ok ? '#38a169' : '#e53e3e'; g.lineWidth = 1; g.setLineDash([8, 5]); g.stroke(); g.setLineDash([]); });
-  if (W.show.Podzial) cutSegs().forEach(c => { const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.g.id && W.sel.axis === c.axis && W.sel.i === c.i; g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial; g.lineWidth = sel ? 3 : 1.8; g.stroke(); });
+  if (W.show.Podzial) cutSegs().forEach(c => {
+    const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id; g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial; g.lineWidth = sel ? 3 : 1.8; g.stroke();
+    [c.a, c.b].forEach(p => { g.beginPath(); g.arc(X(p[0]), Y(p[1]), sel ? 6 : 4.5, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 1.8; g.strokeStyle = LCOL.Podzial; g.stroke(); });
+    if (sel) { g.fillStyle = LCOL.Podzial; g.font = '700 12px Segoe UI, Arial'; g.fillText(`${fmt(c.c.ang, 1)}°`, X(c.b[0]) + 9, Y(c.b[1]) - 7); }
+  });
   // łeb śruby dookoła FIX — pomocniczy (na szablon, nie do DXF dla Fusion)
   if (W.show.Leb && W.show.FIX) W.holes.forEach(h => { if (h.kind !== 'fix') return; g.beginPath(); g.arc(X(h.x), Y(h.y), W.pr.dLeb / 2 * W.view.s, 0, Math.PI * 2); g.strokeStyle = '#805ad5'; g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); });
   W.holes.forEach(h => {
@@ -1194,7 +1261,8 @@ function draw() {
   });
   // litery nachodzą na siebie: czerwona część wspólna i duży wykrzyknik
   W.overlaps.forEach(o => { path([o.poly]); g.fillStyle = 'rgba(229,62,62,.55)'; g.fill(); });
-  W.overlaps.forEach(o => { const cx = X(o.x), cy = Y(o.y), R = 20; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fillStyle = '#e53e3e'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke(); g.fillStyle = '#fff'; g.font = '800 30px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', cx, cy + 1); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; });
+  const al = $('alarms'); if (al.children.length !== W.overlaps.length) al.innerHTML = W.overlaps.map(() => '<div class="alarm-x">!</div>').join('');
+  W.overlaps.forEach((o, i) => { const d = al.children[i]; d.style.left = X(o.x) + 'px'; d.style.top = Y(o.y) + 'px'; });
   // zaznaczony otwór: luz do konturu odniesienia
   if (W.sel && W.sel.t === 'hole') { const h = W.holes.find(q => q.id === W.sel.id), ref = refPolys(); if (h && ref) { const cl = edgeDist(ref.polys, h.x, h.y) - h.d / 2; g.fillStyle = cl < 0.3 ? '#c53030' : '#276749'; g.font = '700 12px Segoe UI, Arial'; g.fillText(`luz ${fmt(cl)} mm`, X(h.x) + h.d / 2 * W.view.s + 6, Y(h.y) - 6); } }
   $('info').innerHTML = `zoom ${fmt(W.view.s, 1)} px/mm · otwory: ${W.holes.filter(h => h.kind === 'otw').length} fi ${fmt(W.pr.dOtw)}${W.holes.some(h => h.kind === 'fix') ? ` + ${W.holes.filter(h => h.kind === 'fix').length} fi ${fmt(W.pr.dFix)}` : ''} · profile: ${W.rails.length}${W.led ? ` · LED ${fmt(W.led.m, 2)} m` : ''}`;
@@ -1217,7 +1285,12 @@ function renderSide() {
 }
 function renderSel() {
   const b = $('selbox'), s = W.sel; if (!s) { b.classList.add('hidden'); return; }
-  if (s.t === 'cut') { b.classList.remove('hidden'); b.innerHTML = '<b>Linia podziału</b><div class="hint">przeciągnij, aby przesunąć · Delete = usuń</div>'; return; }
+  if (s.t === 'cut') {
+    const c = W.cuts.find(q => q.id === s.id); if (!c) { W.sel = null; b.classList.add('hidden'); return; }
+    b.classList.remove('hidden'); b.innerHTML = `<b>Linia podziału</b><div class="fld"><span>Kąt [°]</span><input type="text" inputmode="decimal" id="sel-ang" value="${fmt(c.ang, 1)}"></div><div class="hint">chwyć linię = przesuń · kółko na końcu = obróć (Shift = co 15°) · Delete = usuń</div>`;
+    const inp = $('sel-ang'), go = () => { pushUndo(); c.ang = ((num(inp.value) % 180) + 180) % 180; W.cutManual = true; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); };
+    inp.onchange = go; addSpin(inp, 1, go); return;
+  }
   const o = s.t === 'hole' ? W.holes.find(h => h.id === s.id) : W.rails.find(r => r.id === s.id); if (!o) { W.sel = null; b.classList.add('hidden'); return; }
   b.classList.remove('hidden');
   const fld = (k, lab, v) => `<div class="fld"><span>${lab}</span><input type="text" inputmode="decimal" data-k="${k}" value="${fmt(v, 2)}"></div>`;
@@ -1228,13 +1301,18 @@ function renderSel() {
 }
 // ===================== mysz =====================
 let drag = null;
-const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cutG: W.cutG, cutManual: W.cutManual });
+const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cuts: W.cuts, cutManual: W.cutManual });
 function pushUndo() { W.undo.push(snapState()); if (W.undo.length > 80) W.undo.shift(); }
-function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.cutG = o.cutG || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); renderSide(); draw(); save(); }
+function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); renderSide(); draw(); save(); }
 function hit(px, py) {
   const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
   if (hh) return { t: 'hole', id: hh.id, o: hh };
-  if (W.show.Podzial) { const c = cutSegs().find(q => { const ax = X(q.a[0]), ay = Y(q.a[1]), bx = X(q.b[0]), by = Y(q.b[1]), dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(ax + t * dx - px, ay + t * dy - py) <= 5; }); if (c) return { t: 'cut', id: c.g.id, axis: c.axis, i: c.i, g: c.g }; }
+  if (W.show.Podzial) {
+    const segs = cutSegs();
+    for (const q of segs) for (const [p, end] of [[q.a, 'a'], [q.b, 'b']]) if (Math.hypot(X(p[0]) - px, Y(p[1]) - py) <= 9) return { t: 'cut', id: q.id, c: q.c, mode: 'rot', end };
+    const c = segs.find(q => { const ax = X(q.a[0]), ay = Y(q.a[1]), bx = X(q.b[0]), by = Y(q.b[1]), dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(ax + t * dx - px, ay + t * dy - py) <= 5; });
+    if (c) return { t: 'cut', id: c.id, c: c.c, mode: 'move' };
+  }
   const rr = W.rails.find(r => px >= X(r.x0) - 5 && px <= X(r.x1) + 5 && py >= Y(r.yc + r.h / 2) - 5 && py <= Y(r.yc - r.h / 2) + 5);
   if (!rr) return null;
   // profil: za krawędź = zmiana rozmiaru, w środku = przesuwanie
@@ -1250,23 +1328,24 @@ const snapTo = (v, arr, thrMm) => { let b = null, bd = thrMm; arr.forEach(a => {
 cv.addEventListener('pointerdown', e => {
   if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
   const h = e.button === 0 ? hit(px, py) : null;
-  W.sel = h ? { t: h.t, id: h.id, axis: h.axis, i: h.i } : null; renderSel();
-  drag = h && h.t === 'cut' ? { kind: 'cut', g: h.g, axis: h.axis, i: h.i, sx: px, sy: py, p0: (h.axis === 'x' ? h.g.xs : h.g.ys)[h.i], moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
+  W.sel = h ? { t: h.t, id: h.id } : null; renderSel();
+  drag = h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
   cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); draw();
 });
 cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = !h ? '' : h.t === 'hole' ? 'move' : h.t === 'cut' ? 'grab' : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
+  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = !h ? '' : h.t === 'hole' ? 'move' : h.t === 'cut' ? (h.mode === 'rot' ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
   const dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
   if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
   if (!drag.moved) { if (Math.hypot(px - drag.sx, py - drag.sy) < 3) return; drag.moved = true; pushUndo(); if (drag.t === 'rail') { railHold(drag.o); drag.fol = railFollowers(drag.o).map(h => [h, h.y]); } }
   if (drag.kind === 'cut') {
-    // linia podziału: przesuwana w poprzek siebie, w granicach litery
-    const g0 = drag.g, c = Math.cos(g0.a * Math.PI / 180), s = Math.sin(g0.a * Math.PI / 180), arr = drag.axis === 'x' ? g0.xs : g0.ys, d = drag.axis === 'x' ? dx * c + dy * s : -dx * s + dy * c;
-    const lo = drag.axis === 'x' ? g0.u0 : g0.v0, hi = drag.axis === 'x' ? g0.u1 : g0.v1;
-    arr[drag.i] = Math.max(lo + 1, Math.min(hi - 1, Math.round((drag.p0 + d) * 10) / 10)); W.cutManual = true; refreshBeds(); renderSel(); return draw();
+    // linia podziału: za środek = przesuwanie, za kółko na końcu = obrót wokół punktu linii (Shift = co 15°)
+    const c = drag.c;
+    if (drag.mode === 'rot') { let a = Math.atan2(wy(py) - c.y, wx(px) - c.x) * 180 / Math.PI + (drag.end === 'a' ? 180 : 0); a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a * 10) / 10; c.ang = (a % 180 + 180) % 180; }
+    else { c.x = Math.round((drag.x0 + dx) * 10) / 10; c.y = Math.round((drag.y0 + dy) * 10) / 10; }
+    W.cutManual = true; refreshBeds(); renderSel(); return draw();
   }
   const sn = v => e.altKey ? v : Math.round(v * 10) / 10;           // co 0,1 mm (Alt = bez przyciągania)
   if (drag.t === 'hole') { drag.o.x = sn(drag.ox + dx); drag.o.y = sn(drag.oy + dy); drag.o.manual = true; }
@@ -1294,16 +1373,16 @@ cv.addEventListener('pointermove', e => {
   }
   renderSel(); draw();
 });
-const endDrag = () => { const had = drag && drag.moved; drag = null; cv.classList.remove('drag'); if (had) { renderSide(); save(); } draw(); };
+const endDrag = () => { const had = drag && drag.moved;
+  if (had && drag.kind === 'cut') { const c = drag.c, li = bedLetters().findIndex(l => c.x >= l.bb.x0 && c.x <= l.bb.x1 && c.y >= l.bb.y0 && c.y <= l.bb.y1); if (li >= 0) c.li = li; refreshBeds(); if (window.mark3D) mark3D(); }
+  drag = null; cv.classList.remove('drag'); if (had) { renderSide(); save(); } draw(); };
 cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('dblclick', e => {
   if (!W.base) return; const r = cv.getBoundingClientRect(); pushUndo();
   if (e.altKey) { // nowa linia podziału przez literę pod kursorem
-    const x = wx(e.clientX - r.left), y = wy(e.clientY - r.top), ls = letters(bedSrc()), li = ls.findIndex(l => x >= l.bb.x0 && x <= l.bb.x1 && y >= l.bb.y0 && y <= l.bb.y1); if (li < 0) return;
-    const l = ls[li]; let g = W.cutG.find(q => q.li === li);
-    if (!g) { const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2; g = { id: uid++, li, cx, cy, a: 0, xs: [], ys: [], u0: l.bb.x0 - cx, u1: l.bb.x1 - cx, v0: l.bb.y0 - cy, v1: l.bb.y1 - cy }; W.cutG.push(g); }
-    const [u, v] = toUV(g, x, y); if (e.shiftKey) g.ys.push(v); else g.xs.push(u);
-    W.cutManual = true; refreshBeds(); renderSide(); return draw();
+    const x = wx(e.clientX - r.left), y = wy(e.clientY - r.top), li = bedLetters().findIndex(l => x >= l.bb.x0 && x <= l.bb.x1 && y >= l.bb.y0 && y <= l.bb.y1); if (li < 0) return;
+    const c = { id: uid++, li, x, y, ang: e.shiftKey ? 0 : 90 }; W.cuts.push(c); W.sel = { t: 'cut', id: c.id };
+    W.cutManual = true; refreshBeds(); renderSide(); if (window.mark3D) mark3D(); return draw();
   }
   const h = { id: uid++, kind: e.shiftKey ? 'fix' : 'otw', d: e.shiftKey ? W.pr.dFix : W.pr.dOtw, x: Math.round(wx(e.clientX - r.left) * 10) / 10, y: Math.round(wy(e.clientY - r.top) * 10) / 10, manual: true };
   W.holes.push(h); W.sel = { t: 'hole', id: h.id }; renderSide(); draw(); save();
@@ -1311,7 +1390,7 @@ cv.addEventListener('dblclick', e => {
 cv.addEventListener('wheel', e => { e.preventDefault(); if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, k = Math.pow(1.0015, -e.deltaY), x0 = wx(px), y0 = wy(py); W.view.s *= k; W.view.ox = px - x0 * W.view.s; W.view.oy = py + y0 * W.view.s; draw(); }, { passive: false });
 document.addEventListener('keydown', e => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'cut') { const g0 = W.cutG.find(q => q.id === W.sel.id); if (g0) (W.sel.axis === 'x' ? g0.xs : g0.ys).splice(W.sel.i, 1); W.cutManual = true; refreshBeds(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'cut') { W.cuts = W.cuts.filter(c => c.id !== W.sel.id); W.cutManual = true; refreshBeds(); if (window.mark3D) mark3D(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
   else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { undo(); e.preventDefault(); }
   else if (e.key === 'f' || e.key === 'F') fitView();
   else if (W.sel && /^Arrow/.test(e.key)) { const o = W.sel.t === 'hole' ? W.holes.find(h => h.id === W.sel.id) : W.rails.find(r => r.id === W.sel.id); if (!o) return; pushUndo(); const st = e.shiftKey ? 1 : 0.1, dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? st : e.key === 'ArrowDown' ? -st : 0;
@@ -1374,7 +1453,7 @@ showPanel('plik', true);
 $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
 $('b-dxf').onclick = openExport; $('b-fit').onclick = fitView; $('b-undo').onclick = undo;
-$('b-auto').onclick = () => { pushUndo(); W.holes = []; W.rails = []; W.cutG = []; W.railsFixed = false; W.cutManual = false; W.sel = null; recompute(); };
+$('b-auto').onclick = () => { pushUndo(); W.holes = []; W.rails = []; W.cuts = []; W.railsFixed = false; W.cutManual = false; W.sel = null; recompute(); };
 $('b-pin').onclick = () => { W.pin = !W.pin; pinUI(); if (W.pin) { W.rails.forEach(r => { delete r.holeY; }); } W.pr = params(); autoHoles(); renderSide(); draw(); save(); };
 const stage = $('stage');
 ['dragover', 'dragenter'].forEach(t => stage.addEventListener(t, e => { e.preventDefault(); }));
