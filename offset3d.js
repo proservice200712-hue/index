@@ -8,9 +8,9 @@ const CZESCI = { klosz: 'Klosz', podstawa: 'Podstawa', pleksa: 'Pleksa' };
 function load3D() {
   if (V3.lib) return V3.lib;
   V3.lib = (async () => {
-    const [THREE, OC, M] = await Promise.all([import('three'), import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js'), import('https://cdn.jsdelivr.net/npm/manifold-3d@3.2.1/manifold.js')]);
+    const [THREE, M] = await Promise.all([import('three'), import('https://cdn.jsdelivr.net/npm/manifold-3d@3.2.1/manifold.js')]);
     const wasm = await M.default(); wasm.setup();
-    V3.THREE = THREE; V3.OrbitControls = OC.OrbitControls; V3.wasm = wasm;
+    V3.THREE = THREE; V3.wasm = wasm;
   })();
   V3.lib.catch(() => { V3.lib = null; });
   return V3.lib;
@@ -224,9 +224,7 @@ function init3D() {
   const fill = new T.DirectionalLight(0xffffff, 0.5); fill.position.set(2, 1, 1); V3.scene.add(fill);
   V3.cam = new T.OrthographicCamera(-1, 1, 1, -1, -100000, 100000);
   V3.ren = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); V3.ren.setPixelRatio(window.devicePixelRatio || 1); host.appendChild(V3.ren.domElement);
-  V3.ctl = new V3.OrbitControls(V3.cam, V3.ren.domElement); V3.ctl.addEventListener('change', render3D);
-  V3.ctl.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.PAN, RIGHT: T.MOUSE.PAN };     // środkowy klawisz przesuwa widok, zoom zostaje na kółku
-  V3.ren.domElement.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+  sterowanie3D(V3.ren.domElement);
   // klik w plasterek: to samo okienko z długością co w widoku 2D; przeciągnięcie dalej obraca widok
   const el = V3.ren.domElement; let dn = null, dnP = null;
   el.addEventListener('pointerdown', e => { closePlatePop(); dn = e.button === 0 ? [e.clientX, e.clientY] : null; dnP = e.button === 2 ? [e.clientX, e.clientY] : null; });
@@ -246,6 +244,32 @@ function init3D() {
   V3.group = new T.Group(); V3.scene.add(V3.group);
   new ResizeObserver(() => size3D()).observe(host);
   size3D();
+}
+// lewy = obrót wokół środka widoku bez żadnej blokady (można przejść nad biegunem i oglądać spód), środkowy lub prawy = przesuwanie, kółko = zoom do kursora
+function sterowanie3D(el) {
+  const T = V3.THREE, cam = V3.cam, ctl = V3.ctl = { target: new T.Vector3(), update() { cam.lookAt(ctl.target); } }, Z = new T.Vector3(0, 0, 1);
+  const os = (x, y) => new T.Vector3(x, y, 0).applyQuaternion(cam.quaternion), mmNaPx = () => (cam.top - cam.bottom) / cam.zoom / (el.clientHeight || 1);
+  const przesun = v => { cam.position.add(v); ctl.target.add(v); };
+  const obroc = (q) => { cam.position.sub(ctl.target).applyQuaternion(q).add(ctl.target); cam.quaternion.premultiply(q); cam.up.applyQuaternion(q); };
+  let dr = null;
+  el.style.touchAction = 'none';
+  el.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+  el.addEventListener('pointerdown', e => { dr = { rot: e.button === 0, x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e => {
+    if (!dr || !e.buttons) return;
+    const dx = e.clientX - dr.x, dy = e.clientY - dr.y, k = 2 * Math.PI / (el.clientHeight || 600); dr.x = e.clientX; dr.y = e.clientY;
+    if (dr.rot) {
+      // w poziomie wokół pionu litery (do góry nogami w drugą stronę, żeby ruch zgadzał się z ręką), w pionie wokół poziomej osi ekranu
+      const q1 = new T.Quaternion().setFromAxisAngle(Z, -dx * k * (os(0, 1).z < 0 ? -1 : 1)), q2 = new T.Quaternion().setFromAxisAngle(os(1, 0), -dy * k);
+      obroc(q1); obroc(q2);
+    } else { const s = mmNaPx(); przesun(os(-dx * s, dy * s)); }
+    render3D();
+  });
+  const koniec = () => { dr = null; }; el.addEventListener('pointerup', koniec); el.addEventListener('pointercancel', koniec);
+  el.addEventListener('wheel', e => {
+    e.preventDefault(); const r = el.getBoundingClientRect(), nx = (e.clientX - r.left) / r.width * 2 - 1, ny = 1 - (e.clientY - r.top) / r.height * 2, z0 = cam.zoom, z1 = Math.min(1000, Math.max(0.02, z0 * Math.pow(1.0015, -e.deltaY)));
+    const d = 1 / z0 - 1 / z1; przesun(os(nx * cam.right * d, ny * cam.top * d)); cam.zoom = z1; cam.updateProjectionMatrix(); render3D();
+  }, { passive: false });
 }
 function size3D() { const h = $('v3-c'), w = h.clientWidth, ht = h.clientHeight; if (!V3.ren || !w || !ht) return; V3.ren.setSize(w, ht); frame3D(); }
 function frame3D() {

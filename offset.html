@@ -1329,7 +1329,7 @@ const X = x => W.view.ox + x * W.view.s, Y = y => W.view.oy - y * W.view.s, wx =
 function fitView() {
   const r = cv.getBoundingClientRect(); if (!W.base) { W.view = { s: 2, ox: r.width / 2, oy: r.height / 2 }; return draw(); }
   const all = [W.base].concat(Object.values(W.lay).flatMap(a => a.map(o => o.polys))).flat(), bb = bboxOf(all);
-  const s = Math.min((r.width - 80) / (bb.x1 - bb.x0 || 1), (r.height - 80) / (bb.y1 - bb.y0 || 1));
+  const s = Math.max(0.02, Math.min((r.width - 80) / (bb.x1 - bb.x0 || 1), (r.height - 80) / (bb.y1 - bb.y0 || 1)));     // przy bardzo wąskim oknie skala nie może wyjść ujemna
   W.view = { s, ox: r.width / 2 - (bb.x0 + bb.x1) / 2 * s, oy: r.height / 2 + (bb.y0 + bb.y1) / 2 * s }; draw();
 }
 function draw() {
@@ -1339,8 +1339,10 @@ function draw() {
   if (!W.base || !W.view) return;
   // siatka co 10 mm
   const st = W.view.s * 10 >= 14 ? 10 : 50; g.strokeStyle = '#f0f2f5'; g.lineWidth = 1; g.beginPath();
-  for (let x = Math.floor(wx(0) / st) * st; X(x) < r.width; x += st) { g.moveTo(X(x), 0); g.lineTo(X(x), r.height); }
-  for (let y = Math.floor(wy(r.height) / st) * st; Y(y) > 0; y += st) { g.moveTo(0, Y(y)); g.lineTo(r.width, Y(y)); }
+  if (W.view.s * st >= 3) {
+    for (let x = Math.floor(wx(0) / st) * st; X(x) < r.width; x += st) { g.moveTo(X(x), 0); g.lineTo(X(x), r.height); }
+    for (let y = Math.floor(wy(r.height) / st) * st; Y(y) > 0; y += st) { g.moveTo(0, Y(y)); g.lineTo(r.width, Y(y)); }
+  }
   g.stroke();
   const path = polys => { g.beginPath(); polys.forEach(p => { p.forEach((q, i) => i ? g.lineTo(X(q.X / S), Y(q.Y / S)) : g.moveTo(X(q.X / S), Y(q.Y / S))); g.closePath(); }); };
   path(W.base); g.fillStyle = 'rgba(66,153,225,.08)'; g.fill('evenodd');
