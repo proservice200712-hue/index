@@ -137,9 +137,21 @@ async function build3D() {
       const cnt = {}; rows.forEach(r => { cnt[r.li] = (cnt[r.li] || 0) + 1; }); const nr = {};
       rows.forEach(r => { nr[r.li] = (nr[r.li] || 0) + 1; const mesh = r.b.getMesh(); bodies.push({ part: k, name: `${CZESCI[k]}_${String(r.li + 1).padStart(2, '0')}${cnt[r.li] > 1 ? String.fromCharCode(96 + nr[r.li]) : ''}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(r.b), bb: r.bb }); });
     });
+    // plasterki łączące: osobne elementy do wydruku (nie są cięte ani łączone z częściami)
+    const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK: p.sh - p.kCalk + p.ss } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK: p.st + p.ws }, holes2 = otworyReg(p), cntPl = {};
+    let nKpom = 0;
+    W.plates.forEach(q => {
+      if (!q.polys.length) return;
+      if (q.type === 'K' && !(tops.hK > 0)) { nKpom++; return; }
+      const pl = W.pr, warstwy = q.type === 'K' ? [{ z0: tops.zK - tops.hK, z1: tops.zK, reg: q.polys }] : q.groove.length ? [{ z0: tops.zP, z1: tops.zP + pl.plFloor, reg: diff(q.polys, holes2) }, { z0: tops.zP + pl.plFloor, z1: tops.zP + pl.plH, reg: diff(diff(q.polys, q.groove), holes2) }] : [{ z0: tops.zP, z1: tops.zP + pl.plH, reg: diff(q.polys, holes2) }];
+      const s = stos(warstwy, ndel); if (!s) return;
+      s.decompose().map(ndel).forEach(b => { const tag = `Plaster_${q.type}_${String(q.li + 1).padStart(2, '0')}`; cntPl[tag] = (cntPl[tag] || 0) + 1; const mesh = b.getMesh(), bb = b.boundingBox(); bodies.push({ part: 'plaster', plType: q.type, name: `${tag}_${cntPl[tag]}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(b), bb }); });
+    });
+    if (nKpom) uwagi.push(`plasterki klosza pominięte (${nKpom}): klosz nie jest wyższy niż ${fmt(W.pr.plDownK, 1)} mm`);
+    if (W.pr.typ !== 'S' && tops.zK - tops.hK < p.st + p.pl && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga w dół do podstawy — zmniejsz jego wysokość („niższy o”)');
     V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);
-    $('b3-report').innerHTML = `<b>Części:</b> klosz ${c('klosz')}, podstawa ${c('podstawa')}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
+    $('b3-report').innerHTML = `<b>Części:</b> klosz ${c('klosz')}, podstawa ${c('podstawa')}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
     $('b3-stl').disabled = false; $('b3-3mf').disabled = false; msg3D('');
   } catch (e) { console.error(e); msg3D('Nie udało się zbudować: ' + (e && e.message || e)); $('b3-report').textContent = 'Błąd: ' + (e && e.message || e); }
   garbage.forEach(o => { try { o.delete(); } catch (e) { /* już zwolnione */ } });
@@ -175,7 +187,8 @@ function setView(name) {
   document.querySelectorAll('#v3-bar [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === name)); frame3D();
 }
 const render3D = () => { if (V3.ren) V3.ren.render(V3.scene, V3.cam); };
-function material3D(part) {
+function material3D(part, plType) {
+  if (part === 'plaster') return new V3.THREE.MeshStandardMaterial({ color: plType === 'K' ? 0x3182ce : 0xdd6b20, flatShading: true, roughness: 0.55, side: V3.THREE.DoubleSide });
   const T = V3.THREE, sel = { klosz: ['b3-ck', 'b3-tk', 0.5], podstawa: ['b3-cp', 'b3-tp', 0.55], pleksa: ['b3-cx', 'b3-tx', 0.45] }[part], tr = $(sel[1]).checked;
   return new T.MeshStandardMaterial({ color: Number($(sel[0]).value), flatShading: true, roughness: 0.55, metalness: 0.02, transparent: tr, opacity: tr ? sel[2] : 1, depthWrite: !tr, side: T.DoubleSide });
 }
@@ -186,8 +199,8 @@ function show3D() {
   V3.bodies.forEach(b => {
     const g = new T.BufferGeometry(), n = b.numProp || 3, pos = n === 3 ? b.pos : Float32Array.from({ length: b.pos.length / n * 3 }, (_, i) => b.pos[Math.floor(i / 3) * n + i % 3]);
     g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setIndex(new T.BufferAttribute(b.tri, 1));
-    const mesh = new T.Mesh(g, material3D(b.part)), edges = new T.LineSegments(new T.EdgesGeometry(g, 28), new T.LineBasicMaterial({ color: 0x2d3748, transparent: true, opacity: 0.45 }));
-    mesh.add(edges); mesh.userData = { part: b.part }; mesh.renderOrder = b.part === 'podstawa' ? 0 : b.part === 'klosz' ? 1 : 2; V3.group.add(mesh); V3.meshes.push(mesh);
+    const mesh = new T.Mesh(g, material3D(b.part, b.plType)), edges = new T.LineSegments(new T.EdgesGeometry(g, 28), new T.LineBasicMaterial({ color: 0x2d3748, transparent: true, opacity: 0.45 }));
+    mesh.add(edges); mesh.userData = { part: b.part, plType: b.plType }; mesh.renderOrder = b.part === 'podstawa' ? 0 : b.part === 'klosz' ? 1 : 2; V3.group.add(mesh); V3.meshes.push(mesh);
     for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], b.bb.min[i]); mx[i] = Math.max(mx[i], b.bb.max[i]); }
   });
   const first = !V3.box;
@@ -195,11 +208,11 @@ function show3D() {
   apply3D(); if (first || !V3.keepView) setView(V3.view); V3.keepView = true;
 }
 function apply3D() {
-  const e = Number($('v3-e').value) || 0, vis = { klosz: $('v3-k').checked, podstawa: $('v3-p').checked, pleksa: $('v3-x').checked }, lift = { podstawa: 0, klosz: e, pleksa: 2 * e };
-  V3.meshes.forEach(m => { m.visible = vis[m.userData.part]; m.position.z = lift[m.userData.part]; });
+  const e = Number($('v3-e').value) || 0, vis = { klosz: $('v3-k').checked, podstawa: $('v3-p').checked, pleksa: $('v3-x').checked, plaster: $('v3-l').checked }, lift = { podstawa: 0, klosz: e, pleksa: 2 * e };
+  V3.meshes.forEach(m => { const u = m.userData; m.visible = vis[u.part]; m.position.z = u.part === 'plaster' ? (u.plType === 'K' ? e : 0) : lift[u.part]; });
   render3D();
 }
-function recolor3D() { V3.meshes.forEach(m => { m.material.dispose(); m.material = material3D(m.userData.part); }); render3D(); }
+function recolor3D() { V3.meshes.forEach(m => { m.material.dispose(); m.material = material3D(m.userData.part, m.userData.plType); }); render3D(); }
 function groups3D() { const s = (document.querySelector('input[name=typ]:checked') || {}).value === 'S'; $('g3-f').classList.toggle('hidden', s); $('g3-s').classList.toggle('hidden', !s); }
 window.mark3D = () => { V3.dirty = true; groups3D(); clearTimeout(V3.tmr); if (V3.open) V3.tmr = setTimeout(build3D, 700); };
 async function open3D() {
@@ -271,5 +284,5 @@ groups3D();
 $('b-3d').onclick = open3D; $('b-2d').onclick = close3D; $('b3-open').onclick = open3D; $('v3-b').onclick = () => build3D();
 $('b3-stl').onclick = exportSTL; $('b3-3mf').onclick = export3MF;
 document.querySelectorAll('#v3-bar [data-v]').forEach(b => { b.onclick = () => setView(b.dataset.v); });
-['v3-k', 'v3-p', 'v3-x'].forEach(id => { $(id).onchange = apply3D; }); $('v3-e').oninput = apply3D;
+['v3-k', 'v3-p', 'v3-x', 'v3-l'].forEach(id => { $(id).onchange = apply3D; }); $('v3-e').oninput = apply3D;
 ['b3-ck', 'b3-cp', 'b3-cx', 'b3-tk', 'b3-tp', 'b3-tx'].forEach(id => { $(id).addEventListener('change', () => { clearTimeout(V3.tmr); if (!V3.dirty) { /* sam kolor nie wymaga przebudowy */ } setTimeout(recolor3D, 0); }); });

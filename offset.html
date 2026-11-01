@@ -92,6 +92,12 @@
   .pick svg rect, .pick svg circle { vector-effect: non-scaling-stroke; }
   .pick b { display: block; font-size: .78rem; }
   .pick small { display: block; color: var(--gray); font-size: .68rem; }
+  .plr { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 5px; cursor: pointer; border: 1px solid transparent; }
+  .plr:hover { background: #f7fafc; }
+  .plr.on { border-color: var(--accent); background: #f0fbe8; }
+  .plr input { width: 60px; padding: 2px 5px; border: 1px solid #cbd5e0; font: inherit; }
+  aside details { margin: 6px 0; }
+  aside summary { cursor: pointer; color: var(--gray); font-size: .78rem; }
   .sch { display: block; width: 100%; height: auto; margin-bottom: 6px; border: 1px solid var(--line); }
   #rail-warn { position: relative; }
   #warn-n { position: absolute; top: 3px; right: 10px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e53e3e; color: #fff; font: 700 .66rem/17px Arial, sans-serif; text-align: center; }
@@ -137,8 +143,7 @@
   <nav id="rail">
     <button data-pan="plik" title="Wczytaj plik, napis z tekstu, nazwa"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg><span>Plik</span></button>
     <button data-pan="litery" title="Frontlit / Sidelit, dysza, offsety"><svg viewBox="0 0 24 24"><path d="M5 20 12 4l7 16M8 14h8"/></svg><span>Litery</span></button>
-    <button data-pan="otwory" title="Otwory na przewody i FIX"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg><span>Otwory</span></button>
-    <button data-pan="profil" title="Profil montażowy"><svg viewBox="0 0 24 24"><rect x="2" y="9" width="20" height="6"/><path d="M6 5v4M18 5v4"/></svg><span>Profil</span></button>
+    <button data-pan="otwory" title="Profil montażowy, otwory na przewody i FIX"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg><span>Otwory</span></button>
     <button data-pan="podzial" title="Podział na stół drukarki"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M12 2v20" stroke-dasharray="3 2.5"/></svg><span>Podział</span></button>
     <button data-pan="led" title="Pasek LED i metry bieżące"><svg viewBox="0 0 24 24"><path d="M3 12h18"/><circle cx="7" cy="12" r="2"/><circle cx="17" cy="12" r="2"/><path d="M7 5v2M17 5v2M7 17v2M17 17v2"/></svg><span>LED</span></button>
     <button data-pan="warstwy" title="Co widać na rysunku"><svg viewBox="0 0 24 24"><path d="m12 4 9 5-9 5-9-5zM3 14l9 5 9-5"/></svg><span>Warstwy</span></button>
@@ -168,10 +173,10 @@
           <label class="pick"><input type="radio" name="typ" value="F" checked><img src="frontlit_schemat.png" alt=""><b>Frontlit</b></label>
           <label class="pick"><input type="radio" name="typ" value="S"><img src="sidelit_schemat.png" alt=""><b>Sidelit</b></label>
         </div>
-        <h3>Wielkość liter <span class="hint">(gdzie otwór na przewód)</span></h3>
+        <h3>Wielkość liter</h3>
         <div class="picks">
-          <label class="pick" title="Szeroka kreska: otwór mieści się w kieszeni LED, luz liczony od kieszeni"><input type="radio" name="wielk" value="2" checked><svg viewBox="0 0 120 60"><rect x="28" y="3" width="64" height="54" fill="#fff" stroke="#ff0000"/><rect x="35" y="3" width="50" height="54" fill="#f7fafc" stroke="#00a000"/><rect x="43" y="3" width="34" height="54" fill="#faf5ff" stroke="#a000a0"/><rect x="55" y="3" width="10" height="54" fill="#ffe680"/><circle cx="51" cy="30" r="5.5" fill="#fff" stroke="#ff8000" stroke-width="1.6"/></svg><b>duże litery</b><small>od kieszeni</small></label>
-          <label class="pick" title="Wąska kreska: otwór wchodzi w ściankę kieszeni, luz liczony od wewnętrznego konturu podstawy"><input type="radio" name="wielk" value="1"><svg viewBox="0 0 120 60"><rect x="38" y="3" width="44" height="54" fill="#fff" stroke="#ff0000"/><rect x="44" y="3" width="32" height="54" fill="#f7fafc" stroke="#00a000"/><rect x="51" y="3" width="18" height="54" fill="#faf5ff" stroke="#a000a0"/><rect x="55" y="3" width="10" height="54" fill="#ffe680"/><circle cx="51" cy="30" r="5.5" fill="#fff" stroke="#ff8000" stroke-width="1.6"/></svg><b>małe litery</b><small>od wewn. podstawy</small></label>
+          <label class="pick" title="Podstawa z wybraniem na pasek LED; otwory liczone od kieszeni"><input type="radio" name="wielk" value="2" checked><svg viewBox="0 0 120 62"><defs><clipPath id="pk3"><polygon points="26.6,33.6 75.4,13.4 91.4,20.4 42.6,40.6"/></clipPath></defs><polygon points="14,32 46,46 46,57 14,43" fill="#a0aec0"/><polygon points="46,46 104,22 104,33 46,57" fill="#cbd5e0"/><polygon points="14,32 72,8 104,22 46,46" fill="#f7fafc" stroke="#718096" stroke-width=".6"/><polygon points="26.6,33.6 75.4,13.4 91.4,20.4 42.6,40.6" fill="#718096"/><g clip-path="url(#pk3)"><polygon points="26.6,39.6 75.4,19.4 91.4,26.4 42.6,46.6" fill="#e2e8f0"/><polygon points="29,41 78,20.8 83,23 34,43.2" fill="#ffd93b"/></g></svg><b>duże litery</b><small>wybranie na LED</small></label>
+          <label class="pick" title="Podstawa z pełnym środkiem, bez wybrania; otwory liczone od wewnętrznego konturu podstawy"><input type="radio" name="wielk" value="1"><svg viewBox="0 0 120 62"><polygon points="14,32 46,46 46,57 14,43" fill="#a0aec0"/><polygon points="46,46 104,22 104,33 46,57" fill="#cbd5e0"/><polygon points="14,32 72,8 104,22 46,46" fill="#f7fafc" stroke="#718096" stroke-width=".6"/></svg><b>małe litery</b><small>pełny środek</small></label>
         </div>
         <h3>Dysza</h3>
         <div class="row"><label><input type="radio" name="dysza" value="4"> 0,4 mm</label><label><input type="radio" name="dysza" value="6" checked> 0,6 mm</label></div>
@@ -180,7 +185,12 @@
         <div class="fld"><span>Offset podstawy B</span><input type="text" inputmode="decimal" id="p-B" value="0,1"></div>
         <div class="vals" id="vals"></div>
       </section>
-      <section class="pan" data-pan="otwory" data-t="Otwory">
+      <section class="pan" data-pan="otwory" data-t="Otwory i profil">
+        <h3>Profil montażowy</h3>
+        <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
+        <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
+        <button type="button" class="btn wide" id="b-pin" title="Włączone: przesuwasz profil — otwory na przewody jadą razem z nim. Wyłączone: zostają na swojej wysokości.">📌 Przypnij do profila</button>
+        <div class="hint">Krawędzie profilu przyciągają się do krawędzi liter (Alt = bez przyciągania). Otwory automatyczne przy każdym przesunięciu układają się od nowa w obrębie litery.</div>
         <h3>Na przewody</h3>
         <div class="fld"><span>Średnica</span><input type="text" inputmode="decimal" id="p-dotw" value="3"></div>
         <div class="row"><label><input type="radio" name="gdzie" value="1"> góra</label><label><input type="radio" name="gdzie" value="2" checked> środek</label><label><input type="radio" name="gdzie" value="3"> dół</label><label><input type="radio" name="gdzie" value="0"> bez</label></div>
@@ -194,17 +204,27 @@
         <div class="fld"><span>Łeb śruby <span class="hint">(pomocniczy: na szablonie, bez bryły)</span></span><input type="text" inputmode="decimal" id="p-dleb" value="7"></div>
         <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
       </section>
-      <section class="pan" data-pan="profil" data-t="Profil montażowy">
-        <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
-        <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
-        <button type="button" class="btn wide" id="b-pin" title="Włączone: przesuwasz profil — otwory na przewody jadą razem z nim. Wyłączone: zostają na swojej wysokości.">📌 Przypnij do profila</button>
-        <div class="hint">Krawędzie profilu przyciągają się do krawędzi liter (Alt = bez przyciągania). Otwory automatyczne przy każdym przesunięciu układają się od nowa w obrębie litery.</div>
-      </section>
       <section class="pan" data-pan="podzial" data-t="Podział na stół">
         <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
         <div class="fld"><span>Stół X [mm]</span><input type="text" inputmode="decimal" id="p-stx" value="320"></div>
         <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
         <div class="vals" id="podz-info"></div>
+        <h3>Plasterki łączące</h3>
+        <div class="row"><label><input type="checkbox" id="p-plon" checked> dodaj plasterki na łączeniach</label></div>
+        <div class="fld"><span>Długość: podstawa</span><input type="text" inputmode="decimal" id="p-pll" value="40"></div>
+        <div class="fld"><span>Długość: klosz</span><input type="text" inputmode="decimal" id="p-plk" value="40"></div>
+        <details><summary>Wymiary plasterków</summary>
+          <div class="fld"><span>Podstawa: odsunięcie od ścianki</span><input type="text" inputmode="decimal" id="p-ploff" value="0,5"></div>
+          <div class="fld"><span>Podstawa: grubość</span><input type="text" inputmode="decimal" id="p-plh" value="1,2"></div>
+          <div class="fld"><span>Podstawa: szerokość rowka LED</span><input type="text" inputmode="decimal" id="p-plgr" value="8"></div>
+          <div class="fld"><span>Podstawa: pod rowkiem</span><input type="text" inputmode="decimal" id="p-plfl" value="0,6"></div>
+          <div class="fld"><span>Klosz: odsunięcie od ścianki</span><input type="text" inputmode="decimal" id="p-pkoff" value="0,1"></div>
+          <div class="fld"><span>Klosz: grubość</span><input type="text" inputmode="decimal" id="p-pkt" value="1,2"></div>
+          <div class="fld"><span>Klosz: niższy o</span><input type="text" inputmode="decimal" id="p-pkd" value="10"></div>
+        </details>
+        <h3>Długość każdego plasterka [mm]</h3>
+        <div id="plate-list"></div>
+        <div class="hint">Klik w plasterek na rysunku też go wybiera. Długość 0 = bez tego plasterka. Są w DXF i w bryłach 3D, nie ma ich na szablonie.</div>
         <div class="hint">Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem.</div>
       </section>
       <section class="pan" data-pan="led" data-t="Pasek LED">
@@ -278,7 +298,7 @@
     <div id="v3d" class="hidden">
       <div id="v3-bar">
         <span class="seg"><button class="btn on" data-v="iso">Izometria</button><button class="btn" data-v="top">Góra</button><button class="btn" data-v="front">Przód</button><button class="btn" data-v="back">Tył</button><button class="btn" data-v="side">Bok</button></span>
-        <label><input type="checkbox" id="v3-k" checked> klosz</label><label><input type="checkbox" id="v3-p" checked> podstawa</label><label><input type="checkbox" id="v3-x" checked> pleksa</label>
+        <label><input type="checkbox" id="v3-k" checked> klosz</label><label><input type="checkbox" id="v3-p" checked> podstawa</label><label><input type="checkbox" id="v3-x" checked> pleksa</label><label><input type="checkbox" id="v3-l" checked> plasterki</label>
         <label>rozłóż <input type="range" id="v3-e" min="0" max="120" value="0"></label>
         <span class="sp"></span><button class="btn" id="v3-b" title="Zbuduj bryły od nowa">⟳ Buduj</button>
       </div>
@@ -310,7 +330,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const S = 1000;                                       // Clipper: liczby całkowite w µm
-const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',').replace(/,?0+$/, m => m.startsWith(',') ? '' : m).replace(/,$/, '');
+const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',').replace(/(,\d*?)0+$/, '$1').replace(/,$/, '');
 const num = s => { const v = parseFloat(String(s).replace(',', '.')); return Number.isFinite(v) ? v : 0; };
 const toast = (t, ms = 3500) => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); };
 // --- stałe modelu jak w makrze Corela (Offsety_dla_Fusion.bas) ---
@@ -322,7 +342,7 @@ const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
   ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
   ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4], ['Podzial', '#dd6b20', 2]];
 const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
-const W = { cuts: [], bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
+const W = { cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: true, Plaster: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
 let uid = 1;
 
 // ===================== geometria (Clipper) =====================
@@ -375,7 +395,8 @@ function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), wielk: Number(r('wielk')),
     przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
-    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), p3: p3State() };
+    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), p3: p3State(),
+    plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
 function model(pr) {
   const d = DYSZA[pr.dysza] || DYSZA[6], k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
@@ -383,7 +404,7 @@ function model(pr) {
   return { k1, k2, k3, p1, p2, kie, spec, scianka: k2 - k3 };
 }
 function computeLayers() {
-  const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.m = m; W.pr = pr;
+  const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.plReg = null; W.m = m; W.pr = pr;
   $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br><b>Kieszeń</b> ${fmt(m.kie)}<br>`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
   if (!W.base) return;
@@ -712,7 +733,7 @@ function cutSegs() {
 }
 // prostokąty stołu: po jednym na każdą część, każdy pod swoim kątem; bez żadnych cięć — jeden na największej literze (do porównania)
 function refreshBeds() {
-  W.beds = []; W.cutWarn = []; const pr = W.pr; $('podz-info').textContent = ''; if (!pr || !pr.podz || !W.base) return;
+  W.beds = []; W.cutWarn = []; const pr = W.pr; $('podz-info').textContent = ''; refreshPlates(); if (!pr || !pr.podz || !W.base) return;
   const ls = bedLetters(); let parts = 0, cutL = 0, turned = 0;
   const bedOf = pts => {
     const f = fitBed(pts, pr.stX, pr.stY), g = { a: f.a, cx: f.cx, cy: f.cy }, cu = (f.b.u0 + f.b.u1) / 2, cv = (f.b.v0 + f.b.v1) / 2;
@@ -728,6 +749,60 @@ function refreshBeds() {
   // wtyczka Fusion tnie każdą bryłę, której prostokąt obejmujący dotyka linii — ostrzeżenie, gdy linia zahacza o sąsiednią literę
   cutSegs().forEach(c => { const x0 = Math.min(c.a[0], c.b[0]), x1 = Math.max(c.a[0], c.b[0]), y0 = Math.min(c.a[1], c.b[1]), y1 = Math.max(c.a[1], c.b[1]); if (ls.some((l, i) => i !== c.li && x0 <= l.bb.x1 && x1 >= l.bb.x0 && y0 <= l.bb.y1 && y1 >= l.bb.y0)) W.cutWarn.push('linia podziału zahacza o prostokąt sąsiedniej litery: we Fusion potnie też ją (w bryłach 3D Wizarda nie)'); });
   $('podz-info').innerHTML = (cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : cutL < 5 ? 'litery' : 'liter'}, razem ${parts} części.` : 'Żadna litera nie wymaga cięcia.') + (turned ? `<br>Stół obrócony przy ${turned} ${turned === 1 ? 'części' : 'częściach'}.` : '') + '<br><span class="hint">Pleksy nie dzielimy: jest cięta laserem w całości.</span>';
+}
+// ===================== plasterki łączące części po podziale =====================
+// Osobno drukowane elementy klejone na łączeniu, po jednym na każde miejsce, gdzie linia podziału przecina kieszeń (P) albo ściankę klosza (K).
+// P: kształt kieszeni zwężony o 0,5 mm z każdej strony, gr. 1,2 mm, rowek 8 mm na LED (pod rowkiem 0,6 mm).
+// K: pasek po wewnętrznej ściance klosza, 0,1 mm od niej, gr. 1,2 mm, wysokość = klosz − 10 mm.
+// Długość każdego można zmienić osobno (c.plL[klucz]); są w DXF (warstwy Plaster_*) i w bryłach, nie ma ich na szablonie.
+const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150]];
+function plateRegs() {
+  if (W.plReg) return W.plReg;
+  const pr = W.pr, m = W.m, side = pr.typ === 'S', pocket = side || $('b3-wgl').checked, R = d => offsetPolys(W.base, d);
+  const dP = side ? -num($('b3-st3').value) : pocket ? m.kie : m.p2, dK = side ? -num($('b3-st1').value) : m.k3;
+  return (W.plReg = { P: R(dP - pr.plOffP), K: diff(R(dK - pr.plOffK), R(dK - pr.plOffK - pr.plTK)), pocket });
+}
+// odcinki, w których prosta (linia c przesunięta o s w poprzek) leży w obszarze: [u0, u1] wzdłuż linii
+function lineSpans(polys, c, s = 0) {
+  const a = c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, px = c.x + nx * s, py = c.y + ny * s, xs = [];
+  polys.forEach(p => { for (let i = 0; i < p.length; i++) { const q = p[i], r = p[(i + 1) % p.length], qx = q.X / S - px, qy = q.Y / S - py, rx = r.X / S - px, ry = r.Y / S - py, v0 = qx * nx + qy * ny, v1 = rx * nx + ry * ny; if ((v0 <= 0) !== (v1 <= 0)) { const t = v0 / (v0 - v1), u0 = qx * dx + qy * dy, u1 = rx * dx + ry * dy; xs.push(u0 + (u1 - u0) * t); } } });
+  xs.sort((m, n) => m - n); const out = []; for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i + 1] - xs[i] > 0.3) out.push([xs[i], xs[i + 1]]);
+  return out;
+}
+function refreshPlates() {
+  W.plates = []; const pr = W.pr; if (!pr || !pr.plOn || !W.base || !W.cuts.length) return renderPlateList();
+  const regs = plateRegs(), ls = bedLetters();
+  W.cuts.forEach(c => {
+    const l = ls[c.li]; if (!l) return;
+    const a = c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, W2 = (u, s) => [c.x + dx * u + nx * s, c.y + dy * u + ny * s];
+    const inBB = p => { const b = bboxOf([p]); return b.x1 > l.bb.x0 - 3 && b.x0 < l.bb.x1 + 3 && b.y1 > l.bb.y0 - 3 && b.y0 < l.bb.y1 + 3; };
+    [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].forEach(([type, reg, defL]) => {
+      const near = reg.filter(inBB), spans = lineSpans(near, c).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return x >= l.bb.x0 - 3 && x <= l.bb.x1 + 3 && y >= l.bb.y0 - 3 && y <= l.bb.y1 + 3; });
+      spans.forEach((sp, i) => {
+        const key = type + (i + 1), L = c.plL && c.plL[key] != null ? c.plL[key] : defL, plate = { c, key, type, li: c.li, L, polys: [], groove: [] };
+        W.plates.push(plate); if (!(L > 0)) return;
+        // prostokąt: wzdłuż linii do połowy odstępu od sąsiednich miejsc, w poprzek długość plasterka
+        const u0 = i ? (spans[i - 1][1] + sp[0]) / 2 : sp[0] - 2000, u1 = i < spans.length - 1 ? (sp[1] + spans[i + 1][0]) / 2 : sp[1] + 2000;
+        let rect = toCl([W2(u0, -L / 2), W2(u1, -L / 2), W2(u1, L / 2), W2(u0, L / 2)]); if (C.Clipper.Area(rect) < 0) rect = rect.reverse();
+        const cl = new C.Clipper(), sol = new C.Paths(); cl.AddPaths(near, C.PolyType.ptSubject, true); cl.AddPath(rect, C.PolyType.ptClip, true); cl.Execute(C.ClipType.ctIntersection, sol, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero);
+        const [mx, my] = W2((sp[0] + sp[1]) / 2, 0), mid = { X: Math.round(mx * S), Y: Math.round(my * S) }, comp = letters(sol).find(q => C.Clipper.PointInPolygon(mid, q.p) !== 0); if (!comp) return;
+        plate.polys = [comp.p].concat(comp.holes);
+        if (type !== 'P' || !regs.pocket) return;
+        // rowek na LED: środkiem kieszeni, od przekroju do przekroju
+        const pts = [], walk = dir => { let prev = (sp[0] + sp[1]) / 2; for (let s = dir; Math.abs(s) <= L / 2 + 2; s += dir * 2) { const q = lineSpans(near, c, s).sort((m, n) => Math.abs((m[0] + m[1]) / 2 - prev) - Math.abs((n[0] + n[1]) / 2 - prev))[0]; if (!q) break; prev = (q[0] + q[1]) / 2; const w = W2(prev, s); if (dir > 0) pts.push(w); else pts.unshift(w); } };
+        pts.push(W2((sp[0] + sp[1]) / 2, 0)); walk(1); walk(-1);
+        if (pts.length > 1) { const co = new C.ClipperOffset(2, 0.01 * S), out = new C.Paths(); co.AddPath(toCl(pts), C.JoinType.jtRound, C.EndType.etOpenButt); co.Execute(out, pr.plGr / 2 * S); plate.groove = inter(out, plate.polys); }
+      });
+    });
+  });
+  renderPlateList();
+}
+const plateName = q => `litera ${q.li + 1} · ${q.type === 'P' ? 'podstawa' : 'klosz'} ${q.key.slice(1)}`;
+function setPlateL(q, v) { pushUndo(); q.c.plL = q.c.plL || {}; q.c.plL[q.key] = Math.max(0, v); refreshPlates(); renderSel(); draw(); if (window.mark3D) mark3D(); }
+function renderPlateList() {
+  const box = $('plate-list'); if (!box) return;
+  box.innerHTML = W.plates.length ? W.plates.map((q, i) => `<div class="plr${W.sel && W.sel.t === 'plate' && W.sel.id === q.c.id && W.sel.key === q.key ? ' on' : ''}" data-i="${i}"><span>${esc(plateName(q))}</span><input type="text" inputmode="decimal" value="${fmt(q.L, 1)}" title="Długość [mm], 0 = bez tego plasterka"></div>`).join('') : '<div class="hint">Pojawią się, gdy będzie linia podziału.</div>';
+  box.querySelectorAll('.plr').forEach(r => { const q = W.plates[+r.dataset.i]; r.onclick = e => { W.sel = { t: 'plate', id: q.c.id, key: q.key }; renderSel(); draw(); box.querySelectorAll('.plr').forEach(x => x.classList.toggle('on', x === r)); }; r.querySelector('input').onchange = e => setPlateL(q, num(e.target.value)); });
 }
 // pasek LED liczony w tle (ok. 1–2 s przy dużym napisie), po chwili bez zmian
 let ledTmr = 0;
@@ -826,7 +901,8 @@ function inferKit(paths, basePaths) {
   return { typ: paths.some(p => lowLay(p) === 'pleksa') ? 'F' : 'S', dysza: k2 - k1 < 1 ? 4 : 6, P: k1, B: Math.round((k3 - pod[0]) * 100) / 100 };
 }
 function readKit(paths, basePaths, dx, dy) {
-  const pr = paths.meta || inferKit(paths, basePaths) || {}, box = p => bboxOf([p.pts]), holes = [], rails = [];
+  const pr = { ...(paths.meta || inferKit(paths, basePaths) || {}) }, box = p => bboxOf([p.pts]), holes = [], rails = [];
+  ['P', 'B'].forEach(k => { if (pr[k] != null && Math.abs(pr[k] - 0.1) < 0.021) pr[k] = 0.1; });     // standard 0,1 (odczyt z konturów bywa niedokładny, np. 0,11)
   setParams(pr);
   paths.filter(p => lowLay(p) === 'otwory' || lowLay(p) === 'fix').forEach(p => { const b = box(p), fix = lowLay(p) === 'fix'; holes.push({ id: uid++, kind: fix ? 'fix' : 'otw', d: Math.round((b.x1 - b.x0) * 100) / 100, x: (b.x0 + b.x1) / 2 + dx, y: (b.y0 + b.y1) / 2 + dy }); });
   paths.filter(p => lowLay(p) === 'profil').forEach(p => { const b = box(p); rails.push({ id: uid++, x0: b.x0 + dx, x1: b.x1 + dx, yc: (b.y0 + b.y1) / 2 + dy, h: b.y1 - b.y0, manual: true, manualH: true }); });
@@ -907,7 +983,7 @@ async function loadFile(f) {
       computeLayers(); const rows = rowsOf(letters(bedSrc())); W.rails.forEach(r => { let bi = 0, bd = Infinity; rows.forEach((row, i) => { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)), d = r.yc < y0 ? y0 - r.yc : r.yc > y1 ? r.yc - y1 : 0; if (d < bd) { bd = d; bi = i; } }); r.row = bi; });
     }
     recompute(false);
-    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); refreshBeds(); renderSide(); draw(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
+    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); refreshBeds(); renderSide(); draw(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
     if (W.panel === 'plik' || !W.panel) showPanel('litery', true);
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
@@ -965,7 +1041,7 @@ function dxfText(ents, cx, cy, meta) {
   if (meta) { const js = JSON.stringify(meta).replace(/[\u0080-￿]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')); for (let i = 0; i < js.length; i += 200) add(999, 'OW:' + js.slice(i, i + 200)); }
   add(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 4, 9, '$EXTMIN', 10, f(x0 - cx), 20, f(y0 - cy), 9, '$EXTMAX', 10, f(x1 - cx), 20, f(y1 - cy), 0, 'ENDSEC');
   add(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'LTYPE', 70, 1, 0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid line', 72, 65, 73, 0, 40, '0.0', 0, 'ENDTAB');
-  const used = LAYERS.concat(SZ_LAYERS).filter(([n]) => ents.some(e => e[0] === n));
+  const used = LAYERS.concat(SZ_LAYERS, PL_LAYERS).filter(([n]) => ents.some(e => e[0] === n));
   add(0, 'TABLE', 2, 'LAYER', 70, used.length); used.forEach(([n, , aci]) => add(0, 'LAYER', 2, n, 70, 0, 62, aci, 6, 'CONTINUOUS')); add(0, 'ENDTAB', 0, 'ENDSEC');
   add(0, 'SECTION', 2, 'ENTITIES');
   ents.forEach(([n, t, d]) => {
@@ -994,9 +1070,11 @@ function buildKit() {
   // środek kompletu w (0,0) — jak EksportujDXF w makrze; linie podziału (wystają poza litery) go nie przesuwają
   const bb = bboxEnts(ents), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
   cutSegs().forEach(c => ents.push(['Podzial', 'line', [c.a, c.b]]));
-  const { typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, p3 } = W.pr;
+  // plasterki: w DXF, ale nie na szablonie
+  W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
+  const { typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = typ === 'S' && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, n0, p3 } };
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null) } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1251,6 +1329,8 @@ function draw() {
     [c.a, c.b].forEach(p => { g.beginPath(); g.arc(X(p[0]), Y(p[1]), sel ? 6 : 4.5, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 1.8; g.strokeStyle = LCOL.Podzial; g.stroke(); });
     if (sel) { g.fillStyle = LCOL.Podzial; g.font = '700 12px Segoe UI, Arial'; g.fillText(`${fmt(c.c.ang, 1)}°`, X(c.b[0]) + 9, Y(c.b[1]) - 7); }
   });
+  // plasterki łączące
+  if (W.show.Plaster) W.plates.forEach(q => { if (!q.polys.length) return; const sel = W.sel && W.sel.t === 'plate' && W.sel.id === q.c.id && W.sel.key === q.key, col = q.type === 'P' ? '#dd6b20' : '#3182ce'; path(q.polys); g.fillStyle = sel ? col + 'aa' : col + '55'; g.fill('evenodd'); g.strokeStyle = col; g.lineWidth = sel ? 2.5 : 1; g.stroke(); if (q.groove.length) { path(q.groove); g.fillStyle = 'rgba(116,66,16,.3)'; g.fill(); } });
   // łeb śruby dookoła FIX — pomocniczy (na szablon, nie do DXF dla Fusion)
   if (W.show.Leb && W.show.FIX) W.holes.forEach(h => { if (h.kind !== 'fix') return; g.beginPath(); g.arc(X(h.x), Y(h.y), W.pr.dLeb / 2 * W.view.s, 0, Math.PI * 2); g.strokeStyle = '#805ad5'; g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); });
   W.holes.forEach(h => {
@@ -1273,6 +1353,7 @@ function renderSide() {
     return `<label class="lay"><input type="checkbox" data-lay="${n}" ${W.show[n] ? 'checked' : ''}><i style="background:${col}"></i>${n} <span class="hint">(${cnt})</span></label>`; }).join('');
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pasek LED ${LED_W} mm wzdłuż środka kanału (kieszeni) — tylko podgląd, nie idzie do DXF"><input type="checkbox" data-lay="LED" ${W.show.LED ? 'checked' : ''}><i style="background:rgba(255,205,0,.8);height:8px"></i>pasek LED ${LED_W} mm <span class="hint">(podgląd)</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pomocniczy okrąg dookoła FIX: jest na szablonie, nie idzie do DXF dla Fusion"><input type="checkbox" data-lay="Leb" ${W.show.Leb ? 'checked' : ''}><i style="background:#805ad5"></i>łeb śruby <span class="hint">(pomocniczy)</span></label>`);
+  $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Plasterki łączące części: w DXF i w bryłach, nie na szablonie"><input type="checkbox" data-lay="Plaster" ${W.show.Plaster ? 'checked' : ''}><i style="background:#dd6b20"></i>plasterki <span class="hint">(${W.plates.filter(q => q.polys.length).length})</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Blat drukarki 3D — tylko podgląd"><input type="checkbox" data-lay="Stol" ${W.show.Stol ? 'checked' : ''}><i style="background:#38a169"></i>stół drukarki <span class="hint">(podgląd)</span></label>`);
   $('lays').querySelectorAll('[data-lay]').forEach(c => c.onchange = () => { W.show[c.dataset.lay] = c.checked; draw(); save(); });
   const ws = [...new Set((W.overlaps.length ? [`LITERY NACHODZĄ NA SIEBIE (${W.overlaps.length}) — nie mogą być połączone: rozsuń je albo zmniejsz offsety`] : []).concat(W.warn, W.cutWarn))];
@@ -1285,6 +1366,11 @@ function renderSide() {
 }
 function renderSel() {
   const b = $('selbox'), s = W.sel; if (!s) { b.classList.add('hidden'); return; }
+  if (s.t === 'plate') {
+    const q = W.plates.find(p => p.c.id === s.id && p.key === s.key); if (!q) { W.sel = null; b.classList.add('hidden'); return; }
+    b.classList.remove('hidden'); b.innerHTML = `<b>Plasterek: ${esc(plateName(q))}</b><div class="fld"><span>Długość [mm]</span><input type="text" inputmode="decimal" id="sel-pl" value="${fmt(q.L, 1)}"></div><div class="hint">${q.type === 'P' ? `gr. ${fmt(W.pr.plH)} mm, rowek ${fmt(W.pr.plGr)} mm` : `gr. ${fmt(W.pr.plTK)} mm, wysokość = klosz − ${fmt(W.pr.plDownK)} mm`} · Delete = bez tego plasterka</div>`;
+    const inp = $('sel-pl'), go = () => setPlateL(q, num(inp.value)); inp.onchange = go; addSpin(inp, 5, go); return;
+  }
   if (s.t === 'cut') {
     const c = W.cuts.find(q => q.id === s.id); if (!c) { W.sel = null; b.classList.add('hidden'); return; }
     b.classList.remove('hidden'); b.innerHTML = `<b>Linia podziału</b><div class="fld"><span>Kąt [°]</span><input type="text" inputmode="decimal" id="sel-ang" value="${fmt(c.ang, 1)}"></div><div class="hint">chwyć linię = przesuń · kółko na końcu = obróć (Shift = co 15°) · Delete = usuń</div>`;
@@ -1313,6 +1399,7 @@ function hit(px, py) {
     const c = segs.find(q => { const ax = X(q.a[0]), ay = Y(q.a[1]), bx = X(q.b[0]), by = Y(q.b[1]), dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(ax + t * dx - px, ay + t * dy - py) <= 5; });
     if (c) return { t: 'cut', id: c.id, c: c.c, mode: 'move' };
   }
+  if (W.show.Plaster && W.plates.length) { const x = wx(px), y = wy(py), tol = 4 / W.view.s, q = W.plates.find(p => p.polys.length && edgeDist(p.polys, x, y) > -tol); if (q) return { t: 'plate', id: q.c.id, key: q.key }; }
   const rr = W.rails.find(r => px >= X(r.x0) - 5 && px <= X(r.x1) + 5 && py >= Y(r.yc + r.h / 2) - 5 && py <= Y(r.yc - r.h / 2) + 5);
   if (!rr) return null;
   // profil: za krawędź = zmiana rozmiaru, w środku = przesuwanie
@@ -1328,15 +1415,15 @@ const snapTo = (v, arr, thrMm) => { let b = null, bd = thrMm; arr.forEach(a => {
 cv.addEventListener('pointerdown', e => {
   if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
   const h = e.button === 0 ? hit(px, py) : null;
-  W.sel = h ? { t: h.t, id: h.id } : null; renderSel();
-  drag = h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
+  W.sel = h ? { t: h.t, id: h.id, key: h.key } : null; renderSel(); if (h && h.t === 'plate') renderPlateList();
+  drag = h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
   cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); draw();
 });
 cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = !h ? '' : h.t === 'hole' ? 'move' : h.t === 'cut' ? (h.mode === 'rot' ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
+  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = !h ? '' : h.t === 'hole' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
   const dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
   if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
   if (!drag.moved) { if (Math.hypot(px - drag.sx, py - drag.sy) < 3) return; drag.moved = true; pushUndo(); if (drag.t === 'rail') { railHold(drag.o); drag.fol = railFollowers(drag.o).map(h => [h, h.y]); } }
@@ -1390,7 +1477,7 @@ cv.addEventListener('dblclick', e => {
 cv.addEventListener('wheel', e => { e.preventDefault(); if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, k = Math.pow(1.0015, -e.deltaY), x0 = wx(px), y0 = wy(py); W.view.s *= k; W.view.ox = px - x0 * W.view.s; W.view.oy = py + y0 * W.view.s; draw(); }, { passive: false });
 document.addEventListener('keydown', e => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'cut') { W.cuts = W.cuts.filter(c => c.id !== W.sel.id); W.cutManual = true; refreshBeds(); if (window.mark3D) mark3D(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'plate') { const q = W.plates.find(p => p.c.id === W.sel.id && p.key === W.sel.key); W.undo.pop(); if (q) setPlateL(q, 0); } else if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'cut') { W.cuts = W.cuts.filter(c => c.id !== W.sel.id); W.cutManual = true; refreshBeds(); if (window.mark3D) mark3D(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
   else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { undo(); e.preventDefault(); }
   else if (e.key === 'f' || e.key === 'F') fitView();
   else if (W.sel && /^Arrow/.test(e.key)) { const o = W.sel.t === 'hole' ? W.holes.find(h => h.id === W.sel.id) : W.rails.find(r => r.id === W.sel.id); if (!o) return; pushUndo(); const st = e.shiftKey ? 1 : 0.1, dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? st : e.key === 'ArrowDown' ? -st : 0;
@@ -1408,6 +1495,8 @@ function setParams(pr) {
   if (pr.fix != null) $('p-fix').checked = !!pr.fix;
   if (pr.fixN != null) $('p-fixn').value = String(pr.fixN);
   if (pr.podz != null) $('p-podz').checked = !!pr.podz;
+  if (pr.plOn != null) $('p-plon').checked = !!pr.plOn;
+  sv('p-pll', pr.plLP); sv('p-plk', pr.plLK); sv('p-ploff', pr.plOffP); sv('p-plh', pr.plH); sv('p-plgr', pr.plGr); sv('p-plfl', pr.plFloor); sv('p-pkoff', pr.plOffK); sv('p-pkt', pr.plTK); sv('p-pkd', pr.plDownK);
   if (pr.pin != null) { W.pin = !!pr.pin; pinUI(); }
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
 }
@@ -1415,7 +1504,7 @@ function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 2) && o.pr.dOtw === 4.5) delete o.pr.dOtw; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'tx-h': 5 };
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 function addSpin(inp, step, after) {
   if (inp.parentElement.classList.contains('spin')) return;
   const w = document.createElement('span'); w.className = 'spin'; inp.parentElement.insertBefore(w, inp); w.appendChild(inp);
@@ -1430,8 +1519,10 @@ Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id.st
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
   if (i.id.startsWith('tx-') || i.type === 'file' || i.type === 'range') return;
   if (i.id === 'p-name') return save();
+  if (i.id === 'b3-wgl') { W.plReg = null; refreshPlates(); draw(); }
   if (i.id.startsWith('b3-')) { save(); if (window.mark3D) mark3D(); return; }
   if (i.name === 'dysza') { $('p-P').value = '0,1'; $('p-B').value = '0,1'; }   // standard offsetów dla obu dysz
+  if (i.name === 'wielk') $('b3-wgl').checked = i.value === '2';                  // duże: wybranie na LED, małe: pełny środek
   recompute();
 }));
 // ===================== menu: ikony i wysuwane panele =====================
