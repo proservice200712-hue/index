@@ -481,8 +481,8 @@ function placeHoles(kind, dOtw, rails) {
   return out;
 }
 // ===================== pasek LED: 6 mm wzdłuż środka kanału =====================
-// Siatka ~0,5 mm → oś litery (ścienianie + przycięcie gałązek) → pas ±3 mm od osi.
-// Liczone raz dla danej bazy (cache); W.led.dist(x, y) = odległość od paska [mm]; W.led.m = metry bieżące osi.
+// Siatka ~0,5 mm → oś litery (ścienianie + przycięcie gałązek) → linie środkiem kreski (osieLED) → pas ±3 mm od osi.
+// Liczone raz dla danej bazy (cache); W.led.lines = linie osi [mm]; W.led.m = metry bieżące osi.
 const EDT_INF = 1e20;
 function edt1(f, n, out, v, z) {            // 1D kwadratowa transformata odległości (Felzenszwalb)
   let k = 0; v[0] = 0; z[0] = -EDT_INF; z[1] = EDT_INF;
@@ -542,22 +542,86 @@ function computeLED() {
     if (!removed) break;
   }
   act = act.filter(k => SK[k]);
-  // długość osi: estymator Kulpy dla linii na siatce (odcinki proste / po skosie)
-  let nOrth = 0, nDiag = 0; const segs = [];     // odcinki osi: rowki plasterków idą po nich, razem z rozgałęzieniami
-  const seg = (k, q) => { const i = k % nx, j = Math.floor(k / nx), i2 = q % nx, j2 = Math.floor(q / nx); segs.push(x0 + (i + 0.5) * res, y0 + (j + 0.5) * res, x0 + (i2 + 0.5) * res, y0 + (j2 + 0.5) * res); };
-  for (const k of act) {
-    if (SK[k + 1]) { nOrth++; seg(k, k + 1); } if (SK[k + nx]) { nOrth++; seg(k, k + nx); }
-    if (SK[k + nx + 1] && !SK[k + 1] && !SK[k + nx]) { nDiag++; seg(k, k + nx + 1); }
-    if (SK[k + nx - 1] && !SK[k - 1] && !SK[k + nx]) { nDiag++; seg(k, k + nx - 1); }
-  }
-  const lenMm = (0.948 * nOrth + 1.343 * nDiag) * res;
-  // pasek = WSZYSTKO do 3 mm od osi — zawsze pełne 6 mm, także gdy wchodzi na kontury
-  const Da = edt2(SK, nx, ny), L = new Uint8Array(N); for (let k = 0; k < N; k++) if (Math.sqrt(Da[k]) * res <= LED_W / 2 - res / 2) L[k] = 1;
-  const Ds = edt2(L, nx, ny), img = document.createElement('canvas'); img.width = nx; img.height = ny;
-  const ig = img.getContext('2d'), id = ig.createImageData(nx, ny);
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i; if (L[k]) { const p = ((ny - 1 - j) * nx + i) * 4; id.data[p] = 255; id.data[p + 1] = 205; id.data[p + 2] = 0; id.data[p + 3] = 120; } }
-  ig.putImageData(id, 0, 0);
-  W.led = { key, x0, y0, res, nx, ny, img, segs, m: lenMm / 1000, dist: (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); if (i < 0 || j < 0 || i >= nx || j >= ny) return Infinity; return Math.sqrt(Ds[j * nx + i]) * res; } };
+  // linie osi w mm; odcinki: rowki plasterków idą po nich, razem z rozgałęzieniami
+  const lines = osieLED(SK, act, Dm, ins, nx, ny, x0, y0, res), segs = []; let lenMm = 0;
+  lines.forEach(L => { for (let i = 0; i + 1 < L.length; i++) { segs.push(L[i][0], L[i][1], L[i + 1][0], L[i + 1][1]); lenMm += Math.hypot(L[i + 1][0] - L[i][0], L[i + 1][1] - L[i][1]); } });
+  W.led = { key, lines, segs, m: lenMm / 1000 };
+}
+// Piksele osi po ścienianiu → graf (końce, węzły, odcinki) → linie idące dokładnie środkiem kreski:
+// końce bez ogonków biegnących w narożniki, każdy punkt wyśrodkowany między ściankami kreski, proste odcinki naprawdę proste,
+// a w węźle kreska przechodząca na wprost zostaje prosta, reszta dochodzi do niej po swojej linii.
+function osieLED(SK, act, Dm, ins, nx, ny, x0, y0, res) {
+  const P = k => [x0 + (k % nx + 0.5) * res, y0 + (Math.floor(k / nx) + 0.5) * res], cell = (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); return i < 0 || j < 0 || i >= nx || j >= ny ? -1 : j * nx + i; };
+  const rAt = p => { const k = cell(p[0], p[1]); return k < 0 ? 0 : Dm[k]; }, len = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), lenOf = L => { let s = 0; for (let i = 0; i + 1 < L.length; i++) s += len(L[i], L[i + 1]); return s; };
+  const adj = k => { const o = []; for (const q of [k + 1, k - 1, k + nx, k - nx]) if (SK[q]) o.push(q); for (const [a, b] of [[1, nx], [1, -nx], [-1, nx], [-1, -nx]]) if (SK[k + a + b] && !SK[k + a] && !SK[k + b]) o.push(k + a + b); return o; };
+  const A = new Map(); act.forEach(k => A.set(k, adj(k))); const deg = k => A.get(k).length;
+  // węzły: sąsiadujące piksele o 3 i więcej sąsiadach to jeden węzeł
+  const cl = new Map(), nodes = [];
+  act.forEach(k => { if (deg(k) < 3 || cl.has(k)) return; const id = nodes.length, pix = [k]; cl.set(k, id); for (let i = 0; i < pix.length; i++) A.get(pix[i]).forEach(q => { if (deg(q) >= 3 && !cl.has(q)) { cl.set(q, id); pix.push(q); } }); const ps = pix.map(P); nodes.push({ c: [ps.reduce((s, p) => s + p[0], 0) / ps.length, ps.reduce((s, p) => s + p[1], 0) / ps.length], r: Math.max(...pix.map(q => Dm[q])), pix }); });
+  const edges = [], seen = new Set(), tipDone = new Set(), idOf = k => cl.has(k) ? cl.get(k) : -1;
+  const walk = (k, nb) => {
+    const pts = idOf(k) < 0 ? [P(k)] : []; let prev = k, cur = nb;
+    while (deg(cur) === 2 && !seen.has(cur)) { seen.add(cur); pts.push(P(cur)); const nxt = A.get(cur).find(q => q !== prev); prev = cur; cur = nxt; }
+    if (idOf(k) < 0) tipDone.add(k); if (idOf(cur) < 0 && deg(cur) === 1) { tipDone.add(cur); pts.push(P(cur)); }
+    if (pts.length) edges.push({ pts, a: idOf(k), b: idOf(cur) });
+  };
+  act.forEach(k => { if (deg(k) >= 3) A.get(k).forEach(q => { if (idOf(q) !== cl.get(k) && !seen.has(q) && !tipDone.has(q)) walk(k, q); }); });
+  act.forEach(k => { if (deg(k) === 1 && !tipDone.has(k)) walk(k, A.get(k)[0]); });
+  act.forEach(k => { if (deg(k) === 0) edges.push({ pts: [P(k)], a: -1, b: -1 }); });
+  act.forEach(k => { if (deg(k) !== 2 || seen.has(k)) return; const pts = [P(k)]; seen.add(k); let prev = k, cur = A.get(k)[0]; while (cur !== k && !seen.has(cur)) { seen.add(cur); pts.push(P(cur)); const nxt = A.get(cur).find(q => q !== prev); prev = cur; cur = nxt; } pts.push(pts[0].slice()); edges.push({ pts, a: -1, b: -1, closed: true }); });
+  // końce: ogonek biegnący w narożnik szybko traci szerokość kreski, więc pasek kończy się tam, gdzie szerokość przestaje maleć
+  const w = Math.max(2, Math.round(3 / res));
+  const tnij = pts => { for (let i = 0; i + w < pts.length; i++) if ((rAt(pts[i + w]) - rAt(pts[i])) / Math.max(0.01, len(pts[i], pts[i + w])) <= 0.2) return pts.slice(i); let b = 0; pts.forEach((p, i) => { if (rAt(p) >= rAt(pts[b])) b = i; }); return [pts[b]]; };
+  const ok = edges.filter(e => {
+    if (e.closed) return true;
+    if (e.a < 0) e.pts = tnij(e.pts);
+    if (e.b < 0) e.pts = tnij(e.pts.slice().reverse()).reverse();
+    return e.pts.length > 1 || (e.a < 0 && e.b < 0);
+  });
+  // środek kreski: promień w obie strony prostopadle do linii, punkt ląduje w połowie między ściankami; przy węźle (kreska pozornie szersza) zostaje jak jest
+  const ray = (p, nv) => { let t = 0; for (;; t += res / 2) { const k = cell(p[0] + nv[0] * t, p[1] + nv[1] * t); if (k < 0 || !ins[k] || t > 500) return t; } };
+  const wyrownaj = (pts, closed) => {
+    const n = pts.length, k = Math.max(2, Math.round(2.5 / res)), at = i => closed ? pts[((i % (n - 1)) + (n - 1)) % (n - 1)] : pts[Math.max(0, Math.min(n - 1, i))], avg = pts.map((p, i) => { if (!closed && (i === 0 || i === n - 1)) return p; const m = closed ? k : Math.min(k, i, n - 1 - i); let x = 0, y = 0; for (let d = -m; d <= m; d++) { const q = at(i + d); x += q[0]; y += q[1]; } return [x / (2 * m + 1), y / (2 * m + 1)]; });
+    if (closed) avg[n - 1] = avg[0].slice();
+    return avg;
+  };
+  ok.forEach(e => {
+    for (let pass = 0; pass < 3; pass++) {
+      const pts = e.pts, n = pts.length; if (n < 2) break; const k = Math.max(2, Math.round(4 / res)), at = i => e.closed ? pts[((i % (n - 1)) + (n - 1)) % (n - 1)] : pts[Math.max(0, Math.min(n - 1, i))];
+      const mid = pts.map((p, i) => { const a = at(i - k), b = at(i + k), l = len(a, b); if (!l) return p; const nv = [-(b[1] - a[1]) / l, (b[0] - a[0]) / l], A1 = ray(p, nv), B1 = ray(p, [-nv[0], -nv[1]]), r = rAt(p); if (!(r > 0) || A1 + B1 > 2.7 * r) return p; const s = (A1 - B1) / 2; return [p[0] + nv[0] * s, p[1] + nv[1] * s]; });
+      e.pts = wyrownaj(mid, e.closed);
+    }
+  });
+  // węzły
+  const cross = (S, u, Q, v) => { const d = u[0] * v[1] - u[1] * v[0]; if (Math.abs(d) < 1e-6) return null; return ((Q[0] - S[0]) * v[1] - (Q[1] - S[1]) * v[0]) / d; };
+  const naOdcinek = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1))); return [a[0] + dx * t, a[1] + dy * t]; };
+  nodes.forEach((nd, id) => {
+    const ends = []; ok.forEach(e => { if (e.closed) return; if (e.a === id) ends.push({ e, first: true }); if (e.b === id) ends.push({ e, first: false }); }); if (ends.length < 2) return;
+    ok.forEach(e => { if (e.L0 == null) e.L0 = lenOf(e.pts); });
+    const c = 1.25 * nd.r;
+    ends.forEach(o => {
+      const lim = Math.min(c, 0.4 * o.e.L0); let pts = o.first ? o.e.pts : o.e.pts.slice().reverse(), s = 0, i = 0;
+      while (i + 2 < pts.length && s + len(pts[i], pts[i + 1]) <= lim) { s += len(pts[i], pts[i + 1]); i++; }
+      pts = pts.slice(i); let t = 0, j = 0; while (j + 1 < pts.length && t < 10) { t += len(pts[j], pts[j + 1]); j++; }
+      const l = len(pts[0], pts[j]); o.S = pts[0]; o.u = l > 0.01 ? [(pts[0][0] - pts[j][0]) / l, (pts[0][1] - pts[j][1]) / l] : [nd.c[0] - pts[0][0], nd.c[1] - pts[0][1]]; o.pts = pts;
+    });
+    let pair = null, best = -Math.cos(25 * Math.PI / 180);
+    for (let i = 0; i < ends.length; i++) for (let j = i + 1; j < ends.length; j++) { const d = ends[i].u[0] * ends[j].u[0] + ends[i].u[1] * ends[j].u[1]; if (d < best) { const u = ends[i].u, S = ends[i].S, T = ends[j].S; if (Math.abs((T[0] - S[0]) * u[1] - (T[1] - S[1]) * u[0]) <= 0.35 * nd.r) { best = d; pair = [ends[i], ends[j]]; } } }
+    let N = nd.c;
+    if (pair) {
+      N = naOdcinek(nd.c, pair[0].S, pair[1].S);
+      ends.forEach(o => { let X = N; if (!pair.includes(o)) { const v = [pair[1].S[0] - pair[0].S[0], pair[1].S[1] - pair[0].S[1]], t = cross(o.S, o.u, pair[0].S, v); X = naOdcinek(t != null && t > 0 ? [o.S[0] + o.u[0] * t, o.S[1] + o.u[1] * t] : o.S, pair[0].S, pair[1].S); } o.pts = [X].concat(o.pts); });
+    } else {
+      // bez kreski na wprost: punkt najbliższy przedłużeniom wszystkich kresek
+      let a = 0, b = 0, d = 0, e = 0, f = 0; ends.forEach(o => { const [ux, uy] = o.u, l = Math.hypot(ux, uy) || 1, x = ux / l, y = uy / l, m00 = 1 - x * x, m01 = -x * y, m11 = 1 - y * y; a += m00; b += m01; d += m11; e += m00 * o.S[0] + m01 * o.S[1]; f += m01 * o.S[0] + m11 * o.S[1]; });
+      const det = a * d - b * b; if (Math.abs(det) > 1e-3) { const Q = [(d * e - b * f) / det, (a * f - b * e) / det]; if (len(Q, nd.c) <= 1.5 * nd.r) N = Q; }
+      ends.forEach(o => { o.pts = [N].concat(o.pts); });
+    }
+    ends.forEach(o => { o.e.pts = o.first ? o.pts : o.pts.slice().reverse(); });
+  });
+  // prosto tam, gdzie kreska jest prosta
+  const dp = (L, tol) => { if (L.length < 3) return L; const keep = new Uint8Array(L.length); keep[0] = keep[L.length - 1] = 1; const st = [[0, L.length - 1]]; while (st.length) { const [i, j] = st.pop(); let bd = tol, bk = -1; for (let k = i + 1; k < j; k++) { const q = naOdcinek(L[k], L[i], L[j]), dd = len(L[k], q); if (dd > bd) { bd = dd; bk = k; } } if (bk >= 0) { keep[bk] = 1; st.push([i, bk], [bk, j]); } } return L.filter((_, i) => keep[i]); };
+  return ok.map(e => dp(e.pts, 0.25));
 }
 // otwory montażowe FIX: na każdą literę 2 (szersza niż 40 mm — 3) albo tyle, ile wybrano, w obrębie profilu, po przekątnej:
 // rzędy 5 mm od górnej i dolnej krawędzi profilu, naprzemiennie góra / dół; od konturu dokładnie ustawiony luz
@@ -830,7 +894,7 @@ function refreshPlates() {
 function rowekLED(polys, szer) {
   computeLED(); if (!W.led || !(szer > 0)) return [];
   const b = bboxOf(polys), m = szer / 2 + 1, sg = W.led.segs, paths = [];
-  for (let i = 0; i < sg.length; i += 4) { const x = sg[i], y = sg[i + 1]; if (x >= b.x0 - m && x <= b.x1 + m && y >= b.y0 - m && y <= b.y1 + m) paths.push(toCl([[x, y], [sg[i + 2], sg[i + 3]]])); }
+  for (let i = 0; i < sg.length; i += 4) { const x = sg[i], y = sg[i + 1], x2 = sg[i + 2], y2 = sg[i + 3]; if (Math.max(x, x2) >= b.x0 - m && Math.min(x, x2) <= b.x1 + m && Math.max(y, y2) >= b.y0 - m && Math.min(y, y2) <= b.y1 + m) paths.push(toCl([[x, y], [x2, y2]])); }
   if (!paths.length) return [];
   const co = new C.ClipperOffset(2, 0.03 * S), out = new C.Paths(); co.AddPaths(paths, C.JoinType.jtRound, C.EndType.etOpenRound); co.Execute(out, szer / 2 * S);
   return inter(out, polys);
@@ -1346,7 +1410,8 @@ function draw() {
   g.stroke();
   const path = polys => { g.beginPath(); polys.forEach(p => { p.forEach((q, i) => i ? g.lineTo(X(q.X / S), Y(q.Y / S)) : g.moveTo(X(q.X / S), Y(q.Y / S))); g.closePath(); }); };
   path(W.base); g.fillStyle = 'rgba(66,153,225,.08)'; g.fill('evenodd');
-  if (W.show.LED && W.led) { const L = W.led; g.save(); g.imageSmoothingEnabled = false; g.drawImage(L.img, X(L.x0), Y(L.y0 + L.ny * L.res), L.nx * L.res * W.view.s, L.ny * L.res * W.view.s); g.restore(); }
+  // pasek zawsze pełne 6 mm wokół osi, także gdy wchodzi na kontury
+  if (W.show.LED && W.led) { g.beginPath(); W.led.lines.forEach(L => { g.moveTo(X(L[0][0]), Y(L[0][1])); if (L.length < 2) g.lineTo(X(L[0][0]) + 0.01, Y(L[0][1])); for (let i = 1; i < L.length; i++) g.lineTo(X(L[i][0]), Y(L[i][1])); }); g.strokeStyle = 'rgba(255,205,0,.47)'; g.lineWidth = LED_W * W.view.s; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); g.lineCap = 'butt'; g.lineJoin = 'miter'; }
   ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(o.polys); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
   if (drag && drag.snapLine) { const [t, v] = drag.snapLine; g.strokeStyle = '#38a169'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath(); if (t === 'x') { g.moveTo(X(v), 0); g.lineTo(X(v), r.height); } else { g.moveTo(0, Y(v)); g.lineTo(r.width, Y(v)); } g.stroke(); g.setLineDash([]); }
   if (W.show.Profil) W.rails.forEach(rl => { g.strokeStyle = LCOL.Profil; g.lineWidth = W.sel && W.sel.t === 'rail' && W.sel.id === rl.id ? 2.5 : 1.4; g.setLineDash(rl.manual ? [6, 3] : []); g.strokeRect(X(rl.x0), Y(rl.yc + rl.h / 2), (rl.x1 - rl.x0) * W.view.s, rl.h * W.view.s); g.setLineDash([]); });
