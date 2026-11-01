@@ -145,7 +145,7 @@ async function build3D() {
       if (q.type === 'K' && !(tops.hK > 0)) { nKpom++; return; }
       const pl = W.pr, warstwy = q.type === 'K' ? [{ z0: tops.zK0, z1: tops.zK0 + tops.hK, reg: q.polys }] : q.groove.length ? [{ z0: tops.zP, z1: tops.zP + pl.plFloor, reg: diff(q.polys, holes2) }, { z0: tops.zP + pl.plFloor, z1: tops.zP + pl.plH, reg: diff(diff(q.polys, q.groove), holes2) }] : [{ z0: tops.zP, z1: tops.zP + pl.plH, reg: diff(q.polys, holes2) }];
       const s = stos(warstwy, ndel); if (!s) return;
-      s.decompose().map(ndel).forEach(b => { const tag = `Plaster_${q.type}_${String(q.li + 1).padStart(2, '0')}`; cntPl[tag] = (cntPl[tag] || 0) + 1; const mesh = b.getMesh(), bb = b.boundingBox(); bodies.push({ part: 'plaster', plType: q.type, name: `${tag}_${cntPl[tag]}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(b), bb }); });
+      s.decompose().map(ndel).forEach(b => { const tag = `Plaster_${q.type}_${String(q.li + 1).padStart(2, '0')}`; cntPl[tag] = (cntPl[tag] || 0) + 1; const mesh = b.getMesh(), bb = b.boundingBox(); bodies.push({ part: 'plaster', plType: q.type, plate: { id: q.c.id, key: q.key }, name: `${tag}_${cntPl[tag]}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(b), bb }); });
     });
     if (nKpom) uwagi.push(`plasterki klosza pominięte (${nKpom}): klosz nie jest wyższy niż ${fmt(W.pr.plDownK, 1)} mm`);
     if (tops.hK > 0 && tops.zK0 + tops.hK > tops.zKmax && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga wyżej niż podparcie pleksy: zwiększ „niższy o”');
@@ -172,6 +172,16 @@ function init3D() {
   V3.ctl = new V3.OrbitControls(V3.cam, V3.ren.domElement); V3.ctl.addEventListener('change', render3D);
   V3.ctl.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.PAN, RIGHT: T.MOUSE.PAN };     // środkowy klawisz przesuwa widok, zoom zostaje na kółku
   V3.ren.domElement.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+  // klik w plasterek: to samo okienko z długością co w widoku 2D; przeciągnięcie dalej obraca widok
+  const el = V3.ren.domElement; let dn = null;
+  el.addEventListener('pointerdown', e => { closePlatePop(); dn = e.button === 0 ? [e.clientX, e.clientY] : null; });
+  el.addEventListener('pointerup', e => {
+    const d = dn; dn = null; if (!d || Math.hypot(e.clientX - d[0], e.clientY - d[1]) >= 3) return;
+    const m = plate3D(e); if (!m) return;
+    const st = $('stage').getBoundingClientRect(); W.sel = { t: 'plate', ...m.userData.plate }; renderPlateList(); openPlatePop(m.userData.plate, e.clientX - st.left, e.clientY - st.top);
+  });
+  el.addEventListener('pointermove', e => { if (!e.buttons) hover3D(plate3D(e)); });
+  el.addEventListener('pointerleave', () => hover3D(null));
   V3.group = new T.Group(); V3.scene.add(V3.group);
   new ResizeObserver(() => size3D()).observe(host);
   size3D();
@@ -189,6 +199,21 @@ function setView(name) {
   document.querySelectorAll('#v3-bar [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === name)); frame3D();
 }
 const render3D = () => { if (V3.ren) V3.ren.render(V3.scene, V3.cam); };
+function plate3D(e) {
+  const T = V3.THREE, pl = V3.meshes.filter(m => m.visible && m.userData.part === 'plaster'); if (!pl.length) return null;
+  const r = V3.ren.domElement.getBoundingClientRect(), rc = V3.ray || (V3.ray = new T.Raycaster());
+  rc.setFromCamera(new T.Vector2((e.clientX - r.left) / r.width * 2 - 1, 1 - (e.clientY - r.top) / r.height * 2), V3.cam);
+  const hit = rc.intersectObjects(pl, false)[0]; if (!hit) return null;
+  // plasterka schowanego za nieprzezroczystą częścią nie widać, więc nie można go też kliknąć
+  const przed = rc.intersectObjects(V3.meshes.filter(m => m.visible && m.userData.part !== 'plaster' && !m.material.transparent), false)[0];
+  return przed && przed.distance < hit.distance ? null : hit.object;
+}
+function hover3D(m) {
+  if (V3.hl === m || (!V3.hl && !m)) return;
+  if (V3.hl) V3.hl.material.emissive.setHex(0);
+  V3.hl = m; if (m) m.material.emissive.setHex(0x553300);
+  V3.ren.domElement.style.cursor = m ? 'pointer' : ''; render3D();
+}
 function material3D(part, plType) {
   if (part === 'plaster') return new V3.THREE.MeshStandardMaterial({ color: plType === 'K' ? 0x3182ce : 0xdd6b20, flatShading: true, roughness: 0.55, side: V3.THREE.DoubleSide });
   const T = V3.THREE, sel = { klosz: ['b3-ck', 'b3-tk', 0.5], podstawa: ['b3-cp', 'b3-tp', 0.55], pleksa: ['b3-cx', 'b3-tx', 0.45] }[part], tr = $(sel[1]).checked;
@@ -196,13 +221,13 @@ function material3D(part, plType) {
 }
 function show3D() {
   init3D(); const T = V3.THREE;
-  V3.meshes.forEach(m => { m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); V3.group.remove(m); }); V3.meshes = [];
+  V3.meshes.forEach(m => { m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); V3.group.remove(m); }); V3.meshes = []; V3.hl = null;
   let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
   V3.bodies.forEach(b => {
     const g = new T.BufferGeometry(), n = b.numProp || 3, pos = n === 3 ? b.pos : Float32Array.from({ length: b.pos.length / n * 3 }, (_, i) => b.pos[Math.floor(i / 3) * n + i % 3]);
     g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setIndex(new T.BufferAttribute(b.tri, 1));
     const mesh = new T.Mesh(g, material3D(b.part, b.plType)), edges = new T.LineSegments(new T.EdgesGeometry(g, 28), new T.LineBasicMaterial({ color: 0x2d3748, transparent: true, opacity: 0.45 }));
-    mesh.add(edges); mesh.userData = { part: b.part, plType: b.plType }; mesh.renderOrder = b.part === 'podstawa' ? 0 : b.part === 'klosz' ? 1 : 2; V3.group.add(mesh); V3.meshes.push(mesh);
+    mesh.add(edges); mesh.userData = { part: b.part, plType: b.plType, plate: b.plate }; mesh.renderOrder = b.part === 'podstawa' ? 0 : b.part === 'klosz' ? 1 : 2; V3.group.add(mesh); V3.meshes.push(mesh);
     for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], b.bb.min[i]); mx[i] = Math.max(mx[i], b.bb.max[i]); }
   });
   const first = !V3.box;
@@ -219,12 +244,12 @@ function groups3D() { const s = (document.querySelector('input[name=typ]:checked
 window.mark3D = () => { V3.dirty = true; groups3D(); clearTimeout(V3.tmr); if (V3.open) V3.tmr = setTimeout(build3D, 700); };
 async function open3D() {
   if (!W.base) return toast('Najpierw wczytaj kontury');
-  V3.open = true; $('v3d').classList.remove('hidden'); $('b-3d').classList.add('on'); $('b-2d').classList.remove('on'); $('selbox').classList.add('hidden');
+  closePlatePop(); V3.open = true; $('v3d').classList.remove('hidden'); $('b-3d').classList.add('on'); $('b-2d').classList.remove('on'); $('selbox').classList.add('hidden');
   if (W.panel !== 'bryla') showPanel('bryla', true);
   try { msg3D('Wczytuję silnik 3D…'); await load3D(); init3D(); size3D(); if (V3.dirty) await build3D(); else { msg3D(''); render3D(); } }
   catch (e) { console.error(e); msg3D('Nie udało się wczytać silnika 3D (sprawdź internet): ' + (e && e.message || e)); }
 }
-function close3D() { V3.open = false; $('v3d').classList.add('hidden'); $('b-2d').classList.add('on'); $('b-3d').classList.remove('on'); draw(); }
+function close3D() { closePlatePop(); V3.open = false; $('v3d').classList.add('hidden'); $('b-2d').classList.add('on'); $('b-3d').classList.remove('on'); draw(); }
 // ===================== eksport =====================
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 function crc32(u8) { let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }

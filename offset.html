@@ -92,7 +92,7 @@
   .pick svg rect, .pick svg circle { vector-effect: non-scaling-stroke; }
   .pick b { display: block; font-size: .78rem; }
   .pick small { display: block; color: var(--gray); font-size: .68rem; }
-  #plate-pop { position: absolute; z-index: 5; background: #fff; border: 1px solid #a0aec0; box-shadow: 0 3px 12px rgba(0,0,0,.2); padding: 7px 10px; font-size: .8rem; }
+  #plate-pop { position: absolute; z-index: 5; width: max-content; background: #fff; border: 1px solid #a0aec0; box-shadow: 0 3px 12px rgba(0,0,0,.2); padding: 7px 10px; font-size: .8rem; }
   #plate-pop b, #plate-pop small { display: block; }
   #plate-pop small { color: var(--gray); font-size: .7rem; margin-top: 3px; }
   #plate-pop label { display: block; margin-top: 4px; }
@@ -230,7 +230,7 @@
         <h3>Długość każdego plasterka [mm]</h3>
         <div id="plate-list"></div>
         <div class="hint">Klik w plasterek na rysunku też go wybiera. Długość 0 = bez tego plasterka. Są w DXF i w bryłach 3D, nie ma ich na szablonie.</div>
-        <div class="hint">Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem.</div>
+        <div class="hint">Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem (widać go po włączeniu warstwy „stół drukarki”).</div>
       </section>
       <section class="pan" data-pan="led" data-t="Pasek LED">
         <div class="vals" id="led-info">—</div>
@@ -289,7 +289,7 @@
       </section>
       <section class="pan" data-pan="uwagi" data-t="Ostrzeżenia"><div id="warn-list"></div></section>
       <section class="pan" data-pan="pomoc" data-t="Mysz i skróty">
-        <div class="hint">kółko = zoom<br>przeciągnięcie tła = przesuwanie widoku<br>przeciągnij otwór / profil / linię podziału = przesuń<br>dwuklik = nowy otwór na przewód (Shift = FIX)<br>Alt + dwuklik = linia podziału (Alt + Shift = pozioma)<br>Delete = usuń zaznaczone<br>Ctrl+Z = cofnij · F = dopasuj<br>↺ = ułóż od nowa<br><br><b>W 3D:</b> lewy przycisk = obrót, kółko = zoom, środkowy lub prawy = przesuwanie.</div>
+        <div class="hint">kółko = zoom<br>przeciągnięcie tła = przesuwanie widoku<br>przeciągnij otwór / profil / linię podziału = przesuń<br>dwuklik = nowy otwór na przewód (Shift = FIX)<br>Alt + dwuklik = linia podziału (Alt + Shift = pozioma)<br>Delete = usuń zaznaczone<br>Ctrl+Z = cofnij · F = dopasuj<br>↺ = ułóż od nowa<br><br><b>W 3D:</b> lewy przycisk = obrót, kółko = zoom, środkowy lub prawy = przesuwanie, klik w plasterek = zmiana długości.</div>
       </section>
     </div>
   </aside>
@@ -348,7 +348,7 @@ const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
   ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
   ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4], ['Podzial', '#dd6b20', 2]];
 const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
-const W = { cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: true, Plaster: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
+const W = { cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: false, Plaster: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
 let uid = 1;
 
 // ===================== geometria (Clipper) =====================
@@ -631,7 +631,7 @@ function checkOverlaps() {
 // Linie idą na warstwę Podzial w DXF: wtyczka Fusion tnie po nich bryły (opcja „Tnij wzdłuż linii”).
 const CUT_ZAPAS = 2;
 const bedSrc = () => ((W.lay.Klosz || []).slice().sort((a, b) => b.d - a.d)[0] || { polys: W.base }).polys;   // najszerszy kontur klosza
-const bedLetters = () => W.bedLs || (W.bedLs = letters(bedSrc()));
+const bedLetters = () => W.bedLs || (W.bedLs = letters(bedSrc() || []));
 // wiersz liter przecinany przez profil (bez kropek nad i/j) — do wymiarów profilu
 function railDims(rl) {
   if (!W.rowsC || W.rowsC.id !== W.baseId) W.rowsC = { id: W.baseId, rows: rowsOf(letters(W.base)).map(row => { const mh = Math.max(...row.map(l => l.bb.y1 - l.bb.y0)), m = row.filter(l => l.bb.y1 - l.bb.y0 >= 0.5 * mh); return { y0: Math.min(...m.map(l => l.bb.y0)), y1: Math.max(...m.map(l => l.bb.y1)), x0: Math.min(...m.map(l => l.bb.x0)), x1: Math.max(...m.map(l => l.bb.x1)) }; }) };
