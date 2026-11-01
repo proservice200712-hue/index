@@ -214,6 +214,7 @@
         <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
         <div class="fld"><span>Stół X [mm]</span><input type="text" inputmode="decimal" id="p-stx" value="320"></div>
         <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
+        <div class="fld" title="Linia klosza idzie obok linii podstawy, żeby łączenia nie wypadały w jednym miejscu. 0 = w tym samym miejscu."><span>Klosz: podział obok podstawy o [mm]</span><input type="text" inputmode="decimal" id="p-cutk" value="30"></div>
         <div class="vals" id="podz-info"></div>
         <h3>Plasterki łączące</h3>
         <div class="row"><label><input type="checkbox" id="p-plon" checked> dodaj plasterki na łączeniach</label></div>
@@ -231,7 +232,7 @@
         <h3>Długość każdego plasterka [mm]</h3>
         <div id="plate-list"></div>
         <div class="hint">Klik w plasterek na rysunku też go wybiera. Długość 0 = bez tego plasterka. Są w DXF i w bryłach 3D, nie ma ich na szablonie.</div>
-        <div class="hint">Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem (widać go po włączeniu warstwy „stół drukarki”).</div>
+        <div class="hint">Pomarańczowa linia tnie podstawę, niebieska przerywana klosz; niebieską można przeciągnąć osobno. Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem (widać go po włączeniu warstwy „stół drukarki”).</div>
       </section>
       <section class="pan" data-pan="led" data-t="Pasek LED">
         <div class="vals" id="led-info">—</div>
@@ -402,7 +403,7 @@ function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), wielk: Number(r('wielk')),
     przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
-    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), p3: p3State(),
+    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutK: Math.max(0, num($('p-cutk').value)), p3: p3State(),
     plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
 function model(pr) {
@@ -722,7 +723,9 @@ function autoCuts() {
     let best = null;
     pick.forEach(q => {
       const g = { a: q.a, cx, cy }, rings = ringsUV(g), hs = holesUV(g);
-      const XX = bestCuts(rings, 'x', q.b.u0, q.b.u1, q.nx, pr.stX, hs), YY = bestCuts(rings, 'y', q.b.v0, q.b.v1, q.ny, pr.stY, hs), c = (XX.cost + YY.cost) * (prost(q) ? 1 : 1.15);
+      // z zapasem na przesuniętą linię klosza, jeśli przy tej samej liczbie części się da
+      const BC = (ax, lo, hi, n, bed) => { const r = bestCuts(rings, ax, lo, hi, n, Math.max(10, bed - pr.cutK), hs); return r.cost < 1e6 ? r : bestCuts(rings, ax, lo, hi, n, bed, hs); };
+      const XX = BC('x', q.b.u0, q.b.u1, q.nx, pr.stX), YY = BC('y', q.b.v0, q.b.v1, q.ny, pr.stY), c = (XX.cost + YY.cost) * (prost(q) ? 1 : 1.15);
       if (!best || c < best.c) best = { c, q, XX, YY };
     });
     const g = { a: best.q.a, cx, cy };
@@ -731,39 +734,59 @@ function autoCuts() {
   });
 }
 // odcinki linii podziału: przez punkt (x, y) pod kątem ang, od końca do końca litery + zapas
-function cutSegs() {
+function cutSegs(list = W.cuts) {
   const ls = bedLetters();
-  return W.cuts.map(c => {
+  return list.map(c => {
     const l = ls[c.li], dx = Math.cos(c.ang * Math.PI / 180), dy = Math.sin(c.ang * Math.PI / 180); let t0 = -50, t1 = 50;
     if (l) { const P = l.pts || (l.pts = fromCl(l.p)); t0 = Infinity; t1 = -Infinity; P.forEach(q => { const t = (q[0] - c.x) * dx + (q[1] - c.y) * dy; if (t < t0) t0 = t; if (t > t1) t1 = t; }); }
     return { c, id: c.id, li: c.li, a: [c.x + dx * (t0 - CUT_ZAPAS), c.y + dy * (t0 - CUT_ZAPAS)], b: [c.x + dx * (t1 + CUT_ZAPAS), c.y + dy * (t1 + CUT_ZAPAS)] };
   });
 }
+// linia klosza = linia podstawy przesunięta w poprzek o c.sK: łączenia podstawy i klosza nie wypadają w jednym miejscu, więc litera jest sztywniejsza
+const cutK = c => { const a = c.ang * Math.PI / 180, s = c.sK || 0; return { ...c, x: c.x - Math.sin(a) * s, y: c.y + Math.cos(a) * s }; };
+// strona i wielkość przesunięcia: pełne, jeśli części klosza mieszczą się na stole, jest ich tyle samo co w podstawie i żadna nie wychodzi skrawkiem; inaczej krócej
+function autoShifts(l, cs, pr) {
+  const n0 = cutPieces(l, cs).length;
+  const test = () => { const pcs = cutPieces(l, cs.map(cutK)); return { ok: pcs.every(q => fitBed(fromCl(q.p), pr.stX, pr.stY).ok), n: pcs.length, minA: Math.min(...pcs.map(q => area(q.p))) }; };
+  cs.forEach(c => {
+    if (c.sKm) return;
+    const z = Math.sign(c.sK) || 1; c.sK = 0; if (!(pr.cutK > 0)) return;
+    let best = null;
+    for (const k of [1, 0.75, 0.5, 0.25]) for (const sg of [z, -z]) {
+      c.sK = sg * pr.cutK * k; const t = test();
+      if (t.ok && t.n === n0 && t.minA >= 600) return;
+      if (t.ok && t.n >= n0 && t.minA >= 600 && (!best || t.n < best.n)) best = { n: t.n, s: c.sK };
+    }
+    c.sK = best ? best.s : 0;
+  });
+}
 // prostokąty stołu: po jednym na każdą część, każdy pod swoim kątem; bez żadnych cięć — jeden na największej literze (do porównania)
 function refreshBeds() {
-  W.beds = []; W.cutWarn = []; const pr = W.pr; $('podz-info').textContent = ''; refreshPlates(); if (!pr || !pr.podz || !W.base) return;
+  W.beds = []; W.cutWarn = []; const pr = W.pr; $('podz-info').textContent = '';
+  if (pr && W.base) bedLetters().forEach((l, li) => { const cs = W.cuts.filter(c => c.li === li); if (cs.length) autoShifts(l, cs, pr); });
+  refreshPlates(); if (!pr || !pr.podz || !W.base) return;
   const ls = bedLetters(); let parts = 0, cutL = 0, turned = 0;
-  const bedOf = pts => {
+  const bedOf = (pts, kl) => {
     const f = fitBed(pts, pr.stX, pr.stY), g = { a: f.a, cx: f.cx, cy: f.cy }, cu = (f.b.u0 + f.b.u1) / 2, cv = (f.b.v0 + f.b.v1) / 2;
+    if (!f.ok) W.cutWarn.push(`część ${kl ? 'klosza ' : ''}${fmt(f.w, 1)} × ${fmt(f.h, 1)} mm nie mieści się na stole ${fmt(pr.stX, 0)} × ${fmt(pr.stY, 0)} mm nawet po obróceniu`);
+    if (kl) { if (f.ok) return; } else if (f.ok && f.a % 90) turned++;
     W.beds.push({ ok: f.ok, a: f.a, w: f.w, h: f.h, pts: [[cu - pr.stX / 2, cv - pr.stY / 2], [cu + pr.stX / 2, cv - pr.stY / 2], [cu + pr.stX / 2, cv + pr.stY / 2], [cu - pr.stX / 2, cv + pr.stY / 2]].map(q => fromUV(g, q[0], q[1])) });
-    if (!f.ok) W.cutWarn.push(`część ${fmt(f.w, 1)} × ${fmt(f.h, 1)} mm nie mieści się na stole ${fmt(pr.stX, 0)} × ${fmt(pr.stY, 0)} mm nawet po obróceniu`);
-    if (f.ok && f.a % 90) turned++;
   };
   ls.forEach((l, li) => {
     const cs = W.cuts.filter(c => c.li === li), fits = l.bb.x1 - l.bb.x0 <= pr.stX && l.bb.y1 - l.bb.y0 <= pr.stY; if (!cs.length && fits) return;
-    if (cs.length) { const pcs = cutPieces(l, cs); cutL++; parts += pcs.length; pcs.forEach(q => bedOf(fromCl(q.p))); } else bedOf(fromCl(l.p));
+    if (cs.length) { const pcs = cutPieces(l, cs); cutL++; parts += pcs.length; pcs.forEach(q => bedOf(fromCl(q.p))); if (cs.some(c => c.sK)) cutPieces(l, cs.map(cutK)).forEach(q => bedOf(fromCl(q.p), true)); } else bedOf(fromCl(l.p));
   });
   if (!W.beds.length && ls.length) { const l = ls.slice().sort((a, b) => Math.max(b.bb.x1 - b.bb.x0, b.bb.y1 - b.bb.y0) - Math.max(a.bb.x1 - a.bb.x0, a.bb.y1 - a.bb.y0))[0]; bedOf(fromCl(l.p)); }
   // wtyczka Fusion tnie każdą bryłę, której prostokąt obejmujący dotyka linii — ostrzeżenie, gdy linia zahacza o sąsiednią literę
   cutSegs().forEach(c => { const x0 = Math.min(c.a[0], c.b[0]), x1 = Math.max(c.a[0], c.b[0]), y0 = Math.min(c.a[1], c.b[1]), y1 = Math.max(c.a[1], c.b[1]); if (ls.some((l, i) => i !== c.li && x0 <= l.bb.x1 && x1 >= l.bb.x0 && y0 <= l.bb.y1 && y1 >= l.bb.y0)) W.cutWarn.push('linia podziału zahacza o prostokąt sąsiedniej litery: we Fusion potnie też ją (w bryłach 3D Wizarda nie)'); });
-  $('podz-info').innerHTML = (cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : cutL < 5 ? 'litery' : 'liter'}, razem ${parts} części.` : 'Żadna litera nie wymaga cięcia.') + (turned ? `<br>Stół obrócony przy ${turned} ${turned === 1 ? 'części' : 'częściach'}.` : '') + '<br><span class="hint">Pleksy nie dzielimy: jest cięta laserem w całości.</span>';
+  $('podz-info').innerHTML = (cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : cutL < 5 ? 'litery' : 'liter'}, razem ${parts} części.` : 'Żadna litera nie wymaga cięcia.') + (turned ? `<br>Stół obrócony przy ${turned} ${turned === 1 ? 'części' : 'częściach'}.` : '') + (W.cuts.some(c => !c.sKm && Math.abs(c.sK || 0) < pr.cutK - 0.01) ? `<br><span style="color:#c53030">Na ${W.cuts.filter(c => !c.sKm && Math.abs(c.sK || 0) < pr.cutK - 0.01).length} liniach klosz przesunięty mniej niż ${fmt(pr.cutK, 0)} mm: inaczej część nie zmieści się na stole.</span>` : '') + '<br><span class="hint">Pleksy nie dzielimy: jest cięta laserem w całości.</span>';
 }
 // ===================== plasterki łączące części po podziale =====================
 // Osobno drukowane elementy klejone na łączeniu, po jednym na każde miejsce, gdzie linia podziału przecina kieszeń (P) albo ściankę klosza (K).
 // P: kształt kieszeni zwężony o 0,5 mm z każdej strony, gr. 1,2 mm, rowek 8 mm na LED (pod rowkiem 0,6 mm).
-// K: pasek po wewnętrznej ściance klosza, 0,1 mm od niej, gr. 1,2 mm, wysokość = klosz − 15 mm, od góry podstawy w górę.
+// K: pasek po wewnętrznej ściance klosza, 0,1 mm od niej, gr. 1,2 mm, wysokość = klosz − 15 mm, od góry podstawy w górę; leży na linii klosza (cutK).
 // Długość każdego można zmienić osobno (c.plL[klucz]); są w DXF (warstwy Plaster_*) i w bryłach, nie ma ich na szablonie.
-const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150], ['Cyfra', '#d53f8c', 6], ['Cyfra_tyl', '#97266d', 6]];
+const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150], ['Szew_K', '#3182ce', 150], ['Cyfra', '#d53f8c', 6], ['Cyfra_tyl', '#97266d', 6]];
 function plateRegs() {
   if (W.plReg) return W.plReg;
   const pr = W.pr, m = W.m, side = pr.typ === 'S', pocket = side || $('b3-wgl').checked, R = d => offsetPolys(W.base, d);
@@ -782,10 +805,11 @@ function refreshPlates() {
   const regs = plateRegs(), ls = bedLetters();
   W.cuts.forEach(c => {
     const l = ls[c.li]; if (!l) return;
-    const a = c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, W2 = (u, s) => [c.x + dx * u + nx * s, c.y + dy * u + ny * s];
+    const a = c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
     const inBB = p => { const b = bboxOf([p]); return b.x1 > l.bb.x0 - 3 && b.x0 < l.bb.x1 + 3 && b.y1 > l.bb.y0 - 3 && b.y0 < l.bb.y1 + 3; };
     [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].forEach(([type, reg, defL]) => {
-      const near = reg.filter(inBB), spans = lineSpans(near, c).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return x >= l.bb.x0 - 3 && x <= l.bb.x1 + 3 && y >= l.bb.y0 - 3 && y <= l.bb.y1 + 3; });
+      const ln = type === 'K' ? cutK(c) : c, W2 = (u, s) => [ln.x + dx * u + nx * s, ln.y + dy * u + ny * s];
+      const near = reg.filter(inBB), spans = lineSpans(near, ln).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return x >= l.bb.x0 - 3 && x <= l.bb.x1 + 3 && y >= l.bb.y0 - 3 && y <= l.bb.y1 + 3; });
       spans.forEach((sp, i) => {
         const key = type + (i + 1), L = c.plL && c.plL[key] != null ? c.plL[key] : defL, plate = { c, key, type, li: c.li, L, polys: [], groove: [] };
         W.plates.push(plate); if (!(L > 0)) return;
@@ -997,7 +1021,7 @@ async function loadFile(f) {
       computeLayers(); const rows = rowsOf(letters(bedSrc())); W.rails.forEach(r => { let bi = 0, bd = Infinity; rows.forEach((row, i) => { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)), d = r.yc < y0 ? y0 - r.yc : r.yc > y1 ? r.yc - y1 : 0; if (d < bd) { bd = d; bi = i; } }); r.row = bi; });
     }
     recompute(false);
-    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); W.marks = (source.meta && source.meta.marks) || []; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
+    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; }); W.marks = (source.meta && source.meta.marks) || []; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
     if (W.panel === 'plik' || !W.panel) showPanel('litery', true);
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
@@ -1084,12 +1108,13 @@ function buildKit() {
   // środek kompletu w (0,0) — jak EksportujDXF w makrze; linie podziału (wystają poza litery) go nie przesuwają
   const bb = bboxEnts(ents), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
   cutSegs().forEach(c => ents.push(['Podzial', 'line', [c.a, c.b]]));
+  cutSegs(W.cuts.filter(c => c.sK).map(cutK)).forEach(c => ents.push(['Szew_K', 'line', [c.a, c.b]]));     // nazwa bez „Podzial”: wtyczka Fusion tnie po tej warstwie całe bryły
   // plasterki: w DXF, ale nie na szablonie
   W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
-  const { typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
+  const { typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = typ === 'S' && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), marks: W.marks } };
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), marks: W.marks } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1344,6 +1369,7 @@ function draw() {
     [c.a, c.b].forEach(p => { g.beginPath(); g.arc(X(p[0]), Y(p[1]), sel ? 6 : 4.5, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 1.8; g.strokeStyle = LCOL.Podzial; g.stroke(); });
     if (sel) { g.fillStyle = LCOL.Podzial; g.font = '700 12px Segoe UI, Arial'; g.fillText(`${fmt(c.c.ang, 1)}°`, X(c.b[0]) + 9, Y(c.b[1]) - 7); }
   });
+  if (W.show.Podzial) cutSegs(W.cuts.filter(c => c.sK).map(cutK)).forEach(c => { const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id; g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = '#3182ce'; g.lineWidth = sel ? 3 : 1.8; g.setLineDash([9, 5]); g.stroke(); g.setLineDash([]); });
   // plasterki łączące
   if (W.show.Plaster) W.plates.forEach(q => { if (!q.polys.length) return; const sel = W.sel && W.sel.t === 'plate' && W.sel.id === q.c.id && W.sel.key === q.key, col = q.type === 'P' ? '#dd6b20' : '#3182ce'; path(q.polys); g.fillStyle = sel ? col + 'aa' : col + '55'; g.fill('evenodd'); g.strokeStyle = col; g.lineWidth = sel ? 2.5 : 1; g.stroke(); if (q.groove.length) { path(q.groove); g.fillStyle = 'rgba(116,66,16,.3)'; g.fill(); } });
   // cyfry na literach; przy małym powiększeniu sama cyfra byłaby niewidoczna, więc dochodzi znaczek
@@ -1394,9 +1420,10 @@ function renderSel() {
   }
   if (s.t === 'cut') {
     const c = W.cuts.find(q => q.id === s.id); if (!c) { W.sel = null; b.classList.add('hidden'); return; }
-    b.classList.remove('hidden'); b.innerHTML = `<b>Linia podziału</b><div class="fld"><span>Kąt [°]</span><input type="text" inputmode="decimal" id="sel-ang" value="${fmt(c.ang, 1)}"></div><div class="hint">chwyć linię = przesuń · kółko na końcu = obróć (Shift = co 15°) · Delete = usuń</div>`;
-    const inp = $('sel-ang'), go = () => { pushUndo(); c.ang = ((num(inp.value) % 180) + 180) % 180; W.cutManual = true; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); };
-    inp.onchange = go; addSpin(inp, 1, go); return;
+    b.classList.remove('hidden'); b.innerHTML = `<b>Linia podziału</b><div class="fld"><span>Kąt [°]</span><input type="text" inputmode="decimal" id="sel-ang" value="${fmt(c.ang, 1)}"></div><div class="fld" title="W którą stronę i o ile linia klosza leży obok linii podstawy. Puste = automatycznie."><span>Klosz obok o [mm]</span><input type="text" inputmode="decimal" id="sel-sk" value="${c.sKm ? fmt(c.sK || 0, 1) : ''}" placeholder="${fmt(c.sK || 0, 1)}"></div><div class="hint">chwyć linię = przesuń · kółko na końcu = obróć (Shift = co 15°) · Delete = usuń</div>`;
+    const inp = $('sel-ang'), done = () => { W.cutManual = true; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); }, go = () => { pushUndo(); c.ang = ((num(inp.value) % 180) + 180) % 180; done(); };
+    const iS = $('sel-sk'), goS = () => { pushUndo(); const t = iS.value.trim(); c.sKm = !!t; if (t) c.sK = num(t); done(); };
+    inp.onchange = go; addSpin(inp, 1, go); iS.onchange = goS; addSpin(iS, 5, goS); return;
   }
   const o = s.t === 'hole' ? W.holes.find(h => h.id === s.id) : W.rails.find(r => r.id === s.id); if (!o) { W.sel = null; b.classList.add('hidden'); return; }
   b.classList.remove('hidden');
@@ -1417,8 +1444,10 @@ function hit(px, py) {
   if (W.show.Podzial) {
     const segs = cutSegs();
     for (const q of segs) for (const [p, end] of [[q.a, 'a'], [q.b, 'b']]) if (Math.hypot(X(p[0]) - px, Y(p[1]) - py) <= 9) return { t: 'cut', id: q.id, c: q.c, mode: 'rot', end };
-    const c = segs.find(q => { const ax = X(q.a[0]), ay = Y(q.a[1]), bx = X(q.b[0]), by = Y(q.b[1]), dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(ax + t * dx - px, ay + t * dy - py) <= 5; });
+    const onLine = q => { const ax = X(q.a[0]), ay = Y(q.a[1]), bx = X(q.b[0]), by = Y(q.b[1]), dx = bx - ax, dy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(ax + t * dx - px, ay + t * dy - py) <= 5; }, c = segs.find(onLine);
     if (c) return { t: 'cut', id: c.id, c: c.c, mode: 'move' };
+    const ck = cutSegs(W.cuts.filter(q => q.sK).map(cutK)).find(onLine);
+    if (ck) return { t: 'cut', id: ck.id, c: W.cuts.find(q => q.id === ck.id), mode: 'k' };
   }
   if (W.show.Plaster && W.plates.length) { const x = wx(px), y = wy(py), tol = 4 / W.view.s, q = W.plates.find(p => p.polys.length && edgeDist(p.polys, x, y) > -tol); if (q) return { t: 'plate', id: q.c.id, key: q.key }; }
   const rr = W.rails.find(r => px >= X(r.x0) - 5 && px <= X(r.x1) + 5 && py >= Y(r.yc + r.h / 2) - 5 && py <= Y(r.yc - r.h / 2) + 5);
@@ -1453,7 +1482,8 @@ cv.addEventListener('pointermove', e => {
   if (drag.kind === 'cut') {
     // linia podziału: za środek = przesuwanie, za kółko na końcu = obrót wokół punktu linii (Shift = co 15°)
     const c = drag.c;
-    if (drag.mode === 'rot') { let a = Math.atan2(wy(py) - c.y, wx(px) - c.x) * 180 / Math.PI + (drag.end === 'a' ? 180 : 0); a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a * 10) / 10; c.ang = (a % 180 + 180) % 180; }
+    if (drag.mode === 'k') { const a = c.ang * Math.PI / 180; c.sK = Math.round(((wx(px) - c.x) * -Math.sin(a) + (wy(py) - c.y) * Math.cos(a)) * 10) / 10; c.sKm = true; }     // linia klosza chodzi tylko w poprzek
+    else if (drag.mode === 'rot') { let a = Math.atan2(wy(py) - c.y, wx(px) - c.x) * 180 / Math.PI + (drag.end === 'a' ? 180 : 0); a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a * 10) / 10; c.ang = (a % 180 + 180) % 180; }
     else { c.x = Math.round((drag.x0 + dx) * 10) / 10; c.y = Math.round((drag.y0 + dy) * 10) / 10; }
     W.cutManual = true; refreshBeds(); renderSel(); return draw();
   }
@@ -1544,7 +1574,7 @@ function setParams(pr) {
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('wielk', pr.wielk);
   const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
   sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-luzf', pr.luzF); sv('p-pg', pr.profG); sv('p-pl', pr.profL); sv('p-name', pr.name);
-  sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stX); sv('p-sty', pr.stY);
+  sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stX); sv('p-sty', pr.stY); sv('p-cutk', pr.cutK);
   if (pr.fix != null) $('p-fix').checked = !!pr.fix;
   if (pr.fixN != null) $('p-fixn').value = String(pr.fixN);
   if (pr.podz != null) $('p-podz').checked = !!pr.podz;
@@ -1557,7 +1587,7 @@ function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 2) && o.pr.dOtw === 4.5) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 function addSpin(inp, step, after) {
   if (inp.parentElement.classList.contains('spin')) return;
   const w = document.createElement('span'); w.className = 'spin'; inp.parentElement.insertBefore(w, inp); w.appendChild(inp);

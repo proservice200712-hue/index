@@ -172,12 +172,12 @@ async function build3D() {
     Object.keys(CZESCI).forEach(k => { parts[k] = plan[k].length ? stos(plan[k], ndel) : null; });
     if (W.overlaps.length) uwagi.push(`litery nachodzą na siebie w ${W.overlaps.length} miejscach — bryły są połączone`);
     if (parts.klosz && parts.podstawa) { const v = objetosc(ndel(V3.wasm.Manifold.intersection(parts.klosz, parts.podstawa))); if (v > 1) uwagi.push(`klosz przenika podstawę (${fmt(v, 1)} mm³) — sprawdź offsety`); }
-    const segs = p.cut ? cutSegs() : [];     // pleksa w całości: nie jest drukowana, tylko cięta laserem
+    const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [];     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
     Object.keys(CZESCI).forEach(k => {
       if (!parts[k]) return;
       let list = parts[k].decompose().map(ndel);
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
-      if (k !== 'pleksa') segs.forEach(c => {
+      if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
         const L = ls[c.li]; if (!L) return;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
         list.forEach(b => {
