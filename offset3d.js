@@ -138,17 +138,17 @@ async function build3D() {
       rows.forEach(r => { nr[r.li] = (nr[r.li] || 0) + 1; const mesh = r.b.getMesh(); bodies.push({ part: k, name: `${CZESCI[k]}_${String(r.li + 1).padStart(2, '0')}${cnt[r.li] > 1 ? String.fromCharCode(96 + nr[r.li]) : ''}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(r.b), bb: r.bb }); });
     });
     // plasterki łączące: osobne elementy do wydruku (nie są cięte ani łączone z częściami)
-    const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK: p.sh - p.kCalk + p.ss } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK: p.st + p.ws }, holes2 = otworyReg(p), cntPl = {};
+    const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK0: p.pCalk + p.sw, zKmax: p.sh - p.sf } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK0: p.st + p.pl, zKmax: p.st + p.ws }, holes2 = otworyReg(p), cntPl = {};
     let nKpom = 0;
     W.plates.forEach(q => {
       if (!q.polys.length) return;
       if (q.type === 'K' && !(tops.hK > 0)) { nKpom++; return; }
-      const pl = W.pr, warstwy = q.type === 'K' ? [{ z0: tops.zK - tops.hK, z1: tops.zK, reg: q.polys }] : q.groove.length ? [{ z0: tops.zP, z1: tops.zP + pl.plFloor, reg: diff(q.polys, holes2) }, { z0: tops.zP + pl.plFloor, z1: tops.zP + pl.plH, reg: diff(diff(q.polys, q.groove), holes2) }] : [{ z0: tops.zP, z1: tops.zP + pl.plH, reg: diff(q.polys, holes2) }];
+      const pl = W.pr, warstwy = q.type === 'K' ? [{ z0: tops.zK0, z1: tops.zK0 + tops.hK, reg: q.polys }] : q.groove.length ? [{ z0: tops.zP, z1: tops.zP + pl.plFloor, reg: diff(q.polys, holes2) }, { z0: tops.zP + pl.plFloor, z1: tops.zP + pl.plH, reg: diff(diff(q.polys, q.groove), holes2) }] : [{ z0: tops.zP, z1: tops.zP + pl.plH, reg: diff(q.polys, holes2) }];
       const s = stos(warstwy, ndel); if (!s) return;
       s.decompose().map(ndel).forEach(b => { const tag = `Plaster_${q.type}_${String(q.li + 1).padStart(2, '0')}`; cntPl[tag] = (cntPl[tag] || 0) + 1; const mesh = b.getMesh(), bb = b.boundingBox(); bodies.push({ part: 'plaster', plType: q.type, name: `${tag}_${cntPl[tag]}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(b), bb }); });
     });
     if (nKpom) uwagi.push(`plasterki klosza pominięte (${nKpom}): klosz nie jest wyższy niż ${fmt(W.pr.plDownK, 1)} mm`);
-    if (W.pr.typ !== 'S' && tops.zK - tops.hK < p.st + p.pl && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga w dół do podstawy — zmniejsz jego wysokość („niższy o”)');
+    if (tops.hK > 0 && tops.zK0 + tops.hK > tops.zKmax && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga wyżej niż podparcie pleksy: zwiększ „niższy o”');
     V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);
     $('b3-report').innerHTML = `<b>Części:</b> klosz ${c('klosz')}, podstawa ${c('podstawa')}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
@@ -170,6 +170,8 @@ function init3D() {
   V3.cam = new T.OrthographicCamera(-1, 1, 1, -1, -100000, 100000);
   V3.ren = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); V3.ren.setPixelRatio(window.devicePixelRatio || 1); host.appendChild(V3.ren.domElement);
   V3.ctl = new V3.OrbitControls(V3.cam, V3.ren.domElement); V3.ctl.addEventListener('change', render3D);
+  V3.ctl.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.PAN, RIGHT: T.MOUSE.PAN };     // środkowy klawisz przesuwa widok, zoom zostaje na kółku
+  V3.ren.domElement.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
   V3.group = new T.Group(); V3.scene.add(V3.group);
   new ResizeObserver(() => size3D()).observe(host);
   size3D();

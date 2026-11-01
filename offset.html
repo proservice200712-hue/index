@@ -92,6 +92,11 @@
   .pick svg rect, .pick svg circle { vector-effect: non-scaling-stroke; }
   .pick b { display: block; font-size: .78rem; }
   .pick small { display: block; color: var(--gray); font-size: .68rem; }
+  #plate-pop { position: absolute; z-index: 5; background: #fff; border: 1px solid #a0aec0; box-shadow: 0 3px 12px rgba(0,0,0,.2); padding: 7px 10px; font-size: .8rem; }
+  #plate-pop b, #plate-pop small { display: block; }
+  #plate-pop small { color: var(--gray); font-size: .7rem; margin-top: 3px; }
+  #plate-pop label { display: block; margin-top: 4px; }
+  #plate-pop input { width: 62px; padding: 3px 5px; border: 1.5px solid var(--accent); font: inherit; }
   .plr { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 5px; cursor: pointer; border: 1px solid transparent; }
   .plr:hover { background: #f7fafc; }
   .plr.on { border-color: var(--accent); background: #f0fbe8; }
@@ -220,7 +225,7 @@
           <div class="fld"><span>Podstawa: pod rowkiem</span><input type="text" inputmode="decimal" id="p-plfl" value="0,6"></div>
           <div class="fld"><span>Klosz: odsunięcie od ścianki</span><input type="text" inputmode="decimal" id="p-pkoff" value="0,1"></div>
           <div class="fld"><span>Klosz: grubość</span><input type="text" inputmode="decimal" id="p-pkt" value="1,2"></div>
-          <div class="fld"><span>Klosz: niższy o</span><input type="text" inputmode="decimal" id="p-pkd" value="10"></div>
+          <div class="fld"><span>Klosz: niższy o</span><input type="text" inputmode="decimal" id="p-pkd" value="15"></div>
         </details>
         <h3>Długość każdego plasterka [mm]</h3>
         <div id="plate-list"></div>
@@ -284,7 +289,7 @@
       </section>
       <section class="pan" data-pan="uwagi" data-t="Ostrzeżenia"><div id="warn-list"></div></section>
       <section class="pan" data-pan="pomoc" data-t="Mysz i skróty">
-        <div class="hint">kółko = zoom<br>przeciągnięcie tła = przesuwanie widoku<br>przeciągnij otwór / profil / linię podziału = przesuń<br>dwuklik = nowy otwór na przewód (Shift = FIX)<br>Alt + dwuklik = linia podziału (Alt + Shift = pozioma)<br>Delete = usuń zaznaczone<br>Ctrl+Z = cofnij · F = dopasuj<br>↺ = ułóż od nowa<br><br><b>W 3D:</b> lewy przycisk = obrót, kółko = zoom, prawy = przesuwanie.</div>
+        <div class="hint">kółko = zoom<br>przeciągnięcie tła = przesuwanie widoku<br>przeciągnij otwór / profil / linię podziału = przesuń<br>dwuklik = nowy otwór na przewód (Shift = FIX)<br>Alt + dwuklik = linia podziału (Alt + Shift = pozioma)<br>Delete = usuń zaznaczone<br>Ctrl+Z = cofnij · F = dopasuj<br>↺ = ułóż od nowa<br><br><b>W 3D:</b> lewy przycisk = obrót, kółko = zoom, środkowy lub prawy = przesuwanie.</div>
       </section>
     </div>
   </aside>
@@ -294,6 +299,7 @@
     <div id="alarms"></div>
     <div class="warn hidden" id="warn" title="Kliknij, aby zobaczyć wszystkie ostrzeżenia"></div>
     <div id="selbox" class="hidden"></div>
+    <div id="plate-pop" class="hidden"></div>
     <div id="info"></div>
     <div id="v3d" class="hidden">
       <div id="v3-bar">
@@ -535,11 +541,12 @@ function computeLED() {
   }
   act = act.filter(k => SK[k]);
   // długość osi: estymator Kulpy dla linii na siatce (odcinki proste / po skosie)
-  let nOrth = 0, nDiag = 0;
+  let nOrth = 0, nDiag = 0; const segs = [];     // odcinki osi: rowki plasterków idą po nich, razem z rozgałęzieniami
+  const seg = (k, q) => { const i = k % nx, j = Math.floor(k / nx), i2 = q % nx, j2 = Math.floor(q / nx); segs.push(x0 + (i + 0.5) * res, y0 + (j + 0.5) * res, x0 + (i2 + 0.5) * res, y0 + (j2 + 0.5) * res); };
   for (const k of act) {
-    if (SK[k + 1]) nOrth++; if (SK[k + nx]) nOrth++;
-    if (SK[k + nx + 1] && !SK[k + 1] && !SK[k + nx]) nDiag++;
-    if (SK[k + nx - 1] && !SK[k - 1] && !SK[k + nx]) nDiag++;
+    if (SK[k + 1]) { nOrth++; seg(k, k + 1); } if (SK[k + nx]) { nOrth++; seg(k, k + nx); }
+    if (SK[k + nx + 1] && !SK[k + 1] && !SK[k + nx]) { nDiag++; seg(k, k + nx + 1); }
+    if (SK[k + nx - 1] && !SK[k - 1] && !SK[k + nx]) { nDiag++; seg(k, k + nx - 1); }
   }
   const lenMm = (0.948 * nOrth + 1.343 * nDiag) * res;
   // pasek = WSZYSTKO do 3 mm od osi — zawsze pełne 6 mm, także gdy wchodzi na kontury
@@ -548,7 +555,7 @@ function computeLED() {
   const ig = img.getContext('2d'), id = ig.createImageData(nx, ny);
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const k = j * nx + i; if (L[k]) { const p = ((ny - 1 - j) * nx + i) * 4; id.data[p] = 255; id.data[p + 1] = 205; id.data[p + 2] = 0; id.data[p + 3] = 120; } }
   ig.putImageData(id, 0, 0);
-  W.led = { key, x0, y0, res, nx, ny, img, m: lenMm / 1000, dist: (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); if (i < 0 || j < 0 || i >= nx || j >= ny) return Infinity; return Math.sqrt(Ds[j * nx + i]) * res; } };
+  W.led = { key, x0, y0, res, nx, ny, img, segs, m: lenMm / 1000, dist: (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); if (i < 0 || j < 0 || i >= nx || j >= ny) return Infinity; return Math.sqrt(Ds[j * nx + i]) * res; } };
 }
 // otwory montażowe FIX: na każdą literę 2 (szersza niż 40 mm — 3) albo tyle, ile wybrano, w obrębie profilu, po przekątnej:
 // rzędy 5 mm od górnej i dolnej krawędzi profilu, naprzemiennie góra / dół; od konturu dokładnie ustawiony luz
@@ -753,7 +760,7 @@ function refreshBeds() {
 // ===================== plasterki łączące części po podziale =====================
 // Osobno drukowane elementy klejone na łączeniu, po jednym na każde miejsce, gdzie linia podziału przecina kieszeń (P) albo ściankę klosza (K).
 // P: kształt kieszeni zwężony o 0,5 mm z każdej strony, gr. 1,2 mm, rowek 8 mm na LED (pod rowkiem 0,6 mm).
-// K: pasek po wewnętrznej ściance klosza, 0,1 mm od niej, gr. 1,2 mm, wysokość = klosz − 10 mm.
+// K: pasek po wewnętrznej ściance klosza, 0,1 mm od niej, gr. 1,2 mm, wysokość = klosz − 15 mm, od góry podstawy w górę.
 // Długość każdego można zmienić osobno (c.plL[klucz]); są w DXF (warstwy Plaster_*) i w bryłach, nie ma ich na szablonie.
 const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150]];
 function plateRegs() {
@@ -788,14 +795,20 @@ function refreshPlates() {
         const [mx, my] = W2((sp[0] + sp[1]) / 2, 0), mid = { X: Math.round(mx * S), Y: Math.round(my * S) }, comp = letters(sol).find(q => C.Clipper.PointInPolygon(mid, q.p) !== 0); if (!comp) return;
         plate.polys = [comp.p].concat(comp.holes);
         if (type !== 'P' || !regs.pocket) return;
-        // rowek na LED: środkiem kieszeni, od przekroju do przekroju
-        const pts = [], walk = dir => { let prev = (sp[0] + sp[1]) / 2; for (let s = dir; Math.abs(s) <= L / 2 + 2; s += dir * 2) { const q = lineSpans(near, c, s).sort((m, n) => Math.abs((m[0] + m[1]) / 2 - prev) - Math.abs((n[0] + n[1]) / 2 - prev))[0]; if (!q) break; prev = (q[0] + q[1]) / 2; const w = W2(prev, s); if (dir > 0) pts.push(w); else pts.unshift(w); } };
-        pts.push(W2((sp[0] + sp[1]) / 2, 0)); walk(1); walk(-1);
-        if (pts.length > 1) { const co = new C.ClipperOffset(2, 0.01 * S), out = new C.Paths(); co.AddPath(toCl(pts), C.JoinType.jtRound, C.EndType.etOpenButt); co.Execute(out, pr.plGr / 2 * S); plate.groove = inter(out, plate.polys); }
+        // rowek na LED: po osi paska, także tam, gdzie pasek się rozgałęzia
+        plate.groove = rowekLED(plate.polys, pr.plGr);
       });
     });
   });
   renderPlateList();
+}
+function rowekLED(polys, szer) {
+  computeLED(); if (!W.led || !(szer > 0)) return [];
+  const b = bboxOf(polys), m = szer / 2 + 1, sg = W.led.segs, paths = [];
+  for (let i = 0; i < sg.length; i += 4) { const x = sg[i], y = sg[i + 1]; if (x >= b.x0 - m && x <= b.x1 + m && y >= b.y0 - m && y <= b.y1 + m) paths.push(toCl([[x, y], [sg[i + 2], sg[i + 3]]])); }
+  if (!paths.length) return [];
+  const co = new C.ClipperOffset(2, 0.03 * S), out = new C.Paths(); co.AddPaths(paths, C.JoinType.jtRound, C.EndType.etOpenRound); co.Execute(out, szer / 2 * S);
+  return inter(out, polys);
 }
 const plateName = q => `litera ${q.li + 1} · ${q.type === 'P' ? 'podstawa' : 'klosz'} ${q.key.slice(1)}`;
 function setPlateL(q, v) { pushUndo(); q.c.plL = q.c.plL || {}; q.c.plL[q.key] = Math.max(0, v); refreshPlates(); renderSel(); draw(); if (window.mark3D) mark3D(); }
@@ -806,7 +819,7 @@ function renderPlateList() {
 }
 // pasek LED liczony w tle (ok. 1–2 s przy dużym napisie), po chwili bez zmian
 let ledTmr = 0;
-function scheduleLED() { clearTimeout(ledTmr); ledTmr = setTimeout(() => { const k0 = W.led && W.led.key; computeLED(); if (W.led && W.led.key !== k0) { renderSide(); draw(); } }, 350); }
+function scheduleLED() { clearTimeout(ledTmr); ledTmr = setTimeout(() => { const k0 = W.led && W.led.key; computeLED(); if (W.led && W.led.key !== k0) { refreshPlates(); renderSide(); draw(); if (window.mark3D) mark3D(); } }, 350); }
 // ===================== wczytywanie DXF / PDF =====================
 function parseDXF(txt) {
   const L = txt.split(/\r?\n/), pr = [];
@@ -1368,8 +1381,7 @@ function renderSel() {
   const b = $('selbox'), s = W.sel; if (!s) { b.classList.add('hidden'); return; }
   if (s.t === 'plate') {
     const q = W.plates.find(p => p.c.id === s.id && p.key === s.key); if (!q) { W.sel = null; b.classList.add('hidden'); return; }
-    b.classList.remove('hidden'); b.innerHTML = `<b>Plasterek: ${esc(plateName(q))}</b><div class="fld"><span>Długość [mm]</span><input type="text" inputmode="decimal" id="sel-pl" value="${fmt(q.L, 1)}"></div><div class="hint">${q.type === 'P' ? `gr. ${fmt(W.pr.plH)} mm, rowek ${fmt(W.pr.plGr)} mm` : `gr. ${fmt(W.pr.plTK)} mm, wysokość = klosz − ${fmt(W.pr.plDownK)} mm`} · Delete = bez tego plasterka</div>`;
-    const inp = $('sel-pl'), go = () => setPlateL(q, num(inp.value)); inp.onchange = go; addSpin(inp, 5, go); return;
+    b.classList.add('hidden'); return;      // długość wpisuje się w okienku przy plasterku (openPlatePop)
   }
   if (s.t === 'cut') {
     const c = W.cuts.find(q => q.id === s.id); if (!c) { W.sel = null; b.classList.add('hidden'); return; }
@@ -1416,7 +1428,8 @@ cv.addEventListener('pointerdown', e => {
   if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
   const h = e.button === 0 ? hit(px, py) : null;
   W.sel = h ? { t: h.t, id: h.id, key: h.key } : null; renderSel(); if (h && h.t === 'plate') renderPlateList();
-  drag = h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
+  closePlatePop();
+  drag = h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy, plate: h } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
   cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); draw();
@@ -1425,6 +1438,7 @@ cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
   if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = !h ? '' : h.t === 'hole' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
   const dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
+  if (drag.plate && Math.hypot(px - drag.sx, py - drag.sy) >= 3) drag.plate = null;
   if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
   if (!drag.moved) { if (Math.hypot(px - drag.sx, py - drag.sy) < 3) return; drag.moved = true; pushUndo(); if (drag.t === 'rail') { railHold(drag.o); drag.fol = railFollowers(drag.o).map(h => [h, h.y]); } }
   if (drag.kind === 'cut') {
@@ -1460,9 +1474,20 @@ cv.addEventListener('pointermove', e => {
   }
   renderSel(); draw();
 });
-const endDrag = () => { const had = drag && drag.moved;
+// klik w plasterek: okienko przy kursorze, od razu gotowe do wpisania długości
+function closePlatePop() { const d = $('plate-pop'); if (d.classList.contains('hidden')) return; d.classList.add('hidden'); if (W.popApply) { const f = W.popApply; W.popApply = null; f(); } }
+function openPlatePop(h, px, py) {
+  const q = W.plates.find(p => p.c.id === h.id && p.key === h.key); if (!q) return;
+  const d = $('plate-pop'), st = $('stage').getBoundingClientRect(); d.innerHTML = `<b>${esc(plateName(q))}</b><label>Długość <input type="text" inputmode="decimal" value="${fmt(q.L, 1)}"> mm</label><small>Enter = zapisz · 0 = bez plasterka</small>`;
+  d.classList.remove('hidden'); d.style.left = Math.min(px + 12, st.width - d.offsetWidth - 8) + 'px'; d.style.top = Math.min(py + 12, st.height - d.offsetHeight - 8) + 'px';
+  const inp = d.querySelector('input'), l0 = inp.value;
+  W.popApply = () => { if (inp.value !== l0) setPlateL(q, num(inp.value)); };
+  inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') closePlatePop(); else if (e.key === 'Escape') { W.popApply = null; d.classList.add('hidden'); } };
+  inp.focus(); inp.select();
+}
+const endDrag = () => { const had = drag && drag.moved, klik = drag && drag.plate, kx = drag && drag.sx, ky = drag && drag.sy;
   if (had && drag.kind === 'cut') { const c = drag.c, li = bedLetters().findIndex(l => c.x >= l.bb.x0 && c.x <= l.bb.x1 && c.y >= l.bb.y0 && c.y <= l.bb.y1); if (li >= 0) c.li = li; refreshBeds(); if (window.mark3D) mark3D(); }
-  drag = null; cv.classList.remove('drag'); if (had) { renderSide(); save(); } draw(); };
+  drag = null; cv.classList.remove('drag'); if (had) { renderSide(); save(); } draw(); if (klik) openPlatePop(klik, kx, ky); };
 cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('dblclick', e => {
   if (!W.base) return; const r = cv.getBoundingClientRect(); pushUndo();
@@ -1485,7 +1510,7 @@ document.addEventListener('keydown', e => {
 });
 // ===================== ustawienia (pamiętane w przeglądarce) =====================
 const KEY = 'OFFSET_WIZARD_V1';
-function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 2 })); } catch (e) { /* bez pamięci */ } }
+function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 3 })); } catch (e) { /* bez pamięci */ } }
 function setParams(pr) {
   const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('wielk', pr.wielk);
@@ -1501,7 +1526,7 @@ function setParams(pr) {
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
 }
 function restore() {
-  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 2) && o.pr.dOtw === 4.5) delete o.pr.dOtw; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 2) && o.pr.dOtw === 4.5) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
 const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
