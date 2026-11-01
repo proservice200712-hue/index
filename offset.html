@@ -183,6 +183,7 @@
           <label class="pick" title="Podstawa z wybraniem na pasek LED; otwory liczone od kieszeni"><input type="radio" name="wielk" value="2" checked><svg viewBox="0 0 120 62"><defs><clipPath id="pk3"><polygon points="26.6,33.6 75.4,13.4 91.4,20.4 42.6,40.6"/></clipPath></defs><polygon points="14,32 46,46 46,57 14,43" fill="#a0aec0"/><polygon points="46,46 104,22 104,33 46,57" fill="#cbd5e0"/><polygon points="14,32 72,8 104,22 46,46" fill="#f7fafc" stroke="#718096" stroke-width=".6"/><polygon points="26.6,33.6 75.4,13.4 91.4,20.4 42.6,40.6" fill="#718096"/><g clip-path="url(#pk3)"><polygon points="26.6,39.6 75.4,19.4 91.4,26.4 42.6,46.6" fill="#e2e8f0"/><polygon points="29,41 78,20.8 83,23 34,43.2" fill="#ffd93b"/></g></svg><b>duże litery</b><small>wybranie na LED</small></label>
           <label class="pick" title="Podstawa z pełnym środkiem, bez wybrania; otwory liczone od wewnętrznego konturu podstawy"><input type="radio" name="wielk" value="1"><svg viewBox="0 0 120 62"><polygon points="14,32 46,46 46,57 14,43" fill="#a0aec0"/><polygon points="46,46 104,22 104,33 46,57" fill="#cbd5e0"/><polygon points="14,32 72,8 104,22 46,46" fill="#f7fafc" stroke="#718096" stroke-width=".6"/></svg><b>małe litery</b><small>pełny środek</small></label>
         </div>
+        <div class="hint">Prawy klawisz na literze = cyfra do rozróżnienia takich samych liter (wewnątrz i w lustrze na tyle).</div>
         <h3>Dysza</h3>
         <div class="row"><label><input type="radio" name="dysza" value="4"> 0,4 mm</label><label><input type="radio" name="dysza" value="6" checked> 0,6 mm</label></div>
         <h3>Offsety [mm]</h3>
@@ -289,7 +290,7 @@
       </section>
       <section class="pan" data-pan="uwagi" data-t="Ostrzeżenia"><div id="warn-list"></div></section>
       <section class="pan" data-pan="pomoc" data-t="Mysz i skróty">
-        <div class="hint">kółko = zoom<br>przeciągnięcie tła = przesuwanie widoku<br>przeciągnij otwór / profil / linię podziału = przesuń<br>dwuklik = nowy otwór na przewód (Shift = FIX)<br>Alt + dwuklik = linia podziału (Alt + Shift = pozioma)<br>Delete = usuń zaznaczone<br>Ctrl+Z = cofnij · F = dopasuj<br>↺ = ułóż od nowa<br><br><b>W 3D:</b> lewy przycisk = obrót, kółko = zoom, środkowy lub prawy = przesuwanie, klik w plasterek = zmiana długości.</div>
+        <div class="hint">kółko = zoom<br>przeciągnięcie tła = przesuwanie widoku<br>przeciągnij otwór / profil / linię podziału = przesuń<br>dwuklik = nowy otwór na przewód (Shift = FIX)<br>Alt + dwuklik = linia podziału (Alt + Shift = pozioma)<br>prawy klawisz na literze = cyfra<br>Delete = usuń zaznaczone<br>Ctrl+Z = cofnij · F = dopasuj<br>↺ = ułóż od nowa<br><br><b>W 3D:</b> lewy przycisk = obrót, kółko = zoom, środkowy lub prawy = przesuwanie, klik w plasterek = zmiana długości, prawy klawisz na literze = cyfra.</div>
       </section>
     </div>
   </aside>
@@ -348,7 +349,7 @@ const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
   ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
   ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4], ['Podzial', '#dd6b20', 2]];
 const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
-const W = { cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: false, Plaster: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
+const W = { marks: [], cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: false, Plaster: true, Cyfra: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
 let uid = 1;
 
 // ===================== geometria (Clipper) =====================
@@ -762,7 +763,7 @@ function refreshBeds() {
 // P: kształt kieszeni zwężony o 0,5 mm z każdej strony, gr. 1,2 mm, rowek 8 mm na LED (pod rowkiem 0,6 mm).
 // K: pasek po wewnętrznej ściance klosza, 0,1 mm od niej, gr. 1,2 mm, wysokość = klosz − 15 mm, od góry podstawy w górę.
 // Długość każdego można zmienić osobno (c.plL[klucz]); są w DXF (warstwy Plaster_*) i w bryłach, nie ma ich na szablonie.
-const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150]];
+const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150], ['Cyfra', '#d53f8c', 6], ['Cyfra_tyl', '#97266d', 6]];
 function plateRegs() {
   if (W.plReg) return W.plReg;
   const pr = W.pr, m = W.m, side = pr.typ === 'S', pocket = side || $('b3-wgl').checked, R = d => offsetPolys(W.base, d);
@@ -987,7 +988,7 @@ async function loadFile(f) {
     if (!base.length) return toast('Kontury są puste albo otwarte');
     const bb = bboxOf(base), dx = -(bb.x0 + bb.x1) / 2, dy = -(bb.y0 + bb.y1) / 2;      // środek bazy w (0,0)
     W.base = base.map(p => p.map(q => ({ X: q.X + Math.round(dx * S), Y: q.Y + Math.round(dy * S) })));
-    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.cuts = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null; W.railsFixed = false; W.cutManual = false; W.kitHoles = null;
+    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.cuts = []; W.marks = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null; W.railsFixed = false; W.cutManual = false; W.kitHoles = null;
     const kitLines = kit ? readKit(source, basePaths, dx, dy) : null;
     $('fname').textContent = `${f.name} · ${letters(W.base).length} kształtów · ${fmt(bb.x1 - bb.x0, 1)} × ${fmt(bb.y1 - bb.y0, 1)} mm`;
     $('drop').classList.add('hidden'); $('b-dxf').disabled = false;
@@ -996,7 +997,7 @@ async function loadFile(f) {
       computeLayers(); const rows = rowsOf(letters(bedSrc())); W.rails.forEach(r => { let bi = 0, bd = Infinity; rows.forEach((row, i) => { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)), d = r.yc < y0 ? y0 - r.yc : r.yc > y1 ? r.yc - y1 : 0; if (d < bd) { bd = d; bi = i; } }); r.row = bi; });
     }
     recompute(false);
-    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); refreshBeds(); renderSide(); draw(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
+    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); W.marks = (source.meta && source.meta.marks) || []; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
     if (W.panel === 'plik' || !W.panel) showPanel('litery', true);
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
@@ -1085,9 +1086,10 @@ function buildKit() {
   cutSegs().forEach(c => ents.push(['Podzial', 'line', [c.a, c.b]]));
   // plasterki: w DXF, ale nie na szablonie
   W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
+  if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
   const { typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = typ === 'S' && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null) } };
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), marks: W.marks } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1344,6 +1346,12 @@ function draw() {
   });
   // plasterki łączące
   if (W.show.Plaster) W.plates.forEach(q => { if (!q.polys.length) return; const sel = W.sel && W.sel.t === 'plate' && W.sel.id === q.c.id && W.sel.key === q.key, col = q.type === 'P' ? '#dd6b20' : '#3182ce'; path(q.polys); g.fillStyle = sel ? col + 'aa' : col + '55'; g.fill('evenodd'); g.strokeStyle = col; g.lineWidth = sel ? 2.5 : 1; g.stroke(); if (q.groove.length) { path(q.groove); g.fillStyle = 'rgba(116,66,16,.3)'; g.fill(); } });
+  // cyfry na literach; przy małym powiększeniu sama cyfra byłaby niewidoczna, więc dochodzi znaczek
+  if (W.show.Cyfra && W.marks.length) cyfryMiejsca().forEach(q => {
+    if (q.front.length) { path(q.front); g.fillStyle = '#d53f8c'; g.fill('evenodd'); }
+    if (q.h * W.view.s >= 16) return;
+    g.beginPath(); g.arc(X(q.x), Y(q.y), 9, 0, Math.PI * 2); g.fillStyle = q.brak ? '#e53e3e' : '#d53f8c'; g.fill(); g.fillStyle = '#fff'; g.font = '700 11px Segoe UI, Arial'; g.textAlign = 'center'; g.fillText(q.t, X(q.x), Y(q.y) + 4); g.textAlign = 'left';
+  });
   // łeb śruby dookoła FIX — pomocniczy (na szablon, nie do DXF dla Fusion)
   if (W.show.Leb && W.show.FIX) W.holes.forEach(h => { if (h.kind !== 'fix') return; g.beginPath(); g.arc(X(h.x), Y(h.y), W.pr.dLeb / 2 * W.view.s, 0, Math.PI * 2); g.strokeStyle = '#805ad5'; g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); });
   W.holes.forEach(h => {
@@ -1367,6 +1375,7 @@ function renderSide() {
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pasek LED ${LED_W} mm wzdłuż środka kanału (kieszeni) — tylko podgląd, nie idzie do DXF"><input type="checkbox" data-lay="LED" ${W.show.LED ? 'checked' : ''}><i style="background:rgba(255,205,0,.8);height:8px"></i>pasek LED ${LED_W} mm <span class="hint">(podgląd)</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pomocniczy okrąg dookoła FIX: jest na szablonie, nie idzie do DXF dla Fusion"><input type="checkbox" data-lay="Leb" ${W.show.Leb ? 'checked' : ''}><i style="background:#805ad5"></i>łeb śruby <span class="hint">(pomocniczy)</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Plasterki łączące części: w DXF i w bryłach, nie na szablonie"><input type="checkbox" data-lay="Plaster" ${W.show.Plaster ? 'checked' : ''}><i style="background:#dd6b20"></i>plasterki <span class="hint">(${W.plates.filter(q => q.polys.length).length})</span></label>`);
+  $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Cyfry do rozróżniania liter (prawy klawisz na literze): w bryłach i w DXF, nie na szablonie"><input type="checkbox" data-lay="Cyfra" ${W.show.Cyfra ? 'checked' : ''}><i style="background:#d53f8c"></i>cyfry <span class="hint">(${W.marks.length})</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Blat drukarki 3D — tylko podgląd"><input type="checkbox" data-lay="Stol" ${W.show.Stol ? 'checked' : ''}><i style="background:#38a169"></i>stół drukarki <span class="hint">(podgląd)</span></label>`);
   $('lays').querySelectorAll('[data-lay]').forEach(c => c.onchange = () => { W.show[c.dataset.lay] = c.checked; draw(); save(); });
   const ws = [...new Set((W.overlaps.length ? [`LITERY NACHODZĄ NA SIEBIE (${W.overlaps.length}) — nie mogą być połączone: rozsuń je albo zmniejsz offsety`] : []).concat(W.warn, W.cutWarn))];
@@ -1399,9 +1408,9 @@ function renderSel() {
 }
 // ===================== mysz =====================
 let drag = null;
-const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cuts: W.cuts, cutManual: W.cutManual });
+const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cuts: W.cuts, marks: W.marks, cutManual: W.cutManual });
 function pushUndo() { W.undo.push(snapState()); if (W.undo.length > 80) W.undo.shift(); }
-function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); renderSide(); draw(); save(); }
+function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.marks = o.marks || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); }
 function hit(px, py) {
   const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
   if (hh) return { t: 'hole', id: hh.id, o: hh };
@@ -1428,7 +1437,7 @@ cv.addEventListener('pointerdown', e => {
   if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
   const h = e.button === 0 ? hit(px, py) : null;
   W.sel = h ? { t: h.t, id: h.id, key: h.key } : null; renderSel(); if (h && h.t === 'plate') renderPlateList();
-  closePlatePop();
+  closePlatePop(); W.rdown = e.button === 2 ? [px, py] : null;
   drag = h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy, plate: h } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' ? h.o.x : h.o.x0, oy: h.t === 'hole' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
@@ -1476,15 +1485,34 @@ cv.addEventListener('pointermove', e => {
 });
 // klik w plasterek: okienko przy kursorze, od razu gotowe do wpisania długości
 function closePlatePop() { const d = $('plate-pop'); if (d.classList.contains('hidden')) return; d.classList.add('hidden'); if (W.popApply) { const f = W.popApply; W.popApply = null; f(); } }
-function openPlatePop(h, px, py) {
-  const q = W.plates.find(p => p.c.id === h.id && p.key === h.key); if (!q) return;
-  const d = $('plate-pop'), st = $('stage').getBoundingClientRect(); d.innerHTML = `<b>${esc(plateName(q))}</b><label>Długość <input type="text" inputmode="decimal" value="${fmt(q.L, 1)}"> mm</label><small>Enter = zapisz · 0 = bez plasterka</small>`;
+function showPop(html, px, py, apply) {
+  const d = $('plate-pop'), st = $('stage').getBoundingClientRect(); d.innerHTML = html;
   d.classList.remove('hidden'); d.style.left = Math.min(px + 12, st.width - d.offsetWidth - 8) + 'px'; d.style.top = Math.min(py + 12, st.height - d.offsetHeight - 8) + 'px';
   const inp = d.querySelector('input'), l0 = inp.value;
-  W.popApply = () => { if (inp.value !== l0) setPlateL(q, num(inp.value)); };
+  W.popApply = () => { if (inp.value !== l0) apply(inp.value); };
   inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') closePlatePop(); else if (e.key === 'Escape') { W.popApply = null; d.classList.add('hidden'); } };
   inp.focus(); inp.select();
 }
+function openPlatePop(h, px, py) {
+  const q = W.plates.find(p => p.c.id === h.id && p.key === h.key); if (!q) return;
+  showPop(`<b>${esc(plateName(q))}</b><label>Długość <input type="text" inputmode="decimal" value="${fmt(q.L, 1)}"> mm</label><small>Enter = zapisz · 0 = bez plasterka</small>`, px, py, v => setPlateL(q, num(v)));
+}
+// prawy klawisz na literze: cyfra do rozróżnienia takich samych liter (miejsce i bryły liczy offset3d.js)
+function letterAt(x, y) { const pt = { X: Math.round(x * S), Y: Math.round(y * S) }, o = bedLetters().map((l, li) => ({ l, li })).filter(q => C.Clipper.PointInPolygon(pt, q.l.p) !== 0).sort((a, b) => area(a.l.p) - area(b.l.p))[0]; return o ? o.li : -1; }
+function setMark(li, t) {
+  pushUndo(); W.marks = W.marks.filter(m => m.li !== li); if (t) W.marks.push({ li, t });
+  renderSide(); draw(); if (window.mark3D) mark3D();
+  const q = t && cyfryMiejsca().find(m => m.li === li), u = q && cyfraUwaga(q); if (u) toast(u, 5000);
+}
+function openMarkPop(li, px, py) {
+  const m = W.marks.find(q => q.li === li);
+  showPop(`<b>Litera ${li + 1}</b><label>Cyfra <input type="text" inputmode="numeric" maxlength="2" value="${m ? m.t : ''}"></label><small>Enter = zapisz · puste = bez cyfry</small>`, px, py, v => setMark(li, v.replace(/\D/g, '').slice(0, 2)));
+}
+cv.addEventListener('contextmenu', e => {
+  e.preventDefault(); if (!W.base || !W.view) return;
+  const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, d = W.rdown; W.rdown = null; if (d && Math.hypot(px - d[0], py - d[1]) >= 3) return;   // prawym przeciągnięto widok
+  const li = letterAt(wx(px), wy(py)); if (li >= 0) openMarkPop(li, px, py);
+});
 const endDrag = () => { const had = drag && drag.moved, klik = drag && drag.plate, kx = drag && drag.sx, ky = drag && drag.sy;
   if (had && drag.kind === 'cut') { const c = drag.c, li = bedLetters().findIndex(l => c.x >= l.bb.x0 && c.x <= l.bb.x1 && c.y >= l.bb.y0 && c.y <= l.bb.y1); if (li >= 0) c.li = li; refreshBeds(); if (window.mark3D) mark3D(); }
   drag = null; cv.classList.remove('drag'); if (had) { renderSide(); save(); } draw(); if (klik) openPlatePop(klik, kx, ky); };

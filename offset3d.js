@@ -71,32 +71,86 @@ function rowkiReg(p, dno, holes) {
   W.rails.forEach(r => { const rect = [rail(r)]; out = out.concat(inter(diff(offsetPolys(rect, p.rg), rect), pole)); });
   return out.filter(q => Math.abs(area(q)) >= p.rg * 2);    // krótsze odcinki pomijamy (jak minDlugosc we wtyczce)
 }
+// cyfry na literach (prawy klawisz na literze): wypukłe na dnie wewnątrz litery, a w tym samym miejscu na tyle w lustrze, wycięte jak rowek profilu.
+// Miejsce: jak najbliżej górnego lewego narożnika, zawsze z dala od otworów, linii podziału i plasterków, a w miarę możliwości też od paska LED i profila.
+const CYF_UP = 0.3, CYF_GLIFY = {
+  0: [[[.25, 0], [.75, 0], [1, .15], [1, .85], [.75, 1], [.25, 1], [0, .85], [0, .15], [.25, 0]]],
+  1: [[[.15, .78], [.55, 1], [.55, 0]], [[.15, 0], [.95, 0]]],
+  2: [[[0, .8], [.25, 1], [.75, 1], [1, .8], [1, .6], [0, 0], [1, 0]]],
+  3: [[[0, .85], [.25, 1], [.75, 1], [1, .85], [1, .65], [.75, .52], [.4, .52]], [[.75, .52], [1, .38], [1, .15], [.75, 0], [.25, 0], [0, .15]]],
+  4: [[[.75, 0], [.75, 1], [0, .3], [1, .3]]],
+  5: [[[1, 1], [.1, 1], [.05, .55], [.75, .6], [1, .45], [1, .15], [.75, 0], [.25, 0], [0, .15]]],
+  6: [[[.9, .95], [.7, 1], [.3, 1], [0, .8], [0, .15], [.25, 0], [.75, 0], [1, .15], [1, .4], [.75, .55], [.25, .55], [0, .4]]],
+  7: [[[0, 1], [1, 1], [.35, 0]]],
+  8: [[[.25, .52], [.05, .65], [.05, .87], [.25, 1], [.75, 1], [.95, .87], [.95, .65], [.75, .52], [.25, .52], [0, .38], [0, .14], [.25, 0], [.75, 0], [1, .14], [1, .38], [.75, .52]]]
+};
+CYF_GLIFY[9] = CYF_GLIFY[6].map(s => s.map(([x, y]) => [1 - x, 1 - y]));
+const cyfraSzer = (t, h) => t.length * 0.6 * h + (t.length - 1) * 0.3 * h;
+function cyfraPolys(t, cx, cy, h, sw, lustro) {
+  const c = CL(), w = 0.6 * h, x0 = cx - cyfraSzer(t, h) / 2, y0 = cy - h / 2, paths = [];
+  [...t].forEach((ch, i) => (CYF_GLIFY[ch] || []).forEach(s => paths.push(s.map(([u, v]) => { const x = x0 + i * 0.9 * h + sw / 2 + u * (w - sw), y = y0 + sw / 2 + v * (h - sw); return { X: Math.round((lustro ? 2 * cx - x : x) * S), Y: Math.round(y * S) }; }))));
+  const co = new c.ClipperOffset(2, 0.01 * S), out = new c.Paths(); co.AddPaths(paths, c.JoinType.jtRound, c.EndType.etOpenRound); co.Execute(out, sw / 2 * S);
+  return out;
+}
+// dno, na którym stoi cyfra: kieszeń, a bez wybrania wierzch płyty; w Sidelit dno podstawy
+function cyfryDno(p, m) {
+  const R = d => offsetPolys(W.base, d), top = p.st + p.pl;
+  if (W.pr.typ === 'S') return { reg: R(-p.t3), z: p.sd };
+  return p.wgl && p.gw > 0 ? { reg: fazaKieszeni(R(m.kie), p.f), z: Math.max(0.2, top - p.gw) } : { reg: closeR(R(m.k3), p.r), z: top };
+}
+function cyfryMiejsca() {
+  if (!W.marks.length || !W.base || !W.pr) return [];
+  const p = params3D(), key = JSON.stringify([W.baseId, W.pr.typ, W.pr.dysza, W.pr.dLeb, W.m, p.st, p.pl, p.wgl, p.gw, p.f, p.r, p.sd, p.t3, p.rg, W.marks, W.holes.map(h => [h.x, h.y, h.d, h.kind]), W.rails.map(r => [r.x0, r.x1, r.yc, r.h]), W.cuts.map(c => [c.li, c.x, c.y, c.ang]), W.plates.map(q => q.L), W.led && W.led.key]);
+  if (V3.cyfKey === key) return V3.cyf;
+  const dno = cyfryDno(p, W.m), ls = bedLetters(), sw = W.pr.dysza === 4 ? 0.6 : 0.8, plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
+  const twarde = W.holes.map(h => circlePoly(h.x, h.y, h.kind === 'fix' ? Math.max(h.d, W.pr.dLeb) : h.d)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().map(c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); })));
+  const profile = plus(W.rails.map(r => { const m = p.rg + 0.5; return toCl([[r.x0 - m, r.yc - r.h / 2 - m], [r.x1 + m, r.yc - r.h / 2 - m], [r.x1 + m, r.yc + r.h / 2 + m], [r.x0 - m, r.yc + r.h / 2 + m]]); }));
+  V3.cyf = W.marks.filter(m => ls[m.li]).map(m => {
+    const l = ls[m.li], pole = inter(dno.reg, [l.p]), led = W.led ? plus(rowekLED(pole, LED_W)) : [];
+    for (const [h, naLED, naProfilu] of [[5, 0, 0], [4, 0, 0], [5, 1, 0], [4, 1, 0], [5, 1, 1], [4, 1, 1]]) {
+      const zajete = clip('ctUnion', twarde.concat(naLED ? [] : led, naProfilu ? [] : profile)), wolne = offsetPolys(diff(pole, zajete), -(Math.hypot(cyfraSzer(m.t, h), h) / 2 + 0.5));
+      let best = null; wolne.forEach(q => q.forEach(v => { if (!best || v.Y - v.X > best.Y - best.X) best = v; }));
+      if (best) { const x = best.X / S, y = best.Y / S; return { li: m.li, t: m.t, h, x, y, naLED: !!naLED, naProfilu: !!naProfilu, front: cyfraPolys(m.t, x, y, h, sw), back: cyfraPolys(m.t, x, y, h, sw, true) }; }
+    }
+    return { li: m.li, t: m.t, h: 0, x: l.bb.x0, y: l.bb.y1, brak: true, front: [], back: [] };
+  });
+  V3.cyfKey = key; return V3.cyf;
+}
+const cyfraUwaga = q => q.brak ? `cyfra ${q.t} na literze ${q.li + 1}: za mało miejsca, nie będzie jej na bryle` : q.naProfilu ? `cyfra ${q.t} na literze ${q.li + 1} leży na profilu` : q.naLED ? `cyfra ${q.t} na literze ${q.li + 1} leży pod paskiem LED` : '';
+function cyfryReg(p, zDna) {
+  const c = cyfryMiejsca(), back = c.flatMap(q => q.back);
+  return { front: c.flatMap(q => q.front), back, gl: back.length ? Math.min(p.rd > 0 ? p.rd : 0.3, zDna / 2) : 0, zDna };
+}
 // każda część: lista warstw {z0, z1, reg}
 function warstwyFrontlit(p, m) {
   const R = d => offsetPolys(W.base, d), Rk2 = R(m.k2), Rk1 = R(m.k1), void3 = closeR(R(m.k3), p.r), Rp1 = R(m.p1), Rp2 = openR(R(m.p2), p.r), holes = otworyReg(p), top = p.st + p.pl;
   if (!(p.wk > 0) || !(p.ws > 0) || p.ws > p.wk) throw new Error('sprawdź wysokości klosza: ścianka i stopka muszą być dodatnie');
   const klosz = [{ z0: p.st, z1: p.st + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + p.ws, z1: p.st + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6);
-  const kiesz = p.wgl && p.gw > 0 ? fazaKieszeni(R(m.kie), p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity;
-  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(zKiesz < top ? [zKiesz] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
+  const kiesz = p.wgl && p.gw > 0 ? fazaKieszeni(R(m.kie), p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
+  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.st ? Rp1 : Rp2;
     if (mid > zKiesz) reg = diff(reg, kiesz);
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
+    if (mid < cyf.gl) reg = diff(reg, cyf.back);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
+  if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   return { klosz, podstawa, pleksa: [{ z0: p.st + p.wk - p.gp, z1: p.st + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
 }
 function warstwySidelit(p) {
   const R = d => offsetPolys(W.base, d), R0 = R(0), holes = otworyReg(p), zK = p.sh - p.kCalk;
   if (!(p.pCalk > p.sd) || !(p.kCalk > p.sf) || p.sw < 0) throw new Error('sprawdź wymiary Sidelit: całkowite muszą być większe od frontu i dna');
   const klosz = [{ z0: zK, z1: zK + p.ss, reg: diff(R0, openR(R(-p.t1), 0)) }, { z0: zK + p.ss, z1: p.sh, reg: R0 }];
-  const ringRant = diff(R0, R(-p.t3)), ringSc = diff(openR(R(-p.t2), p.r), R(-p.t3)), rowki = rowkiReg(p, R0, holes);
-  const zs = [...new Set([0, p.sd, p.pCalk, p.pCalk + p.sw, ...(rowki.length ? [p.rd] : [])])].sort((a, b) => a - b), podstawa = [];
+  const ringRant = diff(R0, R(-p.t3)), ringSc = diff(openR(R(-p.t2), p.r), R(-p.t3)), rowki = rowkiReg(p, R0, holes), cyf = cyfryReg(p, p.sd);
+  const zs = [...new Set([0, p.sd, p.pCalk, p.pCalk + p.sw, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : [])])].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.sd ? R0 : mid < p.pCalk ? ringRant : ringSc;
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
+    if (mid < cyf.gl) reg = diff(reg, cyf.back);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
+  if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   return { klosz, podstawa, pleksa: [], opis: `grubość litery ${fmt(p.sh, 1)} = klosz ${fmt(p.kCalk, 1)} (front ${fmt(p.sf, 1)} + boki ${fmt(p.ss, 1)}) + podstawa ${fmt(p.pCalk, 1)} (dno ${fmt(p.sd, 1)}); pasowanie ${fmt(p.sw, 1)}` };
 }
 // ===================== bryły (Manifold) =====================
@@ -149,6 +203,7 @@ async function build3D() {
     });
     if (nKpom) uwagi.push(`plasterki klosza pominięte (${nKpom}): klosz nie jest wyższy niż ${fmt(W.pr.plDownK, 1)} mm`);
     if (tops.hK > 0 && tops.zK0 + tops.hK > tops.zKmax && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga wyżej niż podparcie pleksy: zwiększ „niższy o”');
+    cyfryMiejsca().forEach(q => { const u = cyfraUwaga(q); if (u) uwagi.push(u); });
     V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);
     $('b3-report').innerHTML = `<b>Części:</b> klosz ${c('klosz')}, podstawa ${c('podstawa')}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
@@ -173,8 +228,14 @@ function init3D() {
   V3.ctl.mouseButtons = { LEFT: T.MOUSE.ROTATE, MIDDLE: T.MOUSE.PAN, RIGHT: T.MOUSE.PAN };     // środkowy klawisz przesuwa widok, zoom zostaje na kółku
   V3.ren.domElement.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
   // klik w plasterek: to samo okienko z długością co w widoku 2D; przeciągnięcie dalej obraca widok
-  const el = V3.ren.domElement; let dn = null;
-  el.addEventListener('pointerdown', e => { closePlatePop(); dn = e.button === 0 ? [e.clientX, e.clientY] : null; });
+  const el = V3.ren.domElement; let dn = null, dnP = null;
+  el.addEventListener('pointerdown', e => { closePlatePop(); dn = e.button === 0 ? [e.clientX, e.clientY] : null; dnP = e.button === 2 ? [e.clientX, e.clientY] : null; });
+  // prawy klawisz na literze: cyfra (przeciągnięcie prawym dalej przesuwa widok)
+  el.addEventListener('contextmenu', e => {
+    e.preventDefault(); const d = dnP; dnP = null; if (!d || Math.hypot(e.clientX - d[0], e.clientY - d[1]) >= 3) return;
+    const h = ray3D(e).intersectObjects(V3.meshes.filter(m => m.visible), false)[0], li = h ? letterAt(h.point.x, h.point.y) : -1; if (li < 0) return;
+    const st = $('stage').getBoundingClientRect(); openMarkPop(li, e.clientX - st.left, e.clientY - st.top);
+  });
   el.addEventListener('pointerup', e => {
     const d = dn; dn = null; if (!d || Math.hypot(e.clientX - d[0], e.clientY - d[1]) >= 3) return;
     const m = plate3D(e); if (!m) return;
@@ -199,11 +260,14 @@ function setView(name) {
   document.querySelectorAll('#v3-bar [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === name)); frame3D();
 }
 const render3D = () => { if (V3.ren) V3.ren.render(V3.scene, V3.cam); };
-function plate3D(e) {
-  const T = V3.THREE, pl = V3.meshes.filter(m => m.visible && m.userData.part === 'plaster'); if (!pl.length) return null;
-  const r = V3.ren.domElement.getBoundingClientRect(), rc = V3.ray || (V3.ray = new T.Raycaster());
+function ray3D(e) {
+  const T = V3.THREE, r = V3.ren.domElement.getBoundingClientRect(), rc = V3.ray || (V3.ray = new T.Raycaster());
   rc.setFromCamera(new T.Vector2((e.clientX - r.left) / r.width * 2 - 1, 1 - (e.clientY - r.top) / r.height * 2), V3.cam);
-  const hit = rc.intersectObjects(pl, false)[0]; if (!hit) return null;
+  return rc;
+}
+function plate3D(e) {
+  const pl = V3.meshes.filter(m => m.visible && m.userData.part === 'plaster'); if (!pl.length) return null;
+  const rc = ray3D(e), hit = rc.intersectObjects(pl, false)[0]; if (!hit) return null;
   // plasterka schowanego za nieprzezroczystą częścią nie widać, więc nie można go też kliknąć
   const przed = rc.intersectObjects(V3.meshes.filter(m => m.visible && m.userData.part !== 'plaster' && !m.material.transparent), false)[0];
   return przed && przed.distance < hit.distance ? null : hit.object;
