@@ -156,7 +156,8 @@ function warstwySidelit(p) {
   return { klosz, podstawa, pleksa: [], opis: `grubość litery ${fmt(p.sh, 1)} = klosz ${fmt(p.kCalk, 1)} (front ${fmt(p.sf, 1)} + boki ${fmt(p.ss, 1)}) + podstawa ${fmt(p.pCalk, 1)} (dno ${fmt(p.sd, 1)}); pasowanie ${fmt(p.sw, 1)}` };
 }
 // litera pełna: wyciągnięty kontur, górna (i opcjonalnie dolna) krawędź zaokrąglona promieniem fr.
-// Fazowanie liczone schodkami: na wysokości z kontur jest cofnięty o r·(1 − cos θ), gdzie sin θ = (z − z0)/r (ćwiartka okręgu).
+// Na wysokości z kontur jest cofnięty o r·(1 − cos θ), gdzie sin θ = (z − z0)/r (ćwiartka okręgu). Bryłę buduje pelnaGladka;
+// te warstwy (schodki) są tylko zapasem, gdyby gładkiej powierzchni nie dało się złożyć.
 function warstwyPelne(p) {
   const H = p.fh; if (!(H > 0.2)) throw new Error('wysokość litery musi być dodatnia');
   const R = d => offsetPolys(W.base, d), g = p.fg, dn = p.fd, r = Math.min(p.fr, g && dn ? H / 2 : H), lay = [];
@@ -172,6 +173,35 @@ function warstwyPelne(p) {
   }
   const kr = (g ? 1 : 0) + (dn ? 1 : 0);
   return { klosz: [], podstawa: [], pleksa: [], litera: lay.filter(l => l.z1 - l.z0 > 1e-6), opis: `litera pełna ${fmt(H, 1)}` + (r > 0.01 && kr ? `, zaokrąglenie R ${fmt(r, 1)} (${g && dn ? 'góra i dół' : g ? 'góra' : 'dół'})` : ', bez zaokrągleń') };
+}
+// zaokrąglenie jako jedna ciągła powierzchnia: kolejne kontury leżą na swoich wysokościach, a pas między dwoma konturami to pochyłe trójkąty, więc nie ma stopni
+function pelnaGladka(p, ndel) {
+  const H = p.fh, g = p.fg, dn = p.fd, r = Math.min(p.fr, g && dn ? H / 2 : H); if (!(r > 0.01) || !(g || dn)) return null;
+  const { Manifold, Mesh, triangulate } = V3.wasm, R0 = offsetPolys(W.base, 0), zLo = dn ? r : 0, zHi = H - (g ? r : 0), N = Math.max(16, Math.min(48, Math.ceil(r * Math.PI / 2 / 0.2)));
+  const xyz = [], tri = [];
+  const poziom = (reg, z) => { const polys = toPolys(reg), start = xyz.length / 3; polys.forEach(q => q.forEach(([x, y]) => xyz.push(x, y, z))); return { polys, start }; };
+  const pas = (a, b, odwroc) => {   // między konturem a i węższym b (b może nie być, wtedy płaski wierzch); kontury b z odwróconym obiegiem są dziurami pasa
+    const polys = [], map = []; let s = a.start;
+    a.polys.forEach(q => { polys.push(q); q.forEach((_, i) => map.push(s + i)); s += q.length; });
+    if (b) { s = b.start; b.polys.forEach(q => { polys.push(q.slice().reverse()); for (let i = q.length - 1; i >= 0; i--) map.push(s + i); s += q.length; }); }
+    triangulate(polys).forEach(([i, j, k]) => { if (odwroc) tri.push(map[i], map[k], map[j]); else tri.push(map[i], map[j], map[k]); });
+  };
+  // jedna krawędź zaokrąglenia: od konturu litery do wierzchu (dir = 1) albo spodu (dir = −1); gdy kreska jest węższa niż 2 × promień, kontur znika i wierzch zamyka się płasko
+  const luk = (z0, dir, L0) => {
+    let prev = L0, lastD = 0;
+    for (let k = 1; k <= N; k++) {
+      const th = k / N * Math.PI / 2, d = r * (1 - Math.cos(th)); if (d - lastD < 0.02 && k < N) continue;
+      const reg = offRound(W.base, -d); if (!reg.length) break;
+      const L = poziom(reg, z0 + dir * r * Math.sin(th)); pas(prev, L, dir < 0); prev = L; lastD = d;
+    }
+    pas(prev, null, dir < 0);
+  };
+  const dol = poziom(R0, zLo), gora = zHi - zLo > 1e-6 ? poziom(R0, zHi) : dol;
+  if (gora !== dol) { let s = 0; dol.polys.forEach(q => { const n = q.length; for (let i = 0; i < n; i++) { const j = (i + 1) % n, b0 = dol.start + s + i, b1 = dol.start + s + j, t0 = gora.start + s + i, t1 = gora.start + s + j; tri.push(b0, b1, t1, b0, t1, t0); } s += n; }); }
+  if (g) luk(zHi, 1, gora); else pas(gora, null, false);
+  if (dn) luk(zLo, -1, dol); else pas(dol, null, true);
+  const mesh = new Mesh({ numProp: 3, vertProperties: new Float32Array(xyz), triVerts: new Uint32Array(tri) });
+  return ndel(new Manifold(mesh));
 }
 // ===================== bryły (Manifold) =====================
 function stos(warstwy, ndel) {
@@ -189,7 +219,8 @@ async function build3D() {
   try {
     await load3D();
     W.pr = params(); const p = params3D(), m = W.m, plan = W.pr.typ === 'P' ? warstwyPelne(p) : W.pr.typ === 'S' ? warstwySidelit(p) : warstwyFrontlit(p, m), parts = {}, bodies = [], ls = letters(bedSrc()), uwagi = [];
-    Object.keys(CZESCI).forEach(k => { parts[k] = (plan[k] || []).length ? stos(plan[k], ndel) : null; });
+    if (W.pr.typ === 'P') { try { parts.litera = pelnaGladka(p, ndel); } catch (e) { console.warn(e); uwagi.push('zaokrąglenie złożone z warstw (schodki): dla tego kształtu nie udało się zbudować gładkiej powierzchni'); } }
+    Object.keys(CZESCI).forEach(k => { if (!parts[k]) parts[k] = (plan[k] || []).length ? stos(plan[k], ndel) : null; });
     if (W.overlaps.length) uwagi.push(`litery nachodzą na siebie w ${W.overlaps.length} miejscach — bryły są połączone`);
     if (parts.klosz && parts.podstawa) { const v = objetosc(ndel(V3.wasm.Manifold.intersection(parts.klosz, parts.podstawa))); if (v > 1) uwagi.push(`klosz przenika podstawę (${fmt(v, 1)} mm³) — sprawdź offsety`); }
     const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [];     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
