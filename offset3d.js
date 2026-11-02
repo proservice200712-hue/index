@@ -3,7 +3,7 @@
 // podgląd three.js z widokiem izometrycznym, eksport STL / 3MF. Biblioteki wczytywane dopiero przy pierwszym otwarciu 3D.
 const V3 = { lib: null, THREE: null, wasm: null, scene: null, cam: null, ren: null, ctl: null, group: null, bodies: [], meshes: [], dirty: true, building: false, again: false, open: false, view: 'iso', tmr: 0, box: null };
 const PALETA3 = [['Biały', 0xf5f5f5], ['Żółty', 0xf0d228], ['Pomarańczowy', 0xf08c1e], ['Czerwony', 0xd22d2d], ['Zielony', 0x28aa50], ['Niebieski', 0x1450d2], ['Czarny', 0x232323]];
-const CZESCI = { klosz: 'Klosz', podstawa: 'Podstawa', pleksa: 'Pleksa' };
+const CZESCI = { klosz: 'Klosz', podstawa: 'Podstawa', pleksa: 'Pleksa', litera: 'Litera' };
 
 function load3D() {
   if (V3.lib) return V3.lib;
@@ -57,7 +57,7 @@ function fazaKieszeni(v, f) {
 function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
-    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5) };
+    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
   p.kCalk = p.sf + p.ss; p.pCalk = p.sh - p.kCalk; p.sw = au('b3-sw', p.ss - 0.5);
   return p;
@@ -99,7 +99,7 @@ function cyfryDno(p, m) {
   return p.wgl && p.gw > 0 ? { reg: fazaKieszeni(R(m.kie), p.f), z: Math.max(0.2, top - p.gw) } : { reg: closeR(R(m.k3), p.r), z: top };
 }
 function cyfryMiejsca() {
-  if (!W.marks.length || !W.base || !W.pr) return [];
+  if (!W.marks.length || !W.base || !W.pr || W.pr.typ === 'P') return [];
   const p = params3D(), key = JSON.stringify([W.baseId, W.pr.typ, W.pr.dysza, W.pr.dLeb, W.m, p.st, p.pl, p.wgl, p.gw, p.f, p.r, p.sd, p.t3, p.rg, p.cyf, W.marks, W.holes.map(h => [h.x, h.y, h.d, h.kind]), W.rails.map(r => [r.x0, r.x1, r.yc, r.h]), W.cuts.map(c => [c.li, c.x, c.y, c.ang]), W.plates.map(q => q.L), W.led && W.led.key]);
   if (V3.cyfKey === key) return V3.cyf;
   const dno = cyfryDno(p, W.m), ls = bedLetters(), sw0 = W.pr.dysza === 4 ? 0.6 : 0.8, plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
@@ -155,6 +155,24 @@ function warstwySidelit(p) {
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   return { klosz, podstawa, pleksa: [], opis: `grubość litery ${fmt(p.sh, 1)} = klosz ${fmt(p.kCalk, 1)} (front ${fmt(p.sf, 1)} + boki ${fmt(p.ss, 1)}) + podstawa ${fmt(p.pCalk, 1)} (dno ${fmt(p.sd, 1)}); pasowanie ${fmt(p.sw, 1)}` };
 }
+// litera pełna: wyciągnięty kontur, górna (i opcjonalnie dolna) krawędź zaokrąglona promieniem fr.
+// Fazowanie liczone schodkami: na wysokości z kontur jest cofnięty o r·(1 − cos θ), gdzie sin θ = (z − z0)/r (ćwiartka okręgu).
+function warstwyPelne(p) {
+  const H = p.fh; if (!(H > 0.2)) throw new Error('wysokość litery musi być dodatnia');
+  const R = d => offsetPolys(W.base, d), g = p.fg, dn = p.fd, r = Math.min(p.fr, g && dn ? H / 2 : H), lay = [];
+  const zLo = dn ? r : 0, zHi = H - (g ? r : 0);
+  if (zHi - zLo > 1e-6) lay.push({ z0: zLo, z1: zHi, reg: R(0) });
+  if (r > 0.01 && (g || dn)) {
+    const N = Math.max(6, Math.min(24, Math.ceil(r * 5)));
+    for (let k = 0; k < N; k++) {
+      const t0 = k / N * Math.PI / 2, t1 = (k + 1) / N * Math.PI / 2, d = r * (1 - Math.cos((t0 + t1) / 2)), reg = R(-d);
+      if (g) lay.push({ z0: zHi + r * Math.sin(t0), z1: zHi + r * Math.sin(t1), reg });
+      if (dn) lay.push({ z0: zLo - r * Math.sin(t1), z1: zLo - r * Math.sin(t0), reg });
+    }
+  }
+  const kr = (g ? 1 : 0) + (dn ? 1 : 0);
+  return { klosz: [], podstawa: [], pleksa: [], litera: lay.filter(l => l.z1 - l.z0 > 1e-6), opis: `litera pełna ${fmt(H, 1)}` + (r > 0.01 && kr ? `, zaokrąglenie R ${fmt(r, 1)} (${g && dn ? 'góra i dół' : g ? 'góra' : 'dół'})` : ', bez zaokrągleń') };
+}
 // ===================== bryły (Manifold) =====================
 function stos(warstwy, ndel) {
   const { Manifold } = V3.wasm, list = [];
@@ -170,8 +188,8 @@ async function build3D() {
   const t0 = performance.now(), garbage = [], ndel = o => { garbage.push(o); return o; };
   try {
     await load3D();
-    W.pr = params(); const p = params3D(), m = W.m, plan = W.pr.typ === 'S' ? warstwySidelit(p) : warstwyFrontlit(p, m), parts = {}, bodies = [], ls = letters(bedSrc()), uwagi = [];
-    Object.keys(CZESCI).forEach(k => { parts[k] = plan[k].length ? stos(plan[k], ndel) : null; });
+    W.pr = params(); const p = params3D(), m = W.m, plan = W.pr.typ === 'P' ? warstwyPelne(p) : W.pr.typ === 'S' ? warstwySidelit(p) : warstwyFrontlit(p, m), parts = {}, bodies = [], ls = letters(bedSrc()), uwagi = [];
+    Object.keys(CZESCI).forEach(k => { parts[k] = (plan[k] || []).length ? stos(plan[k], ndel) : null; });
     if (W.overlaps.length) uwagi.push(`litery nachodzą na siebie w ${W.overlaps.length} miejscach — bryły są połączone`);
     if (parts.klosz && parts.podstawa) { const v = objetosc(ndel(V3.wasm.Manifold.intersection(parts.klosz, parts.podstawa))); if (v > 1) uwagi.push(`klosz przenika podstawę (${fmt(v, 1)} mm³) — sprawdź offsety`); }
     const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [];     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
@@ -208,7 +226,7 @@ async function build3D() {
     cyfryMiejsca().forEach(q => { const u = cyfraUwaga(q); if (u) uwagi.push(u); });
     V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);
-    $('b3-report').innerHTML = `<b>Części:</b> klosz ${c('klosz')}, podstawa ${c('podstawa')}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
+    $('b3-report').innerHTML = `<b>Części:</b> ${c('litera') ? `litery ${c('litera')}` : `klosz ${c('klosz')}, podstawa ${c('podstawa')}`}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
     $('b3-stl').disabled = false; $('b3-3mf').disabled = false; msg3D('');
   } catch (e) { console.error(e); msg3D('Nie udało się zbudować: ' + (e && e.message || e)); $('b3-report').textContent = 'Błąd: ' + (e && e.message || e); }
   garbage.forEach(o => { try { o.delete(); } catch (e) { /* już zwolnione */ } });
@@ -306,7 +324,7 @@ function hover3D(m) {
 }
 function material3D(part, plType) {
   if (part === 'plaster') return new V3.THREE.MeshStandardMaterial({ color: plType === 'K' ? 0x3182ce : 0xdd6b20, flatShading: true, roughness: 0.55, side: V3.THREE.DoubleSide });
-  const T = V3.THREE, sel = { klosz: ['b3-ck', 'b3-tk', 0.5], podstawa: ['b3-cp', 'b3-tp', 0.55], pleksa: ['b3-cx', 'b3-tx', 0.45] }[part], tr = $(sel[1]).checked;
+  const T = V3.THREE, sel = { klosz: ['b3-ck', 'b3-tk', 0.5], podstawa: ['b3-cp', 'b3-tp', 0.55], pleksa: ['b3-cx', 'b3-tx', 0.45], litera: ['b3-cp', 'b3-tp', 0.55] }[part], tr = $(sel[1]).checked;
   return new T.MeshStandardMaterial({ color: Number($(sel[0]).value), flatShading: true, roughness: 0.55, metalness: 0.02, transparent: tr, opacity: tr ? sel[2] : 1, depthWrite: !tr, side: T.DoubleSide });
 }
 function show3D() {
@@ -325,12 +343,12 @@ function show3D() {
   apply3D(); if (first || !V3.keepView) setView(V3.view); V3.keepView = true;
 }
 function apply3D() {
-  const e = Number($('v3-e').value) || 0, vis = { klosz: $('v3-k').checked, podstawa: $('v3-p').checked, pleksa: $('v3-x').checked, plaster: $('v3-l').checked }, lift = { podstawa: 0, klosz: e, pleksa: 2 * e };
+  const e = Number($('v3-e').value) || 0, vis = { klosz: $('v3-k').checked, podstawa: $('v3-p').checked, pleksa: $('v3-x').checked, plaster: $('v3-l').checked, litera: true }, lift = { litera: 0, podstawa: 0, klosz: e, pleksa: 2 * e };
   V3.meshes.forEach(m => { const u = m.userData; m.visible = vis[u.part]; m.position.z = u.part === 'plaster' ? (u.plType === 'K' ? e : 0) : lift[u.part]; });
   render3D();
 }
 function recolor3D() { V3.meshes.forEach(m => { m.material.dispose(); m.material = material3D(m.userData.part, m.userData.plType); }); render3D(); }
-function groups3D() { const s = (document.querySelector('input[name=typ]:checked') || {}).value === 'S'; $('g3-f').classList.toggle('hidden', s); $('g3-s').classList.toggle('hidden', !s); }
+function groups3D() { const t = (document.querySelector('input[name=typ]:checked') || {}).value; $('g3-f').classList.toggle('hidden', t === 'S'); $('g3-s').classList.toggle('hidden', t !== 'S'); document.body.classList.toggle('t-P', t === 'P'); }
 window.mark3D = () => { V3.dirty = true; groups3D(); clearTimeout(V3.tmr); if (V3.open) V3.tmr = setTimeout(build3D, 700); };
 async function open3D() {
   if (!W.base) return toast('Najpierw wczytaj kontury');

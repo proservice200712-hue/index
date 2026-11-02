@@ -130,6 +130,10 @@
   .spin .sb button + button { border-top: none; }
   .fld .spin input { width: 66px; }
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 9px 16px; font-size: .85rem; z-index: 50; }
+  /* litery pełne (typ P): bez offsetów klosza/podstawy, za to wysokość i promień zaokrąglenia */
+  .p-only { display: none; }
+  body.t-P .p-only { display: block; }
+  body.t-P .fs-only, body.t-P #g3-f, body.t-P #g3-s { display: none !important; }
 </style>
 </head>
 <body>
@@ -176,18 +180,27 @@
         <div class="picks">
           <label class="pick"><input type="radio" name="typ" value="F" checked><svg viewBox="0 0 120 76"><defs><linearGradient id="flL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6fd0"/><stop offset="1" stop-color="#7fb2f5"/></linearGradient></defs><g stroke="#f6b400" stroke-width="2" stroke-linecap="round" fill="none"><path d="M30 26V13M26 17l4-4 4 4M59 15V2M55 6l4-4 4 4M88 22V9M84 13l4-4 4 4"/></g><polygon points="14,34 46,48 46,66 14,52" fill="#e2e8f0" stroke="#718096" stroke-width=".7"/><polygon points="46,48 104,24 104,42 46,66" fill="#f7fafc" stroke="#718096" stroke-width=".7"/><polygon points="14,47 46,61 46,66 14,52" fill="#4a5568"/><polygon points="46,61 104,37 104,42 46,66" fill="#718096"/><polygon points="14,34 72,10 104,24 46,48" fill="url(#flL)" stroke="#1a4f9c" stroke-width=".8"/><polygon points="30,35 76,16 88,21 42,40" fill="#ffe27a" opacity=".8"/></svg><b>Frontlit</b><small>świeci lico</small></label>
           <label class="pick"><input type="radio" name="typ" value="S"><svg viewBox="0 0 120 76"><defs><linearGradient id="slA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b0"/><stop offset="1" stop-color="#ffcf33"/></linearGradient></defs><polygon points="14,34 46,48 46,66 14,52" fill="url(#slA)" stroke="#b7791f" stroke-width=".7"/><polygon points="46,48 104,24 104,42 46,66" fill="url(#slA)" stroke="#b7791f" stroke-width=".7"/><polygon points="14,47 46,61 46,66 14,52" fill="#4a5568"/><polygon points="46,61 104,37 104,42 46,66" fill="#718096"/><polygon points="14,34 72,10 104,24 46,48" fill="#f7fafc" stroke="#4a5568" stroke-width="1"/><g stroke="#f6b400" stroke-width="2" stroke-linecap="round" fill="none"><path d="M24 48 12 56M12 51v5h5M38 54 28 67M26 62l2 5 5-1M66 50l10 11M72 62l4-1 0-4M92 39l11 8M99 47h4v-4"/></g></svg><b>Sidelit</b><small>świeci bok</small></label>
+          <label class="pick" title="Litera pełna (bez klosza i podstawy): wyciągnięty kontur z zaokrągloną górną krawędzią"><input type="radio" name="typ" value="P"><svg viewBox="0 0 120 76"><defs><linearGradient id="plT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7fafc"/><stop offset="1" stop-color="#cbd5e0"/></linearGradient></defs><polygon points="14,40 46,54 46,68 14,54" fill="#a0aec0"/><polygon points="46,54 104,30 104,44 46,68" fill="#718096"/><path d="M14,40 Q14,34 21,32 L66,14 Q72,12 79,15 L97,23 Q104,26 104,30 L46,54 Z" fill="url(#plT)" stroke="#4a5568" stroke-width=".8"/><path d="M24,38 L68,20 L90,29" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".9"/></svg><b>pełne</b><small>zaokrąglona krawędź</small></label>
         </div>
-        <h3>Wielkość liter</h3>
-        <div class="picks">
+        <h3 class="fs-only">Wielkość liter</h3>
+        <div class="picks fs-only">
           <label class="pick" title="Podstawa z wybraniem na pasek LED; otwory liczone od kieszeni"><input type="radio" name="wielk" value="2" checked><svg viewBox="0 0 120 62"><defs><clipPath id="pk3"><polygon points="26.6,33.6 75.4,13.4 91.4,20.4 42.6,40.6"/></clipPath></defs><polygon points="14,32 46,46 46,57 14,43" fill="#a0aec0"/><polygon points="46,46 104,22 104,33 46,57" fill="#cbd5e0"/><polygon points="14,32 72,8 104,22 46,46" fill="#f7fafc" stroke="#718096" stroke-width=".6"/><polygon points="26.6,33.6 75.4,13.4 91.4,20.4 42.6,40.6" fill="#718096"/><g clip-path="url(#pk3)"><polygon points="26.6,39.6 75.4,19.4 91.4,26.4 42.6,46.6" fill="#e2e8f0"/><polygon points="29,41 78,20.8 83,23 34,43.2" fill="#ffd93b"/></g></svg><b>duże litery</b><small>wybranie na LED</small></label>
           <label class="pick" title="Podstawa z pełnym środkiem, bez wybrania; otwory liczone od wewnętrznego konturu podstawy"><input type="radio" name="wielk" value="1"><svg viewBox="0 0 120 62"><polygon points="14,32 46,46 46,57 14,43" fill="#a0aec0"/><polygon points="46,46 104,22 104,33 46,57" fill="#cbd5e0"/><polygon points="14,32 72,8 104,22 46,46" fill="#f7fafc" stroke="#718096" stroke-width=".6"/></svg><b>małe litery</b><small>pełny środek</small></label>
         </div>
         <div class="hint">Prawy klawisz na literze = cyfra do rozróżnienia takich samych liter (wewnątrz i w lustrze na tyle).</div>
-        <h3>Dysza</h3>
-        <div class="row"><label><input type="radio" name="dysza" value="4"> 0,4 mm</label><label><input type="radio" name="dysza" value="6" checked> 0,6 mm</label></div>
-        <h3>Offsety [mm]</h3>
-        <div class="fld"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
-        <div class="fld"><span>Offset podstawy B</span><input type="text" inputmode="decimal" id="p-B" value="0,1"></div>
+        <h3 class="fs-only">Dysza</h3>
+        <div class="row fs-only"><label><input type="radio" name="dysza" value="4"> 0,4 mm</label><label><input type="radio" name="dysza" value="6" checked> 0,6 mm</label></div>
+        <div class="p-only">
+          <h3>Litera pełna [mm]</h3>
+          <div class="fld"><span>Wysokość litery</span><input type="text" inputmode="decimal" id="b3-fh" value="20"></div>
+          <div class="fld"><span>Promień zaokrąglenia</span><input type="text" inputmode="decimal" id="b3-fr" value="3"></div>
+          <div class="row"><label><input type="checkbox" id="b3-fg" checked> zaokrąglij górną krawędź</label></div>
+          <div class="row"><label><input type="checkbox" id="b3-fd"> zaokrąglij też dolną krawędź</label></div>
+          <div class="hint">Zaokrąglenie dotyczy obrysu litery. Przy cienkiej kresce mniejszej niż 2 × promień górę zamyka łuk (jak prawdziwe filetowanie).</div>
+        </div>
+        <h3 class="fs-only">Offsety [mm]</h3>
+        <div class="fld fs-only"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
+        <div class="fld fs-only"><span>Offset podstawy B</span><input type="text" inputmode="decimal" id="p-B" value="0,1"></div>
         <div class="vals" id="vals"></div>
         <h3>Pasek LED</h3>
         <div class="vals" id="led-info">—</div>
@@ -347,7 +360,7 @@ const PROFIL_ZAPAS = 10;
 const FIX_OD_KRAW = 5, FIX_SZER_3 = 40;               // FIX: rzędy 5 mm od góry / dołu profilu; litera szersza niż 40 mm — 3 otwory
 const LED_W = 6;                                      // pasek LED 6 mm na środku kanału (kieszeni)
 const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
-  ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
+  ['Pelne', '#c53030', 1], ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
   ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4], ['Podzial', '#dd6b20', 2]];
 const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
 const W = { marks: [], cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: false, Plaster: true, Cyfra: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
@@ -408,13 +421,15 @@ function params() {
 }
 function model(pr) {
   const d = DYSZA[pr.dysza] || DYSZA[6], k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
-  const spec = pr.typ === 'S' ? [['Klosz', [0, k1, k2, k3]], ['Podstawa', [0, p1, p2]], ['Kieszen', [kie]]] : [['Pleksa', [0]], ['Klosz', [k1, k2, k3]], ['Podstawa', [p1, p2]], ['Kieszen', [kie]]];
+  const spec = pr.typ === 'P' ? [['Pelne', [0]]] : pr.typ === 'S' ? [['Klosz', [0, k1, k2, k3]], ['Podstawa', [0, p1, p2]], ['Kieszen', [kie]]] : [['Pleksa', [0]], ['Klosz', [k1, k2, k3]], ['Podstawa', [p1, p2]], ['Kieszen', [kie]]];
   return { k1, k2, k3, p1, p2, kie, spec, scianka: k2 - k3 };
 }
 function computeLayers() {
   const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.plReg = null; W.m = m; W.pr = pr;
   $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br><b>Kieszeń</b> ${fmt(m.kie)}<br>`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
+  document.body.classList.toggle('t-P', pr.typ === 'P'); if (typeof groups3D === 'function') groups3D();
+  if (pr.typ === 'P') $('vals').innerHTML = '<b>Litera pełna</b> 0 (baza)<br><span class="hint">wysokość i promień zaokrąglenia — pola powyżej</span>';
   if (!W.base) return;
   m.spec.forEach(([name, ds]) => {
     W.lay[name] = ds.map(d => { const r = offsetPolys(W.base, d); if (!r.length) W.warn.push(`${name} ${fmt(d)} mm — nie powstał (kształt za wąski)`); return { d, polys: r }; }).filter(x => x.polys.length);
@@ -446,7 +461,7 @@ function autoRails() {
 }
 // po jednym otworze na literę, na wspólnej wysokości wiersza (albo narzuconej), przy LEWEJ krawędzi pasma krzywej środków
 function placeHoles(kind, dOtw, rails) {
-  const ref = refPolys(); if (!ref) { W.warn.push('brak konturu kieszeni / podstawy — otwory pominięte'); return []; }
+  const ref = refPolys(); if (!ref) { if (W.pr.typ !== 'P') W.warn.push('brak konturu kieszeni / podstawy — otwory pominięte'); return []; }
   let srodki = null, luzU = -1, srodkowo = false;
   for (const lz of [W.pr.luz, 0.5, 0.25, 0].filter((v, i, a) => i === 0 || v < a[0])) { const r = offsetPolys(ref.polys, -(dOtw / 2 + lz)); if (r.length) { srodki = r; luzU = lz; break; } }
   if (!srodki) { srodki = offsetPolys(ref.polys, -0.2); srodkowo = true; }
@@ -865,7 +880,7 @@ function lineSpans(polys, c, s = 0) {
   return out;
 }
 function refreshPlates() {
-  W.plates = []; const pr = W.pr; if (!pr || !pr.plOn || !W.base || !W.cuts.length) return renderPlateList();
+  W.plates = []; const pr = W.pr; if (!pr || pr.typ === 'P' || !pr.plOn || !W.base || !W.cuts.length) return renderPlateList();
   const regs = plateRegs(), ls = bedLetters();
   W.cuts.forEach(c => {
     const l = ls[c.li]; if (!l) return;
@@ -983,9 +998,10 @@ function parseDXF(txt) {
   return res;
 }
 // wczytany komplet (eksport z Wizarda albo z Corela) da się dalej poprawiać: baza, ustawienia, otwory, profile i linie podziału wracają z pliku
-const KIT_LAYS = ['pleksa', 'klosz', 'podstawa', 'kieszen'], lowLay = p => String(p.layer || '').toLowerCase();
-const isKitFile = paths => KIT_LAYS.filter(k => paths.some(p => lowLay(p) === k)).length >= 2;
+const KIT_LAYS = ['pleksa', 'klosz', 'podstawa', 'kieszen', 'pelne'], lowLay = p => String(p.layer || '').toLowerCase();
+const isKitFile = paths => paths.some(p => lowLay(p) === 'pelne') || KIT_LAYS.filter(k => paths.some(p => lowLay(p) === k)).length >= 2;
 function kitBasePaths(paths, meta) {
+  const pe = paths.filter(p => lowLay(p) === 'pelne'); if (pe.length) return pe;
   const pl = paths.filter(p => lowLay(p) === 'pleksa'); if (pl.length) return pl;
   const kl = paths.filter(p => lowLay(p) === 'klosz'); if (meta && meta.n0 > 0) return kl.slice(0, meta.n0);
   // Sidelit z Corela: baza (offset 0) jest i w Kloszu, i w Podstawie
@@ -998,6 +1014,7 @@ function inferKit(paths, basePaths) {
   const box = p => bboxOf([p.pts]), wid = b => b.x1 - b.x0, big = basePaths.map(box).sort((a, b) => wid(b) - wid(a))[0]; if (!big) return null;
   const cx = (big.x0 + big.x1) / 2, cy = (big.y0 + big.y1) / 2, w0 = wid(big);
   const ds = n => [...new Set(paths.filter(p => lowLay(p) === n).map(box).filter(b => Math.abs((b.x0 + b.x1) / 2 - cx) < 1.5 && Math.abs((b.y0 + b.y1) / 2 - cy) < 1.5 && Math.abs(wid(b) - w0) / 2 < 8).map(b => Math.round((wid(b) - w0) / 2 * 100) / 100))].sort((a, b) => a - b);
+  if (paths.some(p => lowLay(p) === 'pelne')) return { typ: 'P', dysza: 6, P: 0.1, B: 0.1 };
   const kl = ds('klosz'), pod = ds('podstawa'); if (kl.length < 2 || !pod.length) return null;
   const k3 = kl[0], k2 = kl[kl.length - 1], mid = kl.slice(1, -1).filter(d => Math.abs(d) > 0.001), k1 = mid.length ? mid[mid.length - 1] : k2 - 1.2;
   return { typ: paths.some(p => lowLay(p) === 'pleksa') ? 'F' : 'S', dysza: k2 - k1 < 1 ? 4 : 6, P: k1, B: Math.round((k3 - pod[0]) * 100) / 100 };
@@ -1161,12 +1178,13 @@ const ascii = s => String(s).replace(/ł/g, 'l').replace(/Ł/g, 'L').normalize('
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 function fileBase() {
   const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
-  return `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}${pr.name ? '_' + ascii(pr.name).replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
+  const pelne = pr.typ === 'P' ? `Pelne_H${String((pr.p3 || {})['b3-fh'] || '').replace(/\D/g, '')}_R${String((pr.p3 || {})['b3-fr'] || '').replace(/\D/g, '')}` : '';
+  return `${pelne || `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}`}${pr.name ? '_' + ascii(pr.name).replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
 }
 // DXF dla Fusion: kontury, otwory, profile, linie podziału — bez łba śruby
 function buildKit() {
   const ents = [];
-  LAYERS.slice(0, 4).forEach(([n]) => (W.lay[n] || []).forEach(o => o.polys.forEach(p => { const q = fromCl(p); ents.push([n, 'poly', fitArcs(simplifyRing(q))]); })));
+  LAYERS.slice(0, 5).forEach(([n]) => (W.lay[n] || []).forEach(o => o.polys.forEach(p => { const q = fromCl(p); ents.push([n, 'poly', fitArcs(simplifyRing(q))]); })));
   W.holes.forEach(h => ents.push([h.kind === 'fix' ? 'FIX' : 'Otwory', 'circle', [h.x, h.y, h.d / 2]]));
   W.rails.forEach(r => ents.push(['Profil', 'poly', [[r.x0, r.yc - r.h / 2], [r.x1, r.yc - r.h / 2], [r.x1, r.yc + r.h / 2], [r.x0, r.yc + r.h / 2]]]));
   // środek kompletu w (0,0) — jak EksportujDXF w makrze; linie podziału (wystają poza litery) go nie przesuwają
@@ -1412,7 +1430,7 @@ function draw() {
   path(W.base); g.fillStyle = 'rgba(66,153,225,.08)'; g.fill('evenodd');
   // pasek zawsze pełne 6 mm wokół osi, także gdy wchodzi na kontury
   if (W.show.LED && W.led) { g.beginPath(); W.led.lines.forEach(L => { g.moveTo(X(L[0][0]), Y(L[0][1])); if (L.length < 2) g.lineTo(X(L[0][0]) + 0.01, Y(L[0][1])); for (let i = 1; i < L.length; i++) g.lineTo(X(L[i][0]), Y(L[i][1])); }); g.strokeStyle = 'rgba(255,205,0,.47)'; g.lineWidth = LED_W * W.view.s; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); g.lineCap = 'butt'; g.lineJoin = 'miter'; }
-  ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(o.polys); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
+  ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa', 'Pelne'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(o.polys); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
   if (drag && drag.snapLine) { const [t, v] = drag.snapLine; g.strokeStyle = '#38a169'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath(); if (t === 'x') { g.moveTo(X(v), 0); g.lineTo(X(v), r.height); } else { g.moveTo(0, Y(v)); g.lineTo(r.width, Y(v)); } g.stroke(); g.setLineDash([]); }
   if (W.show.Profil) W.rails.forEach(rl => { g.strokeStyle = LCOL.Profil; g.lineWidth = W.sel && W.sel.t === 'rail' && W.sel.id === rl.id ? 2.5 : 1.4; g.setLineDash(rl.manual ? [6, 3] : []); g.strokeRect(X(rl.x0), Y(rl.yc + rl.h / 2), (rl.x1 - rl.x0) * W.view.s, rl.h * W.view.s); g.setLineDash([]); });
   // wymiary profilu po lewej: od dołu litery do profilu, sam profil, od profilu do góry litery
