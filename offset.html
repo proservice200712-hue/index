@@ -154,7 +154,7 @@
   <button class="btn" id="b-auto" title="Otwory, profile i podział ułożone od nowa automatycznie (ręczne zmiany znikną)">↺ Ułóż automatycznie</button>
   <button class="btn" id="b-fit" title="Dopasuj widok (F)">⤢ Dopasuj</button>
   <span class="seg"><button class="btn on" id="b-2d" title="Rysunek konturów">2D</button><button class="btn" id="b-3d" title="Bryły 3D, widok izometryczny">3D</button><button class="btn" id="b-pl" title="Rozmieszczenie części na płycie drukarki Bambu">PŁYTA</button></span>
-  <button class="btn go" id="b-dxf" title="Eksport: DXF + szablon PDF; zapis przy elemencie w INDEX" disabled>⬇ Eksport</button>
+  <button class="btn go" id="b-dxf" title="Eksport szablonów (PDF, przy CNC także DXF); komplet do ponownej edycji zapisuje się przy elemencie w INDEX" disabled>⬇ Eksport</button>
 </header>
 <main>
   <nav id="rail">
@@ -211,9 +211,10 @@
         <div class="fld fs-only"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
         <div class="fld fs-only"><span>Offset podstawy B</span><input type="text" inputmode="decimal" id="p-B" value="0,1"></div>
         <div class="vals" id="vals"></div>
-        <h3>Pasek LED</h3>
+        <h3>Pasek LED i filament</h3>
         <div class="vals" id="led-info">—</div>
-        <div class="hint">Oś paska biegnie środkiem litery, także tam, gdzie pasek wchodzi na kontury. Długość to długość tej osi.</div>
+        <div class="vals" id="fil-info" style="margin-top:4px">—</div>
+        <div class="hint">Oś paska biegnie środkiem litery, także tam, gdzie pasek wchodzi na kontury. Długość to długość tej osi. Filament to szacunek z warstw brył i ustawień druku (Bryła 3D → Druk), a nie wynik slicera.</div>
       </section>
       <section class="pan" data-pan="otwory" data-t="Otwory i profil">
         <h3>Profil montażowy</h3>
@@ -293,6 +294,23 @@
         <div class="fld"><span>Rowek: szerokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rg" placeholder="auto"></div>
         <div class="fld"><span>Rowek: głębokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rd" placeholder="auto"></div>
         <div class="fld"><span>Rowek: od krawędzi</span><input type="text" inputmode="decimal" id="b3-rm" value="1,2"></div>
+        <h3>Profil montażowy (podgląd)</h3>
+        <div class="fld" title="Profil „U” za literami, otwarty do góry wzdłuż wysokości liter. Tylko podgląd w 3D, nie idzie do STL / 3MF."><span>Grubość ścianki</span><input type="text" inputmode="decimal" id="b3-prs" value="1,5"></div>
+        <div class="fld"><span>Głębokość <span class="hint">(puste = jak szerokość)</span></span><input type="text" inputmode="decimal" id="b3-prd" placeholder="auto"></div>
+        <details><summary>Druk (do liczenia filamentu)</summary>
+          <div class="fld"><span>Podstawa: ściany</span><input type="text" inputmode="decimal" id="b3-fil-pw" value="3"></div>
+          <div class="fld"><span>Podstawa: warstwy góra</span><input type="text" inputmode="decimal" id="b3-fil-pt" value="4"></div>
+          <div class="fld"><span>Podstawa: warstwy dół</span><input type="text" inputmode="decimal" id="b3-fil-pb" value="4"></div>
+          <div class="fld"><span>Podstawa: wypełnienie [%]</span><input type="text" inputmode="decimal" id="b3-fil-pi" value="15"></div>
+          <div class="fld"><span>Klosz: ściany</span><input type="text" inputmode="decimal" id="b3-fil-kw" value="2"></div>
+          <div class="fld"><span>Klosz: warstwy góra</span><input type="text" inputmode="decimal" id="b3-fil-kt" value="0"></div>
+          <div class="fld"><span>Klosz: warstwy dół</span><input type="text" inputmode="decimal" id="b3-fil-kb" value="4"></div>
+          <div class="fld"><span>Klosz: wypełnienie [%]</span><input type="text" inputmode="decimal" id="b3-fil-ki" value="15"></div>
+          <div class="fld"><span>Wysokość warstwy [mm]</span><input type="text" inputmode="decimal" id="b3-fil-lh" value="0,3"></div>
+          <div class="fld"><span>Szerokość linii [mm]</span><input type="text" inputmode="decimal" id="b3-fil-lw" value="0,62"></div>
+          <div class="fld"><span>Gęstość filamentu [g/cm³]</span><input type="text" inputmode="decimal" id="b3-fil-ro" value="1,24"></div>
+          <div class="hint">Domyślnie jak Twój profil Bambu H2D 0,6: podstawa 3 ściany, 4 + 4 warstwy, klosz 2 ściany, bez góry, 4 dołu, wypełnienie 15% (grid). PLA ≈ 1,24, PETG ≈ 1,27.</div>
+        </details>
         <h3>Cyfry na literach</h3>
         <div class="fld" title="Cyfrę dodajesz prawym klawiszem na literze. Gdy nie zmieści się w tej wielkości obok paska LED, program ją zmniejszy i pokaże uwagę."><span>Wysokość cyfry [mm]</span><input type="text" inputmode="decimal" id="b3-cyf" value="5"></div>
         <h3>Kanty</h3>
@@ -355,7 +373,7 @@
     <div id="v3d" class="hidden">
       <div id="v3-bar">
         <span class="seg"><button class="btn on" data-v="iso">Izometria</button><button class="btn" data-v="top">Góra</button><button class="btn" data-v="front">Przód</button><button class="btn" data-v="back">Tył</button><button class="btn" data-v="side">Bok</button></span>
-        <label><input type="checkbox" id="v3-k" checked> klosz</label><label><input type="checkbox" id="v3-p" checked> podstawa</label><label><input type="checkbox" id="v3-x" checked> pleksa</label><label><input type="checkbox" id="v3-l" checked> plasterki</label><label><input type="checkbox" id="v3-o" checked> kontury</label>
+        <label><input type="checkbox" id="v3-k" checked> klosz</label><label><input type="checkbox" id="v3-p" checked> podstawa</label><label><input type="checkbox" id="v3-x" checked> pleksa</label><label><input type="checkbox" id="v3-l" checked> plasterki</label><label><input type="checkbox" id="v3-o" checked> kontury</label><label><input type="checkbox" id="v3-pr" checked> profil</label>
         <label>rozłóż <input type="range" id="v3-e" min="0" max="120" value="0"></label>
         <span class="sp"></span><button class="btn" id="v3-b" title="Zbuduj bryły od nowa">⟳ Buduj</button>
       </div>
@@ -1376,7 +1394,7 @@ function exKind() { const r = document.querySelector('input[name=ex-kind]:checke
 function exSync() {
   const k = exKind(), b = fileBase();
   $('ex-go').disabled = !k;
-  $('ex-files').innerHTML = `Pliki na dysk: <b>${esc(b)}.dxf</b> (do Fusion)${k ? `, <b>${esc(b)}_Szablon_${k === 'cnc' ? 'CNC' : 'papier'}.pdf</b>${k === 'cnc' ? `, <b>${esc(b)}_Szablon_CNC.dxf</b>` : ''}` : ''}`;
+  $('ex-files').innerHTML = k ? `Na dysk: <b>${esc(b)}_Szablon_${k === 'cnc' ? 'CNC' : 'papier'}.pdf</b>${k === 'cnc' ? `, <b>${esc(b)}_Szablon_CNC.dxf</b>` : ''}<br><span class="hint">Komplet do ponownej edycji (kontury, otwory, podział, cyfry) zapisuje się tylko w INDEX, przy wybranym elemencie.</span>` : 'Wybierz rodzaj szablonu.';
 }
 async function openExport() {
   if (!W.base) return;
@@ -1397,12 +1415,11 @@ async function doExport() {
     const base = fileBase(), kit = buildKit(), dxfTxt = dxfText(kit.ents, kit.cx, kit.cy, kit.meta), dxfBlob = new Blob([dxfTxt], { type: 'application/dxf' }), kindTag = kind === 'cnc' ? 'CNC' : 'papier';
     const pdfBlob = szablonPdf(kind, base), szDxf = kind === 'cnc' ? new Blob([szablonDxf(kit.cx, kit.cy)], { type: 'application/dxf' }) : null;
     const names = { dxfName: base + '.dxf', szablonName: `${base}_Szablon_${kindTag}.pdf`, szablonDxfName: szDxf ? `${base}_Szablon_CNC.dxf` : '' };
-    saveBlob(names.dxfName, dxfBlob);
-    setTimeout(() => saveBlob(names.szablonName, pdfBlob), 400);
-    if (szDxf) setTimeout(() => saveBlob(names.szablonDxfName, szDxf), 800);
+    saveBlob(names.szablonName, pdfBlob);                                       // na dysk tylko szablony (bez Fusion nie ma po co pobierać kompletu DXF)
+    if (szDxf) setTimeout(() => saveBlob(names.szablonDxfName, szDxf), 400);
     const me = await whoAmI(), pid = me && !$('ex-target').classList.contains('hidden') ? $('ex-p').value : '';
     if (pid) await saveToIndex(pid, $('ex-e').value, kind, names, dxfBlob, pdfBlob, szDxf, me);
-    else toast(`Zapisano na dysk: ${names.dxfName} (${kit.ents.length} kształtów) + szablon PDF`, 6000);
+    else toast(`Zapisano szablon na dysk: ${names.szablonName}${szDxf ? ' + DXF' : ''}`, 6000);
     $('ex-back').classList.add('hidden');
   } catch (e) { console.error(e); toast('Błąd eksportu: ' + e.message, 7000); }
   go.disabled = false;
@@ -1425,12 +1442,12 @@ async function saveToIndex(pid, eid, kind, names, dxfBlob, pdfBlob, szDxf, me) {
       await pRef.update({ files: fid && list.some(f => f.id === fid) ? list.map(f => f.id === fid ? entry : f) : [...list, entry] });
       W.target = { ...(W.target || {}), f: entry.id }; where = 'pliki stoiska';
     }
-    await pRef.collection('log').add({ at, user: me.id, text: `Offset Wizard: zapisano DXF i szablon (${kind === 'cnc' ? 'CNC' : 'papier'}) — ${where}`, eid: eid || '' }).catch(e => console.warn(e));
+    await pRef.collection('log').add({ at, user: me.id, text: `Offset Wizard: zapisano szablon i komplet do edycji (${kind === 'cnc' ? 'CNC' : 'papier'}) — ${where}`, eid: eid || '' }).catch(e => console.warn(e));
     const p = (exProjects || []).find(x => x.id === pid);
     W.target = { ...(W.target || {}), p: pid, e: eid || '' }; targetUI(`${p ? p.name : ''} · ${where}`);
     const u = new URLSearchParams(location.search); u.set('p', pid); if (eid) u.set('e', eid); else u.delete('e'); u.delete('dxf'); u.delete('n'); if (W.target.f && !eid) u.set('f', W.target.f); history.replaceState(null, '', '?' + u);
-    toast(`Zapisano na dysk i w INDEX: ${p ? p.name : ''} · ${where}`, 6000);
-  } catch (e) { console.error(e); toast('Pliki są na dysku, ale zapis w INDEX się nie udał: ' + e.message, 8000); }
+    toast(`Szablon na dysku, komplet zapisany w INDEX: ${p ? p.name : ''} · ${where}`, 6000);
+  } catch (e) { console.error(e); toast('Szablon jest na dysku, ale zapis w INDEX się nie udał: ' + e.message, 8000); }
   t.remove();
 }
 // napis z tekstu: czcionka z Google Fonts albo własna, kontury przez opentype.js
@@ -1745,7 +1762,14 @@ function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 2) && o.pr.dOtw === 4.5) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+// pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
+function b3Change(id) {
+  save();
+  if (id.startsWith('b3-pr')) { if (window.profil3D) profil3D(); return; }
+  if (id.startsWith('b3-fil-')) { if (window.liczFilament) liczFilament(); return; }
+  if (window.mark3D) mark3D(); if (id === 'b3-cyf') draw();
+}
 function addSpin(inp, step, after) {
   if (inp.parentElement.classList.contains('spin')) return;
   const w = document.createElement('span'); w.className = 'spin'; inp.parentElement.insertBefore(w, inp); w.appendChild(inp);
@@ -1756,13 +1780,13 @@ function addSpin(inp, step, after) {
 }
 // ===================== start =====================
 restore();
-Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id.startsWith('b3-')) { save(); if (window.mark3D) mark3D(); if (id === 'b3-cyf') draw(); } else if (!id.startsWith('tx-')) recompute(); }));
+Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id.startsWith('b3-')) b3Change(id); else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
   if (i.id.startsWith('tx-') || i.id.startsWith('pl-') || i.type === 'file' || i.type === 'range') return;
   if (i.id === 'p-name') return save();
   if (i.id === 'b3-wgl') { W.plReg = null; refreshPlates(); draw(); }
   if (i.id === 'b3-cyf') draw();
-  if (i.id.startsWith('b3-')) { save(); if (window.mark3D) mark3D(); return; }
+  if (i.id.startsWith('b3-')) return b3Change(i.id);
   if (i.name === 'dysza') { $('p-P').value = '0,1'; $('p-B').value = '0,1'; }   // standard offsetów dla obu dysz
   if (i.name === 'wielk') $('b3-wgl').checked = i.value === '2';                  // duże: wybranie na LED, małe: pełny środek
   recompute();

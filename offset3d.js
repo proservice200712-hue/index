@@ -255,9 +255,9 @@ async function build3D() {
     if (nKpom) uwagi.push(`plasterki klosza pominięte (${nKpom}): klosz nie jest wyższy niż ${fmt(W.pr.plDownK, 1)} mm`);
     if (tops.hK > 0 && tops.zK0 + tops.hK > tops.zKmax && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga wyżej niż podparcie pleksy: zwiększ „niższy o”');
     cyfryMiejsca().forEach(q => { const u = cyfraUwaga(q); if (u) uwagi.push(u); });
-    V3.bodies = bodies; V3.dirty = false; show3D();
+    liczFilament(); V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);
-    $('b3-report').innerHTML = `<b>Części:</b> ${c('litera') ? `litery ${c('litera')}` : `klosz ${c('klosz')}, podstawa ${c('podstawa')}`}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
+    $('b3-report').innerHTML = `<b>Części:</b> ${c('litera') ? `litery ${c('litera')}` : `klosz ${c('klosz')}, podstawa ${c('podstawa')}`}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}${W.fil ? `<b>Filament:</b> ok. ${(Math.round(W.fil.sum / 5) * 5).toLocaleString('pl-PL')} g (szacunek)<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
     $('b3-stl').disabled = false; $('b3-3mf').disabled = false; msg3D('');
   } catch (e) { console.error(e); msg3D('Nie udało się zbudować: ' + (e && e.message || e)); $('b3-report').textContent = 'Błąd: ' + (e && e.message || e); }
   garbage.forEach(o => { try { o.delete(); } catch (e) { /* już zwolnione */ } });
@@ -392,22 +392,69 @@ function show3D() {
   });
   const first = !V3.box;
   V3.box = { c: [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2], r: Math.max(1, Math.hypot(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]) / 2) };
-  apply3D(); if (first || !V3.keepView) setView(V3.view); V3.keepView = true;
+  apply3D(); if (first || !V3.keepView) setView(V3.view); V3.keepView = true; profil3D();
 }
 function apply3D() {
   const e = Number($('v3-e').value) || 0, vis = { klosz: $('v3-k').checked, podstawa: $('v3-p').checked, pleksa: $('v3-x').checked, plaster: $('v3-l').checked, litera: true }, lift = { litera: 0, podstawa: 0, klosz: e, pleksa: 2 * e };
-  const ob = $('v3-o').checked;
+  const ob = $('v3-o').checked; if (V3.prof) { V3.prof.visible = $('v3-pr').checked; V3.prof.position.z = -e; }
   V3.meshes.forEach(m => { const u = m.userData; m.children.forEach(c => { if (c.isLineSegments) c.visible = ob; }); m.visible = vis[u.part]; m.position.z = u.part === 'plaster' ? (u.plType === 'K' ? e : 0) : lift[u.part]; });
   render3D();
 }
+// profil montażowy „U” za literami (tylko podgląd, nie idzie do STL / 3MF): szerokość = grubość profilu z zakładki Otwory,
+// ścianka z pola w Bryła 3D; dno profilu na dole, otwarty do góry, wzdłuż wysokości liter
+function profil3D() {
+  if (!V3.group) return; const T = V3.THREE;
+  if (V3.prof) { V3.prof.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); V3.group.remove(V3.prof); }
+  const g = V3.prof = new T.Group(), s = Math.max(0.3, num($('b3-prs').value) || 1.5);
+  const mat = new T.MeshStandardMaterial({ color: 0x8a929c, transparent: true, opacity: 0.35, depthWrite: false, side: T.DoubleSide, roughness: 0.6 }), lm = new T.LineBasicMaterial({ color: 0x4a5568, transparent: true, opacity: 0.55 });
+  const kloc = (x0, x1, y0, y1, z0, z1) => { const geo = new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m = new T.Mesh(geo, mat); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.renderOrder = 3; m.add(new T.LineSegments(new T.EdgesGeometry(geo), lm)); g.add(m); };
+  W.rails.forEach(r => {
+    const y0 = r.yc - r.h / 2, y1 = r.yc + r.h / 2, D = Math.max(2 * s + 0.5, num($('b3-prd').value) || r.h);
+    kloc(r.x0, r.x1, y0, y1, -s, 0);            // ścianka przy literach
+    kloc(r.x0, r.x1, y0, y1, -D, -D + s);       // ścianka tylna
+    kloc(r.x0, r.x1, y0, y0 + s, -D + s, -s);   // dno (otwarte do góry)
+  });
+  V3.group.add(g); apply3D();
+}
+// ===================== filament (szacunek) =====================
+// Z warstw brył: na każdej warstwie ściany = pas „liczba ścian × szerokość linii” od brzegu, skóra góra / dół tam, gdzie nad / pod warstwą nic nie ma
+// (do grubości z liczby warstw), reszta wnętrza w podanym % wypełnienia. Plasterki są cieńsze niż ściany, więc liczone jako pełne. Bez slicera, więc to szacunek.
+function filamentMasy(p, plan) {
+  const v = id => num($(id).value), lw = v('b3-fil-lw') || 0.62, lh = v('b3-fil-lh') || 0.3, ro = v('b3-fil-ro') || 1.24, A = reg => reg.reduce((s, q) => s + area(q), 0), out = {};
+  ['podstawa', 'klosz', 'litera'].forEach(k => {
+    const L = (plan[k] || []).filter(l => l.z1 - l.z0 > 1e-6 && l.reg.length); if (!L.length) return;
+    const c = k === 'klosz' ? 'k' : 'p', N = Math.max(0, v(`b3-fil-${c}w`)), T = Math.max(0, v(`b3-fil-${c}t`)) * lh, B = Math.max(0, v(`b3-fil-${c}b`)) * lh, inf = Math.min(100, Math.max(0, v(`b3-fil-${c}i`))) / 100;
+    let vol = 0;
+    L.forEach(l => {
+      const dz = l.z1 - l.z0, nad = L.filter(q => Math.abs(q.z0 - l.z1) < 1e-6).flatMap(q => q.reg), pod = L.filter(q => Math.abs(q.z1 - l.z0) < 1e-6).flatMap(q => q.reg);
+      const wn = N > 0 ? offsetPolys(l.reg, -N * lw) : l.reg, aWn = Math.max(0, A(wn)), aW = Math.max(0, A(l.reg) - aWn);
+      const sk = Math.min(aWn * dz, (T > 0 ? Math.max(0, A(diff(wn, nad))) * Math.min(dz, T) : 0) + (B > 0 ? Math.max(0, A(diff(wn, pod))) * Math.min(dz, B) : 0));
+      vol += aW * dz + sk + (aWn * dz - sk) * inf;
+    });
+    out[k] = vol * ro / 1000;
+  });
+  const hK = W.pr.typ === 'S' ? p.kCalk - W.pr.plDownK : p.wk - W.pr.plDownK;
+  out.plaster = W.plates.reduce((s, q) => s + (q.type === 'K' ? Math.max(0, A(q.polys)) * Math.max(0, hK) : Math.max(0, A(q.polys)) * W.pr.plH - Math.max(0, A(q.groove)) * (W.pr.plH - W.pr.plFloor)), 0) * ro / 1000;
+  return out;
+}
+function liczFilament() {
+  const box = $('fil-info'); if (!box) return;
+  if (!W.base || !W.pr) { W.fil = null; box.textContent = '—'; return; }
+  try {
+    const p = params3D(), plan = W.pr.typ === 'P' ? warstwyPelne(p) : W.pr.typ === 'S' ? warstwySidelit(p) : warstwyFrontlit(p, W.m), m = filamentMasy(p, plan);
+    const g = x => Math.round((x || 0) / 5) * 5, sum = (m.podstawa || 0) + (m.klosz || 0) + (m.litera || 0) + (m.plaster || 0);
+    W.fil = { ...m, sum };
+    box.innerHTML = `<b>Filament: ok. ${g(sum).toLocaleString('pl-PL')} g</b><br><span class="hint">${m.litera ? `litery ${g(m.litera)} g` : `podstawa ${g(m.podstawa)} g · klosz ${g(m.klosz)} g`}${m.plaster ? ` · plasterki ${g(m.plaster)} g` : ''} (szacunek wg ustawień druku)</span>`;
+  } catch (e) { W.fil = null; box.textContent = 'Filament: — (' + (e && e.message || e) + ')'; }
+}
 function recolor3D() { V3.meshes.forEach(m => { m.material.dispose(); m.material = material3D(m.userData.part, m.userData.plType); }); render3D(); }
 function groups3D() { const t = (document.querySelector('input[name=typ]:checked') || {}).value; $('g3-f').classList.toggle('hidden', t === 'S'); $('g3-s').classList.toggle('hidden', t !== 'S'); document.body.classList.toggle('t-P', t === 'P'); }
-window.mark3D = () => { V3.dirty = true; groups3D(); clearTimeout(V3.tmr); if (V3.open) V3.tmr = setTimeout(build3D, 700); };
+window.mark3D = () => { V3.dirty = true; groups3D(); clearTimeout(V3.tmr); if (V3.open) V3.tmr = setTimeout(build3D, 700); clearTimeout(V3.ftmr); V3.ftmr = setTimeout(liczFilament, 800); };
 async function open3D() {
   if (!W.base) return toast('Najpierw wczytaj kontury');
   closePlatePop(); V3.open = true; $('v3d').classList.remove('hidden'); $('b-3d').classList.add('on'); $('b-2d').classList.remove('on'); $('selbox').classList.add('hidden');
   if (W.panel !== 'bryla') showPanel('bryla', true);
-  try { msg3D('Wczytuję silnik 3D…'); await load3D(); init3D(); size3D(); if (V3.dirty) await build3D(); else { msg3D(''); render3D(); } }
+  try { msg3D('Wczytuję silnik 3D…'); await load3D(); init3D(); size3D(); if (V3.dirty) await build3D(); else { msg3D(''); profil3D(); } }
   catch (e) { console.error(e); msg3D('Nie udało się wczytać silnika 3D (sprawdź internet): ' + (e && e.message || e)); }
 }
 function close3D() { closePlatePop(); V3.open = false; $('v3d').classList.add('hidden'); $('b-2d').classList.add('on'); $('b-3d').classList.remove('on'); draw(); }
@@ -477,5 +524,5 @@ groups3D();
 $('b-3d').onclick = open3D; $('b-2d').onclick = close3D; $('b3-open').onclick = open3D; $('v3-b').onclick = () => build3D();
 $('b3-stl').onclick = exportSTL; $('b3-3mf').onclick = export3MF;
 document.querySelectorAll('#v3-bar [data-v]').forEach(b => { b.onclick = () => setView(b.dataset.v); });
-['v3-k', 'v3-p', 'v3-x', 'v3-l', 'v3-o'].forEach(id => { $(id).onchange = apply3D; }); $('v3-e').oninput = apply3D;
+['v3-k', 'v3-p', 'v3-x', 'v3-l', 'v3-o', 'v3-pr'].forEach(id => { $(id).onchange = apply3D; }); $('v3-e').oninput = apply3D;
 ['b3-ck', 'b3-cp', 'b3-cx', 'b3-tk', 'b3-tp', 'b3-tx'].forEach(id => { $(id).addEventListener('change', () => { clearTimeout(V3.tmr); if (!V3.dirty) { /* sam kolor nie wymaga przebudowy */ } setTimeout(recolor3D, 0); }); });

@@ -315,6 +315,17 @@
   #clock-pane.dragging { cursor: grabbing; }
   #clock-pane[data-moved] { border-top: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 18px rgba(26,32,44,.28); }
   #clock-pane.show-hl { left: auto !important; top: auto !important; right: auto !important; }
+  /* zegar zwinięty do belki między wizkami a tabelką: zostaje mały znaczek z odliczaniem, klik = rozwiń */
+  #cl-min { position: absolute; top: 2px; right: 3px; width: 18px; height: 18px; padding: 0; border: none; background: none; color: #a0aec0; font: 700 15px/16px system-ui, sans-serif; cursor: pointer; border-radius: 4px; }
+  #cl-min:hover { background: var(--bg); color: #2d3748; }
+  #cl-chip { display: none; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); z-index: 7; height: 20px; padding: 0 9px 0 7px; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 2px 6px rgba(26,32,44,.25); font-size: .72rem; color: #2d3748; cursor: pointer; white-space: nowrap; }
+  #cl-chip i { width: 9px; height: 9px; border-radius: 50%; background: #a0aec0; flex: none; }
+  #cl-chip.ph-deadline i { background: #ecc94b; } #cl-chip.ph-pack i { background: #67b437; } #cl-chip.ph-event i { background: #4a5568; }
+  #cl-chip.urgent i { background: #e53e3e; animation: urgBlink 2.4s ease-in-out infinite; }
+  #cl-chip span { color: var(--gray); }
+  body.clock-min #cl-chip { display: flex; }
+  body.clock-min #clock-pane { display: none; }
+  body.clock-min #clock-pane.show-hl { display: flex; }
   /* grafika o innych proporcjach niż ramka */
   .gc-ratio { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; width: 26px; height: 26px; border-radius: 50% !important; pointer-events: none; background: #e53e3e; color: #fff; font: 800 18px/26px Arial, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.4); }
   .gc-frame.has-thumb { cursor: default; }
@@ -950,7 +961,7 @@
       </div>
     </div>
   </div>
-  <div class="split-h" id="split-h" title="Przeciągnij, aby zmienić podział ekranu"></div>
+  <div class="split-h" id="split-h" title="Przeciągnij, aby zmienić podział ekranu"><div id="cl-chip" title="Rozwiń zegar"><i></i><b id="cl-chip-t">–</b><span id="cl-chip-l"></span></div></div>
   <div id="pane-bottom">
     <div id="el-pane">
       <div class="el-bar">
@@ -974,6 +985,7 @@
       <div class="el-scroll" id="el-scroll"></div>
     </div>
     <div id="clock-pane">
+      <button type="button" id="cl-min" title="Zwiń zegar do belki">–</button>
       <svg id="clock-svg" viewBox="0 0 120 120" aria-hidden="true">
         <defs>
           <linearGradient id="clTrack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4846"/><stop offset=".5" stop-color="#1F1E1D"/><stop offset="1" stop-color="#0E0E0D"/></linearGradient>
@@ -3004,6 +3016,13 @@ function clockInfo(p, now = Date.now()) {
   };
   pane.addEventListener('pointerup', end); pane.addEventListener('pointercancel', end);
   pane.addEventListener('dblclick', reset);
+  // zwijanie do belki (zapamiętane w przeglądarce)
+  const MIN = 'idxClockMin', chip = $('cl-chip'), minBtn = $('cl-min');
+  const setMin = on => { document.body.classList.toggle('clock-min', on); try { if (on) localStorage.setItem(MIN, '1'); else localStorage.removeItem(MIN); } catch (e) { /* bez zapisu */ } };
+  try { if (localStorage.getItem(MIN)) document.body.classList.add('clock-min'); } catch (e) { /* rozwinięty */ }
+  [minBtn, chip].forEach(el => { el.addEventListener('pointerdown', e => e.stopPropagation()); el.addEventListener('dblclick', e => e.stopPropagation()); });
+  minBtn.addEventListener('click', () => setMin(true));
+  chip.addEventListener('click', () => setMin(false));
   pane.title = 'Przeciągnij, żeby przesunąć zegar · dwuklik = na miejsce';
   addEventListener('resize', () => { if (pane.dataset.moved) { const hr = host().getBoundingClientRect(), pr = pane.getBoundingClientRect(); put(hr.right - pr.right, pr.top - hr.top); } });
 })();
@@ -3051,6 +3070,7 @@ function updateClock() {
     small.textContent = '';
   }
   $('cl-lab').textContent = { deadline: 'do deadline’u graficznego', pack: 'do deadline’u pakowania', event: 'do targów' }[c.phase] || c.label;
+  const chip = $('cl-chip'); if (chip) { chip.className = pane.className; $('cl-chip-t').textContent = big.textContent + (small.textContent === 'dziś' ? ' dziś' : ''); $('cl-chip-l').textContent = $('cl-lab').textContent; }
   $('cl-sub').textContent = c.target ? fmtDateTime(c.target) + (c.next && c.phase !== 'event' ? ' · ' + c.next : '') : c.next || 'ustaw terminy w ⚙ Projekt';
 }
 setInterval(() => {
