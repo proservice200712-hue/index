@@ -8,7 +8,7 @@ const PL_SPR = 4;   // px na mm w obrazku części
 const PL_KEY = 'offsetPlyta';
 
 function plOpt() {
-  const g = id => num($(id).value), o = { W: g('pl-w') || 350, D: g('pl-d') || 320, H: g('pl-hz') || 325, L: $('pl-l').checked, R: $('pl-r').checked, sz: Math.max(0, g('pl-sz')), gap: Math.max(0, g('pl-gap')), mg: Math.max(0, g('pl-mg')), rot: Number($('pl-rot').value), c: Number($('pl-res').value) || 1, flipK: $('pl-fk').checked, grp: {} };
+  const g = id => num($(id).value), o = { W: g('pl-w') || 350, D: g('pl-d') || 320, H: g('pl-hz') || 325, L: $('pl-l').checked, R: $('pl-r').checked && !$('pl-l').checked, sz: Math.max(0, g('pl-sz')), gap: Math.max(0, g('pl-gap')), mg: Math.max(0, g('pl-mg')), rot: Number($('pl-rot').value), c: Number($('pl-res').value) || 1, flipK: $('pl-fk').checked, grp: {} };
   PL_GRP.forEach(([k]) => { o.grp[k] = $('pl-g' + k).checked; });
   o.xa = (o.L ? 0 : o.sz) + o.mg; o.xb = o.W - (o.R ? 0 : o.sz) - o.mg; o.ya = o.mg; o.yb = o.D - o.mg;
   return o;
@@ -253,7 +253,7 @@ $('b-3d').onclick = async () => { if (PL.open) { closePL(); $('v3d').classList.r
 $('pl-go').onclick = plPack; $('pl-e1').onclick = () => plExport('1'); $('pl-e3').onclick = () => plExport('3'); $('pl-es').onclick = () => plExport('stl');
 $('vpl-n').onchange = plDraw; new ResizeObserver(() => { if (!PL.open) return; if (PL.mode === '3d') pl3Size(); else plDraw2D(); }).observe($('vpl-c'));
 $('vpl-m2').onclick = () => plMode('2d'); $('vpl-m3').onclick = () => plMode('3d'); document.querySelectorAll('#vpl-views [data-v]').forEach(b => { b.onclick = () => pl3View(b.dataset.v); });
-$('vpl-cv').addEventListener('click', e => { const id = plStripAt(e); if (!id) return; $(id).checked = !$(id).checked; plSave(); plAuto(); });
+$('vpl-cv').addEventListener('click', e => { const id = plStripAt(e); if (!id) return; $(id).checked = !$(id).checked; plExclusive(id); plSave(); plAuto(); });
 $('vpl-cv').addEventListener('mousemove', e => { $('vpl-cv').style.cursor = plStripAt(e) ? 'pointer' : ''; });
 ['pl-w', 'pl-d', 'pl-hz', 'pl-sz', 'pl-gap', 'pl-mg'].forEach(id => addSpin($(id), { 'pl-w': 5, 'pl-d': 5, 'pl-hz': 5, 'pl-sz': 1, 'pl-gap': 0.5, 'pl-mg': 0.5 }[id], () => { plSave(); plAuto(); }));
 // ustawienia płyty zapamiętane w przeglądarce
@@ -263,4 +263,7 @@ try { const o = JSON.parse(localStorage.getItem(PL_KEY) || 'null'); if (o) PL_ID
 // każda zmiana ustawień płyty przebudowuje rozmieszczenie (z krótkim opóźnieniem, żeby nie liczyć przy każdym znaku)
 let plTmr = 0;
 function plAuto() { clearTimeout(plTmr); plTmr = setTimeout(() => { if (PL.busy) return plAuto(); if (PL.open && V3.bodies.length) plPack(); }, 450); }
-PL_IDS.forEach(id => $(id).addEventListener($(id).type === 'text' ? 'input' : 'change', () => { plSave(); plAuto(); }));
+// strefa lewa i prawa nie mogą działać naraz: albo jedna, albo druga, albo żadna
+function plExclusive(id) { if ($(id).checked) $(id === 'pl-l' ? 'pl-r' : 'pl-l').checked = false; }
+if ($('pl-l').checked && $('pl-r').checked) $('pl-r').checked = false;
+PL_IDS.forEach(id => $(id).addEventListener($(id).type === 'text' ? 'input' : 'change', () => { if (id === 'pl-l' || id === 'pl-r') plExclusive(id); plSave(); plAuto(); }));
