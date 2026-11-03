@@ -375,7 +375,8 @@ function show3D() {
 }
 function apply3D() {
   const e = Number($('v3-e').value) || 0, vis = { klosz: $('v3-k').checked, podstawa: $('v3-p').checked, pleksa: $('v3-x').checked, plaster: $('v3-l').checked, litera: true }, lift = { litera: 0, podstawa: 0, klosz: e, pleksa: 2 * e };
-  V3.meshes.forEach(m => { const u = m.userData; m.visible = vis[u.part]; m.position.z = u.part === 'plaster' ? (u.plType === 'K' ? e : 0) : lift[u.part]; });
+  const ob = $('v3-o').checked;
+  V3.meshes.forEach(m => { const u = m.userData; m.children.forEach(c => { if (c.isLineSegments) c.visible = ob; }); m.visible = vis[u.part]; m.position.z = u.part === 'plaster' ? (u.plType === 'K' ? e : 0) : lift[u.part]; });
   render3D();
 }
 function recolor3D() { V3.meshes.forEach(m => { m.material.dispose(); m.material = material3D(m.userData.part, m.userData.plType); }); render3D(); }
@@ -450,5 +451,5 @@ groups3D();
 $('b-3d').onclick = open3D; $('b-2d').onclick = close3D; $('b3-open').onclick = open3D; $('v3-b').onclick = () => build3D();
 $('b3-stl').onclick = exportSTL; $('b3-3mf').onclick = export3MF;
 document.querySelectorAll('#v3-bar [data-v]').forEach(b => { b.onclick = () => setView(b.dataset.v); });
-['v3-k', 'v3-p', 'v3-x', 'v3-l'].forEach(id => { $(id).onchange = apply3D; }); $('v3-e').oninput = apply3D;
+['v3-k', 'v3-p', 'v3-x', 'v3-l', 'v3-o'].forEach(id => { $(id).onchange = apply3D; }); $('v3-e').oninput = apply3D;
 ['b3-ck', 'b3-cp', 'b3-cx', 'b3-tk', 'b3-tp', 'b3-tx'].forEach(id => { $(id).addEventListener('change', () => { clearTimeout(V3.tmr); if (!V3.dirty) { /* sam kolor nie wymaga przebudowy */ } setTimeout(recolor3D, 0); }); });
