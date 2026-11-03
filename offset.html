@@ -88,7 +88,7 @@
   .warn { position: absolute; left: 10px; top: 10px; max-width: min(460px, 60%); max-height: 40%; overflow-y: auto; background: rgba(255,250,240,.96); border: 1px solid #f6ad55; color: #c05621; font-size: .78rem; padding: 6px 9px; white-space: pre-line; cursor: pointer; z-index: 3; }
   /* wykrzyknik: litery się łączą */
   #alarms { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
-  .alarm-x { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: #e53e3e; border: 4px solid #fff; color: #fff; font: 800 44px/52px Arial, sans-serif; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,.35); animation: alarmPuls 1s ease-in-out infinite; }
+  .alarm-x { pointer-events: auto; cursor: pointer; position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: #e53e3e; border: 4px solid #fff; color: #fff; font: 800 44px/52px Arial, sans-serif; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,.35); animation: alarmPuls 1s ease-in-out infinite; }
   @keyframes alarmPuls { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(229,62,62,.7); } 50% { transform: scale(1.22); box-shadow: 0 0 0 16px rgba(229,62,62,0); } }
   /* kafelki z podglądem */
   .picks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -743,8 +743,41 @@ function checkOverlaps() {
   for (let i = 0; i < ls.length; i++) for (let j = i + 1; j < ls.length; j++) {
     const a = ls[i], b = ls[j]; if (a.bb.x1 < b.bb.x0 || b.bb.x1 < a.bb.x0 || a.bb.y1 < b.bb.y0 || b.bb.y1 < a.bb.y0) continue;
     const c = new C.Clipper(), sol = new C.Paths(); c.AddPaths(a.reg, C.PolyType.ptSubject, true); c.AddPaths(b.reg, C.PolyType.ptClip, true); c.Execute(C.ClipType.ctIntersection, sol, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero);
-    sol.filter(p => Math.abs(area(p)) > 0.001).forEach(p => { const q = bboxOf([p]); W.overlaps.push({ poly: p, x: (q.x0 + q.x1) / 2, y: (q.y0 + q.y1) / 2 }); });
+    sol.filter(p => Math.abs(area(p)) > 0.001).forEach(p => { const q = bboxOf([p]); W.overlaps.push({ poly: p, x: (q.x0 + q.x1) / 2, y: (q.y0 + q.y1) / 2, i, j }); });
   }
+}
+// klik w czerwony wykrzyknik: prawa litera razem z następnymi w wierszu jedzie w prawo, aż jej obrys (z największym offsetem) jest OVL_GAP od lewej
+const OVL_GAP = 1;
+function overlapShift(o) {
+  const dMax = Math.max(0, ...W.m.spec.flatMap(s => s[1])), ls = letters(W.base), reg = l => offsetPolys([l.p].concat(l.holes), dMax), cx = l => (l.bb.x0 + l.bb.x1) / 2;
+  let L = ls[o.i], R = ls[o.j]; if (!L || !R) return null; if (cx(L) > cx(R)) [L, R] = [R, L];
+  const row = rowsOf(ls).find(r => r.includes(R)) || [R], tol = 0.3 * (R.bb.x1 - R.bb.x0), fol = row.filter(l => l !== L && (l === R || cx(l) >= cx(R) - tol));
+  const A = offsetPolys(reg(L), OVL_GAP), inter = (B, dx) => {
+    const c = new C.Clipper(), sol = new C.Paths(), sh = Math.round(dx * S);
+    c.AddPaths(A, C.PolyType.ptSubject, true); c.AddPaths(B.map(p => p.map(q => ({ X: q.X + sh, Y: q.Y }))), C.PolyType.ptClip, true); c.Execute(C.ClipType.ctIntersection, sol, C.PolyFillType.pftNonZero, C.PolyFillType.pftNonZero);
+    return sol.some(p => Math.abs(area(p)) > 0.001);
+  };
+  let dx = 0;
+  for (const f of fol) {
+    const B = reg(f); if (!inter(B, 0)) continue;
+    const hi = (L.bb.x1 - L.bb.x0) + (f.bb.x1 - f.bb.x0) + 2 * (dMax + OVL_GAP) + 5; let lo = 0, up = -1;
+    for (let d = 0.25; d <= hi; d += 0.25) { if (!inter(B, d)) { up = d; break; } lo = d; }
+    if (up < 0) return null;
+    for (let k = 0; k < 8; k++) { const m = (lo + up) / 2; if (inter(B, m)) lo = m; else up = m; }
+    dx = Math.max(dx, up);
+  }
+  dx = Math.ceil(dx * 100) / 100; return dx > 0 ? { dx, fol } : null;
+}
+function fixOverlap(k) {
+  const o = W.overlaps[k]; if (!o) return;
+  const r = overlapShift(o); if (!r) return toast('Nie da się odsunąć liter w poziomie — popraw układ ręcznie');
+  const manual = W.holes.some(h => h.manual) || W.railsFixed || W.cutManual;
+  if (!confirm(`Przesunąć prawy znak razem z ${r.fol.length - 1} następnymi o ${fmt(r.dx, 2)} mm w prawo, żeby był ${OVL_GAP} mm od znaku po lewej?` + (manual ? '\n\nOtwory, profile i linie podziału zostaną ułożone od nowa (Ctrl+Z cofa).' : ''))) return;
+  const s0 = JSON.parse(snapState()); s0.base = W.base; W.undo.push(JSON.stringify(s0)); if (W.undo.length > 80) W.undo.shift();
+  const set = new Set(r.fol.flatMap(l => [l.p, ...l.holes])), sh = Math.round(r.dx * S);
+  W.base = W.base.map(p => set.has(p) ? p.map(q => ({ X: q.X + sh, Y: q.Y })) : p); W.baseId++;
+  W.holes = []; W.rails = []; W.cuts = []; W.railsFixed = false; W.cutManual = false; W.sel = null; recompute();
+  toast(`Przesunięto ${r.fol.length} znak(ów) o ${fmt(r.dx, 2)} mm`);
 }
 // ===================== podział liter większych niż stół drukarki (jak D_Podzial w makrze Corela) =====================
 // Część leży na stole pod dowolnym kątem, więc szukamy kąta dającego najmniej części; przy tej samej liczbie części
@@ -1562,7 +1595,7 @@ function renderSel() {
 let drag = null;
 const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cuts: W.cuts, marks: W.marks, cutManual: W.cutManual });
 function pushUndo() { W.undo.push(snapState()); if (W.undo.length > 80) W.undo.shift(); }
-function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.marks = o.marks || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); }
+function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); if (o.base) { W.base = o.base; W.baseId++; computeLayers(); } W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.marks = o.marks || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); if (o.base) checkOverlaps(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); }
 function hit(px, py) {
   const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
   if (hh) return { t: 'hole', id: hh.id, o: hh };
@@ -1759,6 +1792,7 @@ const stage = $('stage');
 ['dragover', 'dragenter'].forEach(t => stage.addEventListener(t, e => { e.preventDefault(); }));
 stage.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
 new ResizeObserver(() => draw()).observe(stage);
+$('alarms').addEventListener('click', e => { const el = e.target.closest('.alarm-x'); if (el) fixOverlap([...el.parentNode.children].indexOf(el)); });
 $('ex-no').onclick = () => $('ex-back').classList.add('hidden'); $('ex-go').onclick = doExport;
 $('ex-q').oninput = e => { exFillStands(e.target.value); exFillElements(); }; $('ex-p').onchange = exFillElements;
 document.querySelectorAll('input[name=ex-kind]').forEach(r => { r.onchange = exSync; });
