@@ -310,6 +310,11 @@
   .cl-legend { gap: 2px 5px; font-size: .5rem; flex-wrap: wrap; justify-content: center; }
   .cl-legend i { width: 6px; height: 6px; margin-right: 2px; }
   .el-bar { padding-right: 142px; }
+  /* zegar jako ruchome okienko: przeciągnij gdziekolwiek, dwuklik = wróć na miejsce */
+  #clock-pane { cursor: grab; touch-action: none; user-select: none; }
+  #clock-pane.dragging { cursor: grabbing; }
+  #clock-pane[data-moved] { border-top: 1px solid var(--line); border-radius: 12px; box-shadow: 0 6px 18px rgba(26,32,44,.28); }
+  #clock-pane.show-hl { left: auto !important; top: auto !important; right: auto !important; }
   /* grafika o innych proporcjach niż ramka */
   .gc-ratio { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; width: 26px; height: 26px; border-radius: 50% !important; pointer-events: none; background: #e53e3e; color: #fff; font: 800 18px/26px Arial, sans-serif; text-align: center; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.4); }
   .gc-frame.has-thumb { cursor: default; }
@@ -2971,6 +2976,37 @@ function clockInfo(p, now = Date.now()) {
   const pct = t => clamp((t - t0) / (ev - t0) * 100, 0, 100);
   return { ...c, segs: [pct(dl), pct(pk), 100], now: pct(now), pct, tAt: v => t0 + v / 100 * (ev - t0), pk, dl };
 }
+// zegar w ruchomym okienku: pozycja (od prawej i od góry) zapamiętana w przeglądarce
+(function () {
+  const pane = $('clock-pane'); if (!pane) return;
+  const KEY = 'idxClockPos', host = () => pane.offsetParent || pane.parentElement;
+  const put = (r, t) => {
+    const h = host(), maxR = Math.max(0, h.clientWidth - pane.offsetWidth), maxT = Math.max(0, h.clientHeight - pane.offsetHeight);
+    r = Math.min(maxR, Math.max(0, r)); t = Math.min(maxT, Math.max(0, t)); pane.style.right = r + 'px'; pane.style.top = t + 'px'; pane.dataset.moved = '1'; return [r, t];
+  };
+  const reset = () => { pane.style.right = pane.style.top = ''; delete pane.dataset.moved; try { localStorage.removeItem(KEY); } catch (e) { /* bez zapisu */ } };
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o && Number.isFinite(o.r) && Number.isFinite(o.t)) put(o.r, o.t); } catch (e) { /* domyślne miejsce */ }
+  let d = null;
+  pane.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return; const hr = host().getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    d = { x: e.clientX, y: e.clientY, r: hr.right - pr.right, t: pr.top - hr.top, on: false, id: e.pointerId };
+  });
+  pane.addEventListener('pointermove', e => {
+    if (!d || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.on) { if (Math.hypot(dx, dy) < 4) return; d.on = true; pane.setPointerCapture(e.pointerId); pane.classList.add('dragging'); }
+    d.pos = put(d.r - dx, d.t + dy);
+  });
+  const end = e => {
+    if (!d || e.pointerId !== d.id) return;
+    if (d.on) { pane.classList.remove('dragging'); if (d.pos) try { localStorage.setItem(KEY, JSON.stringify({ r: d.pos[0], t: d.pos[1] })); } catch (er) { /* bez zapisu */ } }
+    d = null;
+  };
+  pane.addEventListener('pointerup', end); pane.addEventListener('pointercancel', end);
+  pane.addEventListener('dblclick', reset);
+  pane.title = 'Przeciągnij, żeby przesunąć zegar · dwuklik = na miejsce';
+  addEventListener('resize', () => { if (pane.dataset.moved) { const hr = host().getBoundingClientRect(), pr = pane.getBoundingClientRect(); put(hr.right - pr.right, pr.top - hr.top); } });
+})();
 function updateClock() {
   const p = S.project, pane = $('clock-pane');
   if (!p || !pane) return;
