@@ -253,11 +253,14 @@ $('b-3d').onclick = async () => { if (PL.open) { closePL(); $('v3d').classList.r
 $('pl-go').onclick = plPack; $('pl-e1').onclick = () => plExport('1'); $('pl-e3').onclick = () => plExport('3'); $('pl-es').onclick = () => plExport('stl');
 $('vpl-n').onchange = plDraw; new ResizeObserver(() => { if (!PL.open) return; if (PL.mode === '3d') pl3Size(); else plDraw2D(); }).observe($('vpl-c'));
 $('vpl-m2').onclick = () => plMode('2d'); $('vpl-m3').onclick = () => plMode('3d'); document.querySelectorAll('#vpl-views [data-v]').forEach(b => { b.onclick = () => pl3View(b.dataset.v); });
-$('vpl-cv').addEventListener('click', e => { const id = plStripAt(e); if (!id) return; $(id).checked = !$(id).checked; plSave(); plPack(); });
+$('vpl-cv').addEventListener('click', e => { const id = plStripAt(e); if (!id) return; $(id).checked = !$(id).checked; plSave(); plAuto(); });
 $('vpl-cv').addEventListener('mousemove', e => { $('vpl-cv').style.cursor = plStripAt(e) ? 'pointer' : ''; });
-['pl-w', 'pl-d', 'pl-hz', 'pl-sz', 'pl-gap', 'pl-mg'].forEach(id => addSpin($(id), { 'pl-w': 5, 'pl-d': 5, 'pl-hz': 5, 'pl-sz': 1, 'pl-gap': 0.5, 'pl-mg': 0.5 }[id], () => plSave()));
+['pl-w', 'pl-d', 'pl-hz', 'pl-sz', 'pl-gap', 'pl-mg'].forEach(id => addSpin($(id), { 'pl-w': 5, 'pl-d': 5, 'pl-hz': 5, 'pl-sz': 1, 'pl-gap': 0.5, 'pl-mg': 0.5 }[id], () => { plSave(); plAuto(); }));
 // ustawienia płyty zapamiętane w przeglądarce
 const PL_IDS = ['pl-w', 'pl-d', 'pl-hz', 'pl-sz', 'pl-l', 'pl-r', 'pl-gap', 'pl-mg', 'pl-rot', 'pl-res', 'pl-gpodstawa', 'pl-gklosz', 'pl-glitera', 'pl-gplaster', 'pl-fk'];
 function plSave() { try { const o = {}; PL_IDS.forEach(id => { const e = $(id); o[id] = e.type === 'checkbox' ? e.checked : e.value; }); localStorage.setItem(PL_KEY, JSON.stringify(o)); } catch (e) { /* bez zapisu */ } }
 try { const o = JSON.parse(localStorage.getItem(PL_KEY) || 'null'); if (o) PL_IDS.forEach(id => { const e = $(id); if (e && id in o) { if (e.type === 'checkbox') e.checked = !!o[id]; else e.value = o[id]; } }); } catch (e) { /* domyślne */ }
-PL_IDS.forEach(id => $(id).addEventListener($(id).type === 'text' ? 'input' : 'change', plSave));
+// każda zmiana ustawień płyty przebudowuje rozmieszczenie (z krótkim opóźnieniem, żeby nie liczyć przy każdym znaku)
+let plTmr = 0;
+function plAuto() { clearTimeout(plTmr); plTmr = setTimeout(() => { if (PL.busy) return plAuto(); if (PL.open && V3.bodies.length) plPack(); }, 450); }
+PL_IDS.forEach(id => $(id).addEventListener($(id).type === 'text' ? 'input' : 'change', () => { plSave(); plAuto(); }));
