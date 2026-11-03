@@ -297,8 +297,8 @@ function init3D() {
   size3D();
 }
 // lewy = obrót wokół środka widoku bez żadnej blokady (można przejść nad biegunem i oglądać spód), środkowy lub prawy = przesuwanie, kółko = zoom do kursora
-function sterowanie3D(el) {
-  const T = V3.THREE, cam = V3.cam, ctl = V3.ctl = { target: new T.Vector3(), update() { cam.lookAt(ctl.target); } }, Z = new T.Vector3(0, 0, 1);
+function sterowanie3D(el, S = V3, draw = render3D) {
+  const T = V3.THREE, cam = S.cam, ctl = S.ctl = { target: new T.Vector3(), update() { cam.lookAt(ctl.target); } }, Z = new T.Vector3(0, 0, 1);
   const os = (x, y) => new T.Vector3(x, y, 0).applyQuaternion(cam.quaternion), mmNaPx = () => (cam.top - cam.bottom) / cam.zoom / (el.clientHeight || 1);
   const przesun = v => { cam.position.add(v); ctl.target.add(v); };
   const obroc = (q) => { cam.position.sub(ctl.target).applyQuaternion(q).add(ctl.target); cam.quaternion.premultiply(q); cam.up.applyQuaternion(q); };
@@ -314,12 +314,12 @@ function sterowanie3D(el) {
       const q1 = new T.Quaternion().setFromAxisAngle(Z, -dx * k * (os(0, 1).z < 0 ? -1 : 1)), q2 = new T.Quaternion().setFromAxisAngle(os(1, 0), -dy * k);
       obroc(q1); obroc(q2);
     } else { const s = mmNaPx(); przesun(os(-dx * s, dy * s)); }
-    render3D();
+    draw();
   });
   const koniec = () => { dr = null; }; el.addEventListener('pointerup', koniec); el.addEventListener('pointercancel', koniec);
   el.addEventListener('wheel', e => {
     e.preventDefault(); const r = el.getBoundingClientRect(), nx = (e.clientX - r.left) / r.width * 2 - 1, ny = 1 - (e.clientY - r.top) / r.height * 2, z0 = cam.zoom, z1 = Math.min(1000, Math.max(0.02, z0 * Math.pow(1.0015, -e.deltaY)));
-    const d = 1 / z0 - 1 / z1; przesun(os(nx * cam.right * d, ny * cam.top * d)); cam.zoom = z1; cam.updateProjectionMatrix(); render3D();
+    const d = 1 / z0 - 1 / z1; przesun(os(nx * cam.right * d, ny * cam.top * d)); cam.zoom = z1; cam.updateProjectionMatrix(); draw();
   }, { passive: false });
 }
 function size3D() { const h = $('v3-c'), w = h.clientWidth, ht = h.clientHeight; if (!V3.ren || !w || !ht) return; V3.ren.setSize(w, ht); frame3D(); }
