@@ -62,6 +62,14 @@
   .seg { display: inline-flex; }
   .seg .btn + .btn { border-left: none; }
   #v3d { position: absolute; inset: 0; background: #eef1f5; display: flex; flex-direction: column; z-index: 4; }
+  #vpl { position: absolute; inset: 0; background: #eef1f5; display: flex; flex-direction: column; z-index: 4; }
+  #vpl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 10px; background: #fff; border-bottom: 1px solid var(--line); font-size: .8rem; }
+  #vpl-bar label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  #vpl-tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  #vpl-tabs .btn.on { background: var(--accent); color: #fff; }
+  #vpl-c { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  #vpl-cv { display: block; position: absolute; left: 0; top: 0; }
+  #vpl-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--dark); color: #fff; padding: 12px 18px; font-size: .9rem; max-width: 70%; text-align: center; }
   #v3-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 10px; background: #fff; border-bottom: 1px solid var(--line); font-size: .8rem; }
   #v3-bar label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
   #v3-c { flex: 1; min-height: 0; position: relative; overflow: hidden; }
@@ -145,7 +153,7 @@
   <button class="btn" id="b-undo" title="Cofnij (Ctrl+Z)">⟲ Cofnij</button>
   <button class="btn" id="b-auto" title="Otwory, profile i podział ułożone od nowa automatycznie (ręczne zmiany znikną)">↺ Ułóż automatycznie</button>
   <button class="btn" id="b-fit" title="Dopasuj widok (F)">⤢ Dopasuj</button>
-  <span class="seg"><button class="btn on" id="b-2d" title="Rysunek konturów">2D</button><button class="btn" id="b-3d" title="Bryły 3D, widok izometryczny">3D</button></span>
+  <span class="seg"><button class="btn on" id="b-2d" title="Rysunek konturów">2D</button><button class="btn" id="b-3d" title="Bryły 3D, widok izometryczny">3D</button><button class="btn" id="b-pl" title="Rozmieszczenie części na płycie drukarki Bambu">PŁYTA</button></span>
   <button class="btn go" id="b-dxf" title="Eksport: DXF + szablon PDF; zapis przy elemencie w INDEX" disabled>⬇ Eksport</button>
 </header>
 <main>
@@ -157,6 +165,7 @@
     <button data-pan="warstwy" title="Co widać na rysunku"><svg viewBox="0 0 24 24"><path d="m12 4 9 5-9 5-9-5zM3 14l9 5 9-5"/></svg><span>Warstwy</span></button>
     <button data-pan="bryla" title="Bryły 3D: wymiary, kolory, STL / 3MF"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span>Bryła 3D</span></button>
     <span class="sp"></span>
+    <button data-pan="plyta" title="Rozmieszczenie na płycie drukarki Bambu (H2D)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><rect x="6" y="7" width="5" height="4"/><rect x="13" y="7" width="5" height="9"/><rect x="6" y="13" width="5" height="3"/></svg><span>Płyta</span></button>
     <button data-pan="pomoc" title="Mysz i skróty"><svg viewBox="0 0 24 24"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4M12 18v.5"/></svg><span>Pomoc</span></button>
     <button data-pan="uwagi" id="rail-warn" title="Ostrzeżenia"><svg viewBox="0 0 24 24"><path d="M12 4 2.5 20h19zM12 10v5M12 17.5v.5"/></svg><span>Uwagi</span><i id="warn-n" class="hidden"></i></button>
   </nav>
@@ -302,6 +311,33 @@
         <button type="button" class="btn wide" id="b3-stl" disabled>⬇ STL (osobno każda zaznaczona część, ZIP)</button>
         <button type="button" class="btn wide" id="b3-3mf" disabled>⬇ 3MF (zaznaczone części w jednym)</button>
       </section>
+      <section class="pan" data-pan="plyta" data-t="Płyta drukarki">
+        <div class="hint">Upycha części z podglądu 3D na płytach drukarki (kształt, nie prostokąt). Podstawy, klosze, litery i plasterki idą na osobne płyty; w razie potrzeby przybywa kolejnych płyt.</div>
+        <h3>Płyta</h3>
+        <div class="fld"><span>Szerokość [mm]</span><input type="text" inputmode="decimal" id="pl-w" value="350"></div>
+        <div class="fld"><span>Głębokość [mm]</span><input type="text" inputmode="decimal" id="pl-d" value="320"></div>
+        <div class="fld"><span>Maks. wysokość [mm]</span><input type="text" inputmode="decimal" id="pl-hz" value="325"></div>
+        <div class="fld"><span>Szerokość strefy jednej dyszy</span><input type="text" inputmode="decimal" id="pl-sz" value="25"></div>
+        <div class="row"><label><input type="checkbox" id="pl-l"> używaj też strefy lewej (tylko lewa dysza)</label></div>
+        <div class="row"><label><input type="checkbox" id="pl-r"> używaj też strefy prawej (tylko prawa dysza)</label></div>
+        <h3>Rozmieszczenie</h3>
+        <div class="fld"><span>Odstęp między częściami [mm]</span><input type="text" inputmode="decimal" id="pl-gap" value="3"></div>
+        <div class="fld"><span>Margines od krawędzi [mm]</span><input type="text" inputmode="decimal" id="pl-mg" value="3"></div>
+        <div class="fld"><span>Obroty części</span><select id="pl-rot"><option value="0">bez obrotów</option><option value="90" selected>co 90°</option><option value="45">co 45°</option><option value="15">co 15° (wolniej)</option></select></div>
+        <div class="fld"><span>Dokładność</span><select id="pl-res"><option value="2">2 mm (szybko)</option><option value="1" selected>1 mm</option></select></div>
+        <h3>Co rozmieścić</h3>
+        <div class="row"><label><input type="checkbox" id="pl-gpodstawa" checked> podstawy</label></div>
+        <div class="row"><label><input type="checkbox" id="pl-gklosz" checked> klosze</label></div>
+        <div class="row"><label><input type="checkbox" id="pl-glitera" checked> litery pełne</label></div>
+        <div class="row"><label><input type="checkbox" id="pl-gplaster" checked> plasterki</label></div>
+        <div class="row"><label><input type="checkbox" id="pl-fk"> klosze do góry nogami (frontem do stołu)</label></div>
+        <button type="button" class="btn go wide" id="pl-go">▦ Rozmieść</button>
+        <div class="vals" id="pl-report">Jeszcze nie rozmieszczono.</div>
+        <h3>Eksport</h3>
+        <button type="button" class="btn wide" id="pl-e1" disabled>⬇ 3MF tej płyty</button>
+        <button type="button" class="btn wide" id="pl-e3" disabled>⬇ 3MF wszystkich płyt (ZIP)</button>
+        <button type="button" class="btn wide" id="pl-es" disabled>⬇ STL wszystkich płyt (ZIP)</button>
+      </section>
       <section class="pan" data-pan="uwagi" data-t="Ostrzeżenia"><div id="warn-list"></div></section>
       <section class="pan" data-pan="pomoc" data-t="Mysz i skróty">
         <div class="hint">kółko = zoom<br>przeciągnięcie tła = przesuwanie widoku<br>przeciągnij otwór / profil / linię podziału = przesuń<br>dwuklik = nowy otwór na przewód (Shift = FIX)<br>Alt + dwuklik = linia podziału (Alt + Shift = pozioma)<br>prawy klawisz na literze = cyfra<br>Delete = usuń zaznaczone<br>Ctrl+Z = cofnij · F = dopasuj<br>↺ = ułóż od nowa<br><br><b>W 3D:</b> lewy przycisk = obrót, kółko = zoom, środkowy lub prawy = przesuwanie, klik w plasterek = zmiana długości, prawy klawisz na literze = cyfra.</div>
@@ -325,6 +361,10 @@
       </div>
       <div id="v3-c"></div>
       <div id="v3-msg" class="hidden"></div>
+    </div>
+    <div id="vpl" class="hidden">
+      <div id="vpl-bar"><span id="vpl-tabs"></span><label><input type="checkbox" id="vpl-n" checked> nazwy</label><span class="sp"></span><span id="vpl-info"></span></div>
+      <div id="vpl-c"><canvas id="vpl-cv"></canvas><div id="vpl-msg" class="hidden"></div></div>
     </div>
   </div>
 </main>
@@ -1685,7 +1725,7 @@ function addSpin(inp, step, after) {
 restore();
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id.startsWith('b3-')) { save(); if (window.mark3D) mark3D(); if (id === 'b3-cyf') draw(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
-  if (i.id.startsWith('tx-') || i.type === 'file' || i.type === 'range') return;
+  if (i.id.startsWith('tx-') || i.id.startsWith('pl-') || i.type === 'file' || i.type === 'range') return;
   if (i.id === 'p-name') return save();
   if (i.id === 'b3-wgl') { W.plReg = null; refreshPlates(); draw(); }
   if (i.id === 'b3-cyf') draw();
@@ -1725,5 +1765,6 @@ document.querySelectorAll('input[name=ex-kind]').forEach(r => { r.onchange = exS
 pinUI(); computeLayers(); renderSide(); fitView(); startFromUrl();
 </script>
 <script src="offset3d.js"></script>
+<script src="offsetplate.js"></script>
 </body>
 </html>

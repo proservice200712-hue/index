@@ -458,13 +458,16 @@ async function exportSTL() {
   saveBlob(fileBase() + '_STL.zip', await zipFiles(files, 'application/zip'));
   toast(`Zapisano ${files.length} plików STL w ZIP`);
 }
-async function export3MF() {
-  const bodies = widoczne3D(); if (!bodies.length) return toast('Zaznacz w podglądzie 3D, co ma się wyeksportować');
+async function mf3Blob(bodies) {
   const enc = new TextEncoder(), files = [
     { name: '[Content_Types].xml', data: enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>') },
     { name: '_rels/.rels', data: enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>') },
     { name: '3D/3dmodel.model', data: enc.encode(model3mf(bodies)) }];
-  saveBlob(fileBase() + '.3mf', await zipFiles(files, 'model/3mf'));
+  return zipFiles(files, 'model/3mf');
+}
+async function export3MF() {
+  const bodies = widoczne3D(); if (!bodies.length) return toast('Zaznacz w podglądzie 3D, co ma się wyeksportować');
+  saveBlob(fileBase() + '.3mf', await mf3Blob(bodies));
   toast(`Zapisano 3MF: ${bodies.length} części`);
 }
 // ===================== start =====================
