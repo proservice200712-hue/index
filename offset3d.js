@@ -358,6 +358,27 @@ function material3D(part, plType) {
   const T = V3.THREE, sel = { klosz: ['b3-ck', 'b3-tk', 0.5], podstawa: ['b3-cp', 'b3-tp', 0.55], pleksa: ['b3-cx', 'b3-tx', 0.45], litera: ['b3-cp', 'b3-tp', 0.55] }[part], tr = $(sel[1]).checked;
   return new T.MeshStandardMaterial({ color: Number($(sel[0]).value), flatShading: true, roughness: 0.55, metalness: 0.02, transparent: tr, opacity: tr ? sel[2] : 1, depthWrite: !tr, side: T.DoubleSide });
 }
+// linie graniczne bryły: ostre krawędzie (> 28°) oraz obrys każdej płaskiej ściany poziomej (wierzch, spód, stopnie) — także na łukach, gdzie
+// ścianka boczna jest zbudowana z wielu drobnych trójkątów i zwykły próg kąta nic by tam nie narysował; gładkie boki łuków nie dostają linii
+function konturyGeom(g, T) {
+  const pos = g.attributes.position.array, idx = g.index.array, key = i => Math.round(pos[3 * i] * 1e3) + ',' + Math.round(pos[3 * i + 1] * 1e3) + ',' + Math.round(pos[3 * i + 2] * 1e3), E = new Map(), out = [], cosA = Math.cos(28 * Math.PI / 180);
+  for (let t = 0; t < idx.length; t += 3) {
+    const v = [idx[t], idx[t + 1], idx[t + 2]], p = v.map(i => [pos[3 * i], pos[3 * i + 1], pos[3 * i + 2]]);
+    const u = [p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]], w = [p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2]];
+    let n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]]; const l = Math.hypot(...n); if (l < 1e-12) continue; n = n.map(c => c / l);
+    for (let e = 0; e < 3; e++) {
+      const a = v[e], b = v[(e + 1) % 3], ka = key(a), kb = key(b); if (ka === kb) continue;
+      const k = ka < kb ? ka + '|' + kb : kb + '|' + ka, o = E.get(k); if (o) o.n.push(n); else E.set(k, { a, b, n: [n] });
+    }
+  }
+  const flat = n => Math.abs(n[2]) > 0.99999;
+  E.forEach(o => {
+    const [n1, n2] = o.n; let on = o.n.length !== 2;
+    if (!on) on = n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2] < cosA || flat(n1) !== flat(n2);
+    if (on) out.push(pos[3 * o.a], pos[3 * o.a + 1], pos[3 * o.a + 2], pos[3 * o.b], pos[3 * o.b + 1], pos[3 * o.b + 2]);
+  });
+  const lg = new T.BufferGeometry(); lg.setAttribute('position', new T.BufferAttribute(Float32Array.from(out), 3)); return lg;
+}
 function show3D() {
   init3D(); const T = V3.THREE;
   V3.meshes.forEach(m => { m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); V3.group.remove(m); }); V3.meshes = []; V3.hl = null;
@@ -365,7 +386,7 @@ function show3D() {
   V3.bodies.forEach(b => {
     const g = new T.BufferGeometry(), n = b.numProp || 3, pos = n === 3 ? b.pos : Float32Array.from({ length: b.pos.length / n * 3 }, (_, i) => b.pos[Math.floor(i / 3) * n + i % 3]);
     g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setIndex(new T.BufferAttribute(b.tri, 1));
-    const mesh = new T.Mesh(g, material3D(b.part, b.plType)), edges = new T.LineSegments(new T.EdgesGeometry(g, 28), new T.LineBasicMaterial({ color: 0x2d3748, transparent: true, opacity: 0.45 }));
+    const mesh = new T.Mesh(g, material3D(b.part, b.plType)), edges = new T.LineSegments(konturyGeom(g, T), new T.LineBasicMaterial({ color: 0x2d3748, transparent: true, opacity: 0.6 }));
     mesh.add(edges); mesh.userData = { part: b.part, plType: b.plType, plate: b.plate }; mesh.renderOrder = b.part === 'podstawa' ? 0 : b.part === 'klosz' ? 1 : 2; V3.group.add(mesh); V3.meshes.push(mesh);
     for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], b.bb.min[i]); mx[i] = Math.max(mx[i], b.bb.max[i]); }
   });
@@ -429,20 +450,22 @@ function model3mf(bodies) {
   s.push('</resources>\n<build>'); bodies.forEach((b, i) => s.push(`<item objectid="${i + 1}"/>`)); s.push('</build>\n</model>');
   return s.join('');
 }
+// eksportują się tylko części zaznaczone w podglądzie 3D (klosz, podstawa, pleksa, plasterki)
+const widoczne3D = () => V3.bodies.filter((b, i) => !V3.meshes[i] || V3.meshes[i].visible);
 async function exportSTL() {
-  if (!V3.bodies.length) return;
-  const files = V3.bodies.map(b => ({ name: b.name + '.stl', data: stlOf(b) }));
+  const bodies = widoczne3D(); if (!bodies.length) return toast('Zaznacz w podglądzie 3D, co ma się wyeksportować');
+  const files = bodies.map(b => ({ name: b.name + '.stl', data: stlOf(b) }));
   saveBlob(fileBase() + '_STL.zip', await zipFiles(files, 'application/zip'));
   toast(`Zapisano ${files.length} plików STL w ZIP`);
 }
 async function export3MF() {
-  if (!V3.bodies.length) return;
+  const bodies = widoczne3D(); if (!bodies.length) return toast('Zaznacz w podglądzie 3D, co ma się wyeksportować');
   const enc = new TextEncoder(), files = [
     { name: '[Content_Types].xml', data: enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>') },
     { name: '_rels/.rels', data: enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>') },
-    { name: '3D/3dmodel.model', data: enc.encode(model3mf(V3.bodies)) }];
+    { name: '3D/3dmodel.model', data: enc.encode(model3mf(bodies)) }];
   saveBlob(fileBase() + '.3mf', await zipFiles(files, 'model/3mf'));
-  toast(`Zapisano 3MF: ${V3.bodies.length} części`);
+  toast(`Zapisano 3MF: ${bodies.length} części`);
 }
 // ===================== start =====================
 [['b3-ck', 0], ['b3-cp', 0], ['b3-cx', 5]].forEach(([id, d]) => { const s = $(id), had = s.dataset.v; s.innerHTML = PALETA3.map(([n, c]) => `<option value="${c}">${n}</option>`).join(''); s.value = String(PALETA3[d][1]); });
