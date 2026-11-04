@@ -4558,6 +4558,27 @@ function axBadge(el, cls = 'ax-badge') {
   return `<a class="${cls}" href="${esc(axLink(el))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(tip)}">${cls === 'ax-badge' ? 'AX' : '🗄 Archiwum X'} ${esc(txt)}</a>`;
 }
 let axJob = null;
+// drugie zdjęcie eksponatu („print screen”): grafika elementu z wymiarami — szerokość pod spodem, wysokość z lewej; trafia na Cloudinary i zostaje okładką kafelka
+async function axDimImage(el, mm) {
+  if (!el.thumb || !hasDims(el)) return '';
+  const img = await new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('nie wczytano grafiki')); i.src = el.thumb; });
+  const k = Math.min(1, 1500 / img.naturalWidth, 800 / img.naturalHeight), dw = Math.round(img.naturalWidth * k), dh = Math.round(img.naturalHeight * k);
+  const ml = 190, mt = 50, mr = 50, mb = 170, c = document.createElement('canvas'); c.width = dw + ml + mr; c.height = dh + mt + mb;
+  const g = c.getContext('2d'), col = '#2d3748', txt = v => (mm ? Math.round(v) : Math.round(v) / 10).toString().replace('.', ',') + (mm ? ' mm' : ' cm');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, ml, mt, dw, dh);
+  g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.setLineDash([10, 8]); g.strokeRect(ml, mt, dw, dh); g.setLineDash([]);
+  g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 3;
+  const arrow = (x, y, dx, dy) => { g.beginPath(); g.moveTo(x, y); g.lineTo(x - dx * 22 - dy * 9, y - dy * 22 + dx * 9); g.lineTo(x - dx * 22 + dy * 9, y - dy * 22 - dx * 9); g.closePath(); g.fill(); };
+  const yB = mt + dh + 60, xL = ml - 60;
+  g.beginPath(); g.moveTo(ml, mt + dh + 8); g.lineTo(ml, yB + 14); g.moveTo(ml + dw, mt + dh + 8); g.lineTo(ml + dw, yB + 14); g.moveTo(ml, yB); g.lineTo(ml + dw, yB); g.stroke();
+  arrow(ml, yB, -1, 0); arrow(ml + dw, yB, 1, 0);
+  g.beginPath(); g.moveTo(ml - 8, mt); g.lineTo(xL - 14, mt); g.moveTo(ml - 8, mt + dh); g.lineTo(xL - 14, mt + dh); g.moveTo(xL, mt); g.lineTo(xL, mt + dh); g.stroke();
+  arrow(xL, mt, 0, -1); arrow(xL, mt + dh, 0, 1);
+  g.font = '700 56px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(txt(Number(el.w)), ml + dw / 2, yB + 22);
+  g.save(); g.translate(xL - 24, mt + dh / 2); g.rotate(-Math.PI / 2); g.textBaseline = 'bottom'; g.fillText(txt(Number(el.h)), 0, 0); g.restore();
+  const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+  return (await storeImage(blob, 2400, { png: true })).url;
+}
 function openArchiwumDialog(eid) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project || !isAdmin()) return;
   if (axLinked(el)) { window.open(axLink(el), '_blank'); return; }
@@ -4569,7 +4590,7 @@ function openArchiwumDialog(eid) {
   const today = new Date().toLocaleDateString('pl-PL');
   const rec = {
     company: p.name || '', type: g.type, lighting: g.light,
-    // tylko podgląd tego elementu (miniatura grafiki); drugie zdjęcie zostaje puste
+    // zdjęcie = miniatura grafiki; drugie zdjęcie (z wymiarami) dokłada axDimImage
     photoCamera: el.thumb || null, photoScreen: null, cover: 'camera',
     width: hasDims(el) ? dim(el.w) : '', height: hasDims(el) ? dim(el.h) : '', thickness: dim(el.thick), dimUnit: mm ? 'mm' : 'cm',
     notesList: [{ text: `Z INDEX: stoisko ${p.name}${p.fair ? ' (' + p.fair + ')' : ''}, element ${markOf(el)} — ${typeLabel(el)}${el.notes ? '. ' + el.notes : ''}`, date: today }],
@@ -4583,14 +4604,16 @@ function openArchiwumDialog(eid) {
     <iframe src="${AX_URL}?embed=index${TEST ? '&test' : ''}" title="Archiwum X — nowy eksponat"></iframe>`;
   document.body.appendChild(wrap);
   wrap.querySelector('button').onclick = closeArchiwumFrame;
-  axJob = { eid, rec, ref, pid: p.id, win: wrap.querySelector('iframe').contentWindow };
+  axJob = { eid, rec, ref, pid: p.id, win: wrap.querySelector('iframe').contentWindow,
+    // obrazek z wymiarami jako drugie zdjęcie i okładka; gdy się nie uda, zostaje sama grafika
+    prep: axDimImage(el, mm).then(u => { if (u) { rec.photoScreen = u; rec.cover = 'screen'; } }).catch(e => console.warn('obrazek z wymiarami', e)) };
 }
 function closeArchiwumFrame() { const w = $('ax-frame'); if (w) w.remove(); axJob = null; }
 window.addEventListener('message', async ev => {
   const d = ev.data;
   if (ev.origin !== AX_ORIGIN || !d || !d.ax || !axJob || ev.source !== axJob.win) return;
   const job = axJob;
-  if (d.type === 'ready') job.win.postMessage({ ax: true, type: 'prefill', user: S.me.login, rec: job.rec, ref: job.ref }, AX_ORIGIN);
+  if (d.type === 'ready') { await job.prep; if (axJob === job) job.win.postMessage({ ax: true, type: 'prefill', user: S.me.login, rec: job.rec, ref: job.ref }, AX_ORIGIN); }
   else if (d.type === 'close') closeArchiwumFrame();
   else if (d.type === 'saved' && d.id) {
     closeArchiwumFrame();
