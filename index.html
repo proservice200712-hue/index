@@ -3276,6 +3276,7 @@ async function openProject(pid) {
     if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
     renderOverlay(); renderElements(); syncProjectStats(); updateHint();
     autoDoorThumbs();
+    axVerifyLinks(rows, pid);
   }));
   S.unsubProject.push(DB.sub(pLog(pid), rows => {
     S.log = rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
@@ -4708,6 +4709,28 @@ function openAxPicker(onPick) {
     .catch(e => { $('axp-list').innerHTML = `<div class="hint">Nie udało się wczytać Archiwum X: ${esc(e.message)}</div>`; });
   $('axp-ref').onclick = () => { $('axp-list').innerHTML = '<div class="hint">Wczytuję Archiwum X…</div>'; load(true); };
   load(false);
+}
+// eksponat usunięty w Archiwum X: element traci powiązanie (pole „Archiwum X” puste), można go dodać od nowa
+const axSeen = new Map(); let axVerBusy = false;
+async function axVerifyLinks(rows, pid) {
+  if (DEMO || TEST || S.practice || axVerBusy || !S.me) return;
+  const ids = new Set(); rows.forEach(e => { if (e.archiwumId) ids.add(e.archiwumId); (e.archiwumIds || []).forEach(i => ids.add(i)); });
+  const now = Date.now(), todo = [...ids].filter(i => !(axSeen.get(i) > now - 120000)); if (!todo.length) return;
+  axVerBusy = true;
+  try {
+    const gone = new Set();
+    await Promise.all(todo.map(async i => { try { const r = await DB.get('records', i); axSeen.set(i, now); if (!r) gone.add(i); } catch (e) { /* brak odczytu: nic nie ruszamy */ } }));
+    for (const e of rows) {
+      let u = null;
+      if (e.archiwumId && gone.has(e.archiwumId)) u = { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [] };
+      else if ((e.archiwumIds || []).some(i => gone.has(i))) {
+        const keep = e.archiwumIds.map((id, k) => [id, (e.archiwumNos || [])[k]]).filter(q => !gone.has(q[0]));
+        u = keep.length ? { archiwumIds: keep.map(q => q[0]), archiwumNos: keep.map(q => q[1] || '') } : { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [] };
+      }
+      if (!u) continue;
+      try { await DB.update(pElements(pid), e.id, { ...u, updatedAt: nowIso(), updatedBy: S.me.id }); addLog(pid, `Element ${markOf(normalizeEl(e))}: eksponat usunięty z Archiwum X — odłączono`, e.id); } catch (er) { console.warn('odłączanie od Archiwum X', er); }
+    }
+  } finally { axVerBusy = false; }
 }
 function axClearPick(el) {
   Object.assign(el, { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [] });
