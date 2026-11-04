@@ -2515,6 +2515,8 @@ function startProjectsSub() {
 // stoisko „GOG testy” to materiał samouczka (pokaz, stoisko ćwiczeniowe) — nie ma go na liście stoisk
 const isTourSrc = p => p.id === TOUR_PID || String(p.name || '').trim().toLowerCase() === TOUR_NAME;
 const canSee = p => !isTourSrc(p) && (isAdmin() || (p.users || []).includes(S.me.id) || (p.team || []).some(m => m.uid === S.me.id));
+// targi widzi administrator, ich autor i ten, kogo administrator dodał do któregoś stoiska na tych targach (inni nie widzą nawet nazwy)
+const canSeeFair = f => isAdmin() || f.createdBy === S.me.id || S.projects.some(p => p.fairId === f.id && canSee(p));
 // zespół projektu: konta INDEX ({uid}) i osoby spoza systemu ({name})
 const initialsOf = n => String(n || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
 function teamAvatar(m) {
@@ -2638,7 +2640,7 @@ function renderSide() {
   const adm = isAdmin(), showArch = adm && S.showArch;
   const stands = S.projects.filter(canSee).filter(p => showArch || !standArchived(p));
   // ręczna kolejność (sideOrder) ma pierwszeństwo, reszta jak dotąd
-  const fairs = S.fairs.filter(f => showArch || !f.archived).sort((a, b) => ((a.sideOrder ?? Infinity) - (b.sideOrder ?? Infinity)) || fairSort(a, b));
+  const fairs = S.fairs.filter(f => canSeeFair(f) && (showArch || !f.archived)).sort((a, b) => ((a.sideOrder ?? Infinity) - (b.sideOrder ?? Infinity)) || fairSort(a, b));
   const byFair = {};
   stands.forEach(p => { const k = p.fairId && fairById(p.fairId) ? p.fairId : '_none'; (byFair[k] = byFair[k] || []).push(p); });
   const groups = fairs.map(f => ({ f, list: byFair[f.id] || [] }));
@@ -2819,7 +2821,7 @@ function openFairForm(fid) {
 // kopia stoiska: wizki (te same pliki), elementy z miejscami i miniaturami, zespół — bez historii
 function openCopyStand(pid) {
   const p = S.projects.find(x => x.id === pid); if (!p) return;
-  const fairOpts = S.fairs.filter(f => !f.archived).sort(fairSort)
+  const fairOpts = S.fairs.filter(f => !f.archived && canSeeFair(f)).sort(fairSort)
     .map(f => `<option value="${f.id}" ${f.id === p.fairId ? 'selected' : ''}>${esc(f.name)}${f.city ? ' · ' + esc(f.city) : ''}</option>`).join('');
   const m = openModal({ title: 'Kopiuj stoisko', body: `
     <div class="fld"><label>Nazwa nowego stoiska</label><input type="text" id="cs-name" value="${esc(p.name)}"></div>
@@ -3097,7 +3099,7 @@ function openProjectForm(pid, fairId) {
     const f = fairById(fairId);
     p = { fairId, deadlineGfx: f.deadlineGfx || autoDeadline(f.eventStart), deadlinePack: f.deadlinePack || autoPack(f.eventStart), eventStart: f.eventStart || '', eventEnd: f.eventEnd || '' };
   }
-  const fairOpts = S.fairs.filter(f => !f.archived || f.id === p.fairId).sort(fairSort)
+  const fairOpts = S.fairs.filter(f => (!f.archived && canSeeFair(f)) || f.id === p.fairId).sort(fairSort)
     .map(f => `<option value="${f.id}" ${f.id === p.fairId ? 'selected' : ''}>${esc(f.name)}${f.city ? ' · ' + esc(f.city) : ''}</option>`).join('');
   const m = openModal({
     title: pid ? 'Ustawienia stoiska' : 'Nowe stoisko',
