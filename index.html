@@ -4620,7 +4620,7 @@ window.addEventListener('message', async ev => {
     closeArchiwumFrame();
     const el = S.elements.find(e => e.id === job.eid);
     try {
-      await DB.update(pElements(job.pid), job.eid, { archiwumId: d.id, archiwumNo: d.number || '', updatedAt: nowIso(), updatedBy: S.me.id });
+      await DB.update(pElements(job.pid), job.eid, { archiwumId: d.id, archiwumNo: d.number || '', axDimUrl: job.rec.cover === 'screen' ? (job.rec.photoScreen || '') : '', updatedAt: nowIso(), updatedBy: S.me.id });
       addLog(job.pid, `Element ${el ? markOf(el) : job.ref.mark} wpisany do Archiwum X jako #${d.number || '?'}`, job.eid);
       toast(`Wpisano do Archiwum X: #${d.number || '?'}`, 'success', 5000);
     } catch (e) { toast('Eksponat zapisany w Archiwum X, ale nie udało się połączyć go z elementem: ' + e.message, 'error', 7000); }
@@ -4710,28 +4710,66 @@ function openAxPicker(onPick) {
   $('axp-ref').onclick = () => { $('axp-list').innerHTML = '<div class="hint">Wczytuję Archiwum X…</div>'; load(true); };
   load(false);
 }
-// eksponat usunięty w Archiwum X: element traci powiązanie (pole „Archiwum X” puste), można go dodać od nowa
-const axSeen = new Map(); let axVerBusy = false;
-async function axVerifyLinks(rows, pid) {
-  if (DEMO || TEST || S.practice || axVerBusy || !S.me) return;
-  const ids = new Set(); rows.forEach(e => { if (e.archiwumId) ids.add(e.archiwumId); (e.archiwumIds || []).forEach(i => ids.add(i)); });
-  const now = Date.now(), todo = [...ids].filter(i => !(axSeen.get(i) > now - 120000)); if (!todo.length) return;
-  axVerBusy = true;
-  try {
-    const gone = new Set();
-    await Promise.all(todo.map(async i => { try { const r = await DB.get('records', i); axSeen.set(i, now); if (!r) gone.add(i); } catch (e) { /* brak odczytu: nic nie ruszamy */ } }));
-    for (const e of rows) {
-      let u = null;
-      if (e.archiwumId && gone.has(e.archiwumId)) u = { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [] };
-      else if ((e.archiwumIds || []).some(i => gone.has(i))) {
-        const keep = e.archiwumIds.map((id, k) => [id, (e.archiwumNos || [])[k]]).filter(q => !gone.has(q[0]));
-        u = keep.length ? { archiwumIds: keep.map(q => q[0]), archiwumNos: keep.map(q => q[1] || '') } : { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [] };
-      }
-      if (!u) continue;
-      try { await DB.update(pElements(pid), e.id, { ...u, updatedAt: nowIso(), updatedBy: S.me.id }); addLog(pid, `Element ${markOf(normalizeEl(e))}: eksponat usunięty z Archiwum X — odłączono`, e.id); } catch (er) { console.warn('odłączanie od Archiwum X', er); }
-    }
-  } finally { axVerBusy = false; }
+// powiązanie z Archiwum X: (1) eksponat usunięty w Archiwum X → element traci powiązanie (pole „Archiwum X” puste, można dodać od nowa);
+// (2) wymiary (szerokość, wysokość, grubość) idą w obie strony. element.axDims = wymiary [mm] z ostatniej synchronizacji:
+//     zmiana w INDEX (różnią się od axDims) idzie do Archiwum X, zmiana w Archiwum X (różni się od axDims rekord) trafia do elementu.
+//     Przy zmianie wymiarów obrazek z wymiarami (element.axDimUrl, jedyne zdjęcie eksponatu z INDEX) rysuje się od nowa.
+const axRecs = new Map(); let axVerBusy = false, axPend = null;
+async function axRec(id, fresh) {
+  const c = axRecs.get(id); if (c && !fresh && c.t > Date.now() - 120000) return c.r;
+  const r = await DB.get('records', id); axRecs.set(id, { t: Date.now(), r }); return r;
 }
+const axDimsOf = e => [e.w, e.h, e.thick].map(v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return n > 0 ? Math.round(n * 10) / 10 : 0; });
+const axRecDims = r => [r.width, r.height, r.thickness].map(v => Number(axMM(r, v)) || 0);
+const axSame = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 0.55);
+const axRecVal = (r, mm) => mm > 0 ? String(r.dimUnit === 'mm' ? mm : Math.round(mm) / 10) : '';
+const AX_NONE = { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [], axDims: null, axDimsId: '', axDimUrl: '' };
+async function axRedraw(e, r, d) {   // nowy obrazek z wymiarami, o ile eksponat nadal ma ten wygenerowany w INDEX
+  if (!e.axDimUrl || r.photoScreen !== e.axDimUrl || !(d[0] > 0 && d[1] > 0)) return '';
+  try { return await axDimImage({ ...e, w: d[0], h: d[1] }, r.dimUnit === 'mm'); } catch (x) { return ''; }
+}
+async function axVerifyLinks(rows, pid, force) {
+  if (DEMO || TEST || S.practice || !S.me) return;
+  if (axVerBusy) { axPend = { rows, pid, force }; return; }
+  axVerBusy = true;
+  const ePath = pElements(pid), upd = o => ({ ...o, updatedAt: nowIso(), updatedBy: S.me.id });
+  try {
+    // pojedyncze eksponaty: istnienie + wymiary
+    for (const e of rows) {
+      if (!e.archiwumId) continue;
+      const ed = axDimsOf(e), ad = Array.isArray(e.axDims) && e.axDims.length === 3 && e.axDimsId === e.archiwumId ? e.axDims : null, c = axRecs.get(e.archiwumId), mine = !!ad && !axSame(ed, ad);
+      if (!force && !mine && ad && c && c.t > Date.now() - 120000) continue;
+      let r; try { r = await axRec(e.archiwumId, force || mine); } catch (x) { continue; }   // brak odczytu: nic nie ruszamy
+      try {
+        if (!r) { await DB.update(ePath, e.id, upd(AX_NONE)); addLog(pid, `Element ${markOf(normalizeEl(e))}: eksponat usunięty z Archiwum X — odłączono`, e.id); continue; }
+        const rd = axRecDims(r);
+        if (!ad && axSame(ed, rd)) { await DB.update(ePath, e.id, { axDims: ed, axDimsId: e.archiwumId }); continue; }
+        if (!ad || mine) {            // INDEX → Archiwum X
+          const u = { width: axRecVal(r, ed[0]), height: axRecVal(r, ed[1]), thickness: axRecVal(r, ed[2]), updatedAt: nowIso() }, url = await axRedraw(e, r, ed);
+          if (url) u.photoScreen = url;
+          await DB.update('records', r.id, u); axRecs.set(r.id, { t: Date.now(), r: { ...r, ...u } });
+          await DB.update(ePath, e.id, { axDims: ed, axDimsId: e.archiwumId, ...(url ? { axDimUrl: url } : {}) });
+        } else if (!axSame(rd, ad)) {  // Archiwum X → INDEX
+          const u = { w: rd[0] || '', h: rd[1] || '', axDims: rd, axDimsId: e.archiwumId }; if (rd[2] > 0 || e.thick) u.thick = rd[2] || '';
+          const url = await axRedraw(e, r, rd);
+          if (url) { await DB.update('records', r.id, { photoScreen: url, updatedAt: nowIso() }); axRecs.set(r.id, { t: Date.now(), r: { ...r, photoScreen: url } }); u.axDimUrl = url; }
+          await DB.update(ePath, e.id, upd(u)); addLog(pid, `Element ${markOf(normalizeEl(e))}: wymiary z Archiwum X (${rd[0]} × ${rd[1]}${rd[2] ? ', gr. ' + rd[2] : ''} mm)`, e.id);
+        }
+      } catch (er) { console.warn('synchronizacja z Archiwum X', er); }
+    }
+    // komplety i grupy: tylko istnienie eksponatów
+    for (const e of rows) {
+      const ids = e.archiwumIds || []; if (e.archiwumId || !ids.length) continue;
+      const gone = new Set();
+      await Promise.all(ids.map(async i => { try { if (!(await axRec(i, force))) gone.add(i); } catch (x) { /* brak odczytu */ } }));
+      if (!gone.size) continue;
+      const keep = ids.map((id, k) => [id, (e.archiwumNos || [])[k]]).filter(q => !gone.has(q[0]));
+      try { await DB.update(ePath, e.id, upd(keep.length ? { archiwumIds: keep.map(q => q[0]), archiwumNos: keep.map(q => q[1] || '') } : AX_NONE)); addLog(pid, `Element ${markOf(normalizeEl(e))}: eksponat usunięty z Archiwum X — odłączono`, e.id); } catch (er) { console.warn('odłączanie od Archiwum X', er); }
+    }
+  } finally { axVerBusy = false; const n = axPend; axPend = null; if (n) axVerifyLinks(n.rows, n.pid, n.force); }
+}
+// po powrocie do karty INDEX (np. z Archiwum X) wymiary sprawdzamy od razu
+window.addEventListener('focus', () => { if (S.project && S.elements) axVerifyLinks(S.elements, S.project.id, true); });
 function axClearPick(el) {
   Object.assign(el, { archiwumId: '', archiwumNo: '', archiwumKind: '', archiwumName: '', archiwumTag: '', archiwumIds: [], archiwumNos: [] });
 }
