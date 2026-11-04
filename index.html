@@ -1431,6 +1431,32 @@ let LANG = (() => { try { const l = localStorage.getItem('INDEX_LANG'); return [
 // eksport w innym języku niż strona: na czas rysowania stron podmieniamy LANG (tr / TT / trCtx czytają go na bieżąco)
 const PAGE_LANG = LANG;
 async function withLang(l, fn) { LANG = l || PAGE_LANG; try { return await fn(); } finally { LANG = PAGE_LANG; } }
+// uwagi wpisane przez ludzi tłumaczy przy eksporcie darmowy tłumacz w sieci (MyMemory); wyniki zostają w przeglądarce, żeby nie pytać drugi raz
+const NOTE_TR = { uk: new Map(), en: new Map() }, NOTE_KEY = 'INDEX_NOTES_TR';
+const noteCache = (() => { try { return JSON.parse(localStorage.getItem(NOTE_KEY) || '{}') || {}; } catch (e) { return {}; } })();
+async function mtChunk(text, lang) {
+  const r = await fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=pl|' + lang), j = await r.json();
+  const t = j && j.responseData && j.responseData.translatedText;
+  if (!r.ok || !t || Number(j.responseStatus) !== 200 || /MYMEMORY WARNING|INVALID/i.test(t)) throw new Error('tłumacz niedostępny');
+  return t;
+}
+async function mtNote(text, lang) {
+  const key = lang + '|' + text; if (noteCache[key]) return noteCache[key];
+  const parts = text.match(/[^.!?\n]+[.!?]*\s*/g) || [text], chunks = []; let cur = '';
+  parts.forEach(q => { if ((cur + q).length > 400 && cur) { chunks.push(cur); cur = ''; } cur += q; }); if (cur) chunks.push(cur);
+  const out = []; for (const c of chunks) out.push(c.trim() ? (await mtChunk(c, lang)).trim() : c);
+  const res = out.join(' '); noteCache[key] = res; try { localStorage.setItem(NOTE_KEY, JSON.stringify(noteCache)); } catch (e) { /* bez zapisu */ }
+  return res;
+}
+// przed rysowaniem eksportu: uwagi elementów, których nie ma w słowniku, idą do tłumacza; tr() podstawia gotowe tłumaczenia
+async function translateNotes(lang) {
+  if (!NOTE_TR[lang]) return 0;
+  const todo = [...new Set((S.elements || []).map(e => String(e.notes || '').trim()).filter(t => t && /\p{L}/u.test(t) && !NOTE_TR[lang].has(t)))];
+  let fail = 0;
+  for (const t of todo) { try { NOTE_TR[lang].set(t, await mtNote(t, lang)); } catch (e) { fail++; } }
+  if (fail) toast(`Nie udało się przetłumaczyć uwag (${fail}) — zostają po polsku`, 'error', 6000);
+  return todo.length - fail;
+}
 const I18N_PAIRS = [
   // ogólne, logowanie
   ['Projekty', 'Проєкти', 'Projects'], ['Projekt', 'Проєкт', 'Project'], ['Eksport', 'Експорт', 'Export'],
@@ -1641,6 +1667,7 @@ const I18N = {};
 I18N_PAIRS.forEach(([pl, uk, en]) => { I18N[pl] = { uk, en }; });
 function trCore(t) {
   const d = I18N[t]; if (d) return d[LANG];
+  if (NOTE_TR[LANG] && NOTE_TR[LANG].has(t)) return NOTE_TR[LANG].get(t);
   for (const [rx, uk, en] of I18N_RX) if (rx.test(t)) return t.replace(rx, LANG === 'uk' ? uk : en);
   return null;
 }
@@ -1656,9 +1683,11 @@ function tr(raw) {
   }
   if (r == null) { const m = t.match(/^(.*?)\s*\[([^\]]+)\]$/); if (m) { const c = trCore(m[1]); if (c != null) r = c + ' [' + m[2] + ']'; } }
   if (r == null) { const i = t.indexOf(': '); if (i > 0) { const c = trCore(t.slice(0, i)); if (c != null) r = c + t.slice(i); } }
-  if (r == null && /( — | · |, )/.test(t)) { // złożone etykiety, np. „Logo 3D — Neon · SEG"
-    let changed = false;
-    const out = t.split(/( — | · |, )/).map(part => { if (/^( — | · |, )$/.test(part)) return part; const c = trCore(part.trim()); if (c != null) { changed = true; return c; } return part; }).join('');
+  let t2 = t, noted = false;   // przetłumaczone uwagi wstawiamy w całości, zanim tekst pokroi się na części po „ · ” i „, ”
+  if (r == null && NOTE_TR[LANG] && NOTE_TR[LANG].size) NOTE_TR[LANG].forEach((v, k) => { if (t2.includes(k)) { t2 = t2.split(k).join(v); noted = true; } });
+  if (r == null && (noted || /( — | · |, )/.test(t))) { // złożone etykiety, np. „Logo 3D — Neon · SEG"
+    let changed = noted;
+    const out = t2.split(/( — | · |, )/).map(part => { if (/^( — | · |, )$/.test(part)) return part; const c = trCore(part.trim()); if (c != null) { changed = true; return c; } return part; }).join('');
     if (changed) r = out;
   }
   return r == null ? raw : lead + r + trail;
@@ -8325,6 +8354,7 @@ async function exportDoc(w, mode, v, lang = LANG) {
   try {
     const p = S.project, ver = mode === 'save' ? v : (Number(p.indexVersion) || 0);
     const stamp = (ver ? `Index_v${ver}  ` : 'Index  ') + dateStamp();
+    if (lang !== 'pl') await translateNotes(lang);
     const raster = () => withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
     if (mode === 'print') {
       const pages = await raster();
