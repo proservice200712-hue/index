@@ -4559,7 +4559,7 @@ function axBadge(el, cls = 'ax-badge') {
   return `<a class="${cls}" href="${esc(axLink(el))}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(tip)}">${cls === 'ax-badge' ? 'AX' : '🗄 Archiwum X'} ${esc(txt)}</a>`;
 }
 let axJob = null;
-// drugie zdjęcie eksponatu („print screen”): grafika elementu z wymiarami — szerokość pod spodem, wysokość z lewej; trafia na Cloudinary i zostaje okładką kafelka
+// zdjęcie eksponatu („print screen”): grafika elementu z wymiarami — szerokość pod spodem, wysokość z lewej; trafia na Cloudinary i zostaje okładką kafelka
 async function axDimImage(el, mm) {
   if (!el.thumb || !hasDims(el)) return '';
   const img = await new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('nie wczytano grafiki')); i.src = el.thumb; });
@@ -4606,8 +4606,8 @@ function openArchiwumDialog(eid) {
   document.body.appendChild(wrap);
   wrap.querySelector('button').onclick = closeArchiwumFrame;
   axJob = { eid, rec, ref, pid: p.id, win: wrap.querySelector('iframe').contentWindow,
-    // obrazek z wymiarami jako drugie zdjęcie i okładka; gdy się nie uda, zostaje sama grafika
-    prep: axDimImage(el, mm).then(u => { if (u) { rec.photoScreen = u; rec.cover = 'screen'; } }).catch(e => console.warn('obrazek z wymiarami', e)) };
+    // do Archiwum X idzie tylko obrazek z wymiarami (jedyne zdjęcie, okładka); gdy się nie uda, zostaje sama grafika
+    prep: axDimImage(el, mm).then(u => { if (u) { rec.photoScreen = u; rec.photoCamera = null; rec.cover = 'screen'; } }).catch(e => console.warn('obrazek z wymiarami', e)) };
 }
 function closeArchiwumFrame() { const w = $('ax-frame'); if (w) w.remove(); axJob = null; }
 window.addEventListener('message', async ev => {
