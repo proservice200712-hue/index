@@ -123,11 +123,109 @@ function cyfryReg(p, zDna) {
   const c = cyfryMiejsca(), back = c.flatMap(q => q.back);
   return { front: c.flatMap(q => q.front), back, gl: back.length ? Math.min(p.rd > 0 ? p.rd : 0.3, zDna / 2) : 0, zDna };
 }
+// ===================== zatrzaski klik (push-push) zamiast śrub =====================
+// Korpus zatrzasku wciska się od góry w wieżyczkę na dnie podstawy: u góry płytka o grubości mocowania z otworem na korpus,
+// pod nią wnęka, w której rozchylają się zaczepy. Klosz ma języczek, który przy wciskaniu wchodzi w szczęki: we Frontlit na ramieniu
+// od wewnętrznej ścianki, w Sidelit prosto od frontu. Klosz stoi wyżej o szczelinę (skok mechanizmu), bo żeby zwolnić zatrzask, trzeba go docisnąć.
+const rectPoly = (cx, cy, w, h, ang) => { const c = Math.cos(ang), s = Math.sin(ang); return toCl([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([u, v]) => [cx + u * c - v * s, cy + u * s + v * c])); };
+const zatWym = Z => { const l = Z.luz; return { hole: [Z.a + 2 * l, Z.b + 2 * l], cav: [Z.fl + 2 * l, Z.b + 2 * l], out: [Z.fl + 2 * l + 2 * Z.sc, Z.b + 2 * l + 2 * Z.sc] }; };
+const zatWl = () => !!(W.pr && W.pr.zat && W.pr.zat.on && W.pr.typ !== 'P');
+const zatGap = () => zatWl() && W.latches.length ? W.pr.zat.gap : 0;
+// ścianka, do której idzie ramię języczka (Frontlit: wnętrze klosza) albo do której układa się wieżyczka (Sidelit: wnętrze podstawy)
+function zatSciana() {
+  const key = W.baseId + '|' + W.pr.typ + '|' + W.m.k3 + '|' + $('b3-st3').value; if (W.zatSc && W.zatSc.key === key) return W.zatSc.polys;
+  const polys = W.pr.typ === 'S' ? offsetPolys(W.base, -num($('b3-st3').value)) : offsetPolys(W.base, W.m.k3); W.zatSc = { key, polys }; return polys;
+}
+function zatNajblizej(x, y) {
+  let best = null, bd = Infinity;
+  zatSciana().forEach(p => { for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)), qx = ax + t * dx, qy = ay + t * dy, d = Math.hypot(qx - x, qy - y); if (d < bd) { bd = d; best = [qx, qy]; } } });
+  return best;
+}
+// wieżyczka dłuższym bokiem wzdłuż najbliższej ścianki
+function zatKat(l) { const w = zatNajblizej(l.x, l.y); return w ? Math.round((Math.atan2(w[1] - l.y, w[0] - l.x) * 180 / Math.PI + 90) * 10) / 10 : 0; }
+function zatGeo(l) {
+  const Z = W.pr.zat, d = zatWym(Z), a = (l.ang || 0) * Math.PI / 180, R = (w, h) => [rectPoly(l.x, l.y, w, h, a)];
+  const g = { out: R(d.out[0], d.out[1]), cav: R(d.cav[0], d.cav[1]), hole: R(d.hole[0], d.hole[1]), tongue: R(Z.jt, Z.jw) };
+  if (W.pr.typ !== 'S') {
+    const w = zatNajblizej(l.x, l.y);
+    if (w) {
+      const L = Math.hypot(w[0] - l.x, w[1] - l.y) || 1, ux = (w[0] - l.x) / L, uy = (w[1] - l.y) / L, e = L + 1.5, h = Z.aw / 2;
+      let arm = toCl([[l.x + uy * h, l.y - ux * h], [l.x + ux * e + uy * h, l.y + uy * e - ux * h], [l.x + ux * e - uy * h, l.y + uy * e + ux * h], [l.x - uy * h, l.y + ux * h]]);
+      if (C.Clipper.Area(arm) < 0) arm = arm.reverse();
+      g.arm = [arm]; g.L = L;
+    }
+  }
+  return g;
+}
+// automatycznie: po n na literę, jak najdalej od siebie, przy ściance, z dala od paska LED, otworów, linii podziału i plasterków; ręcznie postawione zostają
+function autoLatches() {
+  W.zatWarn = [];
+  if (!zatWl() || !W.base) return;
+  W.latches = W.latches.filter(l => l.manual);
+  const Z = W.pr.zat, p = params3D(), d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, ls = bedLetters(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
+  const pas = c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 2, ny = dx / l * 2; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); };
+  const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d + 2)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(W.cuts.filter(c => c.sK).map(cutK))).map(pas)));
+  const obszar = W.pr.typ === 'S' ? offsetPolys(cyfryDno(p, W.m).reg, -0.3) : offsetPolys(W.base, W.m.k3 - 0.5);
+  ls.forEach((l, li) => {
+    const moje = W.latches.filter(q => q.li === li), ile = Z.n - moje.length; if (ile <= 0) return;
+    const pole = inter(obszar, [l.p]), led = W.led ? plus(rowekLED(pole, LED_W + 1)) : [];
+    const wolne = offsetPolys(diff(pole, clip('ctUnion', przeszkody.concat(led))), -(R + 0.3)), pts = wolne.flatMap(q => q.map(v => [v.X / S, v.Y / S]));
+    const jest = moje.map(q => [q.x, q.y]), cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2;
+    let dodane = 0;
+    for (let k = 0; k < ile; k++) {
+      let best = null, bs = -1;
+      pts.forEach(q => { const s = jest.length ? Math.min(...jest.map(o => Math.hypot(o[0] - q[0], o[1] - q[1]))) : Math.hypot(q[0] - cx, q[1] - cy); if (s > bs) { bs = s; best = q; } });
+      if (!best || (jest.length && bs < 2 * R + 1)) break;
+      const z = { id: uid++, li, x: Math.round(best[0] * 10) / 10, y: Math.round(best[1] * 10) / 10, ang: 0, manual: false }; z.ang = zatKat(z);
+      W.latches.push(z); jest.push(best); dodane++;
+    }
+    if (dodane < ile) W.zatWarn.push(`litera ${li + 1}: zmieściło się ${moje.length + dodane} z ${Z.n}`);
+  });
+}
+// warstwy zatrzasków do brył: wieżyczki w podstawie, wnęki wycięte też w płycie, języczki z ramionami w kloszu
+function zatReg(p) {
+  const out = { gap: 0, cav: [], pod: [], kl: [], uw: [], zF: Infinity };
+  if (!zatWl() || !W.latches.length) return out;
+  const Z = W.pr.zat, side = W.pr.typ === 'S', zF = cyfryDno(p, W.m).z, top = zF + Z.h, tip = top + Z.jz;
+  out.gap = Z.gap; out.zF = zF;
+  // po dociśnięciu klosza o skok nic nie może uderzyć w szczęki (wystają ponad kołnierz)
+  const fz = side ? p.sh - p.kCalk + p.ss + Z.gap : 0, lim = side ? fz : p.st + Z.gap + p.ws, szczeki = top + Z.sz;
+  W.latches.forEach((l, i) => {
+    const g = zatGeo(l), nr = `zatrzask ${i + 1} (litera ${l.li + 1})`;
+    out.cav.push(...g.cav);
+    out.pod.push({ z0: zF, z1: top - Z.t, reg: diff(g.out, g.cav) }, { z0: top - Z.t, z1: top, reg: diff(g.out, g.hole) });
+    if (side) {
+      if (fz - Z.gap < szczeki + 0.5) { out.uw.push(`${nr}: litera za płaska: po dociśnięciu front uderzy w szczęki (potrzeba grubości litery co najmniej ${fmt(p.sh + szczeki + 0.5 - fz + Z.gap, 1)} mm)`); return; }
+      out.kl.push({ z0: tip, z1: fz + 0.5, reg: g.tongue });
+    } else {
+      const t1 = Math.max(tip + Z.jl, szczeki + Z.gap + 0.5), a1 = t1 + Z.at;      // języczek dłuższy, gdy ramię po dociśnięciu trafiłoby w szczęki
+      if (a1 > lim) out.uw.push(`${nr}: ramię języczka sięga ${fmt(a1, 1)} mm, wyżej niż podparcie pleksy (${fmt(lim, 1)} mm)`);
+      out.kl.push({ z0: tip, z1: t1 + 0.01, reg: g.tongue });
+      if (g.arm) out.kl.push({ z0: t1, z1: a1, reg: g.arm });
+    }
+  });
+  return out;
+}
+// próbka do wydruku: wieżyczka na płytce i języczek na płytce, żeby sprawdzić wymiary, skok i to, czy zatrzask trzyma
+async function zatProbka() {
+  W.pr = params(); const Z = W.pr.zat, d = zatWym(Z), garbage = [], ndel = o => { garbage.push(o); return o; };
+  try {
+    await load3D();
+    const R = (w, h) => [rectPoly(0, 0, w, h, 0)];
+    const A = stos([{ z0: 0, z1: 2, reg: R(d.out[0] + 10, d.out[1] + 10) }, { z0: 2, z1: 2 + Z.h - Z.t, reg: diff(R(d.out[0], d.out[1]), R(d.cav[0], d.cav[1])) }, { z0: 2 + Z.h - Z.t, z1: 2 + Z.h, reg: diff(R(d.out[0], d.out[1]), R(d.hole[0], d.hole[1])) }], ndel);
+    const B = stos([{ z0: 0, z1: 2, reg: R(20, 12) }, { z0: 2, z1: 2 + Z.jl, reg: R(Z.jt, Z.jw) }], ndel);
+    const body = (m, name) => { const mesh = m.getMesh(); return { name, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp }; };
+    const files = [body(A, 'Zatrzask_gniazdo'), body(B, 'Zatrzask_jezyczek')].map(b => ({ name: b.name + '.stl', data: stlOf(b) }));
+    saveBlob(fileBase() + '_proba_zatrzasku.zip', await zipFiles(files, 'application/zip'));
+    toast('Zapisano próbkę: gniazdo i języczek (STL w ZIP)');
+  } catch (e) { console.error(e); toast('Nie udało się zbudować próbki: ' + (e && e.message || e), 6000); }
+  garbage.forEach(o => { try { o.delete(); } catch (e) { /* już zwolnione */ } });
+}
 // każda część: lista warstw {z0, z1, reg}
 function warstwyFrontlit(p, m) {
   const R = d => offsetPolys(W.base, d), Rk2 = R(m.k2), Rk1 = R(m.k1), void3 = closeR(R(m.k3), p.r), Rp1 = R(m.p1), Rp2 = openR(R(m.p2), p.r), holes = otworyReg(p), top = p.st + p.pl;
   if (!(p.wk > 0) || !(p.ws > 0) || p.ws > p.wk) throw new Error('sprawdź wysokości klosza: ścianka i stopka muszą być dodatnie');
-  const klosz = [{ z0: p.st, z1: p.st + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + p.ws, z1: p.st + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6);
+  const zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl);
   const kiesz = p.wgl && p.gw > 0 ? fazaKieszeni(R(m.kie), p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
   const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
@@ -135,24 +233,28 @@ function warstwyFrontlit(p, m) {
     if (mid > zKiesz) reg = diff(reg, kiesz);
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
+    if (zat.cav.length && mid > zat.zF) reg = diff(reg, zat.cav);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
-  return { klosz, podstawa, pleksa: [{ z0: p.st + p.wk - p.gp, z1: p.st + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
+  podstawa.push(...zat.pod); W.zatUw = zat.uw;
+  return { klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
 }
 function warstwySidelit(p) {
   const R = d => offsetPolys(W.base, d), R0 = R(0), holes = otworyReg(p), zK = p.sh - p.kCalk;
   if (!(p.pCalk > p.sd) || !(p.kCalk > p.sf) || p.sw < 0) throw new Error('sprawdź wymiary Sidelit: całkowite muszą być większe od frontu i dna');
-  const klosz = [{ z0: zK, z1: zK + p.ss, reg: diff(R0, openR(R(-p.t1), 0)) }, { z0: zK + p.ss, z1: p.sh, reg: R0 }];
+  const zat = zatReg(p), gz = zat.gap, klosz = [{ z0: zK + gz, z1: zK + gz + p.ss, reg: diff(R0, openR(R(-p.t1), 0)) }, { z0: zK + gz + p.ss, z1: p.sh + gz, reg: R0 }].concat(zat.kl);
   const ringRant = diff(R0, R(-p.t3)), ringSc = diff(openR(R(-p.t2), p.r), R(-p.t3)), rowki = rowkiReg(p, R0, holes), cyf = cyfryReg(p, p.sd);
   const zs = [...new Set([0, p.sd, p.pCalk, p.pCalk + p.sw, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : [])])].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.sd ? R0 : mid < p.pCalk ? ringRant : ringSc;
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
+    if (zat.cav.length && mid > zat.zF) reg = diff(reg, zat.cav);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
+  podstawa.push(...zat.pod); W.zatUw = zat.uw;
   return { klosz, podstawa, pleksa: [], opis: `grubość litery ${fmt(p.sh, 1)} = klosz ${fmt(p.kCalk, 1)} (front ${fmt(p.sf, 1)} + boki ${fmt(p.ss, 1)}) + podstawa ${fmt(p.pCalk, 1)} (dno ${fmt(p.sd, 1)}); pasowanie ${fmt(p.sw, 1)}` };
 }
 // litera pełna: wyciągnięty kontur, górna (i opcjonalnie dolna) krawędź zaokrąglona promieniem fr.
@@ -243,7 +345,7 @@ async function build3D() {
       rows.forEach(r => { nr[r.li] = (nr[r.li] || 0) + 1; const mesh = r.b.getMesh(); bodies.push({ part: k, name: `${CZESCI[k]}_${String(r.li + 1).padStart(2, '0')}${cnt[r.li] > 1 ? String.fromCharCode(96 + nr[r.li]) : ''}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(r.b), bb: r.bb }); });
     });
     // plasterki łączące: osobne elementy do wydruku (nie są cięte ani łączone z częściami)
-    const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK0: p.pCalk + p.sw, zKmax: p.sh - p.sf } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK0: p.st + p.pl, zKmax: p.st + p.ws }, holes2 = otworyReg(p), cntPl = {};
+    const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK0: p.pCalk + p.sw + zatGap(), zKmax: p.sh - p.sf + zatGap() } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK0: p.st + p.pl + zatGap(), zKmax: p.st + p.ws + zatGap() }, holes2 = otworyReg(p), cntPl = {};
     let nKpom = 0;
     W.plates.forEach(q => {
       if (!q.polys.length) return;
@@ -255,6 +357,8 @@ async function build3D() {
     if (nKpom) uwagi.push(`plasterki klosza pominięte (${nKpom}): klosz nie jest wyższy niż ${fmt(W.pr.plDownK, 1)} mm`);
     if (tops.hK > 0 && tops.zK0 + tops.hK > tops.zKmax && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga wyżej niż podparcie pleksy: zwiększ „niższy o”');
     cyfryMiejsca().forEach(q => { const u = cyfraUwaga(q); if (u) uwagi.push(u); });
+    if (W.pr.typ !== 'P') (W.zatUw || []).concat(W.zatWarn || []).forEach(u => uwagi.push('zatrzaski: ' + u));
+    if (zatGap()) uwagi.push(`zatrzaski: ${W.latches.length} szt., klosz wyżej o ${fmt(zatGap(), 1)} mm (skok do zwolnienia)`);
     liczFilament(); V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);
     $('b3-report').innerHTML = `<b>Części:</b> ${c('litera') ? `litery ${c('litera')}` : `klosz ${c('klosz')}, podstawa ${c('podstawa')}`}${c('pleksa') ? `, pleksa ${c('pleksa')}` : ''}${c('plaster') ? `, plasterki ${c('plaster')}` : ''}<br>${esc(plan.opis)} [mm]<br>${W.led ? `<b>LED:</b> ${fmt(W.led.m, 2)} m<br>` : ''}${W.fil ? `<b>Filament:</b> ok. ${(Math.round(W.fil.sum / 5) * 5).toLocaleString('pl-PL')} g (szacunek)<br>` : ''}<b>Materiał:</b> ${fmt(wol / 1000, 0)} cm³ · ${Math.round(tris).toLocaleString('pl-PL')} trójkątów · ${fmt((performance.now() - t0) / 1000, 1)} s${uwagi.length ? `<br><span style="color:#c53030;font-weight:700">${uwagi.map(esc).join('<br>')}</span>` : ''}`;
