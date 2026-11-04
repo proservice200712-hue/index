@@ -665,6 +665,12 @@
   details.adm { margin-top: 12px; border: 1px dashed var(--mid); padding: 8px 12px; }
   details.adm summary { cursor: pointer; font-size: 0.78rem; font-weight: 700; color: var(--gray); }
 
+  /* konto tylko do podgladu (Gesuto): bez przyciskow edycji */
+  body.viewer #toolbar [data-tool], body.viewer #toolbar [onclick^="pickPhotos"], body.viewer #toolbar [onclick^="pasteFromClipboard"], body.viewer #btn-align, body.viewer #btn-uf,
+  body.viewer #toolbar .sep, body.viewer #viewer-empty .btn, body.viewer .pdel, body.viewer #btn-turbo, body.viewer [onclick^="newElementWithoutShape"],
+  body.viewer #gc-tools button:not([onclick^="graphFit"]), body.viewer .row-act, body.viewer #side-acts, body.viewer .fair-row .add, body.viewer .fair-row .ed, body.viewer .stand-row .ed,
+  body.viewer #side-foot, body.viewer #assign-bar, body.viewer #drop-hint { display: none !important; }
+  body.viewer #hdr-pname { cursor: default; }
   /* panele admina */
   table.adm-t { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   table.adm-t th { text-align: left; font-size: 0.68rem; text-transform: uppercase; color: var(--gray); padding: 6px; border-bottom: 1px solid var(--line); }
@@ -1207,6 +1213,9 @@ const SEED_USERS = [
     passHash: '569a11f08559908735f8b8a9ab0fb04e9eeafde4dc1307af1813de954888f146' },
 ];
 const FIXED_ADMINS = ['kg', 'dm'];
+// Konta tylko do podgladu: bez hasla, nic nie zapisuja ani nie tworza (blokada w warstwie bazy + ukryte przyciski edycji)
+SEED_USERS.push({ id: 'gesuto', login: 'Gesuto', name: 'Gesuto', company: 'Podgląd', viewer: true, color: '#718096' });
+const FIXED_VIEWERS = ['gesuto'];
 if (DEMO) SEED_USERS.push({ id: 'test', login: 'TEST', name: 'Konto testowe', company: 'Demo', admin: true, color: '#805ad5',
   passHash: 'f930645105f875323be574d47b1c2a245d60c1b33c2ece08b22ef218bcc8b167' });
 const USER_COLORS = ['#38a169','#3182ce','#e53e3e','#d69e2e','#805ad5','#dd6b20','#319795','#d53f8c','#2b6cb0','#975a16'];
@@ -1827,6 +1836,7 @@ function mergeUsers(dbUsers) {
     const id = u.id;
     map[id] = { ...(map[id] || {}), ...u, id };
     if (FIXED_ADMINS.includes(id)) map[id].admin = true;
+    if (FIXED_VIEWERS.includes(id)) { map[id].viewer = true; map[id].admin = false; }
     // dla seedów pusty hasz w bazie nie kasuje hasza z kodu
     if (!u.passHash && SEED_USERS.find(s => s.id === id)) map[id].passHash = SEED_USERS.find(s => s.id === id).passHash;
   });
@@ -1866,11 +1876,34 @@ function startPresence() {
 }
 // w samouczku i pokazie z lektorką widać interfejs zwykłego użytkownika (bez Turbo, Zlecenia, Archiwum X)
 const isAdmin = () => !!(S.me && S.me.admin) && (!S.tour || !!S.tour.pro);
+const isViewer = () => !!(S.me && S.me.viewer);                    // konto tylko do podgladu (Gesuto)
+const noPassUser = u => !!u && !!u.viewer && !u.passHash;          // podglad bez hasla: wchodzi sam login
+// warstwa bazy tylko do odczytu: zapisy sa po cichu odrzucane (wyjatek: obecnosc i jednostki wlasnego konta)
+function readOnlyDB(inner) {
+  let last = 0;
+  const deny = () => { const t = Date.now(); if (t - last > 8000) { last = t; toast('Konto tylko do podglądu — zmiany nie są zapisywane', '', 4000); } };
+  const mine = (path, id, o) => path === C_USERS && S.me && id === S.me.id && Object.keys(o || {}).every(k => ['login', 'seenAt', 'unit'].includes(k));
+  return {
+    sub: (path, cb) => inner.sub(path, cb),
+    get: (path, id) => inner.get(path, id),
+    list: path => inner.list(path),
+    async add() { deny(); return uid(); },
+    async set(path, id, o, merge) { if (mine(path, id, o)) return inner.set(path, id, o, merge); deny(); },
+    async update(path, id, o) { if (mine(path, id, o)) return inner.update(path, id, o); deny(); },
+    async del() { deny(); },
+  };
+}
+// okno tylko do odczytu (np. opis elementu): pola wylaczone, przyciski zapisu / usuwania ukryte
+function viewerLock(root) {
+  root.querySelectorAll('.modal-b input, .modal-b select, .modal-b textarea, .modal-b button').forEach(x => { x.disabled = true; });
+  root.querySelectorAll('.modal-f button').forEach(b => { if (!b.hasAttribute('data-c')) b.style.display = 'none'; else b.textContent = 'Zamknij'; });
+  root.querySelectorAll('.modal-f > span, .modal-f > label').forEach(x => { x.style.display = 'none'; });
+}
 
 // ekran logowania: kółeczka zespołu — klik wybiera osobę, zostaje tylko hasło
 function renderLoginAvatars() {
   const seedIdx = u => { const i = SEED_USERS.findIndex(s => s.id === u.id); return i < 0 ? 99 : i; };
-  const team = S.users.filter(u => u.admin && u.passHash).sort((a, b) => seedIdx(a) - seedIdx(b)); // Krzysztof, Dima, …
+  const team = S.users.filter(u => (u.admin && u.passHash) || noPassUser(u)).sort((a, b) => seedIdx(a) - seedIdx(b)); // Krzysztof, Dima, …
   const cur = $('login-user').value.trim().toLowerCase();
   $('login-team').innerHTML = team.map(u => `
     <button type="button" class="la ${findLoginUser(cur) === u ? 'on' : ''} ${isOnline(u.id) ? 'live' : ''}" onclick="pickLoginUser('${u.id}')" title="${isOnline(u.id) ? 'zalogowany' : ''}">
@@ -1881,6 +1914,7 @@ function pickLoginUser(id) {
   $('login-user').value = u.login;
   $('login-err').textContent = '';
   renderLoginAvatars();
+  if (noPassUser(u)) return loginNoPass(u);
   $('login-pass').focus();
 }
 // login: skrót (KG), identyfikator albo imię (Krzysztof)
@@ -1892,8 +1926,9 @@ async function doLogin(ev) {
   const pass = $('login-pass').value;
   const err = $('login-err');
   err.textContent = '';
+  const u = login ? findLoginUser(login.toLowerCase()) : null;
+  if (u && noPassUser(u)) return loginNoPass(u);
   if (!login || !pass) { err.textContent = login ? 'Podaj hasło' : 'Wybierz osobę albo wpisz login'; return; }
-  const u = findLoginUser(login.toLowerCase());
   if (!u) { err.textContent = 'Nieprawidłowy login lub hasło'; return; }
   if (!u.passHash) { err.textContent = 'Konto nie ma jeszcze hasła — poproś administratora (KG) o jego ustawienie'; return; }
   const h = await passHashOf(u.id, pass);
@@ -1902,11 +1937,20 @@ async function doLogin(ev) {
   $('login-pass').value = '';
   enterApp(u);
 }
+function loginNoPass(u) {
+  try { localStorage.setItem('INDEX_SESSION', JSON.stringify({ id: u.id, h: '' })); } catch (e) {}
+  $('login-pass').value = '';
+  enterApp(u);
+}
 function enterApp(u) {
   S.me = u;
+  if (u.viewer) {
+    DB = readOnlyDB(DB); document.body.classList.add('viewer');
+    const ve = $('viewer-empty'); if (ve) ve.innerHTML = '<div class="big">Brak wizek w tym stoisku</div>';
+  }
   renderMyAvatar();
   $('avatar').classList.remove('hidden');
-  $('btn-tour').classList.remove('hidden');
+  if (!u.viewer) $('btn-tour').classList.remove('hidden');
   document.body.classList.add('logged');
   toggleSide(sideState.open);
   toggleLog(logState.open);
@@ -1932,14 +1976,14 @@ function toggleUserMenu(ev) {
   const r = $('avatar').getBoundingClientRect();
   m.style.right = (window.innerWidth - r.right) + 'px';
   m.style.top = (r.bottom + 6) + 'px';
-  m.innerHTML = `<div class="mh"><b>${esc(S.me.name || S.me.login)}</b><br>${esc(S.me.company || '')}${isAdmin() ? ' · administrator' : ''}</div>
+  m.innerHTML = `<div class="mh"><b>${esc(S.me.name || S.me.login)}</b><br>${esc(S.me.company || '')}${isAdmin() ? ' · administrator' : isViewer() ? ' · tylko podgląd' : ''}</div>
     ${isAdmin() ? `<div class="mi" data-a="users">👥 Użytkownicy</div>
     <div class="mi" data-a="types">🏷️ Typy elementów</div>
     <div class="mi" data-a="backup">💾 Kopia wszystkich projektów (JSON)</div><div class="sep"></div>` : ''}
-    <div class="mi" data-a="avatar">🖼 ${S.me.avatar ? 'Zmień zdjęcie awatara' : 'Dodaj zdjęcie awatara'}</div>
-    ${S.me.avatar ? '<div class="mi" data-a="noavatar">✕ Usuń zdjęcie awatara</div>' : ''}
+    ${isViewer() ? '' : `<div class="mi" data-a="avatar">🖼 ${S.me.avatar ? 'Zmień zdjęcie awatara' : 'Dodaj zdjęcie awatara'}</div>
+    ${S.me.avatar ? '<div class="mi" data-a="noavatar">✕ Usuń zdjęcie awatara</div>' : ''}`}
     <div class="mi" data-a="unit">📏 Jednostki: <b>${UNIT()}</b> — przełącz na ${UNIT() === 'cm' ? 'mm' : 'cm'}</div>
-    <div class="mi" data-a="pass">🔑 Zmień hasło</div>
+    ${isViewer() ? '' : '<div class="mi" data-a="pass">🔑 Zmień hasło</div>'}
     <div class="mi" data-a="out">⎋ Wyloguj</div>`;
   m.onclick = e => {
     const a = e.target.closest('[data-a]'); if (!a) return;
@@ -1964,7 +2008,7 @@ function renderMyAvatar() {
   av.classList.add('on');
   av.title = (S.me.name || S.me.login) + ' — zalogowany';
 }
-function pickAvatar() {
+function pickAvatar() { if (isViewer()) return;
   const inp = $('file-generic');
   inp.onchange = async () => {
     const f = inp.files[0]; inp.value = ''; if (!f) return;
@@ -1973,14 +2017,14 @@ function pickAvatar() {
   };
   inp.click();
 }
-async function saveAvatar(url) {
+async function saveAvatar(url) { if (isViewer()) return;
   await DB.set(C_USERS, S.me.id, { login: S.me.login, avatar: url }, true);
   S.me.avatar = url; renderMyAvatar();
   toast(url ? 'Awatar zapisany' : 'Zdjęcie awatara usunięte — widać inicjały', 'success');
 }
 document.addEventListener('click', () => document.querySelectorAll('.menu').forEach(m => m.remove()));
 
-function openChangePassword() {
+function openChangePassword() { if (isViewer()) return;
   const m = openModal({ title: 'Zmiana hasła', body: `
     <div class="fld"><label>Obecne hasło</label><input type="password" id="cp-old"></div>
     <div class="fld"><label>Nowe hasło</label><input type="password" id="cp-new"></div>
@@ -2110,7 +2154,7 @@ async function addLocation(eid, photoId, shape, view = false) {
   selectElement(eid, false, el.shape ? (el.extra || []).length : -1);
 }
 // usunięcie jednego miejsca (element zostaje, gdy ma inne)
-async function removeLocation(eid, loc) {
+async function removeLocation(eid, loc) { if (isViewer()) return;
   const el = S.elements.find(e => e.id === eid); if (!el) return;
   const locs = locsOf(el);
   if (locs.length <= 1) return deleteElement(eid);
@@ -2543,9 +2587,9 @@ function startProjectsSub() {
 }
 // stoisko „GOG testy” to materiał samouczka (pokaz, stoisko ćwiczeniowe) — nie ma go na liście stoisk
 const isTourSrc = p => p.id === TOUR_PID || String(p.name || '').trim().toLowerCase() === TOUR_NAME;
-const canSee = p => !isTourSrc(p) && (isAdmin() || (p.users || []).includes(S.me.id) || (p.team || []).some(m => m.uid === S.me.id));
+const canSee = p => !isTourSrc(p) && (isAdmin() || isViewer() || (p.users || []).includes(S.me.id) || (p.team || []).some(m => m.uid === S.me.id));
 // targi widzi administrator, ich autor i ten, kogo administrator dodał do któregoś stoiska na tych targach (inni nie widzą nawet nazwy)
-const canSeeFair = f => isAdmin() || f.createdBy === S.me.id || S.projects.some(p => p.fairId === f.id && canSee(p));
+const canSeeFair = f => isAdmin() || isViewer() || f.createdBy === S.me.id || S.projects.some(p => p.fairId === f.id && canSee(p));
 // zespół projektu: konta INDEX ({uid}) i osoby spoza systemu ({name})
 const initialsOf = n => String(n || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
 function teamAvatar(m) {
@@ -2757,7 +2801,7 @@ function sideClickStand(id) {
   if (window.innerWidth < 760) toggleSide(false);
   if (!S.project || S.project.id !== id) openProject(id); else renderSide();
 }
-function newStandFromSide() {
+function newStandFromSide() { if (isViewer()) return;
   const t = sideTarget();
   openProjectForm(null, t ? (t.kind === 'fair' ? t.id : t.obj.fairId || '') : '');
 }
@@ -2799,7 +2843,7 @@ function wireAutoDeadline(startId, dlId, auto = autoDeadline) {
   return { setManual: v => { manual = v; } };
 }
 
-function openFairForm(fid) {
+function openFairForm(fid) { if (isViewer()) return;
   const f = fid ? fairById(fid) : {};
   if (fid && !f) return;
   const m = openModal({
@@ -3122,7 +3166,7 @@ let barTick = 0;
 // =====================================================================
 //  PROJEKT — formularz (admin)
 // =====================================================================
-function openProjectForm(pid, fairId) {
+function openProjectForm(pid, fairId) { if (isViewer()) return;
   let p = pid ? S.projects.find(x => x.id === pid) : {};
   if (!pid && fairId && fairById(fairId)) {
     const f = fairById(fairId);
@@ -3416,7 +3460,7 @@ function thumbUrl(url, w = 200, h = 140) {
   if (url && url.includes('res.cloudinary.com') && url.includes('/upload/')) return url.replace('/upload/', `/upload/c_fill,w_${w},h_${h},q_auto/`);
   return url;
 }
-function pickPhotos() { $('file-photos').click(); }
+function pickPhotos() { if (isViewer()) return; $('file-photos').click(); }
 $('file-photos').onchange = e => { addPhotoFiles([...e.target.files]); e.target.value = ''; };
 
 async function prepareImage(file, maxSide, quality = 0.9, png = false) {
@@ -3442,6 +3486,7 @@ async function uploadToCloudinary(blob, name) {
 }
 const blobToDataUrl = b => new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
 async function storeImage(file, maxSide, opts = {}) {
+  if (isViewer()) throw new Error('konto tylko do podglądu');
   const { blob, w, h } = await prepareImage(file, DEMO ? Math.min(maxSide, 1400) : maxSide, opts.q || (DEMO ? 0.8 : 0.9), !!opts.png && !DEMO);
   const url = DEMO ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, (file.name || 'wizka').replace(/\.\w+$/, '') + (blob.type === 'image/png' ? '.png' : '.jpg'));
   return { url, w, h };
@@ -3449,7 +3494,7 @@ async function storeImage(file, maxSide, opts = {}) {
 // miniatury grafik (element, płaszczyzna): zachowujemy jakość wklejonego obrazka
 const storeThumb = file => storeImage(file, 2400, { q: 0.94, png: file.type === 'image/png' });
 let uploading = 0;
-async function addPhotoFiles(files) {
+async function addPhotoFiles(files) { if (isViewer()) return;
   const pid = S.project && S.project.id; if (!pid) return;
   files = files.filter(f => f && f.type && f.type.startsWith('image/'));
   if (!files.length) return toast('To nie są pliki graficzne', 'error');
@@ -3470,7 +3515,7 @@ async function addPhotoFiles(files) {
 }
 function photoNo(id) { const i = S.photos.findIndex(p => p.id === id); return i < 0 ? '—' : i + 1; }
 // przycisk „Ctrl+V": czyta obrazek prosto ze schowka (przeglądarka może zapytać o zgodę)
-async function pasteFromClipboard() {
+async function pasteFromClipboard() { if (isViewer()) return;
   if (!S.project) return;
   if (!navigator.clipboard || !navigator.clipboard.read) return toast('Ta przeglądarka nie daje dostępu do schowka — naciśnij Ctrl+V na klawiaturze', 'error', 5000);
   try {
@@ -3485,7 +3530,7 @@ async function pasteFromClipboard() {
     toast('Brak zgody na odczyt schowka — zezwól przeglądarce albo naciśnij Ctrl+V na klawiaturze', 'error', 5000);
   }
 }
-async function deletePhoto(id) {
+async function deletePhoto(id) { if (isViewer()) return;
   const touched = S.elements.filter(e => locsOf(e).some(l => l.photoId === id));
   const gone = touched.filter(e => locsOf(e).every(l => l.photoId === id)), n = gone.length;
   const no = photoNo(id);
@@ -3504,7 +3549,7 @@ async function deletePhoto(id) {
 
 // wklejanie i przeciąganie
 document.addEventListener('paste', e => {
-  if (!S.project || modalStack.length) return;
+  if (!S.project || modalStack.length || isViewer()) return;
   const tag = (document.activeElement || {}).tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
   const files = [...(e.clipboardData || {}).items || []].filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile());
@@ -3516,11 +3561,11 @@ let dragDepth = 0;
 const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
 window.addEventListener('drop', e => { if (hasFiles(e)) e.preventDefault(); });
-$('pane-top').addEventListener('dragenter', e => { if (!hasFiles(e)) return; dragDepth++; $('drop-hint').classList.remove('hidden'); });
+$('pane-top').addEventListener('dragenter', e => { if (!hasFiles(e) || isViewer()) return; dragDepth++; $('drop-hint').classList.remove('hidden'); });
 $('pane-top').addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop-hint').classList.add('hidden'); } });
 $('pane-top').addEventListener('drop', e => {
   dragDepth = 0; $('drop-hint').classList.add('hidden');
-  if (!hasFiles(e)) return;
+  if (!hasFiles(e) || isViewer()) return;
   e.preventDefault(); addPhotoFiles([...e.dataTransfer.files]);
 });
 
@@ -3596,7 +3641,7 @@ function alignPlan(p) {
     return { el: it.el, loc: it.loc, before: it.sh, sh };
   });
 }
-async function alignMarkers() {
+async function alignMarkers() { if (isViewer()) return;
   if (!S.project || !hasPhotos()) return toast('Najpierw dodaj wizkę', 'error');
   layoutPhotos();
   const plan = S.photos.flatMap(alignPlan).filter(x => JSON.stringify(x.before) !== JSON.stringify(x.sh));
@@ -3882,6 +3927,16 @@ viewer.addEventListener('pointerdown', e => {
   const pan = () => { act = { mode: 'pan', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty }; viewer.classList.add('panning'); };
   if (e.button === 1 || spaceDown) { e.preventDefault(); return pan(); }
 
+  if (isViewer()) { // podglad: tylko przesuwanie widoku i zaznaczanie znacznika (dwuklik otwiera opis do odczytu)
+    const bk0 = e.target.closest('.bk'), g0 = e.target.closest('.shp');
+    if (bk0) { act = null; openElementDialog({ id: bk0.dataset.back }); return; }
+    if (!g0) return pan();
+    const el0 = S.elements.find(x => x.id === g0.dataset.eid); if (!el0) return;
+    const loc0 = g0.dataset.loc != null ? +g0.dataset.loc : -1, pid0 = locPhoto(el0, loc0), now0 = performance.now();
+    if (lastMarkTap && lastMarkTap.eid === el0.id && now0 - lastMarkTap.t < 400) { lastMarkTap = null; act = null; openElementDialog({ id: el0.id }); return; }
+    lastMarkTap = { eid: el0.id, t: now0, x: e.clientX, y: e.clientY };
+    selectElement(el0.id, false, loc0); setCurrentPhoto(pid0); act = null; return;
+  }
   const del = !draft && e.target.closest('.pdel'); // w trakcie rysowania wielokąta ✕ nie przeszkadza
   if (del) { deletePhoto(del.dataset.pid); return; }
 
@@ -4078,6 +4133,7 @@ viewer.addEventListener('dblclick', e => {
   if (g) openElementDialog({ id: g.dataset.eid });
 });
 viewer.addEventListener('contextmenu', e => {
+  if (isViewer()) { e.preventDefault(); return; }
   if (suppressCtx || act) { e.preventDefault(); suppressCtx = false; return; } // PPM jako „kopiuj” przy przeciąganiu
   if (draft) { e.preventDefault(); cancelDraft(); return; }
   // prawy klawisz na znaczniku: małe menu — skopiuj / sklonuj / usuń
@@ -4092,7 +4148,7 @@ const shiftShape = (sh, dx, dy) => {
   return c;
 };
 function closeMarkMenu() { document.querySelectorAll('.mark-menu').forEach(m => m.remove()); }
-function openMarkMenu(x, y, eid, loc) {
+function openMarkMenu(x, y, eid, loc) { if (isViewer()) return;
   const el = S.elements.find(e => e.id === eid); if (!el) return;
   closeMarkMenu();
   selectElement(eid, false, loc);
@@ -4492,6 +4548,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (k === ' ') { spaceDown = true; e.preventDefault(); return; }
+  if (isViewer() && (k === 'p' || k === 'delete' || k === 'backspace' || k === 'enter')) return;
   if (k === 'p') setTool(tool === 'poly' ? 'point' : 'poly');
   else if (k === 'f') fitView();
   else if (k === '+' || k === '=') zoomBy(1.25);
@@ -4549,7 +4606,7 @@ function axGuess(el) {
 const axLink = el => { const id = el.archiwumId || (el.archiwumIds || [])[0]; return id ? AX_URL + '?id=' + encodeURIComponent(id) : ''; };
 const axLinked = el => !!(el.archiwumId || el.archiwumKind);
 // offset elementu przechodzi też do jego eksponatu w Archiwum X
-function axPutOffset(recId, off) { if (DEMO || S.practice || !db || !recId || !off) return; db.collection((TEST ? 'zztest_' : '') + 'records').doc(recId).update({ offsetFiles: off }).catch(e => console.warn('offset → Archiwum X', e)); }
+function axPutOffset(recId, off) { if (isViewer() || DEMO || S.practice || !db || !recId || !off) return; db.collection((TEST ? 'zztest_' : '') + 'records').doc(recId).update({ offsetFiles: off }).catch(e => console.warn('offset → Archiwum X', e)); }
 // znaczek powiązania: eksponat „AX #12”, komplet „AX K3”, grupa „AX G5”
 function axBadge(el, cls = 'ax-badge') {
   if (!axLinked(el)) return '';
@@ -4580,7 +4637,7 @@ async function axDimImage(el, mm) {
   const blob = await new Promise(res => c.toBlob(res, 'image/png'));
   return (await storeImage(blob, 2400, { png: true })).url;
 }
-function openArchiwumDialog(eid) {
+function openArchiwumDialog(eid) { if (isViewer()) return;
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project || !isAdmin()) return;
   if (axLinked(el)) { window.open(axLink(el), '_blank'); return; }
   // Archiwum X to prawdziwa baza — ze stoiska ćwiczeniowego nic tam nie wpisujemy
@@ -4729,7 +4786,7 @@ async function axRedraw(e, r, d) {   // nowy obrazek z wymiarami, o ile eksponat
   try { return await axDimImage({ ...e, w: d[0], h: d[1] }, r.dimUnit === 'mm'); } catch (x) { return ''; }
 }
 async function axVerifyLinks(rows, pid, force) {
-  if (DEMO || TEST || S.practice || !S.me) return;
+  if (isViewer() || DEMO || TEST || S.practice || !S.me) return;
   if (axVerBusy) { axPend = { rows, pid, force }; return; }
   axVerBusy = true;
   const ePath = pElements(pid), upd = o => ({ ...o, updatedAt: nowIso(), updatedBy: S.me.id });
@@ -4792,7 +4849,7 @@ function axApplyPick(el, pick) {
   return `Archiwum X: ${head}` + (pick.kind === 'rec' ? '' : ` (${pick.kind === 'set' ? 'komplet' : 'grupa'}: ` + items.map(r => '#' + r.number + (axDimTxt(r) ? ' ' + axDimTxt(r) : '')).join(', ') + ')');
 }
 
-function startTurbo() {
+function startTurbo() { if (isViewer()) return;
   if (!isAdmin() || !S.project) return;
   S.turbo = true;
   renderElements();
@@ -5294,6 +5351,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const as = $('ed-assign'); if (as) as.onclick = () => { m.close(); startAssign(editing.id); };
     const ep = $('ed-poly'); if (ep) ep.onclick = () => { const loc = S.selId === editing.id && S.selLoc >= 0 ? S.selLoc : -1; m.close(); startAssign(editing.id, true, loc); };
   }
+  if (isViewer()) viewerLock(m.el);
 }
 function describeDiff(a, b) {
   const ch = [];
@@ -5353,7 +5411,7 @@ function renameMark(id) {
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
   });
 }
-async function deleteElement(id) {
+async function deleteElement(id) { if (isViewer()) return;
   const el = S.elements.find(e => e.id === id); if (!el) return;
   // razem z lightboxem znika jego wysłona, a ze ścianą jej drzwi — mówimy o tym wprost
   const linked = S.elements.filter(e => e.backFor === id || e.doorFor === id);
@@ -5379,9 +5437,9 @@ async function unlinkElement(id) {
   addLog(S.project.id, `Zerwano link elementu ${markOf(el)} z wizką (element bez zaznaczenia)`, id);
   if (S.selId === id) selectElement(null);
 }
-function newElementWithoutShape() { openElementDialog({ shape: null, photoId: '' }); }
+function newElementWithoutShape() { if (isViewer()) return; openElementDialog({ shape: null, photoId: '' }); }
 // poly = rysowanie wielokątem (zmiana zaznaczenia punktowego na obrys albo obrys od nowa); loc = które miejsce elementu
-function startAssign(eid, poly = false, loc = -1) {
+function startAssign(eid, poly = false, loc = -1) { if (isViewer()) return;
   const el = S.elements.find(e => e.id === eid); if (!el) return;
   if (!S.photos.length) return toast('Najpierw dodaj wizkę', 'error');
   setTool(poly ? 'poly' : 'point');
@@ -5412,7 +5470,7 @@ function setElFilter(v) {
 S.elView = (() => { try { return localStorage.getItem('INDEX_ELVIEW') === 'graph' ? 'graph' : 'table'; } catch (e) { return 'table'; } })();
 // tryb przesuwania okienek w widoku Grafika: okienka delikatnie drgają i dają się chwycić
 S.graphMove = false;
-function toggleGraphMove(force) {
+function toggleGraphMove(force) { if (isViewer()) return;
   S.graphMove = force === undefined ? !S.graphMove : !!force;
   const b = $('gc-move');
   b.textContent = S.graphMove ? '✔ Zakończ przesuwanie' : '✥ Przesuń';
@@ -5726,13 +5784,13 @@ async function removeThumb(eid, which = '') {
   addLog(S.project.id, `Usunięto miniaturę grafiki${which === 'in' ? ' zadruku wewnętrznego' : ''} z elementu ${markOf(el)}`, eid);
 }
 // okienka znów w automatycznym układzie
-async function graphAutoLayout() {
+async function graphAutoLayout() { if (isViewer()) return;
   await saveGpos(S.elements.filter(x => x.gpos).map(e => ({ id: e.id, gpos: null })));
   setTimeout(graphFit, 120);                         // i od razu dopasowanie do szerokości
 }
 // Wyrównaj: okienka zostają mniej więcej tam, gdzie je postawiono, ale nachodzące
 // na siebie rozsuwamy (w prawo albo w dół — krótszą drogą) na równy odstęp
-async function graphAlign() {
+async function graphAlign() { if (isViewer()) return;
   const GAP = 28;
   const cards = [...document.querySelectorAll('#el-scroll .gc')].map(c => ({ id: c.dataset.eid, x: c.offsetLeft, y: c.offsetTop, w: c.offsetWidth, h: c.offsetHeight }));
   if (!cards.length) return;
@@ -5906,7 +5964,7 @@ function renderElements() {
     tr.ondblclick = () => openElementDialog({ id: tr.dataset.eid });
     tr.onmouseenter = () => setHover(tr.dataset.eid);
     tr.onmouseleave = () => setHover(null);
-    tr.oncontextmenu = ev => { ev.preventDefault(); openMarkMenu(ev.clientX, ev.clientY, tr.dataset.eid, -1); };
+    tr.oncontextmenu = ev => { ev.preventDefault(); if (isViewer()) return; openMarkMenu(ev.clientX, ev.clientY, tr.dataset.eid, -1); };
   });
 }
 
@@ -5914,7 +5972,7 @@ function renderElements() {
 // tabela, Grafika, zlecenie i eksport bez zmian)
 const eyeIcon = on => `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/>
   <circle cx="12" cy="12" r="3.2" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.6"/>${on ? '' : '<path d="M3.5 3.5l17 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'}</svg>`;
-async function toggleRowHidden(id) {
+async function toggleRowHidden(id) { if (isViewer()) return;
   const el = S.elements.find(e => e.id === id); if (!el || !S.project) return;
   await DB.update(pElements(S.project.id), id, { tblHidden: !el.tblHidden });
 }
@@ -7525,7 +7583,7 @@ function ufPalRender() {
     document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true);
   });
 }
-function openUltraFrame() {
+function openUltraFrame() { if (isViewer()) return;
   if (!S.project) return;
   UF.open = true; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null;
   const saved = S.project.ultraFrame;
@@ -8477,11 +8535,11 @@ function openUsersPanel() {
       <tbody>${S.users.map(u => `<tr>
         <td><span class="avatar-sm" style="background:${u.color}">${esc(u.login.slice(0, 3))}</span></td>
         <td><b>${esc(u.login)}</b></td><td>${esc(u.name || '')}</td><td>${esc(u.company || '')}</td>
-        <td>${u.admin ? '👑 administrator' : 'użytkownik'}</td>
-        <td>${u.passHash ? '✓ ustawione' : '<span class="tag-warn">brak — konto nieaktywne</span>'}</td>
+        <td>${u.admin ? '👑 administrator' : u.viewer ? '👁 tylko podgląd' : 'użytkownik'}</td>
+        <td>${u.passHash ? '✓ ustawione' : noPassUser(u) ? 'bez hasła' : '<span class="tag-warn">brak — konto nieaktywne</span>'}</td>
         <td style="white-space:nowrap;text-align:right">
-          <button class="btn btn-sm" data-pass="${u.id}">Ustaw hasło</button>
-          ${FIXED_ADMINS.includes(u.id) || u.id === 'test' ? '' : `<button class="btn btn-sm btn-red" data-del="${u.id}">Usuń</button>`}</td>
+          ${FIXED_VIEWERS.includes(u.id) ? '' : `<button class="btn btn-sm" data-pass="${u.id}">Ustaw hasło</button>`}
+          ${FIXED_ADMINS.includes(u.id) || FIXED_VIEWERS.includes(u.id) || u.id === 'test' ? '' : `<button class="btn btn-sm btn-red" data-del="${u.id}">Usuń</button>`}</td>
       </tr>`).join('')}</tbody></table>
       <h4 style="margin:20px 0 10px;font-size:.9rem">Nowe konto (np. dla agencji)</h4>
       <div class="row2">
@@ -10198,7 +10256,7 @@ window.addEventListener('load', async () => {
   try {
     const sess = JSON.parse(localStorage.getItem('INDEX_SESSION') || 'null');
     const u = sess && userById(sess.id);
-    if (u && u.passHash && u.passHash === sess.h) return enterApp(u);
+    if (u && ((u.passHash && u.passHash === sess.h) || (noPassUser(u) && sess.id === u.id))) return enterApp(u);
   } catch (e) {}
   showScreen('screen-login');
   renderLoginAvatars();
