@@ -143,6 +143,11 @@ function zatNajblizej(x, y) {
 }
 // płytka i uchwyt dłuższym bokiem wzdłuż najbliższej ścianki
 function zatKat(l) { const w = zatNajblizej(l.x, l.y); return w ? Math.round((Math.atan2(w[1] - l.y, w[0] - l.x) * 180 / Math.PI + 90) * 10) / 10 : 0; }
+// obrys klosza z zewnątrz (0,4 mm w głąb od jego powierzchni): lity blok uchwytu nie może wystawać poza klosz
+function zatKlosz() {
+  const key = W.baseId + '|' + W.m.k2; if (W.zatKl && W.zatKl.key === key) return W.zatKl.polys;
+  const polys = offsetPolys(W.base, W.m.k2 - 0.4); W.zatKl = { key, polys }; return polys;
+}
 const zatPl = Z => ({ L: Z.hl + 2 * Z.hluz, W: Z.hw + 2 * Z.hluz });   // wnętrze ramki na płytkę zatrzasku z grzybkiem (z luzem)
 function zatGeo(l) {
   const Z = W.pr.zat, d = zatWym(Z), pl = zatPl(Z), a = (l.ang || 0) * Math.PI / 180, R = (w, h) => [rectPoly(l.x, l.y, w, h, a)], cs = Math.cos(a), sn = Math.sin(a), hx = Z.hs / 2;
@@ -160,7 +165,7 @@ function zatGeo(l) {
       for (let i = pts.length - 1; i >= 0; i--) { const q = pts[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
       let hull = toCl(lo.slice(0, -1).concat(up.slice(0, -1)));
       if (C.Clipper.Area(hull) < 0) hull = hull.reverse();
-      g.fill = diff([hull], g.out); g.arm = g.fill; g.L = L;
+      g.fill = inter(diff([hull], g.out), zatKlosz()); g.arm = g.fill; g.L = L;   // blok nie wychodzi poza zewnętrzną powierzchnię klosza
     }
   }
   return g;
