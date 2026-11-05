@@ -141,11 +141,20 @@ function zatNajblizej(x, y) {
   zatSciana().forEach(p => { for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)), qx = ax + t * dx, qy = ay + t * dy, d = Math.hypot(qx - x, qy - y); if (d < bd) { bd = d; best = [qx, qy]; } } });
   return best;
 }
+// haczyk = trzonek + główka na dolnym końcu (za nią łapią zaczepy klika); bez główki (0 lub węższa od trzonka) sam trzonek
+const zatGlowka = Z => Z.jhh > 0.05 && Z.jhw > Z.jt + 0.05;
+// warstwy języczka od dołu (z0) do z1: główka ścięta u dołu, wyżej trzonek
+function zatJezyk(g, Z, z0, z1) {
+  if (!g.head) return [{ z0, z1, reg: g.tongue }];
+  const hh = Math.min(Math.max(Z.jhh, 0.8), Math.max(z1 - z0 - 0.2, 0.8)), ch = Math.min(0.5, hh / 3);
+  return [{ z0, z1: z0 + ch, reg: g.headTip }, { z0: z0 + ch, z1: z0 + hh, reg: g.head }, { z0: z0 + hh, z1: Math.max(z1, z0 + hh + 0.01), reg: g.tongue }];
+}
 // wieżyczka dłuższym bokiem wzdłuż najbliższej ścianki
 function zatKat(l) { const w = zatNajblizej(l.x, l.y); return w ? Math.round((Math.atan2(w[1] - l.y, w[0] - l.x) * 180 / Math.PI + 90) * 10) / 10 : 0; }
 function zatGeo(l) {
   const Z = W.pr.zat, d = zatWym(Z), a = (l.ang || 0) * Math.PI / 180, R = (w, h) => [rectPoly(l.x, l.y, w, h, a)];
   const g = { out: R(d.out[0], d.out[1]), cav: R(d.cav[0], d.cav[1]), hole: R(d.hole[0], d.hole[1]), tongue: R(Z.jt, Z.jw) };
+  if (zatGlowka(Z)) { g.head = R(Z.jhw, Z.jw); g.headTip = R(Math.max(Z.jt, Z.jhw - 1), Z.jw); }   // główka haczyka: u dołu ścięta (wchodzi między zaczepy)
   if (W.pr.typ !== 'S') {
     const w = zatNajblizej(l.x, l.y);
     if (w) {
@@ -244,28 +253,47 @@ function zatReg(p) {
     out.pod.push({ z0: zF, z1: top - Z.t, reg: diff(g.out, g.cav) }, { z0: top - Z.t, z1: top, reg: diff(g.out, g.hole) });
     if (side) {
       if (fz - Z.gap < szczeki + 0.5) { out.uw.push(`${nr}: litera za płaska: po dociśnięciu front uderzy w szczęki (potrzeba grubości litery co najmniej ${fmt(p.sh + szczeki + 0.5 - fz + Z.gap, 1)} mm)`); return; }
-      out.kl.push({ z0: tip, z1: fz + 0.5, reg: g.tongue });
+      out.kl.push(...zatJezyk(g, Z, tip, fz + 0.5));
     } else {
       const t1 = Math.max(tip + Z.jl, szczeki + Z.gap + 0.5), a1 = t1 + Z.at;      // języczek dłuższy, gdy ramię po dociśnięciu trafiłoby w szczęki
       if (a1 > lim) out.uw.push(`${nr}: ramię języczka sięga ${fmt(a1, 1)} mm, wyżej niż podparcie pleksy (${fmt(lim, 1)} mm)`);
-      out.kl.push({ z0: tip, z1: t1 + 0.01, reg: g.tongue });
+      out.kl.push(...zatJezyk(g, Z, tip, t1 + 0.01));
       if (g.arm) out.kl.push({ z0: t1, z1: a1, reg: g.arm });
     }
   });
   return out;
 }
-// próbka do wydruku: wieżyczka na płytce i języczek na płytce, żeby sprawdzić wymiary, skok i to, czy zatrzask trzyma
+// próbki do wydruku: zestaw gniazd (różny luz) i zestaw haczyków (różny trzonek i główka) na jednej płytce, każdy z numerem — do sprawdzenia
+// z prawdziwym klikiem: czy korpus wchodzi i trzyma, czy haczyk się zatrzaskuje i zwalnia, ile wynosi skok
 async function zatProbka() {
-  W.pr = params(); const Z = W.pr.zat, d = zatWym(Z), garbage = [], ndel = o => { garbage.push(o); return o; };
+  W.pr = params(); const Z = W.pr.zat, garbage = [], ndel = o => { garbage.push(o); return o; };
   try {
     await load3D();
-    const R = (w, h) => [rectPoly(0, 0, w, h, 0)];
-    const A = stos([{ z0: 0, z1: 2, reg: R(d.out[0] + 10, d.out[1] + 10) }, { z0: 2, z1: 2 + Z.h - Z.t, reg: diff(R(d.out[0], d.out[1]), R(d.cav[0], d.cav[1])) }, { z0: 2 + Z.h - Z.t, z1: 2 + Z.h, reg: diff(R(d.out[0], d.out[1]), R(d.hole[0], d.hole[1])) }], ndel);
-    const B = stos([{ z0: 0, z1: 2, reg: R(20, 12) }, { z0: 2, z1: 2 + Z.jl, reg: R(Z.jt, Z.jw) }], ndel);
+    const wrap = (x, y, w, h) => [rectPoly(x, y, w, h, 0)];
+    // gniazda: luz panelu −0,05 / panelu / +0,1 / +0,2 (od tego zależy, czy korpus wchodzi i się trzyma)
+    const luzy = [Math.max(0, Z.luz - 0.05), Z.luz, Z.luz + 0.1, Z.luz + 0.2], layersG = [], opisG = [];
+    luzy.forEach((lz, i) => {
+      const Zv = { ...Z, luz: lz }, d = zatWym(Zv), cx = i * (d.out[0] + 16), cy = 0;
+      layersG.push({ z0: 0, z1: 2, reg: wrap(cx, cy, d.out[0] + 10, d.out[1] + 10) },
+        { z0: 2, z1: 2 + Z.h - Z.t, reg: diff(wrap(cx, cy, d.out[0], d.out[1]), wrap(cx, cy, d.cav[0], d.cav[1])) },
+        { z0: 2 + Z.h - Z.t, z1: 2 + Z.h, reg: diff(wrap(cx, cy, d.out[0], d.out[1]), wrap(cx, cy, d.hole[0], d.hole[1])) },
+        { z0: 2, z1: 2.4, reg: cyfraPolys(String(i + 1), cx, cy - d.out[1] / 2 - 3.2, 4.4, 0.7) });
+      opisG.push(`${i + 1}: luz ${fmt(lz, 2)} mm (otwór na korpus ${fmt(d.hole[0], 2)} × ${fmt(d.hole[1], 2)})`);
+    });
+    // haczyki: trzonek × główka (szerokość × wysokość)
+    const jt = Z.jt, hw = Z.jhw > Z.jt ? Z.jhw : Z.jt + 3, hh = Z.jhh > 0 ? Z.jhh : 2;
+    const war = [[jt, hw, hh], [jt + 0.5, hw, hh], [jt + 1, hw, hh], [jt + 0.5, hw - 0.5, hh], [jt + 0.5, hw + 0.5, hh], [jt + 0.5, hw, hh + 1]], layersH = [], opisH = [];
+    war.forEach(([t, w, h], i) => {
+      const cx = (i % 3) * 26, cy = -Math.floor(i / 3) * 17, Zv = { ...Z, jt: t, jhw: w, jhh: h }, g = { tongue: wrap(cx, cy, t, Z.jw), head: wrap(cx, cy, w, Z.jw), headTip: wrap(cx, cy, Math.max(t, w - 1), Z.jw) };
+      layersH.push({ z0: 0, z1: 2, reg: wrap(cx, cy, 22, 12) }, ...zatJezyk(g, Zv, 2, 2 + Z.jl).map(l => ({ ...l, z0: l.z0, z1: l.z1 })), { z0: 2, z1: 2.4, reg: cyfraPolys(String(i + 1), cx + 8, cy, 5, 0.8) });
+      opisH.push(`${i + 1}: trzonek ${fmt(t, 1)} mm, główka ${fmt(w, 1)} × ${fmt(h, 1)} mm (szerokość × wysokość), szerokość haczyka ${fmt(Z.jw, 1)} mm, długość ${fmt(Z.jl, 1)} mm`);
+    });
     const body = (m, name) => { const mesh = m.getMesh(); return { name, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp }; };
-    const files = [body(A, 'Zatrzask_gniazdo'), body(B, 'Zatrzask_jezyczek')].map(b => ({ name: b.name + '.stl', data: stlOf(b) }));
+    const G = stos(layersG, ndel), H = stos(layersH, ndel);
+    const readme = `Próbki zatrzasku klik (Offset Wizard, zakładka Montaż)\r\n\r\nDRUK: obie płytki płasko na stole, tak jak w pliku. Gniazda z filamentu podstawy, haczyki z filamentu klosza.\r\nNumer jest wyciśnięty na płytce obok gniazda / haczyka.\r\n\r\nGNIAZDA (Zatrzask_gniazda_zestaw.stl):\r\n${opisG.join('\r\n')}\r\n\r\nHACZYKI (Zatrzask_haczyki_zestaw.stl):\r\n${opisH.join('\r\n')}\r\n\r\nSPRAWDŹ z prawdziwym klikiem:\r\n1. Który numer gniazda: korpus wchodzi z oporem i się trzyma (bez luzu, bez pęknięcia wieżyczki)?\r\n2. Który numer haczyka: wchodzi między zaczepy, zatrzaskuje się (klik), a po kolejnym dociśnięciu zwalnia?\r\n3. Skok: o ile trzeba docisnąć, żeby zwolnić (w kreatorze: Szczelina pod kloszem = ${fmt(Z.gap, 1)} mm).\r\nNapisz numery, które działają — wpiszę je jako domyślne.\r\n`;
+    const files = [body(G, 'Zatrzask_gniazda_zestaw'), body(H, 'Zatrzask_haczyki_zestaw')].map(b => ({ name: b.name + '.stl', data: stlOf(b) })).concat([{ name: 'OPIS.txt', data: new TextEncoder().encode(readme) }]);
     saveBlob(fileBase() + '_proba_zatrzasku.zip', await zipFiles(files, 'application/zip'));
-    toast('Zapisano próbkę: gniazdo i języczek (STL w ZIP)');
+    toast('Zapisano próbki: 4 gniazda i 6 haczyków, każdy z numerem (STL + OPIS w ZIP)');
   } catch (e) { console.error(e); toast('Nie udało się zbudować próbki: ' + (e && e.message || e), 6000); }
   garbage.forEach(o => { try { o.delete(); } catch (e) { /* już zwolnione */ } });
 }

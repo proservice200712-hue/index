@@ -266,6 +266,8 @@
         <div class="fld"><span>Szerokość</span><input type="text" inputmode="decimal" id="p-zt-jw" value="3,5"></div>
         <div class="fld" title="Najmniejsza; sam się wydłuża, gdy ramię po dociśnięciu trafiłoby w szczęki"><span>Długość (min.)</span><input type="text" inputmode="decimal" id="p-zt-jl" value="6"></div>
         <div class="fld" title="Koniec języczka nad kołnierzem, gdy klosz jest zatrzaśnięty"><span>Koniec nad kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-jz" value="1,5"></div>
+        <div class="fld" title="Zgrubienie na dolnym końcu języczka (haczyk): za nie łapią zaczepy klika. Szerokość mierzona w poprzek szczęk. 0 = bez główki"><span>Główka haczyka: szerokość</span><input type="text" inputmode="decimal" id="p-zt-jhw" value="6,2"></div>
+        <div class="fld" title="Wysokość zgrubienia wzdłuż języczka (u dołu ścięte). 0 = bez główki"><span>Główka haczyka: wysokość</span><input type="text" inputmode="decimal" id="p-zt-jhh" value="2"></div>
         <div class="fld"><span>Ramię: grubość</span><input type="text" inputmode="decimal" id="p-zt-at" value="3"></div>
         <div class="fld"><span>Ramię: szerokość</span><input type="text" inputmode="decimal" id="p-zt-aw" value="4"></div>
         <button type="button" class="btn wide" id="b-zt-probka">⬇ Próbka do wydruku (STL)</button>
@@ -500,7 +502,7 @@ function rowsOf(ls) {
 
 // ===================== parametry i warstwy (jak A_START) =====================
 // zatrzaski (zakładka Montaż)
-const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jt', 'jw', 'jl', 'jz', 'at', 'aw'];
+const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jt', 'jw', 'jl', 'jz', 'jhw', 'jhh', 'at', 'aw'];
 function zatParams() { const o = { on: $('p-zt-on').checked, n: Number($('p-zt-n').value) || 2 }; ZAT_POLA.forEach(k => { o[k] = Math.max(0, num($('p-zt-' + k).value)); }); return o; }
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
