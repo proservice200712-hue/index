@@ -515,12 +515,12 @@ function params() {
 }
 function model(pr) {
   const d = DYSZA[pr.dysza] || DYSZA[6], k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
-  const spec = pr.typ === 'P' ? [['Pelne', [0]]] : pr.typ === 'S' ? [['Klosz', [0, k1, k2, k3]], ['Podstawa', [0, p1, p2]], ['Kieszen', [kie]]] : [['Pleksa', [0]], ['Klosz', [k1, k2, k3]], ['Podstawa', [p1, p2]], ['Kieszen', [kie]]];
+  const spec = pr.typ === 'P' ? [['Pelne', [0]]] : pr.typ === 'S' ? [['Klosz', [0, k1, k2, k3]], ['Podstawa', [0, p1, p2]], ...(pr.wielk === 2 ? [['Kieszen', [kie]]] : [])] : [['Pleksa', [0]], ['Klosz', [k1, k2, k3]], ['Podstawa', [p1, p2]], ...(pr.wielk === 2 ? [['Kieszen', [kie]]] : [])];   // małe litery (pełny środek): bez kieszeni
   return { k1, k2, k3, p1, p2, kie, spec, scianka: k2 - k3 };
 }
 function computeLayers() {
   const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.plReg = null; W.m = m; W.pr = pr;
-  $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br><b>Kieszeń</b> ${fmt(m.kie)}<br>`
+  $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
   document.body.classList.toggle('t-P', pr.typ === 'P'); if (typeof groups3D === 'function') groups3D();
   if (pr.typ === 'P') $('vals').innerHTML = '<b>Litera pełna</b> 0 (baza)<br><span class="hint">wysokość i promień zaokrąglenia — pola powyżej</span>';
@@ -1629,7 +1629,7 @@ function zatInfo() {
 }
 function renderSide() {
   $('led-info').innerHTML = W.led ? `<b>${fmt(W.led.m, 2)} m</b> bieżących paska ${LED_W} mm` : '—';
-  $('lays').innerHTML = LAYERS.map(([n, col]) => { const cnt = n === 'Otwory' ? W.holes.filter(h => h.kind === 'otw').length : n === 'FIX' ? W.holes.filter(h => h.kind === 'fix').length : n === 'Profil' ? W.rails.length : n === 'Podzial' ? cutSegs().length : (W.lay[n] || []).reduce((s, o) => s + o.polys.length, 0);
+  $('lays').innerHTML = LAYERS.filter(([n]) => n !== 'Kieszen' || W.lay.Kieszen).map(([n, col]) => { const cnt = n === 'Otwory' ? W.holes.filter(h => h.kind === 'otw').length : n === 'FIX' ? W.holes.filter(h => h.kind === 'fix').length : n === 'Profil' ? W.rails.length : n === 'Podzial' ? cutSegs().length : (W.lay[n] || []).reduce((s, o) => s + o.polys.length, 0);
     return `<label class="lay"><input type="checkbox" data-lay="${n}" ${W.show[n] ? 'checked' : ''}><i style="background:${col}"></i>${n} <span class="hint">(${cnt})</span></label>`; }).join('');
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pasek LED ${LED_W} mm wzdłuż środka kanału (kieszeni) — tylko podgląd, nie idzie do DXF"><input type="checkbox" data-lay="LED" ${W.show.LED ? 'checked' : ''}><i style="background:rgba(255,205,0,.8);height:8px"></i>pasek LED ${LED_W} mm <span class="hint">(podgląd)</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pomocniczy okrąg dookoła FIX: jest na szablonie, nie idzie do DXF dla Fusion"><input type="checkbox" data-lay="Leb" ${W.show.Leb ? 'checked' : ''}><i style="background:#805ad5"></i>łeb śruby <span class="hint">(pomocniczy)</span></label>`);
