@@ -6048,8 +6048,13 @@ function orderGroups(list) {
   const baseOf = e => (e.doorFor && S.elements.find(x => x.id === e.doorFor)) || e;
   const all = [...list].sort((a, b) => { const ka = ordKey(baseOf(a)), kb = ordKey(baseOf(b)); return (ka[0] - kb[0]) || (ka[1] - kb[1]) || (!!a.doorFor - !!b.doorFor); });
   const wys = e => typeById(e.typeId).wyslona && e.wyslona;
+  // zwykłe elementy dzielimy na grupy wg typu (jak wysłony): kolejność typów z listy typów, drzwi zostają przy swojej ścianie
+  const byType = new Map();
+  all.filter(e => !wys(e) && !isHang(e) && !isWhiteBack(e)).forEach(e => { const t = typeById(baseOf(e).typeId); if (!byType.has(t.id)) byType.set(t.id, { t, l: [] }); byType.get(t.id).l.push(e); });
+  const tIdx = t => { const i = S.types.findIndex(x => x.id === t.id); return i < 0 ? 999 : i; };
+  const typeGroups = [...byType.values()].sort((a, b) => tIdx(a.t) - tIdx(b.t)).map(({ t, l }) => [tkaninaName(t.id, t.name), l]);
   return [
-    ['', all.filter(e => !wys(e) && !isHang(e) && !isWhiteBack(e))],
+    ...typeGroups,
     ['Blackback — biały tył', all.filter(e => isWhiteBack(e) && !isHang(e))],
     ['Blackback — wysłony', all.filter(wys).sort((a, b) => ((baseOf(a).wnum || 0) - (baseOf(b).wnum || 0)) || (!!a.doorFor - !!b.doorFor))],
     ['Konstrukcje podwieszane', all.filter(isHang)],
@@ -7679,14 +7684,19 @@ function openExportDialog() {
         <div style="display:flex;gap:10px;align-items:center"><span style="font-weight:700">v</span><input type="number" id="exp-v" min="1" step="1" value="${nextV}" style="max-width:110px">
           <span class="hint" style="margin:0">ostatnio: ${p.indexVersion ? 'v' + p.indexVersion : '—'}</span></div>
         <div class="exp-file" id="exp-file"></div></div>
+      <div class="fld exp-zoom"><label>Wielkość wizualizacji <b id="exp-zv" style="font-weight:700;margin-left:6px"></b></label>
+        <div style="display:flex;gap:10px;align-items:center"><input type="range" id="exp-z" min="20" max="100" step="1" value="100" style="flex:1">
+          <button type="button" class="btn btn-sm" id="exp-za" title="Rozmiar dobiera program">Auto</button></div>
+        <div class="hint">100% = wizualizacja możliwie największa na całej kartce A3; elementy układają się obok i pod nią, w wolnym miejscu.</div></div>
       <div class="fld"><label>Podgląd</label><div class="exp-prev" id="exp-prev"></div></div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="exp-go">Drukuj</button>`,
   });
-  let w = 'a3', mode = 'print', lang = LANG, prevFor = '', prevNr = 0;
+  let w = 'a3', mode = 'print', lang = LANG, prevFor = '', prevNr = 0, zoom = null, zTimer = 0;
+  A3_ZOOM = null;
   // mały podgląd strony (to samo, co pójdzie do druku / PDF); dla CSV i JSON — kilka pierwszych wierszy
   const preview = async () => {
-    if (prevFor === w + lang) return;
-    prevFor = w + lang; const nr = ++prevNr, box = $('exp-prev');
+    if (prevFor === w + lang + zoom) return;
+    prevFor = w + lang + zoom; const nr = ++prevNr, box = $('exp-prev');
     if (w === 'csv' || w === 'json') {
       const rows = exportRows().slice(0, 6);
       box.innerHTML = `<pre class="exp-txt">${esc(w === 'csv' ? rows.map(r => [r.znak, r.typ, r.gross, r.qty].join(';')).join('\n') : JSON.stringify(rows.map(r => ({ znak: r.znak, typ: r.typ, wymiar: r.gross })), null, 1))}${exportRows().length > 6 ? '\n…' : ''}</pre>`;
@@ -7695,11 +7705,26 @@ function openExportDialog() {
     box.innerHTML = '<div class="hint">Tworzę podgląd…</div>';
     try {
       const stamp = 'Index  ' + dateStamp();
+      A3_ZOOM = w === 'a3' ? zoom : null;
       const pages = await withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
       if (nr !== prevNr || !document.body.contains(box)) return;
+      if (w === 'a3') showZoom();
       box.innerHTML = pages.slice(0, 3).map(c => `<img src="${c.toDataURL('image/jpeg', 0.7)}" alt="">`).join('') + (pages.length > 3 ? `<span class="hint">+ ${pages.length - 3} str.</span>` : '');
     } catch (e) { box.innerHTML = '<div class="hint">Nie udało się zrobić podglądu: ' + esc(e.message) + '</div>'; }
   };
+  // suwak pokazuje rozmiar użyty w podglądzie (przy „Auto” — wybrany przez program)
+  const showZoom = () => {
+    const z = zoom != null ? zoom : A3_LAST.z, sl = $('exp-z');
+    sl.disabled = $('exp-za').disabled = A3_LAST.z == null;
+    if (z != null) sl.value = Math.round(z * 100);
+    $('exp-zv').textContent = A3_LAST.z == null ? '' : Math.round((z != null ? z : 1) * 100) + '%' + (zoom == null ? ' (auto)' : '');
+    $('exp-za').classList.toggle('on', zoom == null);
+  };
+  $('exp-z').addEventListener('input', () => {
+    zoom = clamp(+$('exp-z').value / 100, 0.2, 1); $('exp-zv').textContent = Math.round(zoom * 100) + '%'; $('exp-za').classList.remove('on');
+    clearTimeout(zTimer); zTimer = setTimeout(preview, 250);
+  });
+  $('exp-za').onclick = () => { zoom = null; preview(); };
   const ext = () => ({ a3: '.pdf', a4: '_tabela.pdf', csv: '.csv', json: '.json' })[w];
   const sync = () => {
     const printable = what.find(x => x[0] === w)[4];
@@ -7709,6 +7734,7 @@ function openExportDialog() {
     m.el.querySelectorAll('.exp-m[data-l]').forEach(x => x.classList.toggle('on', x.dataset.l === lang));
     m.el.querySelector('.exp-lang-fld').classList.toggle('hidden', !printable);
     m.el.querySelector('.exp-ver').classList.toggle('hidden', mode !== 'save');
+    m.el.querySelector('.exp-zoom').classList.toggle('hidden', w !== 'a3');
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     $('exp-file').innerHTML = `Plik: <b>${esc(fileBase(v) + ext())}</b>`;
     $('exp-go').textContent = mode === 'print' ? '🖨 Drukuj' : '💾 Zapisz';
@@ -7725,7 +7751,8 @@ function openExportDialog() {
     m.close();
     if (w === 'csv') return exportCsv(fileBase(v) + '.csv');
     if (w === 'json') return exportJson(fileBase(v) + '.json');
-    await exportDoc(w, mode, v, lang);
+    A3_ZOOM = w === 'a3' ? zoom : null;
+    try { await exportDoc(w, mode, v, lang); } finally { A3_ZOOM = null; }
   };
   sync();
 }
@@ -7932,6 +7959,9 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
   }
 }
 // INDEX A3 (poziomo): u góry wizki obok siebie, pod nimi rozpiska graficzna jak w widoku „Grafika"
+// A3_ZOOM: null = rozmiar wizualizacji dobiera program; 0.2..1 = ręcznie z suwaka w oknie Eksport (1 = wizualizacja możliwie największa,
+// a okienka z elementami układają się obok i pod nią w pozostałym miejscu). A3_LAST.z = ostatnio użyty rozmiar (do ustawienia suwaka).
+let A3_ZOOM = null, A3_LAST = { z: null };
 async function renderIndexA3(stamp) {
   const PW = 2976, PH = 2104, sc = 1.25, M = 50; // A3 ~180 dpi
   const [c, g] = newCanvas(PW, PH, EXP_Q);
@@ -8031,7 +8061,36 @@ async function renderIndexA3(stamp) {
   const byHeight = [...rows].sort((a, b) => (b.w !== '' ? b.bh : 0) - (a.w !== '' ? a.bh : 0));
   let Hp = maxHp, k = 0, order = rows, side = null; // side = blok wizek z okienkami obok (zamiast pasa wizek nad okienkami)
   const photoW = h => h * sumA + GAP * (imgs.length - 1);
-  if (hasCards) {
+  // rozmiar wizualizacji z suwaka: najlepszy układ dla zadanej wysokości wizek (pas wizek u góry albo wizki z boku, okienka obok i pod nimi);
+  // null = okienka się nie mieszczą (przy czytelnej skali)
+  const hFull = imgs.length ? Math.max(40, Math.min((availW - GAP * (imgs.length - 1)) / sumA, totalH - (hasCards ? 50 : 0))) : 0;
+  const kRef0 = hasCards ? (fitCards(totalH, rows) || 1) : 1, KMIN = 0.25;
+  const evalAt = h => {
+    let bst = null;
+    const consider = (areaH, obs, pen) => {
+      if (areaH < 80) return;
+      const kk = fitCards(areaH, rows, obs), L = layout(kk, rows, obs);
+      if (L.h > areaH + 0.5 || kk < KMIN * kRef0) return;
+      const cardsA = L.out.reduce((a, cd) => a + cd.w * cd.h, 0);
+      const score = (h * sumA + cardsA) / (availW * totalH) + 0.22 * (maxHp ? Math.min(1.4, h / maxHp) : 0) + 0.35 * kk / kRef0 - pen;
+      if (!bst || score > bst.score) bst = { score, Hp: h, k: kk, side: obs };
+    };
+    consider(totalH - (h + 50), null, 0);
+    if (photoW(h) <= availW - 300) for (const pos of ['L', 'R', 'C']) {
+      const w = photoW(h);
+      consider(totalH, { x: pos === 'L' ? 0 : pos === 'R' ? availW - w : (availW - w) / 2, w, h: h + 50 }, pos === 'C' ? 0.06 : 0);
+    }
+    return bst;
+  };
+  let hMax = hFull; // największa wizualizacja, przy której okienka jeszcze się mieszczą (= 100% na suwaku)
+  if (hasCards && imgs.length && !evalAt(hFull)) {
+    let lo = hFull * 0.2, hi = hFull; // lo zakładamy poprawne
+    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; if (evalAt(mid)) lo = mid; else hi = mid; }
+    hMax = lo;
+  }
+  const manualR = A3_ZOOM != null && imgs.length && hasCards ? evalAt(hMax * clamp(A3_ZOOM, 0.2, 1)) : null;
+  if (manualR) { Hp = manualR.Hp; k = manualR.k; side = manualR.side; }
+  else if (hasCards) {
     const fs = imgs.length ? [1, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64, 0.58, 0.52, 0.46, 0.4] : [0];
     let best = -1;
     const kRef = fitCards(totalH, rows) || 1; // największa możliwa skala okienek (bez wizek) — do oceny czytelności
@@ -8057,6 +8116,8 @@ async function renderIndexA3(stamp) {
       }
     }
   }
+  if (!hasCards && A3_ZOOM != null && imgs.length) Hp = hFull * clamp(A3_ZOOM, 0.2, 1);
+  A3_LAST = { z: imgs.length ? clamp(Hp / (hasCards ? hMax : hFull), 0.2, 1) : null };
   let x = M + (side ? side.x : (availW - photoW(Hp)) / 2);
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
