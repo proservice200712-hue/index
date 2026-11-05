@@ -250,7 +250,7 @@
         <button type="button" class="btn wide" id="b-zt-add" title="Potem kliknij w literę, w miejscu, gdzie ma stać zatrzask">➕ Dodaj zatrzask (klik na literze)</button>
         <button type="button" class="btn wide" id="b-zt-auto" title="Usuwa ręcznie postawione i rozmieszcza od nowa">↺ Rozmieść automatycznie</button>
         <div class="vals" id="zt-info">—</div>
-        <div class="hint">Mechanizm (korpus klika) siedzi w kloszu: uchwyt z otworem, korpus wchodzi od spodu, zaczepy wystają w dół (Frontlit: uchwyt na ramieniu od stopki, Sidelit: przy froncie). Na dnie podstawy leży zatrzask z grzybkiem (płytka z dwoma otworami) w ramce. Przeciągnij zatrzask, aby go przesunąć; Delete = usuń. Ręcznie postawione i przesunięte zostają przy przeliczaniu.</div>
+        <div class="hint">Mechanizm (korpus klika) siedzi w kloszu: uchwyt z otworem, korpus wchodzi od spodu, zaczepy wystają w dół (Frontlit: uchwyt przyklejony do stopki klosza, Sidelit: przy froncie). Na dnie podstawy leży zatrzask z grzybkiem (płytka z dwoma otworami) w ramce. Przeciągnij zatrzask, aby go przesunąć; Delete = usuń. Ręcznie postawione i przesunięte zostają przy przeliczaniu.</div>
         <h3>Mechanizm — korpus klika w kloszu [mm]</h3>
         <div class="fld"><span>Korpus: szerokość</span><input type="text" inputmode="decimal" id="p-zt-a" value="7,9"></div>
         <div class="fld"><span>Korpus: grubość</span><input type="text" inputmode="decimal" id="p-zt-b" value="7"></div>
@@ -271,9 +271,8 @@
         <div class="fld" title="O ile czubek grzybka jest pod kołnierzem klika, gdy klosz jest zatrzaśnięty"><span>Koniec grzybka pod kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-jz" value="1,5"></div>
         <div class="fld"><span>Ramka: ścianka</span><input type="text" inputmode="decimal" id="p-zt-hf" value="1,2"></div>
         <div class="fld"><span>Ramka: luz na płytkę</span><input type="text" inputmode="decimal" id="p-zt-hluz" value="0,2"></div>
-        <h3>Ramię uchwytu (Frontlit) [mm]</h3>
-        <div class="fld" title="Grubość dachu uchwytu i ramienia do stopki klosza"><span>Ramię: grubość</span><input type="text" inputmode="decimal" id="p-zt-at" value="3"></div>
-        <div class="fld"><span>Ramię: szerokość</span><input type="text" inputmode="decimal" id="p-zt-aw" value="4"></div>
+        <h3>Uchwyt w kloszu [mm]</h3>
+        <div class="fld" title="Grubość dachu uchwytu (Frontlit); odstęp od stopki klosza jest wypełniony litym blokiem"><span>Dach uchwytu: grubość</span><input type="text" inputmode="decimal" id="p-zt-at" value="3"></div>
         <button type="button" class="btn wide" id="b-zt-probka">⬇ Próbka do wydruku (STL)</button>
         <div class="hint">Najpierw wydrukuj próbki: ramki na płytkę z grzybkiem (do podstawy) i uchwyty na korpus klika (do klosza). Sprawdź z prawdziwymi częściami, czy płytka wchodzi w ramkę, czy korpus wchodzi i trzyma się w uchwycie oraz jak zatrzask się zatrzaskuje i zwalnia; potem popraw wymiary wyżej.</div>
       </section>
@@ -506,7 +505,7 @@ function rowsOf(ls) {
 
 // ===================== parametry i warstwy (jak A_START) =====================
 // zatrzaski (zakładka Montaż)
-const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jz', 'hl', 'hw', 'ht', 'hs', 'hd', 'hp', 'hf', 'hluz', 'at', 'aw'];
+const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jz', 'hl', 'hw', 'ht', 'hs', 'hd', 'hp', 'hf', 'hluz', 'at'];
 function zatParams() { const o = { on: $('p-zt-on').checked, n: Number($('p-zt-n').value) || 2 }; ZAT_POLA.forEach(k => { o[k] = Math.max(0, num($('p-zt-' + k).value)); }); return o; }
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
@@ -1664,7 +1663,7 @@ function renderSel() {
   }
   if (s.t === 'latch') {
     const l = W.latches.find(q => q.id === s.id); if (!l || !zatWlHtml()) { W.sel = null; b.classList.add('hidden'); return; }
-    const q = zatGeo(l); b.classList.remove('hidden'); b.innerHTML = `<b>Zatrzask</b><div class="fld"><span>Obrót [°]</span><input type="text" inputmode="decimal" id="sel-zang" value="${fmt(l.ang || 0, 1)}"></div><div class="hint">${q.L ? `ramię uchwytu do ścianki ${fmt(q.L, 1)} mm · ` : ''}przeciągnij = przesuń · Delete = usuń</div>`;
+    const q = zatGeo(l); b.classList.remove('hidden'); b.innerHTML = `<b>Zatrzask</b><div class="fld"><span>Obrót [°]</span><input type="text" inputmode="decimal" id="sel-zang" value="${fmt(l.ang || 0, 1)}"></div><div class="hint">${q.L ? `uchwyt przyklejony do ścianki (blok ${fmt(q.L, 1)} mm) · ` : ''}przeciągnij = przesuń · Delete = usuń</div>`;
     const inp = $('sel-zang'), go = () => { pushUndo(); l.ang = num(inp.value); l.manual = true; draw(); save(); if (window.mark3D) mark3D(); }; inp.onchange = go; addSpin(inp, 15, go); return;
   }
   const o = s.t === 'hole' ? W.holes.find(h => h.id === s.id) : W.rails.find(r => r.id === s.id); if (!o) { W.sel = null; b.classList.add('hidden'); return; }

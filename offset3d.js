@@ -124,7 +124,7 @@ function cyfryReg(p, zDna) {
   return { front: c.flatMap(q => q.front), back, gl: back.length ? Math.min(p.rd > 0 ? p.rd : 0.3, zDna / 2) : 0, zDna };
 }
 // ===================== zatrzaski klik (push-push) zamiast śrub =====================
-// Mechanizm (korpus klika) siedzi w kloszu: uchwyt z płytką z otworem, korpus wchodzi od spodu, zaczepy wystają w dół (Frontlit: uchwyt na ramieniu od stopki,
+// Mechanizm (korpus klika) siedzi w kloszu: uchwyt z płytką z otworem, korpus wchodzi od spodu, zaczepy wystają w dół (Frontlit: uchwyt przyklejony do stopki,
 // Sidelit: przy froncie). Na dnie podstawy leży prawdziwy zatrzask z grzybkiem (płytka z dwoma otworami) w ramce, przykręcony albo przyklejony.
 // Klosz stoi wyżej o szczelinę (skok mechanizmu), bo żeby zwolnić zatrzask, trzeba go docisnąć.
 const rectPoly = (cx, cy, w, h, ang) => { const c = Math.cos(ang), s = Math.sin(ang); return toCl([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([u, v]) => [cx + u * c - v * s, cy + u * s + v * c])); };
@@ -148,13 +148,19 @@ function zatGeo(l) {
   const Z = W.pr.zat, d = zatWym(Z), pl = zatPl(Z), a = (l.ang || 0) * Math.PI / 180, R = (w, h) => [rectPoly(l.x, l.y, w, h, a)], cs = Math.cos(a), sn = Math.sin(a), hx = Z.hs / 2;
   const g = { out: R(d.out[0], d.out[1]), cav: R(d.cav[0], d.cav[1]), hole: R(d.hole[0], d.hole[1]), plate: R(pl.L, pl.W),
     frame: diff(R(pl.L + 2 * Z.hf, pl.W + 2 * Z.hf), R(pl.L, pl.W)), screws: [-hx, hx].map(u => circlePoly(l.x + u * cs, l.y + u * sn, Z.hd)) };
-  if (W.pr.typ !== 'S') {   // Frontlit: uchwyt wisi na ramieniu od stopki klosza
+  if (W.pr.typ !== 'S') {   // Frontlit: uchwyt przyklejony do stopki klosza — odstęp od ścianki wypełniony litym blokiem (szerokość uchwytu)
     const w = zatNajblizej(l.x, l.y);
     if (w) {
-      const L = Math.hypot(w[0] - l.x, w[1] - l.y) || 1, ux = (w[0] - l.x) / L, uy = (w[1] - l.y) / L, e = L + 1.5, h = Z.aw / 2;
-      let arm = toCl([[l.x + uy * h, l.y - ux * h], [l.x + ux * e + uy * h, l.y + uy * e - ux * h], [l.x + ux * e - uy * h, l.y + uy * e + ux * h], [l.x - uy * h, l.y + ux * h]]);
-      if (C.Clipper.Area(arm) < 0) arm = arm.reverse();
-      g.arm = [arm]; g.L = L;
+      const L = Math.hypot(w[0] - l.x, w[1] - l.y) || 1, ux = (w[0] - l.x) / L, uy = (w[1] - l.y) / L, e = L + 1.5, hw0 = d.out[0] / 2, hh0 = d.out[1] / 2;
+      const pts = [];
+      [0, e].forEach(t => [[-hw0, -hh0], [hw0, -hh0], [hw0, hh0], [-hw0, hh0]].forEach(([u, v]) => pts.push([l.x + ux * t + u * cs - v * sn, l.y + uy * t + u * sn + v * cs])));
+      pts.sort((p1, p2) => p1[0] - p2[0] || p1[1] - p2[1]);
+      const cr = (o, a1, b1) => (a1[0] - o[0]) * (b1[1] - o[1]) - (a1[1] - o[1]) * (b1[0] - o[0]), lo = [], up = [];
+      pts.forEach(q => { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); });
+      for (let i = pts.length - 1; i >= 0; i--) { const q = pts[i]; while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+      let hull = toCl(lo.slice(0, -1).concat(up.slice(0, -1)));
+      if (C.Clipper.Area(hull) < 0) hull = hull.reverse();
+      g.fill = diff([hull], g.out); g.arm = g.fill; g.L = L;
     }
   }
   return g;
@@ -255,7 +261,7 @@ function zatReg(p) {
     if (!side && zh + Z.at > cel - 0.2) out.uw.push(`${nr}: klosz za niski na uchwyt klika (potrzeba wysokości klosza co najmniej ${fmt(p.wk + zh + Z.at - cel + 0.2, 1)} mm)`);
     out.kl.push({ z0: zp, z1: zp + Z.t, reg: diff(g.out, g.hole) }, { z0: zp + Z.t, z1: zh, reg: diff(g.out, g.cav) });
     if (side) out.kl.push({ z0: zh, z1: fz + 0.5, reg: g.out });       // uchwyt wisi na froncie klosza
-    else { out.kl.push({ z0: zh, z1: zh + Z.at, reg: g.out }); if (g.arm) out.kl.push({ z0: zh, z1: zh + Z.at, reg: g.arm }); }   // Frontlit: dach i ramię do stopki
+    else { out.kl.push({ z0: zh, z1: zh + Z.at, reg: g.out }); if (g.fill) out.kl.push({ z0: zp, z1: zh + Z.at, reg: g.fill }); }   // Frontlit: dach i lity blok między uchwytem a stopką
   });
   return out;
 }
