@@ -8468,7 +8468,7 @@ class PdfCtx {
       vecFitText(el, this.pdf);
       const [px, py] = this.T(x, y), sc = this.sc;
       this.pdf.saveGraphicsState();
-      try { await (window.svg2pdf.svg2pdf || window.svg2pdf)(el, this.pdf, { x: px, y: py, width: w * sc, height: h * sc }); }
+      try { await withTimeout((window.svg2pdf.svg2pdf || window.svg2pdf)(el, this.pdf, { x: px, y: py, width: w * sc, height: h * sc }), 20000, 'svg2pdf'); }
       finally { this.pdf.restoreGraphicsState(); }
       return true;
     } catch (e) { console.warn('svg2pdf', url, e); return false; }
@@ -8516,6 +8516,9 @@ function vecSvgEl(url) {
     const r = await withTimeout(fetch(url), 30000, 'grafika SVG'); if (!r.ok) return null;
     const doc = new DOMParser().parseFromString(await withTimeout(r.text(), 30000, 'grafika SVG'), 'image/svg+xml'), svg = doc.documentElement;
     if (!svg || svg.nodeName.toLowerCase() !== 'svg') return null;
+    // CorelDRAW zapisuje obrazy jako zewnętrzne pliki (np. mini_…_Images\….png), których nie ma w sieci: svg2pdf czeka na nie w nieskończoność.
+    // Taki SVG nie idzie jako wektor — zostaje bitmapa miniatury (z pełną grafiką).
+    if ([...svg.querySelectorAll('image')].some(im => !/^(data:|https?:)/i.test(im.getAttribute('xlink:href') || im.getAttribute('href') || ''))) return null;
     let box = $('vec-svg-box');
     if (!box) { box = document.createElement('div'); box.id = 'vec-svg-box'; box.style.cssText = 'position:fixed;left:-20000px;top:0;width:10px;height:10px;overflow:hidden;visibility:hidden'; document.body.appendChild(box); }
     const el = document.importNode(svg, true); box.appendChild(el);
