@@ -157,11 +157,34 @@ function zatGeo(l) {
   }
   return g;
 }
+// obszar, w którym zatrzask leży w całości w środku klosza (wieżyczka w dowolnym obrocie nie dotyka ścianki ani nie wychodzi za obrys litery);
+// środki zatrzasków wolno stawiać tylko w .ok. Ręczne klikanie i przeciąganie przyciąga środek do najbliższego takiego miejsca.
+function zatObszar() {
+  const p = params3D(), Z = W.pr.zat, key = JSON.stringify([W.baseId, W.pr, p, W.m.k3]);
+  if (W.zatOb && W.zatOb.key === key) return W.zatOb;
+  const d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, obszar = W.pr.typ === 'S' ? offsetPolys(cyfryDno(p, W.m).reg, -0.3) : offsetPolys(W.base, W.m.k3 - 0.5);
+  return W.zatOb = { key, R, obszar, ok: offsetPolys(obszar, -(R + 0.3)) };
+}
+// najbliższe dozwolone miejsce środka zatrzasku w literze li (albo bez zmiany, gdy punkt już jest dozwolony); null = w tej literze zatrzask się nie zmieści
+function zatPrzyciagnij(x, y, li) {
+  if (!zatWl() || !W.base) return [x, y];
+  const L = bedLetters()[li], ok = L ? inter(zatObszar().ok, [L.p]) : zatObszar().ok;
+  if (!ok.length) return null;
+  const pt = { X: Math.round(x * S), Y: Math.round(y * S) };
+  if (ok.filter(q => C.Clipper.PointInPolygon(pt, q) !== 0).length % 2 === 1) return [x, y];
+  let best = null, bd = Infinity;
+  ok.forEach(q => { for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)), px = ax + t * dx, py = ay + t * dy, dd = Math.hypot(px - x, py - y); if (dd < bd) { bd = dd; best = [px, py]; } } });
+  return best;
+}
 // automatycznie: po n na literę, jak najdalej od siebie, przy ściance, z dala od paska LED, otworów, linii podziału i plasterków; ręcznie postawione zostają
 function autoLatches() {
   W.zatWarn = [];
   if (!zatWl() || !W.base) return;
-  W.latches = W.latches.filter(l => l.manual);
+  W.latches = W.latches.filter(l => l.manual).filter(l => {
+    const q = zatPrzyciagnij(l.x, l.y, l.li);
+    if (!q) { W.zatWarn.push(`litera ${l.li + 1}: ręcznie dodany zatrzask nie mieści się w środku klosza (litera za wąska) — usunięty`); return false; }
+    l.x = Math.round(q[0] * 10) / 10; l.y = Math.round(q[1] * 10) / 10; return true;
+  });
   const Z = W.pr.zat, p = params3D(), d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, ls = bedLetters(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
   const pas = c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 2, ny = dx / l * 2; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); };
   const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d + 2)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(W.cuts.filter(c => c.sK).map(cutK))).map(pas)));
