@@ -124,9 +124,9 @@ function cyfryReg(p, zDna) {
   return { front: c.flatMap(q => q.front), back, gl: back.length ? Math.min(p.rd > 0 ? p.rd : 0.3, zDna / 2) : 0, zDna };
 }
 // ===================== zatrzaski klik (push-push) zamiast śrub =====================
-// Korpus zatrzasku wciska się od góry w wieżyczkę na dnie podstawy: u góry płytka o grubości mocowania z otworem na korpus,
-// pod nią wnęka, w której rozchylają się zaczepy. Klosz ma języczek, który przy wciskaniu wchodzi w szczęki: we Frontlit na ramieniu
-// od wewnętrznej ścianki, w Sidelit prosto od frontu. Klosz stoi wyżej o szczelinę (skok mechanizmu), bo żeby zwolnić zatrzask, trzeba go docisnąć.
+// Mechanizm (korpus klika) siedzi w kloszu: uchwyt z płytką z otworem, korpus wchodzi od spodu, zaczepy wystają w dół (Frontlit: uchwyt na ramieniu od stopki,
+// Sidelit: przy froncie). Na dnie podstawy leży prawdziwy zatrzask z grzybkiem (płytka z dwoma otworami) w ramce, przykręcony albo przyklejony.
+// Klosz stoi wyżej o szczelinę (skok mechanizmu), bo żeby zwolnić zatrzask, trzeba go docisnąć.
 const rectPoly = (cx, cy, w, h, ang) => { const c = Math.cos(ang), s = Math.sin(ang); return toCl([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([u, v]) => [cx + u * c - v * s, cy + u * s + v * c])); };
 const zatWym = Z => { const l = Z.luz; return { hole: [Z.a + 2 * l, Z.b + 2 * l], cav: [Z.fl + 2 * l, Z.b + 2 * l], out: [Z.fl + 2 * l + 2 * Z.sc, Z.b + 2 * l + 2 * Z.sc] }; };
 const zatWl = () => !!(W.pr && W.pr.zat && W.pr.zat.on && W.pr.typ !== 'P');
@@ -141,21 +141,14 @@ function zatNajblizej(x, y) {
   zatSciana().forEach(p => { for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)), qx = ax + t * dx, qy = ay + t * dy, d = Math.hypot(qx - x, qy - y); if (d < bd) { bd = d; best = [qx, qy]; } } });
   return best;
 }
-// haczyk = trzonek + główka na dolnym końcu (za nią łapią zaczepy klika); bez główki (0 lub węższa od trzonka) sam trzonek
-const zatGlowka = Z => Z.jhh > 0.05 && Z.jhw > Z.jt + 0.05;
-// warstwy języczka od dołu (z0) do z1: główka ścięta u dołu, wyżej trzonek
-function zatJezyk(g, Z, z0, z1) {
-  if (!g.head) return [{ z0, z1, reg: g.tongue }];
-  const hh = Math.min(Math.max(Z.jhh, 0.8), Math.max(z1 - z0 - 0.2, 0.8)), ch = Math.min(0.5, hh / 3);
-  return [{ z0, z1: z0 + ch, reg: g.headTip }, { z0: z0 + ch, z1: z0 + hh, reg: g.head }, { z0: z0 + hh, z1: Math.max(z1, z0 + hh + 0.01), reg: g.tongue }];
-}
-// wieżyczka dłuższym bokiem wzdłuż najbliższej ścianki
+// płytka i uchwyt dłuższym bokiem wzdłuż najbliższej ścianki
 function zatKat(l) { const w = zatNajblizej(l.x, l.y); return w ? Math.round((Math.atan2(w[1] - l.y, w[0] - l.x) * 180 / Math.PI + 90) * 10) / 10 : 0; }
+const zatPl = Z => ({ L: Z.hl + 2 * Z.hluz, W: Z.hw + 2 * Z.hluz });   // wnętrze ramki na płytkę zatrzasku z grzybkiem (z luzem)
 function zatGeo(l) {
-  const Z = W.pr.zat, d = zatWym(Z), a = (l.ang || 0) * Math.PI / 180, R = (w, h) => [rectPoly(l.x, l.y, w, h, a)];
-  const g = { out: R(d.out[0], d.out[1]), cav: R(d.cav[0], d.cav[1]), hole: R(d.hole[0], d.hole[1]), tongue: R(Z.jt, Z.jw) };
-  if (zatGlowka(Z)) { const hd = Math.max(Z.jw, Z.jhd || 0); g.head = R(Z.jhw, hd); g.headTip = R(Math.max(Z.jt, Z.jhw - 1), Math.max(Z.jw, hd - 1)); }   // grzybek na dolnym końcu: szerszy od trzonka, u dołu ścięty (wchodzi między zaczepy)
-  if (W.pr.typ !== 'S') {
+  const Z = W.pr.zat, d = zatWym(Z), pl = zatPl(Z), a = (l.ang || 0) * Math.PI / 180, R = (w, h) => [rectPoly(l.x, l.y, w, h, a)], cs = Math.cos(a), sn = Math.sin(a), hx = Z.hs / 2;
+  const g = { out: R(d.out[0], d.out[1]), cav: R(d.cav[0], d.cav[1]), hole: R(d.hole[0], d.hole[1]), plate: R(pl.L, pl.W),
+    frame: diff(R(pl.L + 2 * Z.hf, pl.W + 2 * Z.hf), R(pl.L, pl.W)), screws: [-hx, hx].map(u => circlePoly(l.x + u * cs, l.y + u * sn, Z.hd)) };
+  if (W.pr.typ !== 'S') {   // Frontlit: uchwyt wisi na ramieniu od stopki klosza
     const w = zatNajblizej(l.x, l.y);
     if (w) {
       const L = Math.hypot(w[0] - l.x, w[1] - l.y) || 1, ux = (w[0] - l.x) / L, uy = (w[1] - l.y) / L, e = L + 1.5, h = Z.aw / 2;
@@ -166,23 +159,25 @@ function zatGeo(l) {
   }
   return g;
 }
-// obszar, w którym zatrzask leży w całości w środku klosza (nie wychodzi za obrys litery ani na ściankę klosza); wieżyczka może wchodzić w rant podstawy.
-// ok / ok2 = środki, przy których wieżyczka w dowolnym obrocie / przy obrocie wzdłuż ścianki na pewno się mieści (do podpowiedzi); dokładnie sprawdza zatPoza.
+// pola dozwolone dla zatrzasku: płytka z grzybkiem leży na dnie (w kieszeni, 0,3 mm od ścianki), uchwyt klosza w całości w środku klosza
+// (Frontlit: 0,5 mm od stopki; Sidelit: wewnątrz rantu podstawy). Wejście w rant podstawy ponad dnem nie przeszkadza: uchwyt jest wyżej.
 function zatObszar() {
   const p = params3D(), Z = W.pr.zat, key = JSON.stringify([W.baseId, W.pr, p, W.m.k3]);
   if (W.zatOb && W.zatOb.key === key) return W.zatOb;
-  const d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, hs = Math.min(d.out[0], d.out[1]) / 2;
-  const obszar = W.pr.typ === 'S' ? offsetPolys(W.base, -(p.t1 + 0.5)) : offsetPolys(W.base, W.m.k3 - 0.5);   // Sidelit: 0,5 mm od ścianki klosza; Frontlit: 0,5 mm od stopki
-  return W.zatOb = { key, R, hs, obszar, ok: offsetPolys(obszar, -(R + 0.3)), ok2: offsetPolys(obszar, -(hs + 0.3)) };
+  const d = zatWym(Z), pl = zatPl(Z), floor = offsetPolys(cyfryDno(p, W.m).reg, -0.3);
+  const inner = W.pr.typ === 'S' ? offsetPolys(W.base, -(p.t3 + 0.3)) : offsetPolys(W.base, W.m.k3 - 0.5);
+  return W.zatOb = { key, floor, inner, wP: pl.W / 2, wH: Math.min(d.out[0], d.out[1]) / 2, R: Math.max(Math.hypot(pl.L, pl.W), Math.hypot(d.out[0], d.out[1])) / 2 };
 }
-const zatProst = (x, y, ang) => { const d = zatWym(W.pr.zat); return [rectPoly(x, y, d.out[0], d.out[1], (ang || 0) * Math.PI / 180)]; };
-const zatPoza = (x, y, ang, wolne) => diff(zatProst(x, y, ang), wolne).reduce((a, q) => a + Math.abs(area(q)), 0);   // mm² wieżyczki poza dozwolonym polem
-// środek przesuwany w stronę najbliższej ścianki, jak daleko pozwala prostokąt wieżyczki (z jej obrotem): zatrzask dolega do krawędzi podstawy
-function zatDocisnij(x, y, wolne, ang) {
+const zatPole = (x, y, ang, fl, inn) => {   // mm² płytki i uchwytu poza dozwolonymi polami
+  const Z = W.pr.zat, d = zatWym(Z), pl = zatPl(Z), a = (ang || 0) * Math.PI / 180, ar = ps => ps.reduce((s, q) => s + Math.abs(area(q)), 0);
+  return ar(diff([rectPoly(x, y, pl.L, pl.W, a)], fl)) + ar(diff([rectPoly(x, y, d.out[0], d.out[1], a)], inn));
+};
+// środek przesuwany w stronę najbliższej ścianki, jak daleko pozwalają płytka i uchwyt (z obrotem): zatrzask dolega do krawędzi
+function zatDocisnij(x, y, fl, inn, ang) {
   const a = ang != null ? ang : zatKat({ x, y }), w = zatNajblizej(x, y);
-  if (zatPoza(x, y, a, wolne) > 0.02) return null;
+  if (zatPole(x, y, a, fl, inn) > 0.02) return null;
   if (!w) return { x, y, ang: a };
-  const L = Math.hypot(w[0] - x, w[1] - y) || 1, ux = (w[0] - x) / L, uy = (w[1] - y) / L, ok = t => zatPoza(x + ux * t, y + uy * t, a, wolne) < 0.02;
+  const L = Math.hypot(w[0] - x, w[1] - y) || 1, ux = (w[0] - x) / L, uy = (w[1] - y) / L, ok = t => zatPole(x + ux * t, y + uy * t, a, fl, inn) < 0.02;
   let lo = 0, hi = L;
   if (ok(hi)) lo = hi; else for (let i = 0; i < 14; i++) { const mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; }
   return { x: x + ux * lo, y: y + uy * lo, ang: a };
@@ -192,16 +187,17 @@ const zatNajblizejNa = (polys, x, y) => {
   polys.forEach(q => { for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)), px = ax + t * dx, py = ay + t * dy, dd = Math.hypot(px - x, py - y); if (dd < bd) { bd = dd; best = [px, py]; } } });
   return best;
 };
-// dozwolone miejsce środka zatrzasku w literze li: bez zmiany, gdy wieżyczka już mieści się w środku klosza; inaczej najbliższe miejsce, w którym się mieści
+// dozwolone miejsce środka zatrzasku w literze li: bez zmiany, gdy płytka i uchwyt już się mieszczą; inaczej najbliższe miejsce, w którym się mieszczą
 // (i tak blisko wskazanego punktu, jak się da); null = w tej literze zatrzask się nie zmieści. ang = obrót (domyślnie wzdłuż ścianki).
 function zatPrzyciagnij(x, y, li, ang) {
   if (!zatWl() || !W.base) return [x, y];
-  const A = zatObszar(), L = bedLetters()[li], free = offsetPolys(L ? inter(A.obszar, [L.p]) : A.obszar, -0.08), kat = (px, py) => ang != null ? ang : zatKat({ x: px, y: py });
-  const valid = (px, py) => zatPoza(px, py, kat(px, py), free) < 0.02;
+  const A = zatObszar(), L = bedLetters()[li], lp = ps => L ? inter(ps, [L.p]) : ps, fl = offsetPolys(lp(A.floor), -0.08), inn = offsetPolys(lp(A.inner), -0.08);
+  const kat = (px, py) => ang != null ? ang : zatKat({ x: px, y: py }), valid = (px, py) => zatPole(px, py, kat(px, py), fl, inn) < 0.02;
   if (valid(x, y)) return [x, y];
-  for (const reg of [A.ok2, A.ok]) {
-    const ok = L ? inter(reg, [L.p]) : reg; if (!ok.length) continue;
-    const sp = zatNajblizejNa(ok, x, y); if (!sp || !valid(sp[0], sp[1])) continue;
+  const cand = inter(offsetPolys(A.floor, -A.wP), offsetPolys(A.inner, -A.wH));
+  for (const e of [0.2, 1.5, 4, 8]) {
+    const reg = lp(offsetPolys(cand, -e)); if (!reg.length) continue;
+    const sp = zatNajblizejNa(reg, x, y); if (!sp || !valid(sp[0], sp[1])) continue;
     let lo = 0, hi = 1;
     for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (valid(sp[0] + (x - sp[0]) * mid, sp[1] + (y - sp[1]) * mid)) lo = mid; else hi = mid; }
     return [sp[0] + (x - sp[0]) * lo, sp[1] + (y - sp[1]) * lo];
@@ -214,24 +210,25 @@ function autoLatches() {
   if (!zatWl() || !W.base) return;
   W.latches = W.latches.filter(l => l.manual).filter(l => {
     const q = zatPrzyciagnij(l.x, l.y, l.li, l.ang);
-    if (!q) { W.zatWarn.push(`litera ${l.li + 1}: ręcznie dodany zatrzask nie mieści się w środku klosza (litera za wąska) — usunięty`); return false; }
+    if (!q) { W.zatWarn.push(`litera ${l.li + 1}: ręcznie dodany zatrzask nie mieści się (płytka na dnie lub uchwyt w kloszu) — usunięty`); return false; }
     l.x = Math.round(q[0] * 10) / 10; l.y = Math.round(q[1] * 10) / 10; return true;
   });
-  const Z = W.pr.zat, p = params3D(), d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, ls = bedLetters(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
+  const Z = W.pr.zat, d = zatWym(Z), ls = bedLetters(), A = zatObszar(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
   const pas = c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 2, ny = dx / l * 2; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); };
   const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d + 2)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(W.cuts.filter(c => c.sK).map(cutK))).map(pas)));
-  const obszar = zatObszar().obszar, hs = zatObszar().hs;
   ls.forEach((l, li) => {
     const moje = W.latches.filter(q => q.li === li), ile = Z.n - moje.length; if (ile <= 0) return;
-    const pole = inter(obszar, [l.p]), led = W.led ? plus(rowekLED(pole, LED_W + 1)) : [];
-    const wolne = diff(pole, clip('ctUnion', przeszkody.concat(led))), pts = offsetPolys(wolne, -(R + 0.3)).concat(offsetPolys(wolne, -(hs + 0.3))).flatMap(q => q.map(v => [v.X / S, v.Y / S]));
-    const jest = moje.map(q => [q.x, q.y]), cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2;
-    let dodane = 0; const wolneT = offsetPolys(wolne, -0.08);   // zapas na zaokrąglenie położenia do 0,1 mm
+    const floorL = inter(A.floor, [l.p]), led = W.led ? plus(rowekLED(floorL, LED_W + 1)) : [];
+    const flFree = diff(floorL, clip('ctUnion', przeszkody.concat(led))), inFree = diff(inter(A.inner, [l.p]), clip('ctUnion', przeszkody));
+    const fl = offsetPolys(flFree, -0.08), inn = offsetPolys(inFree, -0.08);
+    const pts = inter(offsetPolys(flFree, -A.wP), offsetPolys(inFree, -A.wH)).flatMap(q => q.map(v => [v.X / S, v.Y / S]));
+    const jest = moje.map(q => [q.x, q.y]), cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2, odstep = Z.hl + 1;
+    let dodane = 0;
     for (let k = 0; k < ile; k++) {
-      // kandydaci od najlepszego (najdalej od siebie); pierwszy, któremu wieżyczka mieści się dokładnie, zostaje dociśnięty do ścianki
+      // kandydaci od najlepszego (najdalej od siebie); pierwszy, któremu płytka i uchwyt mieszczą się dokładnie, zostaje dociśnięty do ścianki
       const cand = pts.map(q => ({ q, s: jest.length ? Math.min(...jest.map(o => Math.hypot(o[0] - q[0], o[1] - q[1]))) : Math.hypot(q[0] - cx, q[1] - cy) })).sort((a, b) => b.s - a.s);
       let got = null;
-      for (let ci = 0; ci < cand.length && ci < 400; ci++) { const c = cand[ci]; if (jest.length && c.s < 2 * R + 1) break; got = zatDocisnij(c.q[0], c.q[1], wolneT); if (got) break; }
+      for (let ci = 0; ci < cand.length && ci < 400; ci++) { const c = cand[ci]; if (jest.length && c.s < odstep) break; got = zatDocisnij(c.q[0], c.q[1], fl, inn); if (got) break; }
       if (!got) break;
       const z = { id: uid++, li, x: Math.round(got.x * 10) / 10, y: Math.round(got.y * 10) / 10, ang: 0, manual: false }; z.ang = zatKat(z);
       W.latches.push(z); jest.push([z.x, z.y]); dodane++;
@@ -239,63 +236,70 @@ function autoLatches() {
     if (dodane < ile) W.zatWarn.push(`litera ${li + 1}: zmieściło się ${moje.length + dodane} z ${Z.n}`);
   });
 }
-// warstwy zatrzasków do brył: wieżyczki w podstawie, wnęki wycięte też w płycie, języczki z ramionami w kloszu
+// warstwy zatrzasków do brył: ramka i otwory na zatrzask z grzybkiem w podstawie; uchwyt korpusu klika w kloszu
 function zatReg(p) {
-  const out = { gap: 0, cav: [], pod: [], kl: [], uw: [], zF: Infinity };
+  const out = { gap: 0, screw: [], pod: [], kl: [], uw: [], zF: Infinity };
   if (!zatWl() || !W.latches.length) return out;
-  const Z = W.pr.zat, side = W.pr.typ === 'S', zF = cyfryDno(p, W.m).z, top = zF + Z.h, tip = top + Z.jz;
-  out.gap = Z.gap; out.zF = zF;
-  // po dociśnięciu klosza o skok nic nie może uderzyć w szczęki (wystają ponad kołnierz)
-  const fz = side ? p.sh - p.kCalk + p.ss + Z.gap : 0, lim = side ? fz : p.st + Z.gap + p.ws, szczeki = top + Z.sz;
+  const Z = W.pr.zat, side = W.pr.typ === 'S', zF = cyfryDno(p, W.m).z, gz = Z.gap;
+  out.gap = gz; out.zF = zF;
+  const zm = zF + Z.ht + Z.hp, top = side ? p.pCalk : p.st + p.pl;   // czubek grzybka (płytka leży na dnie); wierzch podstawy
+  let zp = zm + Z.jz;                                                   // płaszczyzna kołnierza klika przy zatrzaśniętym kloszu (wyżej o skok)
+  if (!side) zp = Math.max(zp, top + gz + 0.2);                         // po dociśnięciu uchwyt nie siada na ranncie podstawy
+  const zh = zp + Z.h, fz = side ? p.sh - p.kCalk + p.ss + gz : 0;      // wierzch wnęki; Sidelit: wewnętrzna strona frontu klosza
+  const cel = side ? fz : p.st + gz + p.wk - p.gp;                      // sufit: front klosza / spód pleksy
   W.latches.forEach((l, i) => {
     const g = zatGeo(l), nr = `zatrzask ${i + 1} (litera ${l.li + 1})`;
-    out.cav.push(...g.cav);
-    out.pod.push({ z0: zF, z1: top - Z.t, reg: diff(g.out, g.cav) }, { z0: top - Z.t, z1: top, reg: diff(g.out, g.hole) });
-    if (side) {
-      if (fz - Z.gap < szczeki + 0.5) { out.uw.push(`${nr}: litera za płaska: po dociśnięciu front uderzy w szczęki (potrzeba grubości litery co najmniej ${fmt(p.sh + szczeki + 0.5 - fz + Z.gap, 1)} mm)`); return; }
-      out.kl.push(...zatJezyk(g, Z, tip, fz + 0.5));
-    } else {
-      const t1 = Math.max(tip + Z.jl, szczeki + Z.gap + 0.5), a1 = t1 + Z.at;      // języczek dłuższy, gdy ramię po dociśnięciu trafiłoby w szczęki
-      if (a1 > lim) out.uw.push(`${nr}: ramię języczka sięga ${fmt(a1, 1)} mm, wyżej niż podparcie pleksy (${fmt(lim, 1)} mm)`);
-      out.kl.push(...zatJezyk(g, Z, tip, t1 + 0.01));
-      if (g.arm) out.kl.push({ z0: t1, z1: a1, reg: g.arm });
-    }
+    out.screw.push(...g.screws);
+    out.pod.push({ z0: zF, z1: zF + Z.ht, reg: g.frame });
+    if (side && zh > fz + 0.3) { out.uw.push(`${nr}: litera za płaska: uchwyt klika nie mieści się pod frontem (potrzeba grubości litery co najmniej ${fmt(p.sh + zh - fz, 1)} mm)`); return; }
+    if (!side && zh + Z.at > cel - 0.2) out.uw.push(`${nr}: klosz za niski na uchwyt klika (potrzeba wysokości klosza co najmniej ${fmt(p.wk + zh + Z.at - cel + 0.2, 1)} mm)`);
+    out.kl.push({ z0: zp, z1: zp + Z.t, reg: diff(g.out, g.hole) }, { z0: zp + Z.t, z1: zh, reg: diff(g.out, g.cav) });
+    if (side) out.kl.push({ z0: zh, z1: fz + 0.5, reg: g.out });       // uchwyt wisi na froncie klosza
+    else { out.kl.push({ z0: zh, z1: zh + Z.at, reg: g.out }); if (g.arm) out.kl.push({ z0: zh, z1: zh + Z.at, reg: g.arm }); }   // Frontlit: dach i ramię do stopki
   });
   return out;
 }
-// próbki do wydruku: zestaw gniazd (różny luz) i zestaw haczyków (różny trzonek i główka) na jednej płytce, każdy z numerem — do sprawdzenia
-// z prawdziwym klikiem: czy korpus wchodzi i trzyma, czy haczyk się zatrzaskuje i zwalnia, ile wynosi skok
+// próbki do wydruku: zestaw ramek na zatrzask z grzybkiem (różny luz) i zestaw uchwytów na korpus klika (różny luz otworu), każdy z numerem — do sprawdzenia
+// z prawdziwymi częściami: czy płytka z grzybkiem wchodzi w ramkę, czy korpus klika wchodzi w uchwyt i się trzyma, jak zatrzask się zatrzaskuje i zwalnia
 async function zatProbka() {
   W.pr = params(); const Z = W.pr.zat, garbage = [], ndel = o => { garbage.push(o); return o; };
   try {
     await load3D();
-    const wrap = (x, y, w, h) => [rectPoly(x, y, w, h, 0)];
-    // gniazda: luz panelu −0,05 / panelu / +0,1 / +0,2 (od tego zależy, czy korpus wchodzi i się trzyma)
-    const luzy = [Math.max(0, Z.luz - 0.05), Z.luz, Z.luz + 0.1, Z.luz + 0.2], layersG = [], opisG = [];
-    luzy.forEach((lz, i) => {
-      const Zv = { ...Z, luz: lz }, d = zatWym(Zv), cx = i * (d.out[0] + 16), cy = 0;
-      layersG.push({ z0: 0, z1: 2, reg: wrap(cx, cy, d.out[0] + 10, d.out[1] + 10) },
-        { z0: 2, z1: 2 + Z.h - Z.t, reg: diff(wrap(cx, cy, d.out[0], d.out[1]), wrap(cx, cy, d.cav[0], d.cav[1])) },
-        { z0: 2 + Z.h - Z.t, z1: 2 + Z.h, reg: diff(wrap(cx, cy, d.out[0], d.out[1]), wrap(cx, cy, d.hole[0], d.hole[1])) },
-        { z0: 2, z1: 2.4, reg: cyfraPolys(String(i + 1), cx, cy - d.out[1] / 2 - 3.2, 4.4, 0.7) });
-      opisG.push(`${i + 1}: luz ${fmt(lz, 2)} mm (otwór na korpus ${fmt(d.hole[0], 2)} × ${fmt(d.hole[1], 2)})`);
+    const wrap = (x, y, w, h) => [rectPoly(x, y, w, h, 0)], CRLF = String.fromCharCode(13, 10);
+    // podstawa: ramka na płytkę zatrzasku z grzybkiem — luz ramki −0,1 / z panelu / +0,15 / +0,3
+    const luzP = [Math.max(0, Z.hluz - 0.1), Z.hluz, Z.hluz + 0.15, Z.hluz + 0.3], layersB = [], opisB = [];
+    luzP.forEach((lz, i) => {
+      const Lw = Z.hl + 2 * lz, Ww = Z.hw + 2 * lz, cx = 0, cy = -i * (Ww + 2 * Z.hf + 14), hx = Z.hs / 2;
+      layersB.push({ z0: 0, z1: 2, reg: diff(wrap(cx, cy, Lw + 2 * Z.hf + 9, Ww + 2 * Z.hf + 6), [-hx, hx].map(u => circlePoly(cx + u, cy, Z.hd))) },
+        { z0: 2, z1: 2 + Z.ht, reg: diff(wrap(cx, cy, Lw + 2 * Z.hf, Ww + 2 * Z.hf), wrap(cx, cy, Lw, Ww)) },
+        { z0: 2, z1: 2.4, reg: cyfraPolys(String(i + 1), cx + (Lw + 2 * Z.hf) / 2 + 4, cy, 4, 0.7) });
+      opisB.push(`${i + 1}: luz ramki ${fmt(lz, 2)} mm (wnętrze ${fmt(Lw, 2)} × ${fmt(Ww, 2)} mm, ścianka ${fmt(Z.hf, 1)} mm, wysokość ${fmt(Z.ht, 1)} mm, otwory na śruby ${fmt(Z.hd, 1)} mm co ${fmt(Z.hs, 1)} mm)`);
     });
-    // haczyki: trzonek × główka (szerokość × wysokość)
-    const jt = Z.jt, hw = Z.jhw > Z.jt ? Z.jhw : Z.jt + 3, hh = Z.jhh > 0 ? Z.jhh : 2;
-    const war = [[jt, hw, hh], [jt + 0.5, hw, hh], [jt + 1, hw, hh], [jt + 0.5, hw - 0.5, hh], [jt + 0.5, hw + 0.5, hh], [jt + 0.5, hw, hh + 1]], layersH = [], opisH = [];
-    war.forEach(([t, w, h], i) => {
-      const cx = (i % 3) * 26, cy = -Math.floor(i / 3) * 17, Zv = { ...Z, jt: t, jhw: w, jhh: h }, hd = Math.max(Z.jw, Z.jhd || 0), g = { tongue: wrap(cx, cy, t, Z.jw), head: wrap(cx, cy, w, hd), headTip: wrap(cx, cy, Math.max(t, w - 1), Math.max(Z.jw, hd - 1)) };
-      // zatJezyk liczy od wolnego końca (dół w klosz); na płytce wolny koniec jest u góry, więc warstwy odwracamy w pionie: grzybek na końcu, trzonek przy płytce
-      const zs = 2 + (2 + Z.jl);
-      layersH.push({ z0: 0, z1: 2, reg: wrap(cx, cy, 22, 12) }, ...zatJezyk(g, Zv, 2, 2 + Z.jl).map(l => ({ ...l, z0: zs - l.z1, z1: zs - l.z0 })), { z0: 2, z1: 2.4, reg: cyfraPolys(String(i + 1), cx + 8, cy, 5, 0.8) });
-      opisH.push(`${i + 1}: trzonek ${fmt(t, 1)} mm, główka ${fmt(w, 1)} × ${fmt(h, 1)} mm (szerokość × wysokość), główka w drugą stronę ${fmt(hd, 1)} mm, trzonek w drugą stronę ${fmt(Z.jw, 1)} mm, długość ${fmt(Z.jl, 1)} mm`);
+    // klosz: uchwyt na korpus klika — luz otworu z panelu −0,05 / z panelu / +0,1 / +0,2 (korpus wchodzi od spodu, przez płytkę z otworem)
+    const luzy = [Math.max(0, Z.luz - 0.05), Z.luz, Z.luz + 0.1, Z.luz + 0.2], layersK = [], opisK = [];
+    luzy.forEach((lz, i) => {
+      const d = zatWym({ ...Z, luz: lz }), cx = i * (d.out[0] + 8), cy = 0;
+      layersK.push({ z0: 0, z1: Z.t, reg: diff(wrap(cx, cy, d.out[0], d.out[1]), wrap(cx, cy, d.hole[0], d.hole[1])) },
+        { z0: Z.t, z1: Z.h, reg: diff(wrap(cx, cy, d.out[0], d.out[1]), wrap(cx, cy, d.cav[0], d.cav[1])) },
+        { z0: Z.h, z1: Z.h + Z.at, reg: wrap(cx, cy, d.out[0], d.out[1]) },
+        { z0: Z.h + Z.at, z1: Z.h + Z.at + 0.4, reg: cyfraPolys(String(i + 1), cx, cy, 5, 0.8) });
+      opisK.push(`${i + 1}: luz otworu ${fmt(lz, 2)} mm (otwór na korpus ${fmt(d.hole[0], 2)} × ${fmt(d.hole[1], 2)} mm)`);
     });
     const body = (m, name) => { const mesh = m.getMesh(); return { name, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp }; };
-    const G = stos(layersG, ndel), H = stos(layersH, ndel);
-    const readme = `Próbki zatrzasku klik (Offset Wizard, zakładka Montaż)\r\n\r\nDRUK: obie płytki płasko na stole, tak jak w pliku. Gniazda z filamentu podstawy, haczyki z filamentu klosza.\r\nNumer jest wyciśnięty na płytce obok gniazda / haczyka.\r\n\r\nGNIAZDA (Zatrzask_gniazda_zestaw.stl):\r\n${opisG.join('\r\n')}\r\n\r\nHACZYKI (Zatrzask_haczyki_zestaw.stl):\r\n${opisH.join('\r\n')}\r\n\r\nSPRAWDŹ z prawdziwym klikiem:\r\n1. Który numer gniazda: korpus wchodzi z oporem i się trzyma (bez luzu, bez pęknięcia wieżyczki)?\r\n2. Który numer haczyka: wchodzi między zaczepy, zatrzaskuje się (klik), a po kolejnym dociśnięciu zwalnia?\r\n3. Skok: o ile trzeba docisnąć, żeby zwolnić (w kreatorze: Szczelina pod kloszem = ${fmt(Z.gap, 1)} mm).\r\nNapisz numery, które działają — wpiszę je jako domyślne.\r\n`;
-    const files = [body(G, 'Zatrzask_gniazda_zestaw'), body(H, 'Zatrzask_haczyki_zestaw')].map(b => ({ name: b.name + '.stl', data: stlOf(b) })).concat([{ name: 'OPIS.txt', data: new TextEncoder().encode(readme) }]);
+    const B = stos(layersB, ndel), K = stos(layersK, ndel);
+    const readme = ['Próbki zatrzasku klik (Offset Wizard, zakładka Montaż)', '',
+      'Mechanizm (korpus klika) siedzi w kloszu, a zatrzask z grzybkiem (płytka z dwoma otworami) leży na dnie podstawy.', '',
+      'DRUK: obie płytki tak jak w pliku (podstawą do stołu). Ramki z filamentu podstawy, uchwyty z filamentu klosza. Numer jest wyciśnięty obok / na górze.', '',
+      'RAMKI NA ZATRZASK Z GRZYBKIEM (Zatrzask_baza_ramki_zestaw.stl) — do podstawy:', ...opisB, '',
+      'UCHWYTY NA KORPUS KLIKA (Zatrzask_klosz_uchwyty_zestaw.stl) — do klosza:', ...opisK, '',
+      'SPRAWDŹ z prawdziwymi częściami:',
+      '1. Który numer ramki: płytka z grzybkiem wchodzi z lekkim oporem i nie lata (otwory na śruby pasują do otworów w płytce)?',
+      '2. Który numer uchwytu: korpus klika wchodzi od spodu (zaczepami w dół) z oporem i się trzyma, a kołnierz klika opiera się o płytkę uchwytu?',
+      `3. Włóż korpus w uchwyt, płytkę w ramkę i dociśnij uchwyt od góry na grzybek: klik zatrzaskuje, drugie dociśnięcie zwalnia. Ile trzeba docisnąć? (w kreatorze: szczelina pod kloszem = ${fmt(Z.gap, 1)} mm, grzybek ${fmt(Z.hp, 1)} mm nad płytką, koniec grzybka ${fmt(Z.jz, 1)} mm pod kołnierzem).`,
+      'Napisz numery, które działają — wpiszę je jako domyślne.', ''].join(CRLF);
+    const files = [body(B, 'Zatrzask_baza_ramki_zestaw'), body(K, 'Zatrzask_klosz_uchwyty_zestaw')].map(b => ({ name: b.name + '.stl', data: stlOf(b) })).concat([{ name: 'OPIS.txt', data: new TextEncoder().encode(readme) }]);
     saveBlob(fileBase() + '_proba_zatrzasku.zip', await zipFiles(files, 'application/zip'));
-    toast('Zapisano próbki: 4 gniazda i 6 haczyków, każdy z numerem (STL + OPIS w ZIP)');
+    toast('Zapisano próbki: 4 ramki na zatrzask z grzybkiem i 4 uchwyty na korpus klika, każdy z numerem (STL + OPIS w ZIP)');
   } catch (e) { console.error(e); toast('Nie udało się zbudować próbki: ' + (e && e.message || e), 6000); }
   garbage.forEach(o => { try { o.delete(); } catch (e) { /* już zwolnione */ } });
 }
@@ -311,7 +315,7 @@ function warstwyFrontlit(p, m) {
     if (mid > zKiesz) reg = diff(reg, kiesz);
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
-    if (zat.cav.length && mid > zat.zF) reg = diff(reg, zat.cav);
+    if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
@@ -328,7 +332,7 @@ function warstwySidelit(p) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.sd ? R0 : mid < p.pCalk ? ringRant : ringSc;
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
-    if (zat.cav.length && mid > zat.zF) reg = diff(reg, zat.cav);
+    if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });

@@ -250,29 +250,32 @@
         <button type="button" class="btn wide" id="b-zt-add" title="Potem kliknij w literę, w miejscu, gdzie ma stać zatrzask">➕ Dodaj zatrzask (klik na literze)</button>
         <button type="button" class="btn wide" id="b-zt-auto" title="Usuwa ręcznie postawione i rozmieszcza od nowa">↺ Rozmieść automatycznie</button>
         <div class="vals" id="zt-info">—</div>
-        <div class="hint">Wieżyczka z gniazdem stoi na dnie podstawy, języczek wychodzi z klosza (Frontlit: na ramieniu od ścianki, Sidelit: od frontu). Przeciągnij zatrzask, aby go przesunąć; Delete = usuń. Ręcznie postawione i przesunięte zostają przy przeliczaniu.</div>
-        <h3>Mechanizm [mm]</h3>
-        <div class="fld"><span>Korpus: szerokość</span><input type="text" inputmode="decimal" id="p-zt-a" value="7,8"></div>
-        <div class="fld"><span>Korpus: grubość</span><input type="text" inputmode="decimal" id="p-zt-b" value="6,9"></div>
-        <div class="fld"><span>Korpus: wysokość pod kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-h" value="15"></div>
+        <div class="hint">Mechanizm (korpus klika) siedzi w kloszu: uchwyt z otworem, korpus wchodzi od spodu, zaczepy wystają w dół (Frontlit: uchwyt na ramieniu od stopki, Sidelit: przy froncie). Na dnie podstawy leży zatrzask z grzybkiem (płytka z dwoma otworami) w ramce. Przeciągnij zatrzask, aby go przesunąć; Delete = usuń. Ręcznie postawione i przesunięte zostają przy przeliczaniu.</div>
+        <h3>Mechanizm — korpus klika w kloszu [mm]</h3>
+        <div class="fld"><span>Korpus: szerokość</span><input type="text" inputmode="decimal" id="p-zt-a" value="7,9"></div>
+        <div class="fld"><span>Korpus: grubość</span><input type="text" inputmode="decimal" id="p-zt-b" value="7"></div>
+        <div class="fld"><span>Korpus: wysokość pod kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-h" value="15,1"></div>
         <div class="fld"><span>Kołnierz: szerokość</span><input type="text" inputmode="decimal" id="p-zt-fl" value="11"></div>
-        <div class="fld" title="Grubość płytki, w którą wpina się korpus (odstęp kołnierz – zaczepy)"><span>Grubość mocowania</span><input type="text" inputmode="decimal" id="p-zt-t" value="2,6"></div>
-        <div class="fld" title="Ile szczęki wystają ponad kołnierz (otwarte)"><span>Szczęki nad kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-sz" value="5,1"></div>
-        <div class="fld"><span>Luz gniazda</span><input type="text" inputmode="decimal" id="p-zt-luz" value="0,15"></div>
-        <div class="fld"><span>Ścianka wieżyczki</span><input type="text" inputmode="decimal" id="p-zt-sc" value="1,6"></div>
+        <div class="fld" title="Grubość płytki uchwytu, w którą wpina się korpus (odstęp kołnierz – zaczepy)"><span>Grubość mocowania</span><input type="text" inputmode="decimal" id="p-zt-t" value="2,6"></div>
+        <div class="fld" title="Ile zaczepy wystają poza kołnierz (otwarte)"><span>Zaczepy poza kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-sz" value="5,1"></div>
+        <div class="fld"><span>Luz otworu na korpus</span><input type="text" inputmode="decimal" id="p-zt-luz" value="0,15"></div>
+        <div class="fld"><span>Ścianka uchwytu</span><input type="text" inputmode="decimal" id="p-zt-sc" value="1,6"></div>
         <div class="fld" title="O tyle klosz stoi wyżej: tyle trzeba go docisnąć, żeby zwolnić zatrzask"><span>Szczelina pod kloszem (skok)</span><input type="text" inputmode="decimal" id="p-zt-gap" value="2,5"></div>
-        <h3>Języczek w kloszu [mm]</h3>
-        <div class="fld"><span>Grubość (w szczękach)</span><input type="text" inputmode="decimal" id="p-zt-jt" value="2"></div>
-        <div class="fld"><span>Szerokość</span><input type="text" inputmode="decimal" id="p-zt-jw" value="3,5"></div>
-        <div class="fld" title="Najmniejsza; sam się wydłuża, gdy ramię po dociśnięciu trafiłoby w szczęki"><span>Długość (min.)</span><input type="text" inputmode="decimal" id="p-zt-jl" value="6"></div>
-        <div class="fld" title="Koniec języczka nad kołnierzem, gdy klosz jest zatrzaśnięty"><span>Koniec nad kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-jz" value="1,5"></div>
-        <div class="fld" title="Zgrubienie na dolnym końcu języczka (haczyk): za nie łapią zaczepy klika. Szerokość mierzona w poprzek szczęk. 0 = bez główki"><span>Główka haczyka: szerokość</span><input type="text" inputmode="decimal" id="p-zt-jhw" value="6,2"></div>
-        <div class="fld" title="Wysokość zgrubienia wzdłuż języczka (u dołu ścięte). 0 = bez główki"><span>Główka haczyka: wysokość</span><input type="text" inputmode="decimal" id="p-zt-jhh" value="2"></div>
-        <div class="fld" title="Grubość główki w drugą stronę (w poprzek szerokości trzonka). Grzybek jest szerszy od trzonka z obu stron"><span>Główka haczyka: grubość</span><input type="text" inputmode="decimal" id="p-zt-jhd" value="4,5"></div>
-        <div class="fld"><span>Ramię: grubość</span><input type="text" inputmode="decimal" id="p-zt-at" value="3"></div>
+        <h3>Zatrzask z grzybkiem — na podstawie [mm]</h3>
+        <div class="fld"><span>Płytka: długość</span><input type="text" inputmode="decimal" id="p-zt-hl" value="24,9"></div>
+        <div class="fld"><span>Płytka: szerokość</span><input type="text" inputmode="decimal" id="p-zt-hw" value="7"></div>
+        <div class="fld" title="Grubość płytki z otworami (wysokość ramki); do sprawdzenia suwmiarką"><span>Płytka: grubość</span><input type="text" inputmode="decimal" id="p-zt-ht" value="2"></div>
+        <div class="fld" title="Odległość między środkami dwóch otworów w płytce; do sprawdzenia suwmiarką"><span>Otwory: rozstaw</span><input type="text" inputmode="decimal" id="p-zt-hs" value="16,5"></div>
+        <div class="fld" title="Otwory w dnie podstawy na śruby, w osi otworów płytki"><span>Otwory: średnica w podstawie</span><input type="text" inputmode="decimal" id="p-zt-hd" value="3"></div>
+        <div class="fld"><span>Grzybek: wysokość nad płytką</span><input type="text" inputmode="decimal" id="p-zt-hp" value="5"></div>
+        <div class="fld" title="O ile czubek grzybka jest pod kołnierzem klika, gdy klosz jest zatrzaśnięty"><span>Koniec grzybka pod kołnierzem</span><input type="text" inputmode="decimal" id="p-zt-jz" value="1,5"></div>
+        <div class="fld"><span>Ramka: ścianka</span><input type="text" inputmode="decimal" id="p-zt-hf" value="1,2"></div>
+        <div class="fld"><span>Ramka: luz na płytkę</span><input type="text" inputmode="decimal" id="p-zt-hluz" value="0,2"></div>
+        <h3>Ramię uchwytu (Frontlit) [mm]</h3>
+        <div class="fld" title="Grubość dachu uchwytu i ramienia do stopki klosza"><span>Ramię: grubość</span><input type="text" inputmode="decimal" id="p-zt-at" value="3"></div>
         <div class="fld"><span>Ramię: szerokość</span><input type="text" inputmode="decimal" id="p-zt-aw" value="4"></div>
         <button type="button" class="btn wide" id="b-zt-probka">⬇ Próbka do wydruku (STL)</button>
-        <div class="hint">Najpierw wydrukuj próbkę: wieżyczkę i języczek na płytkach. Sprawdź, czy korpus wchodzi i trzyma się, czy języczek zatrzaskuje się i zwalnia oraz ile wynosi skok; potem popraw wymiary wyżej. We Frontlit pod języczkiem trzeba w slicerze dodać podporę.</div>
+        <div class="hint">Najpierw wydrukuj próbki: ramki na płytkę z grzybkiem (do podstawy) i uchwyty na korpus klika (do klosza). Sprawdź z prawdziwymi częściami, czy płytka wchodzi w ramkę, czy korpus wchodzi i trzyma się w uchwycie oraz jak zatrzask się zatrzaskuje i zwalnia; potem popraw wymiary wyżej.</div>
       </section>
       <section class="pan" data-pan="podzial" data-t="Podział na stół">
         <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
@@ -503,7 +506,7 @@ function rowsOf(ls) {
 
 // ===================== parametry i warstwy (jak A_START) =====================
 // zatrzaski (zakładka Montaż)
-const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jt', 'jw', 'jl', 'jz', 'jhw', 'jhh', 'jhd', 'at', 'aw'];
+const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jz', 'hl', 'hw', 'ht', 'hs', 'hd', 'hp', 'hf', 'hluz', 'at', 'aw'];
 function zatParams() { const o = { on: $('p-zt-on').checked, n: Number($('p-zt-n').value) || 2 }; ZAT_POLA.forEach(k => { o[k] = Math.max(0, num($('p-zt-' + k).value)); }); return o; }
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
@@ -1600,7 +1603,8 @@ function draw() {
     g.beginPath(); g.arc(X(q.x), Y(q.y), 9, 0, Math.PI * 2); g.fillStyle = q.brak ? '#e53e3e' : '#d53f8c'; g.fill(); g.fillStyle = '#fff'; g.font = '700 11px Segoe UI, Arial'; g.textAlign = 'center'; g.fillText(q.t, X(q.x), Y(q.y) + 4); g.textAlign = 'left';
   });
   // zatrzaski: wieżyczka w podstawie (otwór na korpus) i ramię języczka do ścianki klosza
-  if (W.show.Zat && zatWlHtml()) W.latches.forEach(l => { const q = zatGeo(l), sel = W.sel && W.sel.t === 'latch' && W.sel.id === l.id; if (q.arm) { path(q.arm); g.fillStyle = 'rgba(49,130,206,.22)'; g.fill(); } path(q.out); g.fillStyle = sel ? 'rgba(43,108,176,.4)' : 'rgba(43,108,176,.2)'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = sel ? 2.5 : 1.4; g.setLineDash(l.manual ? [4, 2] : []); g.stroke(); g.setLineDash([]); path(q.hole); g.lineWidth = 1; g.stroke(); });
+  if (W.show.Zat && zatWlHtml()) W.latches.forEach(l => { const q = zatGeo(l), sel = W.sel && W.sel.t === 'latch' && W.sel.id === l.id; path(q.frame); g.fillStyle = 'rgba(56,161,105,.45)'; g.fill(); path(q.plate); g.fillStyle = sel ? 'rgba(56,161,105,.35)' : 'rgba(56,161,105,.2)'; g.fill(); g.strokeStyle = '#2f855a'; g.lineWidth = 1.2; g.stroke(); q.screws.forEach(c => { path([c]); g.fillStyle = 'rgba(255,255,255,.8)'; g.fill(); g.stroke(); });
+    if (q.arm) { path(q.arm); g.fillStyle = 'rgba(49,130,206,.22)'; g.fill(); } path(q.out); g.fillStyle = sel ? 'rgba(43,108,176,.4)' : 'rgba(43,108,176,.2)'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = sel ? 2.5 : 1.4; g.setLineDash(l.manual ? [4, 2] : []); g.stroke(); g.setLineDash([]); path(q.hole); g.lineWidth = 1; g.stroke(); });
   // łeb śruby dookoła FIX — pomocniczy (na szablon, nie do DXF dla Fusion)
   if (W.show.Leb && W.show.FIX) W.holes.forEach(h => { if (h.kind !== 'fix') return; g.beginPath(); g.arc(X(h.x), Y(h.y), W.pr.dLeb / 2 * W.view.s, 0, Math.PI * 2); g.strokeStyle = '#805ad5'; g.lineWidth = 1; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); });
   W.holes.forEach(h => {
@@ -1633,7 +1637,7 @@ function renderSide() {
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Pomocniczy okrąg dookoła FIX: jest na szablonie, nie idzie do DXF dla Fusion"><input type="checkbox" data-lay="Leb" ${W.show.Leb ? 'checked' : ''}><i style="background:#805ad5"></i>łeb śruby <span class="hint">(pomocniczy)</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Plasterki łączące części: w DXF i w bryłach, nie na szablonie"><input type="checkbox" data-lay="Plaster" ${W.show.Plaster ? 'checked' : ''}><i style="background:#dd6b20"></i>plasterki <span class="hint">(${W.plates.filter(q => q.polys.length).length})</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Cyfry do rozróżniania liter (prawy klawisz na literze): w bryłach i w DXF, nie na szablonie"><input type="checkbox" data-lay="Cyfra" ${W.show.Cyfra ? 'checked' : ''}><i style="background:#d53f8c"></i>cyfry <span class="hint">(${W.marks.length})</span></label>`);
-  if (zatWlHtml()) $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Zatrzaski klik: wieżyczki w podstawie i języczki klosza"><input type="checkbox" data-lay="Zat" ${W.show.Zat ? 'checked' : ''}><i style="background:#2b6cb0"></i>zatrzaski <span class="hint">(${W.latches.length})</span></label>`);
+  if (zatWlHtml()) $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Zatrzaski klik: płytka z grzybkiem w podstawie (zielona) i uchwyt korpusu klika w kloszu (niebieski)"><input type="checkbox" data-lay="Zat" ${W.show.Zat ? 'checked' : ''}><i style="background:#2b6cb0"></i>zatrzaski <span class="hint">(${W.latches.length})</span></label>`);
   zatInfo();
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Blat drukarki 3D — tylko podgląd"><input type="checkbox" data-lay="Stol" ${W.show.Stol ? 'checked' : ''}><i style="background:#38a169"></i>stół drukarki <span class="hint">(podgląd)</span></label>`);
   $('lays').querySelectorAll('[data-lay]').forEach(c => c.onchange = () => { W.show[c.dataset.lay] = c.checked; draw(); save(); });
@@ -1660,7 +1664,7 @@ function renderSel() {
   }
   if (s.t === 'latch') {
     const l = W.latches.find(q => q.id === s.id); if (!l || !zatWlHtml()) { W.sel = null; b.classList.add('hidden'); return; }
-    const q = zatGeo(l); b.classList.remove('hidden'); b.innerHTML = `<b>Zatrzask</b><div class="fld"><span>Obrót [°]</span><input type="text" inputmode="decimal" id="sel-zang" value="${fmt(l.ang || 0, 1)}"></div><div class="hint">${q.L ? `ramię języczka do ścianki ${fmt(q.L, 1)} mm · ` : ''}przeciągnij = przesuń · Delete = usuń</div>`;
+    const q = zatGeo(l); b.classList.remove('hidden'); b.innerHTML = `<b>Zatrzask</b><div class="fld"><span>Obrót [°]</span><input type="text" inputmode="decimal" id="sel-zang" value="${fmt(l.ang || 0, 1)}"></div><div class="hint">${q.L ? `ramię uchwytu do ścianki ${fmt(q.L, 1)} mm · ` : ''}przeciągnij = przesuń · Delete = usuń</div>`;
     const inp = $('sel-zang'), go = () => { pushUndo(); l.ang = num(inp.value); l.manual = true; draw(); save(); if (window.mark3D) mark3D(); }; inp.onchange = go; addSpin(inp, 15, go); return;
   }
   const o = s.t === 'hole' ? W.holes.find(h => h.id === s.id) : W.rails.find(r => r.id === s.id); if (!o) { W.sel = null; b.classList.add('hidden'); return; }
@@ -1679,7 +1683,7 @@ function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s
 function hit(px, py) {
   const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
   if (hh) return { t: 'hole', id: hh.id, o: hh };
-  if (W.show.Zat && zatWlHtml()) { const x = wx(px), y = wy(py), q = W.latches.slice().reverse().find(l => edgeDist(zatGeo(l).out, x, y) > -3 / W.view.s); if (q) return { t: 'latch', id: q.id, o: q }; }
+  if (W.show.Zat && zatWlHtml()) { const x = wx(px), y = wy(py), q = W.latches.slice().reverse().find(l => { const g0 = zatGeo(l); return edgeDist(g0.out, x, y) > -3 / W.view.s || edgeDist(g0.plate, x, y) > -3 / W.view.s; }); if (q) return { t: 'latch', id: q.id, o: q }; }
   if (W.show.Podzial) {
     const segs = cutSegs();
     for (const q of segs) for (const [p, end] of [[q.a, 'a'], [q.b, 'b']]) if (Math.hypot(X(p[0]) - px, Y(p[1]) - py) <= 9) return { t: 'cut', id: q.id, c: q.c, mode: 'rot', end };
