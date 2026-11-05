@@ -236,6 +236,13 @@
         <div class="fld"><span>Luz FIX od konturu</span><input type="text" inputmode="decimal" id="p-luzf" value="4,6"></div>
         <div class="fld"><span>Łeb śruby <span class="hint">(pomocniczy: na szablonie, bez bryły)</span></span><input type="text" inputmode="decimal" id="p-dleb" value="7"></div>
         <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+        <h3>Wycięcia w bryle 3D</h3>
+        <div class="row"><label><input type="checkbox" id="b3-otw" checked> otwory na przewody</label></div>
+        <div class="row"><label><input type="checkbox" id="b3-fix" checked> otwory FIX</label></div>
+        <div class="row"><label><input type="checkbox" id="b3-row"> rowki profilu w tyle podstawy</label></div>
+        <div class="fld"><span>Rowek: szerokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rg" placeholder="auto"></div>
+        <div class="fld"><span>Rowek: głębokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rd" placeholder="auto"></div>
+        <div class="fld"><span>Rowek: od krawędzi</span><input type="text" inputmode="decimal" id="b3-rm" value="1,2"></div>
       </section>
       <section class="pan" data-pan="montaz" data-t="Montaż klosza">
         <div class="row"><label><input type="checkbox" id="p-zt-on"> zatrzaski klik (push-push) zamiast śrub</label></div>
@@ -270,6 +277,7 @@
         <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
         <div class="fld" title="Linia klosza idzie obok linii podstawy, żeby łączenia nie wypadały w jednym miejscu. 0 = w tym samym miejscu."><span>Klosz: podział obok podstawy o [mm]</span><input type="text" inputmode="decimal" id="p-cutk" value="30"></div>
         <div class="vals" id="podz-info"></div>
+        <div class="row"><label><input type="checkbox" id="b3-cut" checked> tnij po liniach podziału</label></div>
         <h3>Plasterki łączące</h3>
         <div class="row"><label><input type="checkbox" id="p-plon" checked> dodaj plasterki na łączeniach</label></div>
         <div class="fld"><span>Długość: podstawa</span><input type="text" inputmode="decimal" id="p-pll" value="40"></div>
@@ -296,7 +304,7 @@
           <img class="sch" src="frontlit_schemat.png" alt="Przekrój litery Frontlit">
           <div class="fld"><span>1. Grubość pleksy</span><input type="text" inputmode="decimal" id="b3-gp" value="3"></div>
           <div class="fld"><span>2. Wysokość litery (z pleksą)</span><input type="text" inputmode="decimal" id="b3-h" value="40"></div>
-          <div class="fld"><span>3. Stopień podstawy</span><input type="text" inputmode="decimal" id="b3-st" value="2"></div>
+          <div class="fld"><span>3. Stopień podstawy</span><input type="text" inputmode="decimal" id="b3-st" value="1,5"></div>
           <div class="fld"><span>4. Grubość płyty podstawy</span><input type="text" inputmode="decimal" id="b3-pl" value="6"></div>
           <div class="fld"><span>5. Ścianka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-wk" placeholder="auto"></div>
           <div class="fld"><span>6. Stopka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-ws" placeholder="auto"></div>
@@ -315,14 +323,6 @@
           <div class="fld"><span>Ścianka podstawy: do</span><input type="text" inputmode="decimal" id="b3-st3" value="1,7"></div>
           <div class="fld"><span>8. Pasowanie <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-sw" placeholder="auto"></div>
         </div>
-        <h3>Wycięcia</h3>
-        <div class="row"><label><input type="checkbox" id="b3-otw" checked> otwory na przewody</label></div>
-        <div class="row"><label><input type="checkbox" id="b3-fix" checked> otwory FIX</label></div>
-        <div class="row"><label><input type="checkbox" id="b3-cut" checked> tnij po liniach podziału</label></div>
-        <div class="row"><label><input type="checkbox" id="b3-row"> rowki profilu w tyle podstawy</label></div>
-        <div class="fld"><span>Rowek: szerokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rg" placeholder="auto"></div>
-        <div class="fld"><span>Rowek: głębokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rd" placeholder="auto"></div>
-        <div class="fld"><span>Rowek: od krawędzi</span><input type="text" inputmode="decimal" id="b3-rm" value="1,2"></div>
         <h3>Profil montażowy (podgląd)</h3>
         <div class="fld" title="Profil „U” za literami, otwarty do góry wzdłuż wysokości liter. Tylko podgląd w 3D, nie idzie do STL / 3MF."><span>Grubość ścianki</span><input type="text" inputmode="decimal" id="b3-prs" value="1,5"></div>
         <div class="fld"><span>Głębokość <span class="hint">(puste = jak szerokość)</span></span><input type="text" inputmode="decimal" id="b3-prd" placeholder="auto"></div>
@@ -1819,7 +1819,7 @@ document.addEventListener('keydown', e => {
 });
 // ===================== ustawienia (pamiętane w przeglądarce) =====================
 const KEY = 'OFFSET_WIZARD_V1';
-function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 4 })); } catch (e) { /* bez pamięci */ } }
+function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 5 })); } catch (e) { /* bez pamięci */ } }
 function setParams(pr) {
   const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('odl', pr.odl); setR('wielk', pr.wielk);
@@ -1836,7 +1836,7 @@ function setParams(pr) {
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
 }
 function restore() {
-  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
 const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
