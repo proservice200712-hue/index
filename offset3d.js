@@ -154,7 +154,7 @@ function zatKat(l) { const w = zatNajblizej(l.x, l.y); return w ? Math.round((Ma
 function zatGeo(l) {
   const Z = W.pr.zat, d = zatWym(Z), a = (l.ang || 0) * Math.PI / 180, R = (w, h) => [rectPoly(l.x, l.y, w, h, a)];
   const g = { out: R(d.out[0], d.out[1]), cav: R(d.cav[0], d.cav[1]), hole: R(d.hole[0], d.hole[1]), tongue: R(Z.jt, Z.jw) };
-  if (zatGlowka(Z)) { g.head = R(Z.jhw, Z.jw); g.headTip = R(Math.max(Z.jt, Z.jhw - 1), Z.jw); }   // główka haczyka: u dołu ścięta (wchodzi między zaczepy)
+  if (zatGlowka(Z)) { const hd = Math.max(Z.jw, Z.jhd || 0); g.head = R(Z.jhw, hd); g.headTip = R(Math.max(Z.jt, Z.jhw - 1), Math.max(Z.jw, hd - 1)); }   // grzybek na dolnym końcu: szerszy od trzonka, u dołu ścięty (wchodzi między zaczepy)
   if (W.pr.typ !== 'S') {
     const w = zatNajblizej(l.x, l.y);
     if (w) {
@@ -284,9 +284,11 @@ async function zatProbka() {
     const jt = Z.jt, hw = Z.jhw > Z.jt ? Z.jhw : Z.jt + 3, hh = Z.jhh > 0 ? Z.jhh : 2;
     const war = [[jt, hw, hh], [jt + 0.5, hw, hh], [jt + 1, hw, hh], [jt + 0.5, hw - 0.5, hh], [jt + 0.5, hw + 0.5, hh], [jt + 0.5, hw, hh + 1]], layersH = [], opisH = [];
     war.forEach(([t, w, h], i) => {
-      const cx = (i % 3) * 26, cy = -Math.floor(i / 3) * 17, Zv = { ...Z, jt: t, jhw: w, jhh: h }, g = { tongue: wrap(cx, cy, t, Z.jw), head: wrap(cx, cy, w, Z.jw), headTip: wrap(cx, cy, Math.max(t, w - 1), Z.jw) };
-      layersH.push({ z0: 0, z1: 2, reg: wrap(cx, cy, 22, 12) }, ...zatJezyk(g, Zv, 2, 2 + Z.jl).map(l => ({ ...l, z0: l.z0, z1: l.z1 })), { z0: 2, z1: 2.4, reg: cyfraPolys(String(i + 1), cx + 8, cy, 5, 0.8) });
-      opisH.push(`${i + 1}: trzonek ${fmt(t, 1)} mm, główka ${fmt(w, 1)} × ${fmt(h, 1)} mm (szerokość × wysokość), szerokość haczyka ${fmt(Z.jw, 1)} mm, długość ${fmt(Z.jl, 1)} mm`);
+      const cx = (i % 3) * 26, cy = -Math.floor(i / 3) * 17, Zv = { ...Z, jt: t, jhw: w, jhh: h }, hd = Math.max(Z.jw, Z.jhd || 0), g = { tongue: wrap(cx, cy, t, Z.jw), head: wrap(cx, cy, w, hd), headTip: wrap(cx, cy, Math.max(t, w - 1), Math.max(Z.jw, hd - 1)) };
+      // zatJezyk liczy od wolnego końca (dół w klosz); na płytce wolny koniec jest u góry, więc warstwy odwracamy w pionie: grzybek na końcu, trzonek przy płytce
+      const zs = 2 + (2 + Z.jl);
+      layersH.push({ z0: 0, z1: 2, reg: wrap(cx, cy, 22, 12) }, ...zatJezyk(g, Zv, 2, 2 + Z.jl).map(l => ({ ...l, z0: zs - l.z1, z1: zs - l.z0 })), { z0: 2, z1: 2.4, reg: cyfraPolys(String(i + 1), cx + 8, cy, 5, 0.8) });
+      opisH.push(`${i + 1}: trzonek ${fmt(t, 1)} mm, główka ${fmt(w, 1)} × ${fmt(h, 1)} mm (szerokość × wysokość), główka w drugą stronę ${fmt(hd, 1)} mm, trzonek w drugą stronę ${fmt(Z.jw, 1)} mm, długość ${fmt(Z.jl, 1)} mm`);
     });
     const body = (m, name) => { const mesh = m.getMesh(); return { name, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp }; };
     const G = stos(layersG, ndel), H = stos(layersH, ndel);
