@@ -157,50 +157,75 @@ function zatGeo(l) {
   }
   return g;
 }
-// obszar, w którym zatrzask leży w całości w środku klosza (wieżyczka w dowolnym obrocie nie dotyka ścianki ani nie wychodzi za obrys litery);
-// środki zatrzasków wolno stawiać tylko w .ok. Ręczne klikanie i przeciąganie przyciąga środek do najbliższego takiego miejsca.
+// obszar, w którym zatrzask leży w całości w środku klosza (nie wychodzi za obrys litery ani na ściankę klosza); wieżyczka może wchodzić w rant podstawy.
+// ok / ok2 = środki, przy których wieżyczka w dowolnym obrocie / przy obrocie wzdłuż ścianki na pewno się mieści (do podpowiedzi); dokładnie sprawdza zatPoza.
 function zatObszar() {
   const p = params3D(), Z = W.pr.zat, key = JSON.stringify([W.baseId, W.pr, p, W.m.k3]);
   if (W.zatOb && W.zatOb.key === key) return W.zatOb;
-  const d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, obszar = W.pr.typ === 'S' ? offsetPolys(cyfryDno(p, W.m).reg, -0.3) : offsetPolys(W.base, W.m.k3 - 0.5);
-  return W.zatOb = { key, R, obszar, ok: offsetPolys(obszar, -(R + 0.3)) };
+  const d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, hs = Math.min(d.out[0], d.out[1]) / 2;
+  const obszar = W.pr.typ === 'S' ? offsetPolys(W.base, -(p.t1 + 0.5)) : offsetPolys(W.base, W.m.k3 - 0.5);   // Sidelit: 0,5 mm od ścianki klosza; Frontlit: 0,5 mm od stopki
+  return W.zatOb = { key, R, hs, obszar, ok: offsetPolys(obszar, -(R + 0.3)), ok2: offsetPolys(obszar, -(hs + 0.3)) };
 }
-// najbliższe dozwolone miejsce środka zatrzasku w literze li (albo bez zmiany, gdy punkt już jest dozwolony); null = w tej literze zatrzask się nie zmieści
-function zatPrzyciagnij(x, y, li) {
-  if (!zatWl() || !W.base) return [x, y];
-  const L = bedLetters()[li], ok = L ? inter(zatObszar().ok, [L.p]) : zatObszar().ok;
-  if (!ok.length) return null;
-  const pt = { X: Math.round(x * S), Y: Math.round(y * S) };
-  if (ok.filter(q => C.Clipper.PointInPolygon(pt, q) !== 0).length % 2 === 1) return [x, y];
+const zatProst = (x, y, ang) => { const d = zatWym(W.pr.zat); return [rectPoly(x, y, d.out[0], d.out[1], (ang || 0) * Math.PI / 180)]; };
+const zatPoza = (x, y, ang, wolne) => diff(zatProst(x, y, ang), wolne).reduce((a, q) => a + Math.abs(area(q)), 0);   // mm² wieżyczki poza dozwolonym polem
+// środek przesuwany w stronę najbliższej ścianki, jak daleko pozwala prostokąt wieżyczki (z jej obrotem): zatrzask dolega do krawędzi podstawy
+function zatDocisnij(x, y, wolne, ang) {
+  const a = ang != null ? ang : zatKat({ x, y }), w = zatNajblizej(x, y);
+  if (zatPoza(x, y, a, wolne) > 0.02) return null;
+  if (!w) return { x, y, ang: a };
+  const L = Math.hypot(w[0] - x, w[1] - y) || 1, ux = (w[0] - x) / L, uy = (w[1] - y) / L, ok = t => zatPoza(x + ux * t, y + uy * t, a, wolne) < 0.02;
+  let lo = 0, hi = L;
+  if (ok(hi)) lo = hi; else for (let i = 0; i < 14; i++) { const mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; }
+  return { x: x + ux * lo, y: y + uy * lo, ang: a };
+}
+const zatNajblizejNa = (polys, x, y) => {
   let best = null, bd = Infinity;
-  ok.forEach(q => { for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)), px = ax + t * dx, py = ay + t * dy, dd = Math.hypot(px - x, py - y); if (dd < bd) { bd = dd; best = [px, py]; } } });
+  polys.forEach(q => { for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2)), px = ax + t * dx, py = ay + t * dy, dd = Math.hypot(px - x, py - y); if (dd < bd) { bd = dd; best = [px, py]; } } });
   return best;
+};
+// dozwolone miejsce środka zatrzasku w literze li: bez zmiany, gdy wieżyczka już mieści się w środku klosza; inaczej najbliższe miejsce, w którym się mieści
+// (i tak blisko wskazanego punktu, jak się da); null = w tej literze zatrzask się nie zmieści. ang = obrót (domyślnie wzdłuż ścianki).
+function zatPrzyciagnij(x, y, li, ang) {
+  if (!zatWl() || !W.base) return [x, y];
+  const A = zatObszar(), L = bedLetters()[li], free = offsetPolys(L ? inter(A.obszar, [L.p]) : A.obszar, -0.08), kat = (px, py) => ang != null ? ang : zatKat({ x: px, y: py });
+  const valid = (px, py) => zatPoza(px, py, kat(px, py), free) < 0.02;
+  if (valid(x, y)) return [x, y];
+  for (const reg of [A.ok2, A.ok]) {
+    const ok = L ? inter(reg, [L.p]) : reg; if (!ok.length) continue;
+    const sp = zatNajblizejNa(ok, x, y); if (!sp || !valid(sp[0], sp[1])) continue;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (valid(sp[0] + (x - sp[0]) * mid, sp[1] + (y - sp[1]) * mid)) lo = mid; else hi = mid; }
+    return [sp[0] + (x - sp[0]) * lo, sp[1] + (y - sp[1]) * lo];
+  }
+  return null;
 }
 // automatycznie: po n na literę, jak najdalej od siebie, przy ściance, z dala od paska LED, otworów, linii podziału i plasterków; ręcznie postawione zostają
 function autoLatches() {
   W.zatWarn = [];
   if (!zatWl() || !W.base) return;
   W.latches = W.latches.filter(l => l.manual).filter(l => {
-    const q = zatPrzyciagnij(l.x, l.y, l.li);
+    const q = zatPrzyciagnij(l.x, l.y, l.li, l.ang);
     if (!q) { W.zatWarn.push(`litera ${l.li + 1}: ręcznie dodany zatrzask nie mieści się w środku klosza (litera za wąska) — usunięty`); return false; }
     l.x = Math.round(q[0] * 10) / 10; l.y = Math.round(q[1] * 10) / 10; return true;
   });
   const Z = W.pr.zat, p = params3D(), d = zatWym(Z), R = Math.hypot(d.out[0], d.out[1]) / 2, ls = bedLetters(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
   const pas = c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 2, ny = dx / l * 2; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); };
   const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d + 2)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(W.cuts.filter(c => c.sK).map(cutK))).map(pas)));
-  const obszar = W.pr.typ === 'S' ? offsetPolys(cyfryDno(p, W.m).reg, -0.3) : offsetPolys(W.base, W.m.k3 - 0.5);
+  const obszar = zatObszar().obszar, hs = zatObszar().hs;
   ls.forEach((l, li) => {
     const moje = W.latches.filter(q => q.li === li), ile = Z.n - moje.length; if (ile <= 0) return;
     const pole = inter(obszar, [l.p]), led = W.led ? plus(rowekLED(pole, LED_W + 1)) : [];
-    const wolne = offsetPolys(diff(pole, clip('ctUnion', przeszkody.concat(led))), -(R + 0.3)), pts = wolne.flatMap(q => q.map(v => [v.X / S, v.Y / S]));
+    const wolne = diff(pole, clip('ctUnion', przeszkody.concat(led))), pts = offsetPolys(wolne, -(R + 0.3)).concat(offsetPolys(wolne, -(hs + 0.3))).flatMap(q => q.map(v => [v.X / S, v.Y / S]));
     const jest = moje.map(q => [q.x, q.y]), cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2;
-    let dodane = 0;
+    let dodane = 0; const wolneT = offsetPolys(wolne, -0.08);   // zapas na zaokrąglenie położenia do 0,1 mm
     for (let k = 0; k < ile; k++) {
-      let best = null, bs = -1;
-      pts.forEach(q => { const s = jest.length ? Math.min(...jest.map(o => Math.hypot(o[0] - q[0], o[1] - q[1]))) : Math.hypot(q[0] - cx, q[1] - cy); if (s > bs) { bs = s; best = q; } });
-      if (!best || (jest.length && bs < 2 * R + 1)) break;
-      const z = { id: uid++, li, x: Math.round(best[0] * 10) / 10, y: Math.round(best[1] * 10) / 10, ang: 0, manual: false }; z.ang = zatKat(z);
-      W.latches.push(z); jest.push(best); dodane++;
+      // kandydaci od najlepszego (najdalej od siebie); pierwszy, któremu wieżyczka mieści się dokładnie, zostaje dociśnięty do ścianki
+      const cand = pts.map(q => ({ q, s: jest.length ? Math.min(...jest.map(o => Math.hypot(o[0] - q[0], o[1] - q[1]))) : Math.hypot(q[0] - cx, q[1] - cy) })).sort((a, b) => b.s - a.s);
+      let got = null;
+      for (let ci = 0; ci < cand.length && ci < 400; ci++) { const c = cand[ci]; if (jest.length && c.s < 2 * R + 1) break; got = zatDocisnij(c.q[0], c.q[1], wolneT); if (got) break; }
+      if (!got) break;
+      const z = { id: uid++, li, x: Math.round(got.x * 10) / 10, y: Math.round(got.y * 10) / 10, ang: 0, manual: false }; z.ang = zatKat(z);
+      W.latches.push(z); jest.push([z.x, z.y]); dodane++;
     }
     if (dodane < ile) W.zatWarn.push(`litera ${li + 1}: zmieściło się ${moje.length + dodane} z ${Z.n}`);
   });

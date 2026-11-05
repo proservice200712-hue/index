@@ -1727,7 +1727,7 @@ cv.addEventListener('pointermove', e => {
   const sn = v => e.altKey ? v : Math.round(v * 10) / 10;           // co 0,1 mm (Alt = bez przyciągania)
   if (drag.t === 'hole' || drag.t === 'latch') {
     let nx = sn(drag.ox + dx), ny = sn(drag.oy + dy);
-    if (drag.t === 'latch') { const q = zatPrzyciagnij(nx, ny, drag.o.li); if (!q) return; nx = Math.round(q[0] * 10) / 10; ny = Math.round(q[1] * 10) / 10; }   // nie wyjdzie poza klosz
+    if (drag.t === 'latch') { const q = zatPrzyciagnij(nx, ny, drag.o.li, drag.o.ang); if (!q) return; nx = Math.round(q[0] * 10) / 10; ny = Math.round(q[1] * 10) / 10; }   // nie wyjdzie poza klosz
     drag.o.x = nx; drag.o.y = ny; drag.o.manual = true;
   }
   else {
