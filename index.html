@@ -1444,7 +1444,7 @@ async function withLang(l, fn) { LANG = l || PAGE_LANG; try { return await fn();
 const NOTE_TR = { uk: new Map(), en: new Map() }, NOTE_KEY = 'INDEX_NOTES_TR';
 const noteCache = (() => { try { return JSON.parse(localStorage.getItem(NOTE_KEY) || '{}') || {}; } catch (e) { return {}; } })();
 async function mtChunk(text, lang) {
-  const r = await fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=pl|' + lang), j = await r.json();
+  const r = await withTimeout(fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=pl|' + lang), 15000, 'tłumacz'), j = await withTimeout(r.json(), 15000, 'tłumacz');
   const t = j && j.responseData && j.responseData.translatedText;
   if (!r.ok || !t || Number(j.responseStatus) !== 200 || /MYMEMORY WARNING|INVALID/i.test(t)) throw new Error('tłumacz niedostępny');
   return t;
@@ -7705,7 +7705,7 @@ function openExportDialog() {
     box.innerHTML = '<div class="hint">Tworzę podgląd…</div>';
     try {
       const stamp = 'Index  ' + dateStamp();
-      A3_ZOOM = w === 'a3' ? zoom : null;
+      A3_ZOOM = w === 'a3' ? zoom : null; A3_NEEDZ = w === 'a3';
       const pages = await withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
       if (nr !== prevNr || !document.body.contains(box)) return;
       if (w === 'a3') showZoom();
@@ -7751,7 +7751,7 @@ function openExportDialog() {
     m.close();
     if (w === 'csv') return exportCsv(fileBase(v) + '.csv');
     if (w === 'json') return exportJson(fileBase(v) + '.json');
-    A3_ZOOM = w === 'a3' ? zoom : null;
+    A3_ZOOM = w === 'a3' ? zoom : null; A3_NEEDZ = false;
     try { await exportDoc(w, mode, v, lang); } finally { A3_ZOOM = null; }
   };
   sync();
@@ -7798,8 +7798,10 @@ async function exportAllProjects() {
   } catch (e) { toast('Błąd: ' + e.message, 'error'); }
   t.remove();
 }
+// obietnica z limitem czasu: zawieszone połączenie (CDN, Cloudinary, tłumacz) kończy się błędem zamiast wiecznego „Tworzenie…”
+const withTimeout = (p, ms, what) => new Promise((res, rej) => { const t = setTimeout(() => rej(new Error(what + ': brak odpowiedzi po ' + Math.round(ms / 1000) + ' s')), ms); Promise.resolve(p).then(v => { clearTimeout(t); res(v); }, e => { clearTimeout(t); rej(e); }); });
 function loadImg(src) {
-  return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('Nie można wczytać zdjęcia')); i.src = src; });
+  return withTimeout(new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = () => rej(new Error('Nie można wczytać zdjęcia')); i.src = src; }), 45000, 'zdjęcie');
 }
 // zmniejszanie miniatur grafiki: przy mocnym zmniejszeniu przeglądarka rozmywa cienkie linie (logo po konturze bledną),
 // więc każdy piksel wyniku = mieszanka średniej i najciemniejszego piksela ze swojego obszaru — kontury zostają wyraźne.
@@ -7961,7 +7963,7 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
 // INDEX A3 (poziomo): u góry wizki obok siebie, pod nimi rozpiska graficzna jak w widoku „Grafika"
 // A3_ZOOM: null = rozmiar wizualizacji dobiera program; 0.2..1 = ręcznie z suwaka w oknie Eksport (1 = wizualizacja możliwie największa,
 // a okienka z elementami układają się obok i pod nią w pozostałym miejscu). A3_LAST.z = ostatnio użyty rozmiar (do ustawienia suwaka).
-let A3_ZOOM = null, A3_LAST = { z: null };
+let A3_ZOOM = null, A3_LAST = { z: null }, A3_NEEDZ = false;   // A3_NEEDZ: tylko podgląd w oknie Eksport liczy położenie suwaka (drogie)
 async function renderIndexA3(stamp) {
   const PW = 2976, PH = 2104, sc = 1.25, M = 50; // A3 ~180 dpi
   const [c, g] = newCanvas(PW, PH, EXP_Q);
@@ -8083,7 +8085,8 @@ async function renderIndexA3(stamp) {
     return bst;
   };
   let hMax = hFull; // największa wizualizacja, przy której okienka jeszcze się mieszczą (= 100% na suwaku)
-  if (hasCards && imgs.length && !evalAt(hFull)) {
+  const needZ = A3_ZOOM != null || A3_NEEDZ;
+  if (needZ && hasCards && imgs.length && !evalAt(hFull)) {
     let lo = hFull * 0.2, hi = hFull; // lo zakładamy poprawne
     for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; if (evalAt(mid)) lo = mid; else hi = mid; }
     hMax = lo;
@@ -8117,7 +8120,7 @@ async function renderIndexA3(stamp) {
     }
   }
   if (!hasCards && A3_ZOOM != null && imgs.length) Hp = hFull * clamp(A3_ZOOM, 0.2, 1);
-  A3_LAST = { z: imgs.length ? clamp(Hp / (hasCards ? hMax : hFull), 0.2, 1) : null };
+  A3_LAST = { z: needZ && imgs.length ? clamp(Hp / (hasCards ? hMax : hFull), 0.2, 1) : null };
   let x = M + (side ? side.x : (availW - photoW(Hp)) / 2);
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
@@ -8328,11 +8331,11 @@ function vecScript(url) {
   return new Promise((res, rej) => { const s = document.createElement('script'); s.src = url; s.onload = res; s.onerror = () => rej(new Error('Nie można wczytać ' + url)); document.head.appendChild(s); });
 }
 async function vecReady() {
-  if (!window.svg2pdf) { try { await vecScript(VEC_SVG2PDF); } catch (e) { console.warn('svg2pdf', e); } }   // bez svg2pdf grafiki pójdą jako bitmapy
+  if (!window.svg2pdf) { try { await withTimeout(vecScript(VEC_SVG2PDF), 20000, 'svg2pdf'); } catch (e) { console.warn('svg2pdf', e); } }   // bez svg2pdf grafiki pójdą jako bitmapy
   await Promise.all(Object.entries(VEC_FONTS).map(async ([k, f]) => {
     if (vecFontB64[k]) return;
-    const r = await fetch(VEC_FONT_URL + f); if (!r.ok) throw new Error('czcionka ' + f);
-    const u = new Uint8Array(await r.arrayBuffer()); let bin = '';
+    const r = await withTimeout(fetch(VEC_FONT_URL + f), 30000, 'czcionka ' + f); if (!r.ok) throw new Error('czcionka ' + f);
+    const u = new Uint8Array(await withTimeout(r.arrayBuffer(), 30000, 'czcionka ' + f)); let bin = '';
     for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
     vecFontB64[k] = btoa(bin);
   }));
@@ -8510,8 +8513,8 @@ function vecGlyphText(el) {
 }
 function vecSvgEl(url) {
   if (!_vecSvg.has(url)) _vecSvg.set(url, (async () => {
-    const r = await fetch(url); if (!r.ok) return null;
-    const doc = new DOMParser().parseFromString(await r.text(), 'image/svg+xml'), svg = doc.documentElement;
+    const r = await withTimeout(fetch(url), 30000, 'grafika SVG'); if (!r.ok) return null;
+    const doc = new DOMParser().parseFromString(await withTimeout(r.text(), 30000, 'grafika SVG'), 'image/svg+xml'), svg = doc.documentElement;
     if (!svg || svg.nodeName.toLowerCase() !== 'svg') return null;
     let box = $('vec-svg-box');
     if (!box) { box = document.createElement('div'); box.id = 'vec-svg-box'; box.style.cssText = 'position:fixed;left:-20000px;top:0;width:10px;height:10px;overflow:hidden;visibility:hidden'; document.body.appendChild(box); }
@@ -8553,11 +8556,12 @@ async function vecPdf(w, stamp) {
 // Index A3 / Tabela A4: druk albo zapis PDF z nazwą FIRMA_Index_vN_data
 async function exportDoc(w, mode, v, lang = LANG) {
   if (mode === 'save' && !window.jspdf) return toast('Brak biblioteki PDF (sprawdź internet)', 'error');
-  const t = toast(w === 'a3' ? 'Tworzenie indexu A3…' : 'Tworzenie tabeli A4…', '', 120000);
+  const base = w === 'a3' ? 'Tworzenie indexu A3…' : 'Tworzenie tabeli A4…', t = toast(base, '', 240000), stage = x => { t.textContent = base + ' (' + x + ')'; };
   try {
     const p = S.project, ver = mode === 'save' ? v : (Number(p.indexVersion) || 0);
     const stamp = (ver ? `Index_v${ver}  ` : 'Index  ') + dateStamp();
-    if (lang !== 'pl') await translateNotes(lang);
+    if (lang !== 'pl') { stage('tłumaczenie uwag'); try { await withTimeout(translateNotes(lang), 60000, 'tłumaczenie uwag'); } catch (e) { toast('Uwagi zostają po polsku: ' + e.message, 'error', 6000); } }
+    stage('rysowanie');
     const raster = () => withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
     if (mode === 'print') {
       const pages = await raster();
@@ -8566,9 +8570,9 @@ async function exportDoc(w, mode, v, lang = LANG) {
     } else {
       // PDF wektorowy (tekst, linie, grafiki SVG z Corela); gdy się nie uda — jak dawniej: strony jako obrazy
       let pdf = null;
-      try { pdf = await withLang(lang, () => vecPdf(w, stamp)); } catch (e) { console.warn('PDF wektorowy', e); toast('PDF wektorowy się nie udał (' + e.message + ') — zapisuję strony jako obraz', 'error', 6000); }
+      try { stage('PDF wektorowy'); pdf = await withLang(lang, () => withTimeout(vecPdf(w, stamp), 240000, 'PDF wektorowy')); } catch (e) { VEC = null; console.warn('PDF wektorowy', e); toast('PDF wektorowy się nie udał (' + e.message + ') — zapisuję strony jako obraz', 'error', 6000); }
       if (!pdf) {
-        const fmt = w === 'a3' ? [420, 297] : [297, 210], pages = await raster();
+        stage('strony jako obraz'); const fmt = w === 'a3' ? [420, 297] : [297, 210], pages = await raster();
         pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: w === 'a3' ? 'a3' : 'a4', compress: true });
         pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, fmt[0], fmt[1]); });
       }
