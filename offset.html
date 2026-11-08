@@ -379,7 +379,7 @@
         <h3>Kanty</h3>
         <div class="row"><label><input type="checkbox" id="b3-rnd" checked> zaokrąglaj kanty pasowania</label></div>
         <div class="fld"><span>Promień</span><input type="text" inputmode="decimal" id="b3-r" value="0,1"></div>
-        <div class="fld"><span>Faza zakrętów kieszeni</span><input type="text" inputmode="decimal" id="b3-f" value="1"></div>
+        <div class="fld" title="Ostre narożniki materiału wchodzące w kieszeń są ścinane: f mm wzdłuż ścian, a przy bardzo ostrych (np. brzuszek A) ścięcie ma co najmniej f szerokości"><span>Faza zakrętów kieszeni</span><input type="text" inputmode="decimal" id="b3-f" value="1"></div>
         <h3>Kolory</h3>
         <div class="fld"><span>Klosz</span><select id="b3-ck"></select></div>
         <div class="fld"><span>Podstawa</span><select id="b3-cp"></select></div>
@@ -1604,7 +1604,7 @@ function draw() {
   path(W.base); g.fillStyle = 'rgba(66,153,225,.08)'; g.fill('evenodd');
   // pasek zawsze pełne 6 mm wokół osi, także gdy wchodzi na kontury
   if (W.show.LED && W.led) { g.beginPath(); W.led.lines.forEach(L => { g.moveTo(X(L[0][0]), Y(L[0][1])); if (L.length < 2) g.lineTo(X(L[0][0]) + 0.01, Y(L[0][1])); for (let i = 1; i < L.length; i++) g.lineTo(X(L[i][0]), Y(L[i][1])); }); g.strokeStyle = 'rgba(255,205,0,.47)'; g.lineWidth = LED_W * W.view.s; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); g.lineCap = 'butt'; g.lineJoin = 'miter'; }
-  ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa', 'Pelne'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(o.polys); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
+  ['Podstawa', 'Klosz', 'Kieszen', 'Pleksa', 'Pelne'].forEach(n => { if (!W.show[n]) return; (W.lay[n] || []).forEach(o => { path(widokPolys(n, o)); g.strokeStyle = LCOL[n]; g.lineWidth = 1; g.stroke(); }); });
   if (drag && drag.snapLine) { const [t, v] = drag.snapLine; g.strokeStyle = '#38a169'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath(); if (t === 'x') { g.moveTo(X(v), 0); g.lineTo(X(v), r.height); } else { g.moveTo(0, Y(v)); g.lineTo(r.width, Y(v)); } g.stroke(); g.setLineDash([]); }
   if (W.show.Profil) W.rails.forEach(rl => { g.strokeStyle = LCOL.Profil; g.lineWidth = W.sel && W.sel.t === 'rail' && W.sel.id === rl.id ? 2.5 : 1.4; g.setLineDash(rl.manual ? [6, 3] : []); g.strokeRect(X(rl.x0), Y(rl.yc + rl.h / 2), (rl.x1 - rl.x0) * W.view.s, rl.h * W.view.s); g.setLineDash([]); });
   // wymiary profilu po lewej: od dołu litery do profilu, sam profil, od profilu do góry litery
@@ -1672,6 +1672,16 @@ function zatInfo() {
   const uw = (W.zatWarn || []).concat(W.zatUw || []);
   const n = W.latches.length;
   b.innerHTML = `<b>${n}</b> ${n === 1 ? 'zatrzask' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'zatrzaski' : 'zatrzasków'} na ${bedLetters().length} literach · klosz wyżej o ${fmt(W.pr.zat.gap, 1)} mm` + (uw.length ? `<br><span style="color:#c53030">${uw.map(esc).join('<br>')}</span>` : '');
+}
+// kontury na rysunku tak, jak wyjdą w bryłach: kieszeń z fazą zakrętów, płyta podstawy i wnętrze klosza z zaokrągleniem kantów
+function widokPolys(n, o) {
+  if (!W.pr || !W.m || typeof params3D !== 'function' || !$('b3-rnd').checked) return o.polys;
+  const f = num($('b3-f').value), r = num($('b3-r').value), m = W.m;
+  const typ = n === 'Kieszen' && f > 0 ? 'f' : n === 'Podstawa' && o.d === m.p2 && r > 0 ? 'o' : n === 'Klosz' && o.d === m.k3 && r > 0 ? 'c' : '';
+  if (!typ) return o.polys;
+  const key = `${W.baseId}|${n}|${o.d}|${f}|${r}`; W.widok = W.widok || {};
+  if (!W.widok[key]) { try { W.widok[key] = typ === 'f' ? fazaKieszeni(o.polys, f) : typ === 'o' ? openR(o.polys, r) : closeR(o.polys, r); } catch (e) { return o.polys; } }
+  return W.widok[key];
 }
 function renderSide() {
   $('led-info').innerHTML = W.led ? `<b>${fmt(W.led.m, 2)} m</b> bieżących paska ${LED_W} mm` : '—';
@@ -1916,7 +1926,7 @@ function b3Change(id) {
   if (id.startsWith('b3-m')) { if (window.autoMagnets) autoMagnets(); renderSide(); draw(); }
   if (id.startsWith('b3-pr')) { if (window.profil3D) profil3D(); return; }
   if (id.startsWith('b3-fil-')) { if (window.liczFilament) liczFilament(); return; }
-  if (window.mark3D) mark3D(); if (id === 'b3-cyf') draw();
+  if (window.mark3D) mark3D(); if (id === 'b3-cyf' || id === 'b3-f' || id === 'b3-r' || id === 'b3-rnd') draw();
 }
 function addSpin(inp, step, after) {
   if (inp.parentElement.classList.contains('spin')) return;

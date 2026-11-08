@@ -30,7 +30,8 @@ const circlePoly = (x, y, d, n = 48) => Array.from({ length: n }, (_, i) => ({ X
 const toPolys = reg => reg.map(p => p.map(q => [q.X / S, q.Y / S]));
 // wypukłe narożniki materiału zaokrąglone promieniem r / to samo od strony pustki
 const openR = (reg, r) => r > 0 ? offRound(offRound(reg, -r), r) : reg, closeR = (reg, r) => r > 0 ? offRound(offRound(reg, r), -r) : reg;
-// faza zakrętów kieszeni: ostry narożnik materiału wcinający się w kanał ścięty prostą, f mm wzdłuż obu ścian (jak faza we Fusion).
+// faza zakrętów kieszeni: ostry narożnik materiału wcinający się w kanał ścięty prostą, f mm wzdłuż obu ścian (jak faza we Fusion);
+// przy narożniku ostrzejszym niż 60° odcinki wzdłuż ścian rosną, żeby samo ścięcie miało co najmniej f szerokości (inaczej ostry szpic prawie się nie zmienia).
 // Łagodne załamania łuków (poniżej 15°) i narożniki odsunięte od kanału zostają bez zmian.
 function fazaKieszeni(v, f) {
   if (!(f > 0)) return v;
@@ -45,7 +46,8 @@ function fazaKieszeni(v, f) {
     idx.forEach((i, j) => {
       if (turn[i] >= 0) return;
       const prev = idx[(j + idx.length - 1) % idx.length], next = idx[(j + 1) % idx.length], total = len.reduce((s, x) => s + x, 0);
-      const dPrev = idx.length > 1 ? between(prev, i) : total, dNext = idx.length > 1 ? between(i, next) : total, leg = Math.min(f, 0.45 * dPrev, 0.45 * dNext);
+      const kat = Math.PI - Math.abs(turn[i]), chce = Math.max(f, f / (2 * Math.sin(Math.max(0.05, kat) / 2)));     // kat: kąt wewnętrzny narożnika materiału
+      const dPrev = idx.length > 1 ? between(prev, i) : total, dNext = idx.length > 1 ? between(i, next) : total, leg = Math.min(chce, 0.45 * dPrev, 0.45 * dNext);
       if (leg > 0.01) cut.set(i, [walk(i, -1, leg), walk(i, 1, leg)]);
     });
     const out = []; for (let i = 0; i < n; i++) { if (cut.has(i)) out.push(...cut.get(i)); else if (!skip[i]) out.push(P[i]); }
