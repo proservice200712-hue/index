@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Magnesy N / S</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='4.2'%3E%3Cpath d='M6 3v9a6 6 0 0 0 6 6' stroke='%23e53e3e'/%3E%3Cpath d='M12 18a6 6 0 0 0 6-6V3' stroke='%233182ce'/%3E%3C/svg%3E">
+<style>
+  :root { --n: #e53e3e; --s: #3182ce; --bg: #f4f6f9; --card: #fff; --txt: #1a202c; --gray: #718096; --line: #e2e8f0; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #14171c; --card: #1f242c; --txt: #edf2f7; --gray: #a0aec0; --line: #2d3540; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--txt); padding: 16px; padding-bottom: 40px; }
+  main { max-width: 460px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+  h1 svg { width: 34px; height: 34px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+  .btn { display: block; width: 100%; padding: 14px; border: none; border-radius: 12px; background: #2f855a; color: #fff; font: 600 1.05rem inherit; cursor: pointer; }
+  .btn.alt { background: transparent; color: var(--txt); border: 1.5px solid var(--line); margin-top: 8px; font-size: .95rem; padding: 10px; }
+  .hint { color: var(--gray); font-size: .88rem; line-height: 1.45; }
+  #wynik { text-align: center; padding: 18px 10px; }
+  #biegun { font: 800 5.5rem/1 system-ui, sans-serif; margin: 4px 0; letter-spacing: 2px; }
+  #biegun.N { color: var(--n); } #biegun.S { color: var(--s); } #biegun.brak { color: var(--gray); font-size: 3rem; }
+  #opis { font-size: 1.05rem; font-weight: 600; min-height: 1.4em; }
+  #igla { width: 170px; height: 170px; display: block; margin: 10px auto 4px; }
+  .pasek { height: 10px; background: var(--line); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+  .pasek i { display: block; height: 100%; width: 0; background: #d69e2e; transition: width .15s; }
+  .zasada { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: .95rem; }
+  .zasada b.N { color: var(--n); } .zasada b.S { color: var(--s); }
+  .tag { display: inline-block; font-size: .75rem; padding: 2px 8px; border-radius: 10px; background: var(--line); color: var(--gray); }
+  .hidden { display: none !important; }
+  ol { margin: 6px 0 0; padding-left: 20px; } li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1><svg viewBox="0 0 24 24" fill="none" stroke-width="4.2"><path d="M6 3v9a6 6 0 0 0 6 6" stroke="#e53e3e"/><path d="M12 18a6 6 0 0 0 6-6V3" stroke="#3182ce"/></svg>Która strona magnesu to N?</h1>
+
+  <div class="card" id="start-card">
+    <div class="hint">Telefon ma w środku magnetometr (kompas). Przyłożony magnes zmienia odczyt — z tego, w którą stronę, wiadomo, który biegun jest zwrócony do telefonu.</div>
+    <button class="btn" id="b-start" style="margin-top:12px">Start</button>
+    <div class="hint" id="brak-czujnika" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card hidden" id="pomiar">
+    <div id="wynik">
+      <div class="hint" id="tryb-opis"></div>
+      <div id="biegun" class="brak">—</div>
+      <div id="opis">Zbliż magnes</div>
+      <div class="pasek"><i id="sila"></i></div>
+      <div class="hint" id="odczyt"></div>
+    </div>
+    <svg id="igla" viewBox="-60 -60 120 120" aria-hidden="true">
+      <circle r="56" fill="none" stroke="currentColor" stroke-opacity=".2" stroke-width="2"/>
+      <text y="-44" text-anchor="middle" font-size="9" fill="currentColor" fill-opacity=".5">góra telefonu</text>
+      <g id="igla-g"><polygon points="0,-46 7,0 -7,0" fill="#e53e3e"/><polygon points="0,46 7,0 -7,0" fill="#a0aec0"/><circle r="4" fill="currentColor"/></g>
+    </svg>
+    <div class="hint" style="text-align:center">czerwony koniec igły wskazuje biegun <b>S</b> magnesu (jak w zwykłym kompasie)</div>
+    <button class="btn alt" id="b-zero">Zeruj (odsuń magnes i naciśnij)</button>
+  </div>
+
+  <div class="card hidden" id="jak">
+    <b>Jak mierzyć</b>
+    <ol id="jak-lista"></ol>
+  </div>
+
+  <div class="card">
+    <b>Zasada przy literach Magnet</b>
+    <div class="zasada" style="margin-top:8px">
+      <span>Podstawa:</span><span><b class="N">N do góry</b> — oznaczona strona widoczna</span>
+      <span>Klosz:</span><span><b class="S">S na wierzchu</b> — oznaczona strona schowana w gnieździe</span>
+    </div>
+    <div class="hint" style="margin-top:8px">Raz znaleziony biegun oznacz markerem. Magnesy złożone w stos zawsze łączą się N do S, więc gdy oznaczysz górę całego stosu, każdy magnes zdjęty z góry ma N z tej samej strony.</div>
+  </div>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const st = { tryb: '', base: null, probki: [], ostatni: null };
+// tryb 1: magnetometr (osie x, y, z w µT) — magnes kładziesz płasko na ekranie, przy górze telefonu
+// tryb 2: kompas (kierunek północy) — magnes trzymasz przy górnej krawędzi, telefon leży płasko
+const maMagnetometr = 'Magnetometer' in window;
+function pokazJak() {
+  const L = st.tryb === 'mag'
+    ? ['Połóż telefon płasko na stole.', 'Odsuń magnesy i naciśnij „Zeruj”.', 'Połóż magnes płasko na ekranie, przy górnej krawędzi (tam zwykle jest czujnik). Przesuwaj go powoli, aż pasek siły będzie wysoki.', 'Wynik dotyczy strony magnesu, która <b>dotyka ekranu</b>.']
+    : ['Połóż telefon płasko na stole, z dala od metalu.', 'Obróć telefon tak, żeby bez magnesu igła wskazywała w bok (aplikacja podpowie), i naciśnij „Zeruj”.', 'Przyłóż magnes płaską stroną do <b>górnej krawędzi</b> telefonu, 2–5 cm od niej, na wysokości telefonu.', 'Wynik dotyczy strony magnesu <b>zwróconej do telefonu</b>.'];
+  $('jak-lista').innerHTML = L.map(t => `<li>${t}</li>`).join(''); $('jak').classList.remove('hidden');
+  $('tryb-opis').textContent = st.tryb === 'mag' ? 'magnes płasko na ekranie, przy górze' : 'magnes przy górnej krawędzi telefonu';
+}
+function wynik(b, opis, sila) {
+  const el = $('biegun'); el.className = b || 'brak'; el.textContent = b || '—';
+  $('opis').textContent = opis; $('sila').style.width = Math.max(0, Math.min(100, sila || 0)) + '%';
+  if (b && navigator.vibrate && st.ostatni !== b) navigator.vibrate(60);
+  st.ostatni = b;
+}
+// --- tryb magnetometru ---
+function startMag() {
+  let s;
+  try { s = new Magnetometer({ frequency: 20 }); } catch (e) { return false; }
+  s.addEventListener('error', e => { if (st.tryb === 'mag') { st.tryb = ''; startKompas(); } });
+  s.addEventListener('reading', () => {
+    const v = [s.x, s.y, s.z];
+    if (!st.base) { st.probki.push(v); if (st.probki.length >= 15) { st.base = [0, 1, 2].map(i => st.probki.reduce((a, q) => a + q[i], 0) / st.probki.length); st.probki = []; } wynik('', 'Zerowanie…', 0); return; }
+    const d = v.map((x, i) => x - st.base[i]), sila = Math.hypot(...d);
+    $('odczyt').textContent = `zmiana pola ${Math.round(sila)} µT (z: ${Math.round(d[2])})`;
+    igla(Math.atan2(d[0], d[1]));
+    if (sila < 40) return wynik('', 'Zbliż magnes do górnej części ekranu', sila / 40 * 50);
+    // pod biegunem N pole w czujniku idzie od magnesu, czyli w głąb telefonu (z < 0); pod S — do magnesu (z > 0)
+    if (Math.abs(d[2]) < 0.5 * sila) return wynik('', 'Połóż magnes płasko, bliżej środka górnej części', 50);
+    wynik(d[2] < 0 ? 'N' : 'S', d[2] < 0 ? 'Strona dotykająca ekranu to N' : 'Strona dotykająca ekranu to S', Math.min(100, 50 + sila / 4));
+  });
+  s.start(); st.tryb = 'mag'; return true;
+}
+// --- tryb kompasu ---
+function kurs(e) {
+  if (typeof e.webkitCompassHeading === 'number') return e.webkitCompassHeading;   // iOS
+  if (e.absolute && typeof e.alpha === 'number') return (360 - e.alpha) % 360;
+  return null;
+}
+const roznica = (a, b) => { let d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+function startKompas() {
+  st.tryb = 'kompas'; pokazJak();
+  const zdarzenie = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+  let byl = false;
+  addEventListener(zdarzenie, e => {
+    const h = kurs(e); if (h == null) return; byl = true;
+    igla(-h * Math.PI / 180);
+    if (st.base == null) { st.probki.push(h); if (st.probki.length >= 10) { st.base = st.probki[st.probki.length - 1]; st.probki = []; } wynik('', 'Zerowanie…', 0); return; }
+    const odBazy = roznica(h, st.base);
+    $('odczyt').textContent = `kierunek ${Math.round(h)}° (bez magnesu ${Math.round(st.base)}°)`;
+    if (roznica(st.base, 0) < 50 || roznica(st.base, 180) < 50) return wynik('', 'Obróć telefon o ćwierć obrotu i naciśnij „Zeruj”', 0);
+    if (odBazy < 40) return wynik('', 'Zbliż magnes do górnej krawędzi', odBazy / 40 * 50);
+    // magnes S przy górze: telefon „myśli”, że góra wskazuje północ (kurs ≈ 0°); magnes N: południe (≈ 180°)
+    if (roznica(h, 0) < 35) return wynik('S', 'Strona zwrócona do telefonu to S', 100);
+    if (roznica(h, 180) < 35) return wynik('N', 'Strona zwrócona do telefonu to N', 100);
+    wynik('', 'Przyłóż magnes na środku górnej krawędzi, płaską stroną do telefonu', 60);
+  });
+  setTimeout(() => { if (!byl) { $('brak-czujnika').textContent = 'Ta przeglądarka nie podaje kierunku kompasu. Otwórz stronę w Chrome (Android) albo Safari (iPhone) — na komputerze nie zadziała.'; $('start-card').classList.remove('hidden'); $('pomiar').classList.add('hidden'); } }, 2500);
+}
+function igla(rad) { $('igla-g').setAttribute('transform', `rotate(${(rad * 180 / Math.PI).toFixed(1)})`); }
+$('b-start').onclick = async () => {
+  try { if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission(); } catch (e) { /* bez zgody — spróbujemy i tak */ }
+  $('start-card').classList.add('hidden'); $('pomiar').classList.remove('hidden');
+  let ok = false;
+  if (maMagnetometr) { try { const q = navigator.permissions && await navigator.permissions.query({ name: 'magnetometer' }); ok = !q || q.state !== 'denied'; } catch (e) { ok = true; } if (ok) ok = startMag(); }
+  if (ok) pokazJak(); else startKompas();
+};
+$('b-zero').onclick = () => { st.base = null; st.probki = []; st.ostatni = null; wynik('', 'Zerowanie…', 0); };
+</script>
+</body>
+</html>

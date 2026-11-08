@@ -860,6 +860,9 @@
   <button type="button" class="hdr-tour hidden" id="btn-tour" onclick="openTourMenu(event)" title="Samouczek — jak korzystać z INDEX">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10 7.5v5l4.2-2.5z" fill="currentColor" stroke="none"/></svg>
   </button>
+  <button type="button" class="hdr-tour hidden" id="btn-magnes" onclick="window.open('magnes.html', '_blank')" title="Magnesy: która strona to N, a która S (telefon jako kompas)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="4.2"><path d="M6 3v9a6 6 0 0 0 6 6" stroke="#e53e3e"/><path d="M12 18a6 6 0 0 0 6-6V3" stroke="#3182ce"/></svg>
+  </button>
   <div class="avatar hidden" id="avatar" onclick="toggleUserMenu(event)"></div>
 </header>
 
@@ -1951,6 +1954,7 @@ function enterApp(u) {
   renderMyAvatar();
   $('avatar').classList.remove('hidden');
   if (!u.viewer) $('btn-tour').classList.remove('hidden');
+  $('btn-magnes').classList.toggle('hidden', u.login !== 'KG');     // narzędzie do magnesów (litery Magnet) widzi tylko KG
   document.body.classList.add('logged');
   toggleSide(sideState.open);
   toggleLog(logState.open);
