@@ -402,10 +402,10 @@ function magReg(p, Rbaza, Rkl, o) {
     let rog = null, rd = 2.5 * Ru;
     kaw.forEach(ring => { const n = ring.length; for (let i = 0; i < n; i++) { const a = ring[(i + n - 1) % n], b = ring[i], c = ring[(i + 1) % n], ux = b.X - a.X, uy = b.Y - a.Y, vx = c.X - b.X, vy = c.Y - b.Y, t = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy), d = Math.hypot(b.X / S - m.x, b.Y / S - m.y); if (t > 0.35 && d < rd) { rd = d; rog = [b.X / S, b.Y / S]; } } });
     const klin = rog ? inter([toCl(hullOf(fromCl(usz[0]).concat([rog])))], kaw) : [], zasieg = (rog ? rd : Ru) + 3 * g.f;
-    const nb = [circlePoly(m.x, m.y, 2 * (zasieg + 2 * g.f))], sciana = inter(diff(Rkl, kaw), nb), A = clip('ctUnion', usz.concat(klin, sciana));
-    const led = W.led ? rowekLED(nb, LED_W + 2) : [];     // wypełnienie nie wchodzi nad pasek LED (nie zasłania światła)
-    const zaokr = g.f > 0 ? offRound(offRound(A, g.f), -g.f) : A;
-    const uszko = diff(inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw), led).concat(inter(usz, Rkl), klin);
+    const nb = [circlePoly(m.x, m.y, 2 * (zasieg + 2 * g.f))], sciana = inter(diff(Rkl, kaw), nb);
+    const led = W.led ? rowekLED(nb, LED_W + 2) : [], klinOk = diff(klin, led);     // klin do rogu nie wchodzi nad pasek LED (nie zasłania światła)
+    const A = clip('ctUnion', usz.concat(klinOk, sciana)), zaokr = g.f > 0 ? offRound(offRound(A, g.f), -g.f) : A;     // zaokrąglenia styków zawsze (są za małe, by zasłonić światło)
+    const uszko = inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw).concat(inter(usz, Rkl));
     out.kl.push({ z0: top + g.lz, z1: top + g.lz + g.h, reg: diff(clip('ctUnion', uszko), pk) });     // lz: luz pionowy uszka nad kołnierzem podstawy
   });
   return out;
