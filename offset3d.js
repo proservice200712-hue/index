@@ -342,7 +342,7 @@ const magWl = () => !!(W.pr && $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.
 const magBrzeg = () => W.pr.typ === 'S' ? -num($('b3-st2').value) : W.m.p2;     // zewnętrzna krawędź kołnierza
 function magWym() {
   const v = id => num($(id).value), d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
-  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), n: Number($('b3-mn').value) || 2 };
+  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), n: Number($('b3-mn').value) || 2 };
 }
 function magLinia() {
   const g = magWym(), b = magBrzeg(), key = W.baseId + '|' + b + '|' + g.rp + '|' + g.o; if (W.magL && W.magL.key === key) return W.magL.polys;
@@ -386,7 +386,7 @@ function autoMagnets() {
   });
 }
 // bryły: pogrubienie kołnierza z gniazdem w podstawie (od z0 do wierzchu kołnierza), uszko z gniazdem w kloszu sięgające jego wewnętrznej ścianki (offset sc).
-// Uszko jest „domknięte” ze ścianką klosza promieniem uszka: wąskie miejsca przy ściankach (np. narożnik) są wypełnione, a styki ze ścianką zaokrąglone.
+// Uszko wypełnia klin między sobą a najbliższym rogiem wnętrza klosza (styczne od rogu do uszka), a jego styki ze ścianką są zaokrąglone promieniem z pola (domyślnie 2 mm).
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
   const out = { pod: [], kl: [], pocket: [], zDno: -1, uw: [] }; if (!magWl() || !W.mags.length) return out;
@@ -398,9 +398,14 @@ function magReg(p, Rbaza, Rkl, o) {
     const pk = [circlePoly(m.x, m.y, 2 * g.rp)], obr = [circlePoly(m.x, m.y, 2 * (g.rp + g.s))], usz = [circlePoly(m.x, m.y, 2 * Ru)];
     out.pocket.push(...pk);
     out.pod.push({ z0: o.z0, z1: top, reg: diff(inter(obr, Rbaza), pk) });
-    const nb = [circlePoly(m.x, m.y, 2 * (Ru + 3 * Ru))], sciana = inter(diff(Rkl, kaw), nb), A = clip('ctUnion', usz.concat(sciana));
+    // najbliższy róg wnętrza klosza (wypukły narożnik pustki) w zasięgu 2,5 promienia uszka: klin od rogu do uszka
+    let rog = null, rd = 2.5 * Ru;
+    kaw.forEach(ring => { const n = ring.length; for (let i = 0; i < n; i++) { const a = ring[(i + n - 1) % n], b = ring[i], c = ring[(i + 1) % n], ux = b.X - a.X, uy = b.Y - a.Y, vx = c.X - b.X, vy = c.Y - b.Y, t = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy), d = Math.hypot(b.X / S - m.x, b.Y / S - m.y); if (t > 0.35 && d < rd) { rd = d; rog = [b.X / S, b.Y / S]; } } });
+    const klin = rog ? inter([toCl(hullOf(fromCl(usz[0]).concat([rog])))], kaw) : [], zasieg = (rog ? rd : Ru) + 3 * g.f;
+    const nb = [circlePoly(m.x, m.y, 2 * (zasieg + 2 * g.f))], sciana = inter(diff(Rkl, kaw), nb), A = clip('ctUnion', usz.concat(klin, sciana));
     const led = W.led ? rowekLED(nb, LED_W + 2) : [];     // wypełnienie nie wchodzi nad pasek LED (nie zasłania światła)
-    const uszko = diff(inter(inter(offRound(offRound(A, Ru), -Ru), [circlePoly(m.x, m.y, 2 * 3 * Ru)]), kaw), led).concat(inter(usz, Rkl));
+    const zaokr = g.f > 0 ? offRound(offRound(A, g.f), -g.f) : A;
+    const uszko = diff(inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw), led).concat(inter(usz, Rkl), klin);
     out.kl.push({ z0: top, z1: top + g.h, reg: diff(clip('ctUnion', uszko), pk) });
   });
   return out;
