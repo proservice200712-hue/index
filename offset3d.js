@@ -385,17 +385,23 @@ function autoMagnets() {
     if (dodane < ile) W.magWarn.push(`litera ${li + 1}: zmieściło się ${moje.length + dodane} z ${g.n}`);
   });
 }
-// bryły: pogrubienie kołnierza z gniazdem w podstawie (od z0 do wierzchu kołnierza), uszko z gniazdem w kloszu sięgające jego wewnętrznej ścianki (offset sc)
+// bryły: pogrubienie kołnierza z gniazdem w podstawie (od z0 do wierzchu kołnierza), uszko z gniazdem w kloszu sięgające jego wewnętrznej ścianki (offset sc).
+// Uszko jest „domknięte” ze ścianką klosza promieniem uszka: wąskie miejsca przy ściankach (np. narożnik) są wypełnione, a styki ze ścianką zaokrąglone.
+// Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
   const out = { pod: [], kl: [], pocket: [], zDno: -1, uw: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   if (zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
-  if (o.lim != null && top + g.h + g.s > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.h + g.s, 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
+  const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
+  if (o.lim != null && top + g.h > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.h, 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
   W.mags.forEach(m => {
     const pk = [circlePoly(m.x, m.y, 2 * g.rp)], obr = [circlePoly(m.x, m.y, 2 * (g.rp + g.s))], usz = [circlePoly(m.x, m.y, 2 * Ru)];
     out.pocket.push(...pk);
     out.pod.push({ z0: o.z0, z1: top, reg: diff(inter(obr, Rbaza), pk) });
-    out.kl.push({ z0: top, z1: top + g.h, reg: diff(inter(usz, Rkl), pk) }, { z0: top + g.h, z1: top + g.h + g.s, reg: inter(usz, Rkl) });
+    const nb = [circlePoly(m.x, m.y, 2 * (Ru + 3 * Ru))], sciana = inter(diff(Rkl, kaw), nb), A = clip('ctUnion', usz.concat(sciana));
+    const led = W.led ? rowekLED(nb, LED_W + 2) : [];     // wypełnienie nie wchodzi nad pasek LED (nie zasłania światła)
+    const uszko = diff(inter(inter(offRound(offRound(A, Ru), -Ru), [circlePoly(m.x, m.y, 2 * 3 * Ru)]), kaw), led).concat(inter(usz, Rkl));
+    out.kl.push({ z0: top, z1: top + g.h, reg: diff(clip('ctUnion', uszko), pk) });
   });
   return out;
 }
