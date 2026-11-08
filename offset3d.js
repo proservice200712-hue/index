@@ -74,7 +74,10 @@ function params3D() {
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
     otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   const magOn = $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.typ === 'S' || (W.pr.typ === 'P' && $('b3-fpod').checked));
-  if (magOn && W.pr.typ !== 'S') { p.pl = Math.max(0.6, n('b3-mr') || 2); p.gw = p.pl; }     // magnesy: niski kołnierz zamiast płyty; duże litery: LED na dnie kieszeni, małe: pełna płyta
+  if (magOn && W.pr.typ !== 'S') {
+    p.pl = Math.max(0.6, n('b3-mr') || 2); p.gw = p.pl;
+    const mh = Math.max(0.5, n('b3-mh') || 2); if (p.st + p.pl < mh + 1) { p.st = mh + 1 - p.pl; p.stMag = true; }     // podstawa o 1 mm grubsza od magnesu: gniazdo nie przebija spodu
+  }     // magnesy: niski kołnierz zamiast płyty; duże litery: LED na dnie kieszeni, małe: pełna płyta
   if (W.pr.typ === 'P' && $('b3-fpod').checked) { p.ks = Math.max(0.4, n('b3-fks') || 1.2); p.kf = Math.max(0.4, n('b3-fkf') || 1.5); }
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
   if (p.ks) { p.wk = p.fh - p.st; p.ws = p.wk - p.kf; }     // pełna z podstawą: klosz od stopnia do wierzchu litery
@@ -391,6 +394,7 @@ function autoMagnets() {
 function magReg(p, Rbaza, Rkl, o) {
   const out = { pod: [], kl: [], pocket: [], zDno: -1, uw: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
+  if (p.stMag) out.uw.push(`stopień podstawy podniesiony do ${fmt(p.st, 1)} mm, żeby pod magnesem zostało 1 mm (ścianka klosza krótsza, wysokość litery bez zmian)`);
   if (zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
   const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
   if (o.lim != null && top + g.lz + g.h > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.lz + g.h, 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
