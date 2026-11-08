@@ -140,9 +140,8 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 9px 16px; font-size: .85rem; z-index: 50; }
   /* litery pełne (typ P): bez offsetów klosza/podstawy, za to wysokość i promień zaokrąglenia */
   .p-only { display: none; }
-  .m-only { display: none; }
-  body.t-M .m-only { display: block; }
-  body.t-M .nm-only { display: none; }
+  .mg-only { display: none; }
+  body.t-MG .mg-only { display: block; }
   body.t-P .p-only { display: block; }
   body.t-P:not(.t-PB) .fs-only, body.t-P:not(.t-PB) #g3-f, body.t-P #g3-s { display: none !important; }
   /* pełna z podstawą: pola podstawy jak we Frontlit, bez pleksy i ścianek klosza (klosz liczy się z pól litery pełnej) */
@@ -168,7 +167,7 @@
     <button data-pan="plik" title="Wczytaj plik, napis z tekstu, nazwa"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg><span>Plik</span></button>
     <button data-pan="litery" title="Frontlit / Sidelit, dysza, offsety"><svg viewBox="0 0 24 24"><path d="M5 20 12 4l7 16M8 14h8"/></svg><span>Litery</span></button>
     <button data-pan="otwory" title="Profil montażowy, otwory na przewody i FIX"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg><span>Otwory</span></button>
-    <button data-pan="montaz" title="Montaż klosza: magnesy (typ Magnet)"><svg viewBox="0 0 24 24"><rect x="7" y="9" width="10" height="11"/><path d="M9 9V5l3 3 3-3v4M10 14h4"/></svg><span>Montaż</span></button>
+    <button data-pan="montaz" title="Montaż klosza: mocowanie na magnesy"><svg viewBox="0 0 24 24"><rect x="7" y="9" width="10" height="11"/><path d="M9 9V5l3 3 3-3v4M10 14h4"/></svg><span>Montaż</span></button>
     <button data-pan="podzial" title="Podział na stół drukarki"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M12 2v20" stroke-dasharray="3 2.5"/></svg><span>Podział</span></button>
     <button data-pan="warstwy" title="Co widać na rysunku"><svg viewBox="0 0 24 24"><path d="m12 4 9 5-9 5-9-5zM3 14l9 5 9-5"/></svg><span>Warstwy</span></button>
     <button data-pan="bryla" title="Bryły 3D: wymiary, kolory, STL / 3MF"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span>Bryła 3D</span></button>
@@ -198,7 +197,6 @@
           <label class="pick"><input type="radio" name="typ" value="F" checked><svg viewBox="0 0 120 76"><defs><linearGradient id="flL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6fd0"/><stop offset="1" stop-color="#7fb2f5"/></linearGradient></defs><g stroke="#f6b400" stroke-width="2" stroke-linecap="round" fill="none"><path d="M30 26V13M26 17l4-4 4 4M59 15V2M55 6l4-4 4 4M88 22V9M84 13l4-4 4 4"/></g><polygon points="14,34 46,48 46,66 14,52" fill="#e2e8f0" stroke="#718096" stroke-width=".7"/><polygon points="46,48 104,24 104,42 46,66" fill="#f7fafc" stroke="#718096" stroke-width=".7"/><polygon points="14,47 46,61 46,66 14,52" fill="#4a5568"/><polygon points="46,61 104,37 104,42 46,66" fill="#718096"/><polygon points="14,34 72,10 104,24 46,48" fill="url(#flL)" stroke="#1a4f9c" stroke-width=".8"/><polygon points="30,35 76,16 88,21 42,40" fill="#ffe27a" opacity=".8"/></svg><b>Frontlit</b><small>świeci lico</small></label>
           <label class="pick"><input type="radio" name="typ" value="S"><svg viewBox="0 0 120 76"><defs><linearGradient id="slA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b0"/><stop offset="1" stop-color="#ffcf33"/></linearGradient></defs><polygon points="14,34 46,48 46,66 14,52" fill="url(#slA)" stroke="#b7791f" stroke-width=".7"/><polygon points="46,48 104,24 104,42 46,66" fill="url(#slA)" stroke="#b7791f" stroke-width=".7"/><polygon points="14,47 46,61 46,66 14,52" fill="#4a5568"/><polygon points="46,61 104,37 104,42 46,66" fill="#718096"/><polygon points="14,34 72,10 104,24 46,48" fill="#f7fafc" stroke="#4a5568" stroke-width="1"/><g stroke="#f6b400" stroke-width="2" stroke-linecap="round" fill="none"><path d="M24 48 12 56M12 51v5h5M38 54 28 67M26 62l2 5 5-1M66 50l10 11M72 62l4-1 0-4M92 39l11 8M99 47h4v-4"/></g></svg><b>Sidelit</b><small>świeci bok</small></label>
           <label class="pick" title="Litera pełna (bez klosza i podstawy): wyciągnięty kontur z zaokrągloną górną krawędzią"><input type="radio" name="typ" value="P"><svg viewBox="0 0 120 76"><defs><linearGradient id="plT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7fafc"/><stop offset="1" stop-color="#cbd5e0"/></linearGradient></defs><polygon points="14,40 46,54 46,68 14,54" fill="#a0aec0"/><polygon points="46,54 104,30 104,44 46,68" fill="#718096"/><path d="M14,40 Q14,34 21,32 L66,14 Q72,12 79,15 L97,23 Q104,26 104,30 L46,54 Z" fill="url(#plT)" stroke="#4a5568" stroke-width=".8"/><path d="M24,38 L68,20 L90,29" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".9"/></svg><b>pełne</b><small>zaokrąglona krawędź</small></label>
-          <label class="pick" title="Frontlit z niskim rantem podstawy; klosz trzymają magnesy neodymowe wtopione w rant"><input type="radio" name="typ" value="M"><svg viewBox="0 0 120 76"><polygon points="14,46 46,60 46,66 14,52" fill="#a0aec0"/><polygon points="46,60 104,36 104,42 46,66" fill="#cbd5e0"/><polygon points="14,46 72,22 104,36 46,60" fill="#edf2f7" stroke="#718096" stroke-width=".6"/><polygon points="24,46 72,26 94,35 46,55" fill="none" stroke="#4a5568" stroke-width="2.4"/><g stroke="#e53e3e" stroke-width="1.4" stroke-dasharray="2 2"><path d="M36 44V14M84 28V4"/></g><g fill="#e53e3e" stroke="#9b2c2c" stroke-width=".7"><ellipse cx="36" cy="47" rx="5.5" ry="2.8"/><ellipse cx="84" cy="31" rx="5.5" ry="2.8"/><ellipse cx="36" cy="13" rx="5.5" ry="2.8"/><ellipse cx="84" cy="5" rx="5.5" ry="2.8"/></g></svg><b>Magnet</b><small>klosz na magnesy</small></label>
         </div>
         <h3 class="fs-only">Wielkość liter</h3>
         <div class="picks fs-only">
@@ -221,11 +219,6 @@
             <div class="hint">Wysokość litery liczy się od spodu podstawy do frontu. Klosz drukuj z filamentu do podświetleń; front jest wierzchem wydruku, więc w slicerze daj mu warstwy wierzchnie (np. 4–5), inaczej będzie ażurowy. Podstawa, kieszeń na LED i otwory: zakładki Bryła 3D i Otwory.</div>
           </div>
           <div class="hint">Zaokrąglenie dotyczy obrysu litery. Przy cienkiej kresce mniejszej niż 2 × promień górę zamyka łuk (jak prawdziwe filetowanie).</div>
-        </div>
-        <div class="m-only">
-          <h3>Magnet [mm]</h3>
-          <div class="fld" title="Rant podstawy, na który nachodzi klosz; magnesy są w nim wtopione"><span>Rant podstawy <span class="hint">(małe litery: płyta)</span></span><input type="text" inputmode="decimal" id="b3-mr" value="2"></div>
-          <div class="hint">Klosz trzymają magnesy neodymowe wklejane po wydruku: w rancie podstawy i w uszkach klosza nad nimi. Średnica, grubość i miejsca: zakładka Montaż.</div>
         </div>
         <h3 class="fs-only">Offsety [mm]</h3>
         <div class="fld fs-only"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
@@ -263,8 +256,11 @@
         <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
       </section>
       <section class="pan" data-pan="montaz" data-t="Montaż klosza">
-        <div class="m-only">
+        <div class="row"><label><input type="checkbox" id="b3-mon"> mocowanie klosza na magnesy</label></div>
+        <div class="hint">Kołnierz podstawy obniżony (domyślnie 2 mm), magnesy wtopione w podstawę i w uszka klosza nad nimi. Działa we Frontlit, Sidelit i literze pełnej z podstawą.</div>
+        <div class="mg-only">
           <h3>Magnesy neodymowe [mm]</h3>
+          <div class="fld" title="Rant podstawy, na który nachodzi klosz (małe litery: płyta, Sidelit: pasowanie); magnesy są w nim wtopione"><span>Kołnierz podstawy</span><input type="text" inputmode="decimal" id="b3-mr" value="2"></div>
           <div class="fld"><span>Średnica magnesu</span><input type="text" inputmode="decimal" id="b3-md" value="6"></div>
           <div class="fld"><span>Grubość magnesu</span><input type="text" inputmode="decimal" id="b3-mh" value="2"></div>
           <div class="fld" title="O ile gniazdo jest większe od magnesu (na średnicy), żeby wszedł z klejem"><span>Luz gniazda (na średnicy)</span><input type="text" inputmode="decimal" id="b3-ml" value="0,2"></div>
@@ -276,7 +272,6 @@
           <div class="vals" id="mg-info">—</div>
           <div class="hint">Magnes w podstawie leży w rancie (wierzch równo z rantem, gniazdo schodzi w stopień), drugi w uszku klosza tuż nad nim — twarzą w twarz. Klik na literze stawia magnes w najbliższym miejscu rantu, przeciągnięcie przesuwa go wzdłuż rantu, Delete usuwa. Bieguny: w podstawie zawsze N do góry (oznacz tę stronę kropką), w kloszu na wierzchu S — wtedy każda para się przyciąga. Uszko klosza wisi nad krawędzią klosza o wysokość rantu — w slicerze daj pod nim podporę.</div>
         </div>
-        <div class="hint nm-only">Magnesy są w typie litery <b>Magnet</b> (zakładka Litery).</div>
         <details style="margin-top:10px"><summary>Zatrzaski klik (wcześniejsza próba)</summary>
         <div class="row"><label><input type="checkbox" id="p-zt-on"> zatrzaski klik (push-push) zamiast śrub</label></div>
         <div class="fld"><span>Zatrzaski na literę</span><select id="p-zt-n"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></div>
@@ -563,7 +558,7 @@ function computeLayers() {
   const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.plReg = null; W.m = m; W.pr = pr;
   $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
-  document.body.classList.toggle('t-P', pr.typ === 'P'); document.body.classList.toggle('t-PB', pbOn(pr)); document.body.classList.toggle('t-M', pr.typ === 'M'); if (typeof groups3D === 'function') groups3D();
+  document.body.classList.toggle('t-P', pr.typ === 'P'); document.body.classList.toggle('t-PB', pbOn(pr)); document.body.classList.toggle('t-MG', !!(pr.p3 && pr.p3['b3-mon'])); if (typeof groups3D === 'function') groups3D();
   if (pbOn(pr)) $('vals').innerHTML = `<b>Klosz</b> 0 / ${fmt(m.k3)} (świeci cały)<br><b>Podstawa</b> 0 / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
   else if (pr.typ === 'P') $('vals').innerHTML = '<b>Litera pełna</b> 0 (baza)<br><span class="hint">wysokość i promień zaokrąglenia — pola powyżej</span>';
   if (!W.base) return;
@@ -1359,7 +1354,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 function fileBase() {
   const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
   const pelne = pr.typ === 'P' ? `Pelne_H${String((pr.p3 || {})['b3-fh'] || '').replace(/\D/g, '')}_R${String((pr.p3 || {})['b3-fr'] || '').replace(/\D/g, '')}` : '';
-  return `${pelne || `${pr.typ === 'S' ? 'Sidelit' : pr.typ === 'M' ? 'Magnet' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}`}${pr.name ? '_' + ascii(pr.name).replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
+  return `${pelne || `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}`}${pr.name ? '_' + ascii(pr.name).replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
 }
 // DXF dla Fusion: kontury, otwory, profile, linie podziału — bez łba śruby
 function buildKit() {
@@ -1643,7 +1638,7 @@ function draw() {
     g.beginPath(); g.arc(X(q.x), Y(q.y), 9, 0, Math.PI * 2); g.fillStyle = q.brak ? '#e53e3e' : '#d53f8c'; g.fill(); g.fillStyle = '#fff'; g.font = '700 11px Segoe UI, Arial'; g.textAlign = 'center'; g.fillText(q.t, X(q.x), Y(q.y) + 4); g.textAlign = 'left';
   });
   // zatrzaski: wieżyczka w podstawie (otwór na korpus) i ramię języczka do ścianki klosza
-  // magnesy (typ Magnet): gniazdo w rancie i uszko klosza nad nim
+  // magnesy (mocowanie na magnesy): gniazdo w kołnierzu podstawy i uszko klosza nad nim
   if (W.show.Mag && magWlHtml()) { const mw = magWym(); W.mags.forEach(m => { const sel = W.sel && W.sel.t === 'mag' && W.sel.id === m.id; g.beginPath(); g.arc(X(m.x), Y(m.y), Math.max(4, (mw.rp + mw.s) * W.view.s), 0, Math.PI * 2); g.fillStyle = sel ? 'rgba(197,48,48,.3)' : 'rgba(197,48,48,.14)'; g.fill(); g.strokeStyle = '#c53030'; g.lineWidth = sel ? 2.5 : 1.3; g.setLineDash(m.manual ? [4, 2] : []); g.stroke(); g.setLineDash([]); g.beginPath(); g.arc(X(m.x), Y(m.y), Math.max(2.5, mw.rp * W.view.s), 0, Math.PI * 2); g.fillStyle = 'rgba(197,48,48,.55)'; g.fill(); }); }
   if (W.show.Zat && zatWlHtml()) W.latches.forEach(l => { const q = zatGeo(l), sel = W.sel && W.sel.t === 'latch' && W.sel.id === l.id; path(q.frame); g.fillStyle = 'rgba(56,161,105,.45)'; g.fill(); path(q.plate); g.fillStyle = sel ? 'rgba(56,161,105,.35)' : 'rgba(56,161,105,.2)'; g.fill(); g.strokeStyle = '#2f855a'; g.lineWidth = 1.2; g.stroke(); q.screws.forEach(c => { path([c]); g.fillStyle = 'rgba(255,255,255,.8)'; g.fill(); g.stroke(); });
     if (q.arm) { path(q.arm); g.fillStyle = 'rgba(49,130,206,.22)'; g.fill(); } path(q.out); g.fillStyle = sel ? 'rgba(43,108,176,.4)' : 'rgba(43,108,176,.2)'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = sel ? 2.5 : 1.4; g.setLineDash(l.manual ? [4, 2] : []); g.stroke(); g.setLineDash([]); path(q.hole); g.lineWidth = 1; g.stroke(); });
@@ -1666,7 +1661,7 @@ function draw() {
 const magWlHtml = () => typeof magWl === 'function' && magWl();     // magWl jest w offset3d.js
 function magInfo() {
   const b = $('mg-info'); if (!b) return;
-  if (!magWlHtml()) { b.textContent = '—'; return; }
+  if (!magWlHtml()) { b.textContent = $('b3-mon').checked ? 'Litera pełna bez podstawy nie ma klosza: magnesy działają z podstawą (zakładka Litery).' : '—'; return; }
   const n = W.mags.length, uw = (W.magWarn || []).concat(W.magUw || []), mw = magWym();
   b.innerHTML = `<b>${n}</b> ${n === 1 ? 'para magnesów' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'pary magnesów' : 'par magnesów'} (${fmt(mw.d, 1)} × ${fmt(mw.h, 1)} mm) na ${bedLetters().length} literach` + (uw.length ? `<br><span style="color:#c53030">${uw.map(esc).join('<br>')}</span>` : '');
 }
@@ -1906,6 +1901,7 @@ function setParams(pr) {
   sv('p-pll', pr.plLP); sv('p-plk', pr.plLK); sv('p-ploff', pr.plOffP); sv('p-plh', pr.plH); sv('p-plgr', pr.plGr); sv('p-plfl', pr.plFloor); sv('p-pkoff', pr.plOffK); sv('p-pkt', pr.plTK); sv('p-pkd', pr.plDownK);
   if (pr.pin != null) { W.pin = !!pr.pin; pinUI(); }
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
+  if (pr.typ === 'M') { setR('typ', 'F'); $('b3-mon').checked = true; }     // dawny typ Magnet = Frontlit z mocowaniem na magnesy
 }
 function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
@@ -1915,6 +1911,7 @@ const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1,
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
 function b3Change(id) {
   save();
+  if (id === 'b3-mon') return recompute();     // kołnierz, miejsca magnesów, warstwy
   if (id === 'b3-fpod' || id === 'b3-fks') return recompute();     // zmienia kontury klosza i podstawy (otwory, plasterki)
   if (id.startsWith('b3-m')) { if (window.autoMagnets) autoMagnets(); renderSide(); draw(); }
   if (id.startsWith('b3-pr')) { if (window.profil3D) profil3D(); return; }
@@ -1960,7 +1957,7 @@ $('tx-file').onchange = e => { W.txFont = e.target.files[0] || null; if (W.txFon
 showPanel('plik', true);
 $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
-$('b-mg-add').onclick = () => { if (!W.base) return; if (!magWlHtml()) return toast('Najpierw wybierz typ litery Magnet (zakładka Litery)'); W.addMag = !W.addMag; $('b-mg-add').classList.toggle('on', W.addMag); if (W.addMag) toast('Kliknij w literę, przy rancie'); };
+$('b-mg-add').onclick = () => { if (!W.base) return; if (!magWlHtml()) return toast($('b3-mon').checked ? 'Litera pełna bez podstawy nie ma klosza: włącz „z podstawą” (zakładka Litery)' : 'Najpierw zaznacz „mocowanie klosza na magnesy”'); W.addMag = !W.addMag; $('b-mg-add').classList.toggle('on', W.addMag); if (W.addMag) toast('Kliknij w literę, przy rancie'); };
 $('b-mg-auto').onclick = () => { if (!W.base || !magWlHtml()) return; pushUndo(); W.mags = []; autoMagnets(); renderSide(); draw(); if (window.mark3D) mark3D(); };
 $('b-zt-add').onclick = () => { if (!W.base) return; if (!zatWlHtml()) { $('p-zt-on').checked = true; recompute(); } W.addZat = !W.addZat; $('b-zt-add').classList.toggle('on', W.addZat); if (W.addZat) toast('Kliknij w literę, w miejscu zatrzasku'); };
 $('b-zt-auto').onclick = () => { if (!W.base) return; pushUndo(); W.latches = []; autoLatches(); renderSide(); draw(); if (window.mark3D) mark3D(); };
