@@ -320,15 +320,15 @@ async function zatProbka() {
 // ===================== typ Magnet: klosz trzymany na magnesach neodymowych (wklejanych po wydruku) =====================
 // Rant podstawy jest niski (domyślnie 2 mm). Magnes w podstawie leży w rancie: wierzch równo z wierzchem rantu, gniazdo schodzi w stopień,
 // a wokół gniazda rant jest pogrubiony do środka litery. Drugi magnes siedzi w uszku klosza tuż nad nim, twarzą w twarz.
-// Środki magnesów leżą na linii odsuniętej od zewnętrznej krawędzi rantu o promień gniazda: magnes nie wychodzi poza rant na zewnątrz.
+// Środki magnesów leżą na linii odsuniętej od zewnętrznej krawędzi rantu o promień gniazda i odsunięcie (domyślnie 1 mm): od zewnątrz zostaje ścianka.
 const magWl = () => !!(W.pr && W.pr.typ === 'M');
 function magWym() {
   const v = id => num($(id).value), d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
-  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), n: Number($('b3-mn').value) || 2 };
+  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), n: Number($('b3-mn').value) || 2 };
 }
 function magLinia() {
-  const g = magWym(), key = W.baseId + '|' + W.m.p2 + '|' + g.rp; if (W.magL && W.magL.key === key) return W.magL.polys;
-  const polys = offsetPolys(W.base, W.m.p2 - g.rp); W.magL = { key, polys }; return polys;
+  const g = magWym(), key = W.baseId + '|' + W.m.p2 + '|' + g.rp + '|' + g.o; if (W.magL && W.magL.key === key) return W.magL.polys;
+  const polys = offsetPolys(W.base, W.m.p2 - g.rp - g.o); W.magL = { key, polys }; return polys;     // o: ścianka gniazda od zewnętrznej krawędzi rantu
 }
 // najbliższy punkt linii środków magnesów w obrębie litery li
 function magNaLinii(x, y, li) {
