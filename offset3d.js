@@ -33,18 +33,18 @@ const openR = (reg, r) => r > 0 ? offRound(offRound(reg, -r), r) : reg, closeR =
 // faza zakrętów kieszeni: ostry narożnik materiału wcinający się w kanał ścięty prostą, f mm wzdłuż obu ścian (jak faza we Fusion);
 // przy narożniku ostrzejszym niż 60° odcinki wzdłuż ścian rosną, żeby samo ścięcie miało co najmniej f szerokości (inaczej ostry szpic prawie się nie zmienia).
 // Łagodne załamania łuków (poniżej 15°) i narożniki odsunięte od kanału zostają bez zmian.
-function fazaKieszeni(v, f) {
+function fazaKieszeni(v, f, mat = -1) {
   if (!(f > 0)) return v;
   const rings = v.map(ring => {
     const P = ring.map(q => [q.X / S, q.Y / S]), n = P.length, len = P.map((p, i) => Math.hypot(P[(i + 1) % n][0] - p[0], P[(i + 1) % n][1] - p[1]));
     const turn = P.map((p, i) => { const a = P[(i + n - 1) % n], b = P[(i + 1) % n], ux = p[0] - a[0], uy = p[1] - a[1], vx = b[0] - p[0], vy = b[1] - p[1]; return Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy); });
     const sharp = turn.map(t => Math.abs(t) > 0.26), idx = sharp.flatMap((s, i) => s ? [i] : []);
-    if (!idx.some(i => turn[i] < 0)) return ring;     // wnętrze pustki po lewej: skręt w prawo = narożnik materiału
+    if (!idx.some(i => turn[i] * mat > 0)) return ring;     // wnętrze pustki po lewej: skręt w prawo = narożnik materiału (mat = +1: wyspa materiału, skręt w lewo)
     const between = (a, b) => { let s = 0; for (let k = a; k !== b; k = (k + 1) % n) s += len[k]; return s; };
     const skip = new Uint8Array(n), cut = new Map();
     const walk = (i, dir, leg) => { let k = i, rem = leg; for (let c = 0; c < n; c++) { const q = (k + dir + n) % n, L = dir > 0 ? len[k] : len[q]; if (L >= rem) { const t = L > 0 ? rem / L : 0; return [P[k][0] + (P[q][0] - P[k][0]) * t, P[k][1] + (P[q][1] - P[k][1]) * t]; } rem -= L; k = q; skip[k] = 1; } return P[i]; };
     idx.forEach((i, j) => {
-      if (turn[i] >= 0) return;
+      if (turn[i] * mat <= 0) return;
       const prev = idx[(j + idx.length - 1) % idx.length], next = idx[(j + 1) % idx.length], total = len.reduce((s, x) => s + x, 0);
       const kat = Math.PI - Math.abs(turn[i]), chce = Math.max(f, f / (2 * Math.sin(Math.max(0.05, kat) / 2)));     // kat: kąt wewnętrzny narożnika materiału
       const dPrev = idx.length > 1 ? between(prev, i) : total, dNext = idx.length > 1 ? between(i, next) : total, leg = Math.min(chce, 0.45 * dPrev, 0.45 * dNext);
@@ -56,6 +56,19 @@ function fazaKieszeni(v, f) {
   return clip('ctUnion', rings);
 }
 
+// kieszeń z fazą liczoną dla każdego konturu litery osobno: wyspa materiału wokół brzuszka (np. w „A”) dostaje fazę na swoim szpicu,
+// zanim zetknie się z resztą kieszeni — inaczej ostry offset wyciąga szpic aż do krawędzi, kieszeń się rozdziela i nie ma czego ściąć
+function kieszenFaza(d, f) {
+  if (!(f > 0)) return offsetPolys(W.base, d);
+  const key = W.baseId + '|' + d + '|' + f; if (W.kfC && W.kfC.key === key) return W.kfC.reg;
+  const zew = [], wyspy = [];
+  W.base.forEach(ring => {
+    if (area(ring) > 0) zew.push(...fazaKieszeni(offsetPolys([ring], d), f));
+    else wyspy.push(...fazaKieszeni(offsetPolys([ring.slice().reverse()], -d), f, 1));
+  });
+  const reg = wyspy.length ? diff(clip('ctUnion', zew), clip('ctUnion', wyspy)) : clip('ctUnion', zew);
+  W.kfC = { key, reg }; return reg;
+}
 function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
@@ -103,7 +116,7 @@ function cyfraPolys(t, cx, cy, h, sw, lustro) {
 function cyfryDno(p, m) {
   const R = d => offsetPolys(W.base, d), top = p.st + p.pl;
   if (W.pr.typ === 'S') return { reg: R(-p.t3), z: p.sd };
-  return p.wgl && p.gw > 0 ? { reg: fazaKieszeni(R(m.kie), p.f), z: Math.max(0.2, top - p.gw) } : { reg: closeR(R(m.k3), p.r), z: top };
+  return p.wgl && p.gw > 0 ? { reg: kieszenFaza(m.kie, p.f), z: Math.max(0.2, top - p.gw) } : { reg: closeR(R(m.k3), p.r), z: top };
 }
 function cyfryMiejsca() {
   if (!W.marks.length || !W.base || !W.pr || (W.pr.typ === 'P' && !pbWl())) return [];
@@ -391,7 +404,7 @@ function warstwyFrontlit(p, m) {
   const R = d => offsetPolys(W.base, d), Rk2 = R(m.k2), Rk1 = R(m.k1), void3 = closeR(R(m.k3), p.r), Rp1 = R(m.p1), Rp2 = openR(R(m.p2), p.r), holes = otworyReg(p), top = p.st + p.pl;
   if (!(p.wk > 0) || !(p.ws > 0) || p.ws > p.wk) throw new Error('sprawdź wysokości klosza: ścianka i stopka muszą być dodatnie');
   const mag = magReg(p, Rp2, Rk2, { top: p.st + p.pl, z0: p.st, sc: m.k3 }), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl, mag.kl);
-  const kiesz = p.wgl && p.gw > 0 ? fazaKieszeni(R(m.kie), p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
+  const kiesz = p.wgl && p.gw > 0 ? kieszenFaza(m.kie, p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
   const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : []), ...(mag.zDno > 0 ? [mag.zDno] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.st ? Rp1 : Rp2;

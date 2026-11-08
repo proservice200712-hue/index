@@ -1680,7 +1680,7 @@ function widokPolys(n, o) {
   const typ = n === 'Kieszen' && f > 0 ? 'f' : n === 'Podstawa' && o.d === m.p2 && r > 0 ? 'o' : n === 'Klosz' && o.d === m.k3 && r > 0 ? 'c' : '';
   if (!typ) return o.polys;
   const key = `${W.baseId}|${n}|${o.d}|${f}|${r}`; W.widok = W.widok || {};
-  if (!W.widok[key]) { try { W.widok[key] = typ === 'f' ? fazaKieszeni(o.polys, f) : typ === 'o' ? openR(o.polys, r) : closeR(o.polys, r); } catch (e) { return o.polys; } }
+  if (!W.widok[key]) { try { W.widok[key] = typ === 'f' ? kieszenFaza(o.d, f) : typ === 'o' ? openR(o.polys, r) : closeR(o.polys, r); } catch (e) { return o.polys; } }
   return W.widok[key];
 }
 function renderSide() {
