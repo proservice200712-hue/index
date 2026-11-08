@@ -58,7 +58,7 @@ function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
     otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
-  if (W.pr.typ === 'M') { p.pl = Math.max(0.6, n('b3-mr') || 2); p.wgl = true; p.gw = p.pl; }     // Magnet: niski rant zamiast płyty, LED na dnie
+  if (W.pr.typ === 'M') { p.pl = Math.max(0.6, n('b3-mr') || 2); p.wgl = W.pr.wielk === 2; p.gw = p.pl; }     // Magnet: niski rant zamiast płyty; duże litery: LED na dnie kieszeni, małe: pełna płyta, LED na wierzchu
   if (W.pr.typ === 'P' && $('b3-fpod').checked) { p.ks = Math.max(0.4, n('b3-fks') || 1.2); p.kf = Math.max(0.4, n('b3-fkf') || 1.5); }
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
   if (p.ks) { p.wk = p.fh - p.st; p.ws = p.wk - p.kf; }     // pełna z podstawą: klosz od stopnia do wierzchu litery

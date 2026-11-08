@@ -224,7 +224,7 @@
         </div>
         <div class="m-only">
           <h3>Magnet [mm]</h3>
-          <div class="fld" title="Rant podstawy, na który nachodzi klosz; magnesy są w nim wtopione"><span>Rant podstawy</span><input type="text" inputmode="decimal" id="b3-mr" value="2"></div>
+          <div class="fld" title="Rant podstawy, na który nachodzi klosz; magnesy są w nim wtopione"><span>Rant podstawy <span class="hint">(małe litery: płyta)</span></span><input type="text" inputmode="decimal" id="b3-mr" value="2"></div>
           <div class="hint">Klosz trzymają magnesy neodymowe wklejane po wydruku: w rancie podstawy i w uszkach klosza nad nimi. Średnica, grubość i miejsca: zakładka Montaż.</div>
         </div>
         <h3 class="fs-only">Offsety [mm]</h3>
@@ -543,7 +543,7 @@ const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jz', 'hl'
 function zatParams() { const o = { on: $('p-zt-on').checked, n: Number($('p-zt-n').value) || 2 }; ZAT_POLA.forEach(k => { o[k] = Math.max(0, num($('p-zt-' + k).value)); }); return o; }
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
-  return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: r('typ') === 'M' ? 2 : Number(r('wielk')),
+  return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: Number(r('wielk')),
     przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
     dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutK: Math.max(0, num($('p-cutk').value)), zat: zatParams(), p3: p3State(),
     plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
