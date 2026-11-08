@@ -59,7 +59,9 @@ function params3D() {
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
     otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   if (W.pr.typ === 'M') { p.pl = Math.max(0.6, n('b3-mr') || 2); p.wgl = true; p.gw = p.pl; }     // Magnet: niski rant zamiast płyty, LED na dnie
+  if (W.pr.typ === 'P' && $('b3-fpod').checked) { p.ks = Math.max(0.4, n('b3-fks') || 1.2); p.kf = Math.max(0.4, n('b3-fkf') || 1.5); }
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
+  if (p.ks) { p.wk = p.fh - p.st; p.ws = p.wk - p.kf; }     // pełna z podstawą: klosz od stopnia do wierzchu litery
   p.kCalk = p.sf + p.ss; p.pCalk = p.sh - p.kCalk; p.sw = au('b3-sw', p.ss - 0.5);
   return p;
 }
@@ -100,7 +102,7 @@ function cyfryDno(p, m) {
   return p.wgl && p.gw > 0 ? { reg: fazaKieszeni(R(m.kie), p.f), z: Math.max(0.2, top - p.gw) } : { reg: closeR(R(m.k3), p.r), z: top };
 }
 function cyfryMiejsca() {
-  if (!W.marks.length || !W.base || !W.pr || W.pr.typ === 'P') return [];
+  if (!W.marks.length || !W.base || !W.pr || (W.pr.typ === 'P' && !pbWl())) return [];
   const p = params3D(), key = JSON.stringify([W.baseId, W.pr.typ, W.pr.dysza, W.pr.dLeb, W.m, p.st, p.pl, p.wgl, p.gw, p.f, p.r, p.sd, p.t3, p.rg, p.cyf, W.marks, W.holes.map(h => [h.x, h.y, h.d, h.kind]), W.rails.map(r => [r.x0, r.x1, r.yc, r.h]), W.cuts.map(c => [c.li, c.x, c.y, c.ang]), W.plates.map(q => q.L), W.led && W.led.key]);
   if (V3.cyfKey === key) return V3.cyf;
   const dno = cyfryDno(p, W.m), ls = bedLetters(), sw0 = W.pr.dysza === 4 ? 0.6 : 0.8, plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
@@ -435,9 +437,12 @@ function warstwyPelne(p) {
   return { klosz: [], podstawa: [], pleksa: [], litera: lay.filter(l => l.z1 - l.z0 > 1e-6), opis: `litera pełna ${fmt(H, 1)}` + (r > 0.01 && kr ? `, zaokrąglenie R ${fmt(r, 1)} (${g && dn ? 'góra i dół' : g ? 'góra' : 'dół'})` : ', bez zaokrągleń') };
 }
 // zaokrąglenie jako jedna ciągła powierzchnia: kolejne kontury leżą na swoich wysokościach, a pas między dwoma konturami to pochyłe trójkąty, więc nie ma stopni
-function pelnaGladka(p, ndel) {
-  const H = p.fh, g = p.fg, dn = p.fd, r = Math.min(p.fr, g && dn ? H / 2 : H); if (!(r > 0.01) || !(g || dn)) return null;
-  const { Manifold, Mesh, triangulate } = V3.wasm, R0 = offsetPolys(W.base, 0), zLo = dn ? r : 0, zHi = H - (g ? r : 0), N = Math.max(16, Math.min(48, Math.ceil(r * Math.PI / 2 / 0.2)));
+function pelnaGladka(p, ndel) { return gladkaBryla(0, 0, p.fh, p.fr, p.fg, p.fd, ndel); }
+// bryła z konturu litery odsuniętego o d0, od zA do zA + H, z gładko zaokrągloną górną (i / lub dolną) krawędzią;
+// przy d0 ≠ 0 wszystkie kontury z zaokrąglonymi narożnikami, żeby kolejne leżały jeden w drugim (inaczej pas między nimi się psuje)
+function gladkaBryla(d0, zA, H, rr, g, dn, ndel) {
+  const r = Math.min(rr, g && dn ? H / 2 : H); if (!(r > 0.01) || !(g || dn)) return null;
+  const { Manifold, Mesh, triangulate } = V3.wasm, R0 = d0 ? offRound(W.base, d0) : offsetPolys(W.base, 0), zLo = zA + (dn ? r : 0), zHi = zA + H - (g ? r : 0), N = Math.max(16, Math.min(48, Math.ceil(r * Math.PI / 2 / 0.2)));
   const xyz = [], tri = [];
   const poziom = (reg, z) => { const polys = toPolys(reg), start = xyz.length / 3; polys.forEach(q => q.forEach(([x, y]) => xyz.push(x, y, z))); return { polys, start }; };
   const pas = (a, b, odwroc) => {   // między konturem a i węższym b (b może nie być, wtedy płaski wierzch); kontury b z odwróconym obiegiem są dziurami pasa
@@ -451,7 +456,7 @@ function pelnaGladka(p, ndel) {
     let prev = L0, lastD = 0;
     for (let k = 1; k <= N; k++) {
       const th = k / N * Math.PI / 2, d = r * (1 - Math.cos(th)); if (d - lastD < 0.02 && k < N) continue;
-      const reg = offRound(W.base, -d); if (!reg.length) break;
+      const reg = offRound(W.base, d0 - d); if (!reg.length) break;
       const L = poziom(reg, z0 + dir * r * Math.sin(th)); pas(prev, L, dir < 0); prev = L; lastD = d;
     }
     pas(prev, null, dir < 0);
@@ -463,6 +468,39 @@ function pelnaGladka(p, ndel) {
   const mesh = new Mesh({ numProp: 3, vertProperties: new Float32Array(xyz), triVerts: new Uint32Array(tri) });
   return ndel(new Manifold(mesh));
 }
+// ===================== litera pełna z podstawą: świeci cały klosz (front i boki) =====================
+// Podstawa jak we Frontlit (stopień, płyta, kieszeń na LED, otwory). Klosz to skorupa z filamentu do podświetleń: na zewnątrz kontur litery
+// z gładko zaokrągloną górną krawędzią, w środku pusto (boki ks, front kf), wnętrze zaokrąglone promieniem pomniejszonym o grubość boku.
+const pbWl = () => !!(W.pr && W.pr.typ === 'P' && $('b3-fpod').checked);
+// przybliżenie warstwami (do liczenia filamentu i gdyby gładka skorupa się nie złożyła)
+function kloszPLayers(p) {
+  const R = d => d ? offRound(W.base, d) : offsetPolys(W.base, 0), r = Math.min(p.fg ? p.fr : 0, p.fh - p.st), ri = Math.max(0, r - p.ks), zHi = p.fh - r, zc = p.fh - p.kf, N = 8, zs = new Set([p.st, p.fh, zHi, zc, zc - ri]);
+  for (let k = 1; k < N; k++) { zs.add(zHi + r * Math.sin(k / N * Math.PI / 2)); zs.add(zc - ri + ri * Math.sin(k / N * Math.PI / 2)); }
+  const zz = [...zs].filter(z => z >= p.st && z <= p.fh).sort((a, b) => a - b), lay = [];
+  const odsun = (z, z0, rr) => z <= z0 ? 0 : rr - Math.sqrt(Math.max(0, rr * rr - (z - z0) * (z - z0)));
+  for (let i = 0; i + 1 < zz.length; i++) {
+    const z0 = zz[i], z1 = zz[i + 1], mid = (z0 + z1) / 2; if (z1 - z0 < 1e-6) continue;
+    const zew = R(-odsun(mid, zHi, r)), wew = mid < zc ? R(-p.ks - odsun(mid, zc - ri, ri)) : [];
+    lay.push({ z0, z1, reg: wew.length ? diff(zew, wew) : zew });
+  }
+  return lay;
+}
+function planPelneBaza(p) {
+  if (!(p.fh - p.st > p.kf + 1)) throw new Error('litera pełna z podstawą: wysokość litery musi być większa od stopnia i frontu klosza');
+  const plan = warstwyFrontlit(p, W.m), top = p.st + p.pl, r = p.fg ? Math.min(p.fr, p.fh - p.st) : 0;
+  plan.pleksa = []; plan.klosz = kloszPLayers(p);
+  plan.opis = `litera pełna ${fmt(p.fh, 1)} z podstawą ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}); klosz świecący: boki ${fmt(p.ks, 1)}, front ${fmt(p.kf, 1)}` + (r > 0.01 ? `, zaokrąglenie R ${fmt(r, 1)}` : '');
+  return plan;
+}
+// gładka skorupa klosza: bryła zewnętrzna minus wnętrze
+function kloszPGladki(p, ndel) {
+  const { Manifold } = V3.wasm, H = p.fh - p.st, ri = Math.max(0, (p.fg ? p.fr : 0) - p.ks), zc = p.fh - p.kf;
+  const zew = (p.fg && p.fr > 0.01 ? gladkaBryla(0, p.st, H, p.fr, true, false, ndel) : null) || stos([{ z0: p.st, z1: p.fh, reg: offsetPolys(W.base, 0) }], ndel);
+  const wew = (ri > 0.01 ? gladkaBryla(-p.ks, p.st - 1, zc - p.st + 1, ri, true, false, ndel) : null) || stos([{ z0: p.st - 1, z1: zc, reg: offRound(W.base, -p.ks) }], ndel);
+  if (!zew) return null;
+  return wew ? ndel(Manifold.difference(zew, wew)) : zew;
+}
+function planLitery(p) { return W.pr.typ === 'P' ? (pbWl() ? planPelneBaza(p) : warstwyPelne(p)) : W.pr.typ === 'S' ? warstwySidelit(p) : warstwyFrontlit(p, W.m); }
 // ===================== bryły (Manifold) =====================
 function stos(warstwy, ndel) {
   const { Manifold } = V3.wasm, list = [];
@@ -478,8 +516,9 @@ async function build3D() {
   const t0 = performance.now(), garbage = [], ndel = o => { garbage.push(o); return o; };
   try {
     await load3D();
-    W.pr = params(); const p = params3D(), m = W.m, plan = W.pr.typ === 'P' ? warstwyPelne(p) : W.pr.typ === 'S' ? warstwySidelit(p) : warstwyFrontlit(p, m), parts = {}, bodies = [], ls = letters(bedSrc()), uwagi = [];
-    if (W.pr.typ === 'P') { try { parts.litera = pelnaGladka(p, ndel); } catch (e) { console.warn(e); uwagi.push('zaokrąglenie złożone z warstw (schodki): dla tego kształtu nie udało się zbudować gładkiej powierzchni'); } }
+    W.pr = params(); const p = params3D(), m = W.m, plan = planLitery(p), parts = {}, bodies = [], ls = letters(bedSrc()), uwagi = [];
+    if (pbWl()) { try { parts.klosz = kloszPGladki(p, ndel); } catch (e) { console.warn(e); uwagi.push('klosz złożony z warstw (schodki): dla tego kształtu nie udało się zbudować gładkiej skorupy'); } }
+    else if (W.pr.typ === 'P') { try { parts.litera = pelnaGladka(p, ndel); } catch (e) { console.warn(e); uwagi.push('zaokrąglenie złożone z warstw (schodki): dla tego kształtu nie udało się zbudować gładkiej powierzchni'); } }
     Object.keys(CZESCI).forEach(k => { if (!parts[k]) parts[k] = (plan[k] || []).length ? stos(plan[k], ndel) : null; });
     if (W.overlaps.length) uwagi.push(`litery nachodzą na siebie w ${W.overlaps.length} miejscach — bryły są połączone`);
     if (parts.klosz && parts.podstawa) { const v = objetosc(ndel(V3.wasm.Manifold.intersection(parts.klosz, parts.podstawa))); if (v > 1) uwagi.push(`klosz przenika podstawę (${fmt(v, 1)} mm³) — sprawdź offsety`); }
@@ -704,7 +743,7 @@ function liczFilament() {
   const box = $('fil-info'); if (!box) return;
   if (!W.base || !W.pr) { W.fil = null; box.textContent = '—'; return; }
   try {
-    const p = params3D(), plan = W.pr.typ === 'P' ? warstwyPelne(p) : W.pr.typ === 'S' ? warstwySidelit(p) : warstwyFrontlit(p, W.m), m = filamentMasy(p, plan);
+    const p = params3D(), plan = planLitery(p), m = filamentMasy(p, plan);
     const g = x => Math.round((x || 0) / 5) * 5, sum = (m.podstawa || 0) + (m.klosz || 0) + (m.litera || 0) + (m.plaster || 0);
     W.fil = { ...m, sum };
     box.innerHTML = `<b>Filament: ok. ${g(sum).toLocaleString('pl-PL')} g</b><br><span class="hint">${m.litera ? `litery ${g(m.litera)} g` : `podstawa ${g(m.podstawa)} g · klosz ${g(m.klosz)} g`}${m.plaster ? ` · plasterki ${g(m.plaster)} g` : ''} (szacunek wg ustawień druku)</span>`;

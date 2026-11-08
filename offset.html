@@ -144,7 +144,11 @@
   body.t-M .m-only { display: block; }
   body.t-M .nm-only { display: none; }
   body.t-P .p-only { display: block; }
-  body.t-P .fs-only, body.t-P #g3-f, body.t-P #g3-s { display: none !important; }
+  body.t-P:not(.t-PB) .fs-only, body.t-P:not(.t-PB) #g3-f, body.t-P #g3-s { display: none !important; }
+  /* pełna z podstawą: pola podstawy jak we Frontlit, bez pleksy i ścianek klosza (klosz liczy się z pól litery pełnej) */
+  body.t-PB .fld:has(#p-P), body.t-PB #g3-f .fld:has(#b3-gp), body.t-PB #g3-f .fld:has(#b3-h), body.t-PB #g3-f .fld:has(#b3-wk), body.t-PB #g3-f .fld:has(#b3-ws), body.t-PB .row:has(#b3-fd) { display: none !important; }
+  .pb-only { display: none; }
+  body.t-PB .pb-only { display: block; }
 </style>
 </head>
 <body>
@@ -210,6 +214,12 @@
           <div class="fld"><span>Promień zaokrąglenia</span><input type="text" inputmode="decimal" id="b3-fr" value="3"></div>
           <div class="row"><label><input type="checkbox" id="b3-fg" checked> zaokrąglij górną krawędź</label></div>
           <div class="row"><label><input type="checkbox" id="b3-fd"> zaokrąglij też dolną krawędź</label></div>
+          <div class="row"><label title="Podstawa jak we Frontlit, a na niej wydrążony klosz z filamentu do podświetleń: świeci front i boki"><input type="checkbox" id="b3-fpod" checked> z podstawą — świeci cały klosz</label></div>
+          <div class="pb-only">
+            <div class="fld"><span>Klosz: grubość boków</span><input type="text" inputmode="decimal" id="b3-fks" value="1,2"></div>
+            <div class="fld"><span>Klosz: grubość frontu</span><input type="text" inputmode="decimal" id="b3-fkf" value="1,5"></div>
+            <div class="hint">Wysokość litery liczy się od spodu podstawy do frontu. Klosz drukuj z filamentu do podświetleń; front jest wierzchem wydruku, więc w slicerze daj mu warstwy wierzchnie (np. 4–5), inaczej będzie ażurowy. Podstawa, kieszeń na LED i otwory: zakładki Bryła 3D i Otwory.</div>
+          </div>
           <div class="hint">Zaokrąglenie dotyczy obrysu litery. Przy cienkiej kresce mniejszej niż 2 × promień górę zamyka łuk (jak prawdziwe filetowanie).</div>
         </div>
         <div class="m-only">
@@ -537,8 +547,14 @@ function params() {
     dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutK: Math.max(0, num($('p-cutk').value)), zat: zatParams(), p3: p3State(),
     plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
+const pbOn = pr => pr.typ === 'P' && !!pr.p3 && pr.p3['b3-fpod'] !== false;     // litera pełna z podstawą i świecącym kloszem
 function model(pr) {
-  const d = DYSZA[pr.dysza] || DYSZA[6], k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
+  const d = DYSZA[pr.dysza] || DYSZA[6];
+  if (pbOn(pr)) {   // pełna z podstawą: klosz na zewnątrz równo z konturem litery, podstawa w nim jak we Frontlit
+    const ks = Math.max(0.4, num((pr.p3 || {})['b3-fks'] || '1,2')), k3 = -ks, p2 = k3 - pr.B, kie = p2 - d.kie;
+    return { k1: 0, k2: 0, k3, p1: 0, p2, kie, spec: [['Klosz', [0, k3]], ['Podstawa', [0, p2]], ...(pr.wielk === 2 ? [['Kieszen', [kie]]] : [])], scianka: ks };
+  }
+  const k1 = pr.P, k2 = pr.P + d.out, k3 = pr.P - d.in, p1 = k2, p2 = k3 - pr.B, kie = p2 - d.kie;
   const spec = pr.typ === 'P' ? [['Pelne', [0]]] : pr.typ === 'S' ? [['Klosz', [0, k1, k2, k3]], ['Podstawa', [0, p1, p2]], ...(pr.wielk === 2 ? [['Kieszen', [kie]]] : [])] : [['Pleksa', [0]], ['Klosz', [k1, k2, k3]], ['Podstawa', [p1, p2]], ...(pr.wielk === 2 ? [['Kieszen', [kie]]] : [])];   // małe litery (pełny środek): bez kieszeni
   return { k1, k2, k3, p1, p2, kie, spec, scianka: k2 - k3 };
 }
@@ -546,8 +562,9 @@ function computeLayers() {
   const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.plReg = null; W.m = m; W.pr = pr;
   $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
-  document.body.classList.toggle('t-P', pr.typ === 'P'); document.body.classList.toggle('t-M', pr.typ === 'M'); if (typeof groups3D === 'function') groups3D();
-  if (pr.typ === 'P') $('vals').innerHTML = '<b>Litera pełna</b> 0 (baza)<br><span class="hint">wysokość i promień zaokrąglenia — pola powyżej</span>';
+  document.body.classList.toggle('t-P', pr.typ === 'P'); document.body.classList.toggle('t-PB', pbOn(pr)); document.body.classList.toggle('t-M', pr.typ === 'M'); if (typeof groups3D === 'function') groups3D();
+  if (pbOn(pr)) $('vals').innerHTML = `<b>Klosz</b> 0 / ${fmt(m.k3)} (świeci cały)<br><b>Podstawa</b> 0 / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
+  else if (pr.typ === 'P') $('vals').innerHTML = '<b>Litera pełna</b> 0 (baza)<br><span class="hint">wysokość i promień zaokrąglenia — pola powyżej</span>';
   if (!W.base) return;
   m.spec.forEach(([name, ds]) => {
     W.lay[name] = ds.map(d => { const r = offsetPolys(W.base, d); if (!r.length) W.warn.push(`${name} ${fmt(d)} mm — nie powstał (kształt za wąski)`); return { d, polys: r }; }).filter(x => x.polys.length);
@@ -1042,7 +1059,7 @@ function lineSpans(polys, c, s = 0) {
   return out;
 }
 function refreshPlates() {
-  W.plates = []; const pr = W.pr; if (!pr || pr.typ === 'P' || !pr.plOn || !W.base || !W.cuts.length) return renderPlateList();
+  W.plates = []; const pr = W.pr; if (!pr || (pr.typ === 'P' && !pbOn(pr)) || !pr.plOn || !W.base || !W.cuts.length) return renderPlateList();
   const regs = plateRegs(), ls = bedLetters();
   W.cuts.forEach(c => {
     const l = ls[c.li]; if (!l) return;
@@ -1357,7 +1374,7 @@ function buildKit() {
   W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
   const { typ, dysza, P, B, gdzie, odl, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
-  const n0 = typ === 'S' && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
+  const n0 = (typ === 'S' || pbOn(W.pr)) && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
   return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
@@ -1893,10 +1910,11 @@ function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-mr': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-fks': 0.1, 'b3-fkf': 0.1, 'b3-mr': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
 function b3Change(id) {
   save();
+  if (id === 'b3-fpod' || id === 'b3-fks') return recompute();     // zmienia kontury klosza i podstawy (otwory, plasterki)
   if (id.startsWith('b3-m')) { if (window.autoMagnets) autoMagnets(); renderSide(); draw(); }
   if (id.startsWith('b3-pr')) { if (window.profil3D) profil3D(); return; }
   if (id.startsWith('b3-fil-')) { if (window.liczFilament) liczFilament(); return; }
