@@ -58,6 +58,7 @@ function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
     otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
+  if (W.pr.typ === 'M') { p.pl = Math.max(0.6, n('b3-mr') || 2); p.wgl = true; p.gw = p.pl; }     // Magnet: niski rant zamiast płyty, LED na dnie
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
   p.kCalk = p.sf + p.ss; p.pCalk = p.sh - p.kCalk; p.sw = au('b3-sw', p.ss - 0.5);
   return p;
@@ -314,23 +315,87 @@ async function zatProbka() {
   } catch (e) { console.error(e); toast('Nie udało się zbudować próbki: ' + (e && e.message || e), 6000); }
   garbage.forEach(o => { try { o.delete(); } catch (e) { /* już zwolnione */ } });
 }
+// ===================== typ Magnet: klosz trzymany na magnesach neodymowych (wklejanych po wydruku) =====================
+// Rant podstawy jest niski (domyślnie 2 mm). Magnes w podstawie leży w rancie: wierzch równo z wierzchem rantu, gniazdo schodzi w stopień,
+// a wokół gniazda rant jest pogrubiony do środka litery. Drugi magnes siedzi w uszku klosza tuż nad nim, twarzą w twarz.
+// Środki magnesów leżą na linii odsuniętej od zewnętrznej krawędzi rantu o promień gniazda: magnes nie wychodzi poza rant na zewnątrz.
+const magWl = () => !!(W.pr && W.pr.typ === 'M');
+function magWym() {
+  const v = id => num($(id).value), d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
+  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), n: Number($('b3-mn').value) || 2 };
+}
+function magLinia() {
+  const g = magWym(), key = W.baseId + '|' + W.m.p2 + '|' + g.rp; if (W.magL && W.magL.key === key) return W.magL.polys;
+  const polys = offsetPolys(W.base, W.m.p2 - g.rp); W.magL = { key, polys }; return polys;
+}
+// najbliższy punkt linii środków magnesów w obrębie litery li
+function magNaLinii(x, y, li) {
+  const L = bedLetters()[li]; let best = null, bd = Infinity;
+  magLinia().forEach(p => {
+    if (L && C.Clipper.PointInPolygon(p[0], L.p) === 0) return;
+    for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1))), qx = ax + t * dx, qy = ay + t * dy, d = Math.hypot(qx - x, qy - y); if (d < bd) { bd = d; best = [Math.round(qx * 100) / 100, Math.round(qy * 100) / 100]; } }
+  });
+  return best;
+}
+// propozycja: po n na literę, jak najdalej od siebie, z dala od paska LED, otworów, linii podziału i plasterków; ręcznie postawione zostają
+function autoMagnets() {
+  W.magWarn = [];
+  if (!magWl() || !W.base) return;
+  W.mags = W.mags.filter(m => m.manual);
+  const g = magWym(), R = g.rp + g.s, ls = bedLetters(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
+  const pas = c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); };
+  const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(W.cuts.filter(c => c.sK).map(cutK))).map(pas)), W.led ? plus(rowekLED(offsetPolys(W.base, W.m.p2), LED_W)) : []);
+  const zakaz = offsetPolys(clip('ctUnion', przeszkody), R + 0.5);
+  const wZakazie = (x, y) => { const pt = { X: Math.round(x * S), Y: Math.round(y * S) }; let w = 0; zakaz.forEach(p => { if (C.Clipper.PointInPolygon(pt, p) !== 0) w += area(p) > 0 ? 1 : -1; }); return w > 0; };
+  const linia = magLinia();
+  ls.forEach((l, li) => {
+    const moje = W.mags.filter(m => m.li === li), ile = g.n - moje.length; if (ile <= 0) return;
+    const pts = [];
+    linia.forEach(p => {
+      if (C.Clipper.PointInPolygon(p[0], l.p) === 0) return;
+      for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], ax = a.X / S, ay = a.Y / S, bx = b.X / S, by = b.Y / S, n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 1.5)); for (let k = 0; k < n; k++) { const x = ax + (bx - ax) * k / n, y = ay + (by - ay) * k / n; if (!wZakazie(x, y)) pts.push([x, y]); } }
+    });
+    const jest = moje.map(m => [m.x, m.y]), cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2; let dodane = 0;
+    for (let k = 0; k < ile; k++) {
+      let best = null, bs = -1;
+      pts.forEach(q => { const s = jest.length ? Math.min(...jest.map(o => Math.hypot(o[0] - q[0], o[1] - q[1]))) : Math.hypot(q[0] - cx, q[1] - cy); if (s > bs) { bs = s; best = q; } });
+      if (!best || (jest.length && bs < 2 * R + 2)) break;
+      W.mags.push({ id: uid++, li, x: Math.round(best[0] * 100) / 100, y: Math.round(best[1] * 100) / 100, manual: false }); jest.push(best); dodane++;
+    }
+    if (dodane < ile) W.magWarn.push(`litera ${li + 1}: zmieściło się ${moje.length + dodane} z ${g.n}`);
+  });
+}
+// bryły: pogrubienie rantu z gniazdem w podstawie, uszko z gniazdem w kloszu
+function magReg(p, Rp2, Rk2) {
+  const out = { pod: [], kl: [], pocket: [], zDno: -1, uw: [] }; if (!magWl() || !W.mags.length) return out;
+  const g = magWym(), top = p.st + p.pl, zD = top - g.h; out.zDno = zD;
+  if (zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś rant albo stopień`);
+  W.mags.forEach(m => {
+    const pk = [circlePoly(m.x, m.y, 2 * g.rp)], obr = [circlePoly(m.x, m.y, 2 * (g.rp + g.s))];
+    out.pocket.push(...pk);
+    out.pod.push({ z0: p.st, z1: top, reg: diff(inter(obr, Rp2), pk) });
+    out.kl.push({ z0: top, z1: top + g.h, reg: diff(inter(obr, Rk2), pk) }, { z0: top + g.h, z1: top + g.h + g.s, reg: inter(obr, Rk2) });
+  });
+  return out;
+}
 // każda część: lista warstw {z0, z1, reg}
 function warstwyFrontlit(p, m) {
   const R = d => offsetPolys(W.base, d), Rk2 = R(m.k2), Rk1 = R(m.k1), void3 = closeR(R(m.k3), p.r), Rp1 = R(m.p1), Rp2 = openR(R(m.p2), p.r), holes = otworyReg(p), top = p.st + p.pl;
   if (!(p.wk > 0) || !(p.ws > 0) || p.ws > p.wk) throw new Error('sprawdź wysokości klosza: ścianka i stopka muszą być dodatnie');
-  const zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl);
+  const mag = magReg(p, Rp2, Rk2), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl, mag.kl);
   const kiesz = p.wgl && p.gw > 0 ? fazaKieszeni(R(m.kie), p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
-  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
+  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : []), ...(mag.zDno > 0 ? [mag.zDno] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.st ? Rp1 : Rp2;
     if (mid > zKiesz) reg = diff(reg, kiesz);
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
     if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
+    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pocket);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
-  podstawa.push(...zat.pod); W.zatUw = zat.uw;
+  podstawa.push(...zat.pod, ...mag.pod); W.zatUw = zat.uw; W.magUw = mag.uw;
   return { klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
 }
 function warstwySidelit(p) {
@@ -451,6 +516,7 @@ async function build3D() {
     if (tops.hK > 0 && tops.zK0 + tops.hK > tops.zKmax && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga wyżej niż podparcie pleksy: zwiększ „niższy o”');
     cyfryMiejsca().forEach(q => { const u = cyfraUwaga(q); if (u) uwagi.push(u); });
     if (W.pr.typ !== 'P') (W.zatUw || []).concat(W.zatWarn || []).forEach(u => uwagi.push('zatrzaski: ' + u));
+    if (W.pr.typ === 'M') { (W.magUw || []).concat(W.magWarn || []).forEach(u => uwagi.push('magnesy: ' + u)); if (W.mags.length) { const n = W.mags.length; uwagi.push(`magnesy: ${n} ${n === 1 ? "para" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "pary" : "par"}, rant ${fmt(p.pl, 1)} mm`); }; }
     if (zatGap()) uwagi.push(`zatrzaski: ${W.latches.length} szt., klosz wyżej o ${fmt(zatGap(), 1)} mm (skok do zwolnienia)`);
     liczFilament(); V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);

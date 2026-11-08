@@ -140,6 +140,9 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 9px 16px; font-size: .85rem; z-index: 50; }
   /* litery pełne (typ P): bez offsetów klosza/podstawy, za to wysokość i promień zaokrąglenia */
   .p-only { display: none; }
+  .m-only { display: none; }
+  body.t-M .m-only { display: block; }
+  body.t-M .nm-only { display: none; }
   body.t-P .p-only { display: block; }
   body.t-P .fs-only, body.t-P #g3-f, body.t-P #g3-s { display: none !important; }
 </style>
@@ -161,7 +164,7 @@
     <button data-pan="plik" title="Wczytaj plik, napis z tekstu, nazwa"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg><span>Plik</span></button>
     <button data-pan="litery" title="Frontlit / Sidelit, dysza, offsety"><svg viewBox="0 0 24 24"><path d="M5 20 12 4l7 16M8 14h8"/></svg><span>Litery</span></button>
     <button data-pan="otwory" title="Profil montażowy, otwory na przewody i FIX"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg><span>Otwory</span></button>
-    <button data-pan="montaz" title="Montaż klosza: zatrzaski klik zamiast śrub"><svg viewBox="0 0 24 24"><rect x="7" y="9" width="10" height="11"/><path d="M9 9V5l3 3 3-3v4M10 14h4"/></svg><span>Montaż</span></button>
+    <button data-pan="montaz" title="Montaż klosza: magnesy (typ Magnet)"><svg viewBox="0 0 24 24"><rect x="7" y="9" width="10" height="11"/><path d="M9 9V5l3 3 3-3v4M10 14h4"/></svg><span>Montaż</span></button>
     <button data-pan="podzial" title="Podział na stół drukarki"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16"/><path d="M12 2v20" stroke-dasharray="3 2.5"/></svg><span>Podział</span></button>
     <button data-pan="warstwy" title="Co widać na rysunku"><svg viewBox="0 0 24 24"><path d="m12 4 9 5-9 5-9-5zM3 14l9 5 9-5"/></svg><span>Warstwy</span></button>
     <button data-pan="bryla" title="Bryły 3D: wymiary, kolory, STL / 3MF"><svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span>Bryła 3D</span></button>
@@ -191,6 +194,7 @@
           <label class="pick"><input type="radio" name="typ" value="F" checked><svg viewBox="0 0 120 76"><defs><linearGradient id="flL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6fd0"/><stop offset="1" stop-color="#7fb2f5"/></linearGradient></defs><g stroke="#f6b400" stroke-width="2" stroke-linecap="round" fill="none"><path d="M30 26V13M26 17l4-4 4 4M59 15V2M55 6l4-4 4 4M88 22V9M84 13l4-4 4 4"/></g><polygon points="14,34 46,48 46,66 14,52" fill="#e2e8f0" stroke="#718096" stroke-width=".7"/><polygon points="46,48 104,24 104,42 46,66" fill="#f7fafc" stroke="#718096" stroke-width=".7"/><polygon points="14,47 46,61 46,66 14,52" fill="#4a5568"/><polygon points="46,61 104,37 104,42 46,66" fill="#718096"/><polygon points="14,34 72,10 104,24 46,48" fill="url(#flL)" stroke="#1a4f9c" stroke-width=".8"/><polygon points="30,35 76,16 88,21 42,40" fill="#ffe27a" opacity=".8"/></svg><b>Frontlit</b><small>świeci lico</small></label>
           <label class="pick"><input type="radio" name="typ" value="S"><svg viewBox="0 0 120 76"><defs><linearGradient id="slA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b0"/><stop offset="1" stop-color="#ffcf33"/></linearGradient></defs><polygon points="14,34 46,48 46,66 14,52" fill="url(#slA)" stroke="#b7791f" stroke-width=".7"/><polygon points="46,48 104,24 104,42 46,66" fill="url(#slA)" stroke="#b7791f" stroke-width=".7"/><polygon points="14,47 46,61 46,66 14,52" fill="#4a5568"/><polygon points="46,61 104,37 104,42 46,66" fill="#718096"/><polygon points="14,34 72,10 104,24 46,48" fill="#f7fafc" stroke="#4a5568" stroke-width="1"/><g stroke="#f6b400" stroke-width="2" stroke-linecap="round" fill="none"><path d="M24 48 12 56M12 51v5h5M38 54 28 67M26 62l2 5 5-1M66 50l10 11M72 62l4-1 0-4M92 39l11 8M99 47h4v-4"/></g></svg><b>Sidelit</b><small>świeci bok</small></label>
           <label class="pick" title="Litera pełna (bez klosza i podstawy): wyciągnięty kontur z zaokrągloną górną krawędzią"><input type="radio" name="typ" value="P"><svg viewBox="0 0 120 76"><defs><linearGradient id="plT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7fafc"/><stop offset="1" stop-color="#cbd5e0"/></linearGradient></defs><polygon points="14,40 46,54 46,68 14,54" fill="#a0aec0"/><polygon points="46,54 104,30 104,44 46,68" fill="#718096"/><path d="M14,40 Q14,34 21,32 L66,14 Q72,12 79,15 L97,23 Q104,26 104,30 L46,54 Z" fill="url(#plT)" stroke="#4a5568" stroke-width=".8"/><path d="M24,38 L68,20 L90,29" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".9"/></svg><b>pełne</b><small>zaokrąglona krawędź</small></label>
+          <label class="pick" title="Frontlit z niskim rantem podstawy; klosz trzymają magnesy neodymowe wtopione w rant"><input type="radio" name="typ" value="M"><svg viewBox="0 0 120 76"><polygon points="14,46 46,60 46,66 14,52" fill="#a0aec0"/><polygon points="46,60 104,36 104,42 46,66" fill="#cbd5e0"/><polygon points="14,46 72,22 104,36 46,60" fill="#edf2f7" stroke="#718096" stroke-width=".6"/><polygon points="24,46 72,26 94,35 46,55" fill="none" stroke="#4a5568" stroke-width="2.4"/><g stroke="#e53e3e" stroke-width="1.4" stroke-dasharray="2 2"><path d="M36 44V14M84 28V4"/></g><g fill="#e53e3e" stroke="#9b2c2c" stroke-width=".7"><ellipse cx="36" cy="47" rx="5.5" ry="2.8"/><ellipse cx="84" cy="31" rx="5.5" ry="2.8"/><ellipse cx="36" cy="13" rx="5.5" ry="2.8"/><ellipse cx="84" cy="5" rx="5.5" ry="2.8"/></g></svg><b>Magnet</b><small>klosz na magnesy</small></label>
         </div>
         <h3 class="fs-only">Wielkość liter</h3>
         <div class="picks fs-only">
@@ -207,6 +211,11 @@
           <div class="row"><label><input type="checkbox" id="b3-fg" checked> zaokrąglij górną krawędź</label></div>
           <div class="row"><label><input type="checkbox" id="b3-fd"> zaokrąglij też dolną krawędź</label></div>
           <div class="hint">Zaokrąglenie dotyczy obrysu litery. Przy cienkiej kresce mniejszej niż 2 × promień górę zamyka łuk (jak prawdziwe filetowanie).</div>
+        </div>
+        <div class="m-only">
+          <h3>Magnet [mm]</h3>
+          <div class="fld" title="Rant podstawy, na który nachodzi klosz; magnesy są w nim wtopione"><span>Rant podstawy</span><input type="text" inputmode="decimal" id="b3-mr" value="2"></div>
+          <div class="hint">Klosz trzymają magnesy neodymowe wklejane po wydruku: w rancie podstawy i w uszkach klosza nad nimi. Średnica, grubość i miejsca: zakładka Montaż.</div>
         </div>
         <h3 class="fs-only">Offsety [mm]</h3>
         <div class="fld fs-only"><span>Offset pleksy P <span class="hint">(luz pleksa ↔ klosz)</span></span><input type="text" inputmode="decimal" id="p-P" value="0,1"></div>
@@ -244,6 +253,20 @@
         <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
       </section>
       <section class="pan" data-pan="montaz" data-t="Montaż klosza">
+        <div class="m-only">
+          <h3>Magnesy neodymowe [mm]</h3>
+          <div class="fld"><span>Średnica magnesu</span><input type="text" inputmode="decimal" id="b3-md" value="6"></div>
+          <div class="fld"><span>Grubość magnesu</span><input type="text" inputmode="decimal" id="b3-mh" value="2"></div>
+          <div class="fld" title="O ile gniazdo jest większe od magnesu (na średnicy), żeby wszedł z klejem"><span>Luz gniazda (na średnicy)</span><input type="text" inputmode="decimal" id="b3-ml" value="0,2"></div>
+          <div class="fld"><span>Ścianka wokół magnesu</span><input type="text" inputmode="decimal" id="b3-ms" value="0,8"></div>
+          <div class="fld"><span>Magnesy na literę</span><select id="b3-mn"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+          <button type="button" class="btn wide" id="b-mg-add" title="Potem kliknij w literę: magnes stanie w najbliższym miejscu rantu">➕ Dodaj magnes (klik na literze)</button>
+          <button type="button" class="btn wide" id="b-mg-auto" title="Usuwa ręcznie postawione i proponuje miejsca od nowa">↺ Zaproponuj miejsca od nowa</button>
+          <div class="vals" id="mg-info">—</div>
+          <div class="hint">Magnes w podstawie leży w rancie (wierzch równo z rantem, gniazdo schodzi w stopień), drugi w uszku klosza tuż nad nim — twarzą w twarz. Klik na literze stawia magnes w najbliższym miejscu rantu, przeciągnięcie przesuwa go wzdłuż rantu, Delete usuwa. Przy wklejaniu pilnuj biegunów: każda para musi się przyciągać. Uszko klosza wisi nad krawędzią klosza o wysokość rantu — w slicerze daj pod nim podporę.</div>
+        </div>
+        <div class="hint nm-only">Magnesy są w typie litery <b>Magnet</b> (zakładka Litery).</div>
+        <details style="margin-top:10px"><summary>Zatrzaski klik (wcześniejsza próba)</summary>
         <div class="row"><label><input type="checkbox" id="p-zt-on"> zatrzaski klik (push-push) zamiast śrub</label></div>
         <div class="fld"><span>Zatrzaski na literę</span><select id="p-zt-n"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></div>
         <button type="button" class="btn wide" id="b-zt-add" title="Potem kliknij w literę, w miejscu, gdzie ma stać zatrzask">➕ Dodaj zatrzask (klik na literze)</button>
@@ -274,6 +297,7 @@
         <div class="fld" title="Grubość dachu uchwytu (Frontlit); odstęp od stopki klosza jest wypełniony litym blokiem"><span>Dach uchwytu: grubość</span><input type="text" inputmode="decimal" id="p-zt-at" value="3"></div>
         <button type="button" class="btn wide" id="b-zt-probka">⬇ Próbka do wydruku (STL)</button>
         <div class="hint">Najpierw wydrukuj próbki: ramki na płytkę z grzybkiem (do podstawy) i uchwyty na korpus klika (do klosza). Sprawdź z prawdziwymi częściami, czy płytka wchodzi w ramkę, czy korpus wchodzi i trzyma się w uchwycie oraz jak zatrzask się zatrzaskuje i zwalnia; potem popraw wymiary wyżej.</div>
+        </details>
       </section>
       <section class="pan" data-pan="podzial" data-t="Podział na stół">
         <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
@@ -454,7 +478,7 @@ const LAYERS = [ // nazwa, kolor ekranu, kolor ACI w DXF
   ['Pelne', '#c53030', 1], ['Pleksa', '#0000ff', 5], ['Klosz', '#ff0000', 1], ['Podstawa', '#00a000', 3], ['Kieszen', '#a000a0', 6],
   ['Otwory', '#ff8000', 30], ['FIX', '#1a202c', 7], ['Profil', '#00a0a0', 4], ['Podzial', '#dd6b20', 2]];
 const LCOL = Object.fromEntries(LAYERS.map(l => [l[0], l[1]]));
-const W = { latches: [], zatWarn: [], marks: [], cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: false, Plaster: true, Cyfra: true, Zat: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
+const W = { latches: [], zatWarn: [], mags: [], magWarn: [], marks: [], cuts: [], plates: [], plReg: null, bedLs: null, overlaps: [], warnSeen: new Set(), warnTmr: 0, panel: '', base: null, name: '', lay: {}, show: { ...Object.fromEntries(LAYERS.map(l => [l[0], true])), LED: true, Leb: true, Stol: false, Plaster: true, Cyfra: true, Zat: true, Mag: true }, holes: [], rails: [], beds: [], cutWarn: [], sel: null, view: null, undo: [], warn: [], pin: true, railsFixed: false, cutManual: false, target: null };
 let uid = 1;
 
 // ===================== geometria (Clipper) =====================
@@ -508,7 +532,7 @@ const ZAT_POLA = ['a', 'b', 'h', 'fl', 't', 'sz', 'luz', 'sc', 'gap', 'jz', 'hl'
 function zatParams() { const o = { on: $('p-zt-on').checked, n: Number($('p-zt-n').value) || 2 }; ZAT_POLA.forEach(k => { o[k] = Math.max(0, num($('p-zt-' + k).value)); }); return o; }
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
-  return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: Number(r('wielk')),
+  return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: r('typ') === 'M' ? 2 : Number(r('wielk')),
     przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
     dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutK: Math.max(0, num($('p-cutk').value)), zat: zatParams(), p3: p3State(),
     plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
@@ -522,7 +546,7 @@ function computeLayers() {
   const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.plReg = null; W.m = m; W.pr = pr;
   $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
-  document.body.classList.toggle('t-P', pr.typ === 'P'); if (typeof groups3D === 'function') groups3D();
+  document.body.classList.toggle('t-P', pr.typ === 'P'); document.body.classList.toggle('t-M', pr.typ === 'M'); if (typeof groups3D === 'function') groups3D();
   if (pr.typ === 'P') $('vals').innerHTML = '<b>Litera pełna</b> 0 (baza)<br><span class="hint">wysokość i promień zaokrąglenia — pola powyżej</span>';
   if (!W.base) return;
   m.spec.forEach(([name, ds]) => {
@@ -799,7 +823,7 @@ function recompute(keepView = true) {
     W.holes.forEach(h => { if (h.manual && h.kind === 'otw' && h.d === old.dOtw) h.d = W.pr.dOtw; if (h.manual && h.kind === 'fix' && h.d === old.dFix) h.d = W.pr.dFix; });
     if (old.przesun !== W.pr.przesun) W.rails.forEach(r => { delete r.holeY; });
   }
-  autoRails(); autoHoles(); autoCuts(); refreshBeds(); if (window.autoLatches) autoLatches(); checkOverlaps(); renderSide(); draw(); if (!keepView) fitView(); save(); scheduleLED(); if (window.mark3D) mark3D();
+  autoRails(); autoHoles(); autoCuts(); refreshBeds(); if (window.autoLatches) autoLatches(); if (window.autoMagnets) autoMagnets(); checkOverlaps(); renderSide(); draw(); if (!keepView) fitView(); save(); scheduleLED(); if (window.mark3D) mark3D();
 }
 // litery nie mogą się łączyć: każdą literę odsuwamy osobno o największy offset i szukamy części wspólnej z sąsiadami
 function checkOverlaps() {
@@ -1061,7 +1085,7 @@ function renderPlateList() {
 }
 // pasek LED liczony w tle (ok. 1–2 s przy dużym napisie), po chwili bez zmian
 let ledTmr = 0;
-function scheduleLED() { clearTimeout(ledTmr); ledTmr = setTimeout(() => { const k0 = W.led && W.led.key; computeLED(); if (W.led && W.led.key !== k0) { refreshPlates(); if (window.autoLatches) autoLatches(); renderSide(); draw(); if (window.mark3D) mark3D(); } }, 350); }
+function scheduleLED() { clearTimeout(ledTmr); ledTmr = setTimeout(() => { const k0 = W.led && W.led.key; computeLED(); if (W.led && W.led.key !== k0) { refreshPlates(); if (window.autoLatches) autoLatches(); if (window.autoMagnets) autoMagnets(); renderSide(); draw(); if (window.mark3D) mark3D(); } }, 350); }
 // ===================== wczytywanie DXF / PDF =====================
 function parseDXF(txt) {
   const L = txt.split(/\r?\n/), pr = [];
@@ -1231,7 +1255,7 @@ async function loadFile(f) {
     if (!base.length) return toast('Kontury są puste albo otwarte');
     const bb = bboxOf(base), dx = -(bb.x0 + bb.x1) / 2, dy = -(bb.y0 + bb.y1) / 2;      // środek bazy w (0,0)
     W.base = base.map(p => p.map(q => ({ X: q.X + Math.round(dx * S), Y: q.Y + Math.round(dy * S) })));
-    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.cuts = []; W.marks = []; W.latches = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null; W.railsFixed = false; W.cutManual = false; W.kitHoles = null;
+    W.name = f.name.replace(/\.(dxf|pdf)$/i, ''); W.holes = []; W.rails = []; W.cuts = []; W.marks = []; W.latches = []; W.mags = []; W.undo = []; W.sel = null; W.baseId = (W.baseId || 0) + 1; W.led = null; W.railsFixed = false; W.cutManual = false; W.kitHoles = null;
     const kitLines = kit ? readKit(source, basePaths, dx, dy) : null;
     $('fname').textContent = `${f.name} · ${letters(W.base).length} kształtów · ${fmt(bb.x1 - bb.x0, 1)} × ${fmt(bb.y1 - bb.y0, 1)} mm`;
     $('drop').classList.add('hidden'); $('b-dxf').disabled = false;
@@ -1240,7 +1264,7 @@ async function loadFile(f) {
       computeLayers(); const rows = rowsOf(letters(bedSrc())); W.rails.forEach(r => { let bi = 0, bd = Infinity; rows.forEach((row, i) => { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)), d = r.yc < y0 ? y0 - r.yc : r.yc > y1 ? r.yc - y1 : 0; if (d < bd) { bd = d; bi = i; } }); r.row = bi; });
     }
     recompute(false);
-    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; }); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
+    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; }); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.mags) { const L = bedLetters(); W.mags = source.meta.mags.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, manual: true })); } if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
     if (W.panel === 'plik' || !W.panel) showPanel('litery', true);
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
@@ -1317,7 +1341,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 function fileBase() {
   const pr = W.pr, z = v => Math.round(v * 100).toString().padStart(3, '0'), now = new Date(), dd = n => String(n).padStart(2, '0');
   const pelne = pr.typ === 'P' ? `Pelne_H${String((pr.p3 || {})['b3-fh'] || '').replace(/\D/g, '')}_R${String((pr.p3 || {})['b3-fr'] || '').replace(/\D/g, '')}` : '';
-  return `${pelne || `${pr.typ === 'S' ? 'Sidelit' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}`}${pr.name ? '_' + ascii(pr.name).replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
+  return `${pelne || `${pr.typ === 'S' ? 'Sidelit' : pr.typ === 'M' ? 'Magnet' : 'Frontlit'}_${pr.dysza === 4 ? '04' : '06'}_P${z(pr.P)}_B${z(pr.B)}`}${pr.name ? '_' + ascii(pr.name).replace(/[^\w-]+/g, '_') : ''}_${now.getFullYear()}-${dd(now.getMonth() + 1)}-${dd(now.getDate())}_${dd(now.getHours())}-${dd(now.getMinutes())}`;
 }
 // DXF dla Fusion: kontury, otwory, profile, linie podziału — bez łba śruby
 function buildKit() {
@@ -1334,7 +1358,7 @@ function buildKit() {
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
   const { typ, dysza, P, B, gdzie, odl, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = typ === 'S' && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), marks: W.marks, zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1601,6 +1625,8 @@ function draw() {
     g.beginPath(); g.arc(X(q.x), Y(q.y), 9, 0, Math.PI * 2); g.fillStyle = q.brak ? '#e53e3e' : '#d53f8c'; g.fill(); g.fillStyle = '#fff'; g.font = '700 11px Segoe UI, Arial'; g.textAlign = 'center'; g.fillText(q.t, X(q.x), Y(q.y) + 4); g.textAlign = 'left';
   });
   // zatrzaski: wieżyczka w podstawie (otwór na korpus) i ramię języczka do ścianki klosza
+  // magnesy (typ Magnet): gniazdo w rancie i uszko klosza nad nim
+  if (W.show.Mag && magWlHtml()) { const mw = magWym(); W.mags.forEach(m => { const sel = W.sel && W.sel.t === 'mag' && W.sel.id === m.id; g.beginPath(); g.arc(X(m.x), Y(m.y), Math.max(4, (mw.rp + mw.s) * W.view.s), 0, Math.PI * 2); g.fillStyle = sel ? 'rgba(197,48,48,.3)' : 'rgba(197,48,48,.14)'; g.fill(); g.strokeStyle = '#c53030'; g.lineWidth = sel ? 2.5 : 1.3; g.setLineDash(m.manual ? [4, 2] : []); g.stroke(); g.setLineDash([]); g.beginPath(); g.arc(X(m.x), Y(m.y), Math.max(2.5, mw.rp * W.view.s), 0, Math.PI * 2); g.fillStyle = 'rgba(197,48,48,.55)'; g.fill(); }); }
   if (W.show.Zat && zatWlHtml()) W.latches.forEach(l => { const q = zatGeo(l), sel = W.sel && W.sel.t === 'latch' && W.sel.id === l.id; path(q.frame); g.fillStyle = 'rgba(56,161,105,.45)'; g.fill(); path(q.plate); g.fillStyle = sel ? 'rgba(56,161,105,.35)' : 'rgba(56,161,105,.2)'; g.fill(); g.strokeStyle = '#2f855a'; g.lineWidth = 1.2; g.stroke(); q.screws.forEach(c => { path([c]); g.fillStyle = 'rgba(255,255,255,.8)'; g.fill(); g.stroke(); });
     if (q.arm) { path(q.arm); g.fillStyle = 'rgba(49,130,206,.22)'; g.fill(); } path(q.out); g.fillStyle = sel ? 'rgba(43,108,176,.4)' : 'rgba(43,108,176,.2)'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = sel ? 2.5 : 1.4; g.setLineDash(l.manual ? [4, 2] : []); g.stroke(); g.setLineDash([]); path(q.hole); g.lineWidth = 1; g.stroke(); });
   // łeb śruby dookoła FIX — pomocniczy (na szablon, nie do DXF dla Fusion)
@@ -1619,6 +1645,13 @@ function draw() {
   if (W.sel && W.sel.t === 'hole') { const h = W.holes.find(q => q.id === W.sel.id), ref = refPolys(); if (h && ref) { const cl = edgeDist(ref.polys, h.x, h.y) - h.d / 2; g.fillStyle = cl < 0.3 ? '#c53030' : '#276749'; g.font = '700 12px Segoe UI, Arial'; g.fillText(`luz ${fmt(cl)} mm`, X(h.x) + h.d / 2 * W.view.s + 6, Y(h.y) - 6); } }
   $('info').innerHTML = `zoom ${fmt(W.view.s, 1)} px/mm · otwory: ${W.holes.filter(h => h.kind === 'otw').length} fi ${fmt(W.pr.dOtw)}${W.holes.some(h => h.kind === 'fix') ? ` + ${W.holes.filter(h => h.kind === 'fix').length} fi ${fmt(W.pr.dFix)}` : ''} · profile: ${W.rails.length}${W.led ? ` · LED ${fmt(W.led.m, 2)} m` : ''}`;
 }
+const magWlHtml = () => typeof magWl === 'function' && magWl();     // magWl jest w offset3d.js
+function magInfo() {
+  const b = $('mg-info'); if (!b) return;
+  if (!magWlHtml()) { b.textContent = '—'; return; }
+  const n = W.mags.length, uw = (W.magWarn || []).concat(W.magUw || []), mw = magWym();
+  b.innerHTML = `<b>${n}</b> ${n === 1 ? 'para magnesów' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'pary magnesów' : 'par magnesów'} (${fmt(mw.d, 1)} × ${fmt(mw.h, 1)} mm) na ${bedLetters().length} literach` + (uw.length ? `<br><span style="color:#c53030">${uw.map(esc).join('<br>')}</span>` : '');
+}
 const zatWlHtml = () => typeof zatWl === 'function' && zatWl();     // zatWl jest w offset3d.js (const, więc nie ma go w window)
 function zatInfo() {
   const b = $('zt-info'); if (!b) return;
@@ -1636,7 +1669,8 @@ function renderSide() {
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Plasterki łączące części: w DXF i w bryłach, nie na szablonie"><input type="checkbox" data-lay="Plaster" ${W.show.Plaster ? 'checked' : ''}><i style="background:#dd6b20"></i>plasterki <span class="hint">(${W.plates.filter(q => q.polys.length).length})</span></label>`);
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Cyfry do rozróżniania liter (prawy klawisz na literze): w bryłach i w DXF, nie na szablonie"><input type="checkbox" data-lay="Cyfra" ${W.show.Cyfra ? 'checked' : ''}><i style="background:#d53f8c"></i>cyfry <span class="hint">(${W.marks.length})</span></label>`);
   if (zatWlHtml()) $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Zatrzaski klik: płytka z grzybkiem w podstawie (zielona) i uchwyt korpusu klika w kloszu (niebieski)"><input type="checkbox" data-lay="Zat" ${W.show.Zat ? 'checked' : ''}><i style="background:#2b6cb0"></i>zatrzaski <span class="hint">(${W.latches.length})</span></label>`);
-  zatInfo();
+  if (magWlHtml()) $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Magnesy: gniazda w rancie podstawy i w uszkach klosza"><input type="checkbox" data-lay="Mag" ${W.show.Mag ? 'checked' : ''}><i style="background:#c53030"></i>magnesy <span class="hint">(${W.mags.length})</span></label>`);
+  zatInfo(); magInfo();
   $('lays').insertAdjacentHTML('beforeend', `<label class="lay" title="Blat drukarki 3D — tylko podgląd"><input type="checkbox" data-lay="Stol" ${W.show.Stol ? 'checked' : ''}><i style="background:#38a169"></i>stół drukarki <span class="hint">(podgląd)</span></label>`);
   $('lays').querySelectorAll('[data-lay]').forEach(c => c.onchange = () => { W.show[c.dataset.lay] = c.checked; draw(); save(); });
   const ws = [...new Set((W.overlaps.length ? [`LITERY NACHODZĄ NA SIEBIE (${W.overlaps.length}) — nie mogą być połączone: rozsuń je albo zmniejsz offsety`] : []).concat(W.warn, W.cutWarn))];
@@ -1660,6 +1694,10 @@ function renderSel() {
     const iS = $('sel-sk'), goS = () => { pushUndo(); const t = iS.value.trim(); c.sKm = !!t; if (t) c.sK = num(t); done(); };
     inp.onchange = go; addSpin(inp, 1, go); iS.onchange = goS; addSpin(iS, 5, goS); return;
   }
+  if (s.t === 'mag') {
+    const m = W.mags.find(q => q.id === s.id); if (!m || !magWlHtml()) { W.sel = null; b.classList.add('hidden'); return; }
+    b.classList.remove('hidden'); b.innerHTML = `<b>Magnes</b> · litera ${m.li + 1}<div class="hint">przeciągnij = przesuń wzdłuż rantu · Delete = usuń</div>`; return;
+  }
   if (s.t === 'latch') {
     const l = W.latches.find(q => q.id === s.id); if (!l || !zatWlHtml()) { W.sel = null; b.classList.add('hidden'); return; }
     const q = zatGeo(l); b.classList.remove('hidden'); b.innerHTML = `<b>Zatrzask</b><div class="fld"><span>Obrót [°]</span><input type="text" inputmode="decimal" id="sel-zang" value="${fmt(l.ang || 0, 1)}"></div><div class="hint">${q.L ? `uchwyt przyklejony do ścianki (blok ${fmt(q.L, 1)} mm) · ` : ''}przeciągnij = przesuń · Delete = usuń</div>`;
@@ -1675,12 +1713,13 @@ function renderSel() {
 }
 // ===================== mysz =====================
 let drag = null;
-const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cuts: W.cuts, marks: W.marks, latches: W.latches, cutManual: W.cutManual });
+const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cuts: W.cuts, marks: W.marks, latches: W.latches, mags: W.mags, cutManual: W.cutManual });
 function pushUndo() { W.undo.push(snapState()); if (W.undo.length > 80) W.undo.shift(); }
-function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); if (o.base) { W.base = o.base; W.baseId++; computeLayers(); } W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.marks = o.marks || []; W.latches = o.latches || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); if (o.base) checkOverlaps(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); }
+function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); if (o.base) { W.base = o.base; W.baseId++; computeLayers(); } W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.marks = o.marks || []; W.latches = o.latches || []; W.mags = o.mags || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); if (o.base) checkOverlaps(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); }
 function hit(px, py) {
   const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
   if (hh) return { t: 'hole', id: hh.id, o: hh };
+  if (W.show.Mag && magWlHtml()) { const mw = magWym(), q = W.mags.slice().reverse().find(m => Math.hypot(X(m.x) - px, Y(m.y) - py) <= Math.max(6, (mw.rp + mw.s) * W.view.s)); if (q) return { t: 'mag', id: q.id, o: q }; }
   if (W.show.Zat && zatWlHtml()) { const x = wx(px), y = wy(py), q = W.latches.slice().reverse().find(l => { const g0 = zatGeo(l); return edgeDist(g0.out, x, y) > -3 / W.view.s || edgeDist(g0.plate, x, y) > -3 / W.view.s; }); if (q) return { t: 'latch', id: q.id, o: q }; }
   if (W.show.Podzial) {
     const segs = cutSegs();
@@ -1709,14 +1748,15 @@ cv.addEventListener('pointerdown', e => {
   W.sel = h ? { t: h.t, id: h.id, key: h.key } : null; renderSel(); if (h && h.t === 'plate') renderPlateList();
   closePlatePop(); W.rdown = e.button === 2 ? [px, py] : null;
   if (W.addZat && e.button === 0) { zatDodaj(wx(px), wy(py)); return; }
-  drag = h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy, plate: h } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' || h.t === 'latch' ? h.o.x : h.o.x0, oy: h.t === 'hole' || h.t === 'latch' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
+  if (W.addMag && e.button === 0) { magDodaj(wx(px), wy(py)); return; }
+  drag = h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy, plate: h } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.x : h.o.x0, oy: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
   cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); draw();
 });
 cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = W.addZat ? 'copy' : !h ? '' : h.t === 'hole' || h.t === 'latch' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
+  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = W.addZat || W.addMag ? 'copy' : !h ? '' : h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
   const dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
   if (drag.plate && Math.hypot(px - drag.sx, py - drag.sy) >= 3) drag.plate = null;
   if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
@@ -1729,6 +1769,7 @@ cv.addEventListener('pointermove', e => {
     else { c.x = Math.round((drag.x0 + dx) * 10) / 10; c.y = Math.round((drag.y0 + dy) * 10) / 10; }
     W.cutManual = true; refreshBeds(); renderSel(); return draw();
   }
+  if (drag.t === 'mag') { const tx = drag.ox + dx, ty = drag.oy + dy, li = letterAt(tx, ty), q = magNaLinii(tx, ty, li >= 0 ? li : drag.o.li); if (q) { drag.o.x = q[0]; drag.o.y = q[1]; if (li >= 0) drag.o.li = li; } drag.o.manual = true; renderSel(); return draw(); }
   const sn = v => e.altKey ? v : Math.round(v * 10) / 10;           // co 0,1 mm (Alt = bez przyciągania)
   if (drag.t === 'hole' || drag.t === 'latch') {
     let nx = sn(drag.ox + dx), ny = sn(drag.oy + dy);
@@ -1775,6 +1816,13 @@ function openPlatePop(h, px, py) {
 }
 // prawy klawisz na literze: cyfra do rozróżnienia takich samych liter (miejsce i bryły liczy offset3d.js)
 function letterAt(x, y) { const pt = { X: Math.round(x * S), Y: Math.round(y * S) }, o = bedLetters().map((l, li) => ({ l, li })).filter(q => C.Clipper.PointInPolygon(pt, q.l.p) !== 0).sort((a, b) => area(a.l.p) - area(b.l.p))[0]; return o ? o.li : -1; }
+function magDodaj(x, y) {
+  W.addMag = false; $('b-mg-add').classList.remove('on');
+  const li = letterAt(x, y); if (li < 0) return toast('Kliknij w środku litery');
+  const q = magNaLinii(x, y, li); if (!q) return toast('W tej literze nie ma miejsca na magnes');
+  pushUndo(); const m = { id: uid++, li, x: q[0], y: q[1], manual: true }; W.mags.push(m); W.sel = { t: 'mag', id: m.id };
+  renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D();
+}
 function zatDodaj(x, y) {
   W.addZat = false; $('b-zt-add').classList.remove('on');
   const li = letterAt(x, y); if (li < 0) return toast('Kliknij w środku litery');
@@ -1799,6 +1847,7 @@ cv.addEventListener('contextmenu', e => {
   const li = letterAt(wx(px), wy(py)); if (li >= 0) openMarkPop(li, px, py);
 });
 const endDrag = () => { const had = drag && drag.moved, klik = drag && drag.plate, kx = drag && drag.sx, ky = drag && drag.sy;
+  if (had && drag.t === 'mag') { renderSide(); if (window.mark3D) mark3D(); }
   if (had && drag.t === 'latch') { const l = drag.o, li = letterAt(l.x, l.y); if (li >= 0) l.li = li; if (window.mark3D) mark3D(); }
   if (had && drag.kind === 'cut') { const c = drag.c, li = bedLetters().findIndex(l => c.x >= l.bb.x0 && c.x <= l.bb.x1 && c.y >= l.bb.y0 && c.y <= l.bb.y1); if (li >= 0) c.li = li; refreshBeds(); if (window.mark3D) mark3D(); }
   drag = null; cv.classList.remove('drag'); if (had) { renderSide(); save(); } draw(); if (klik) openPlatePop(klik, kx, ky); };
@@ -1816,7 +1865,7 @@ cv.addEventListener('dblclick', e => {
 cv.addEventListener('wheel', e => { e.preventDefault(); if (!W.view) return; const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, k = Math.pow(1.0015, -e.deltaY), x0 = wx(px), y0 = wy(py); W.view.s *= k; W.view.ox = px - x0 * W.view.s; W.view.oy = py + y0 * W.view.s; draw(); }, { passive: false });
 document.addEventListener('keydown', e => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'plate') { const q = W.plates.find(p => p.c.id === W.sel.id && p.key === W.sel.key); W.undo.pop(); if (q) setPlateL(q, 0); } else if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'latch') { W.latches = W.latches.filter(l => l.id !== W.sel.id); if (window.mark3D) mark3D(); } else if (W.sel.t === 'cut') { W.cuts = W.cuts.filter(c => c.id !== W.sel.id); W.cutManual = true; refreshBeds(); if (window.mark3D) mark3D(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'plate') { const q = W.plates.find(p => p.c.id === W.sel.id && p.key === W.sel.key); W.undo.pop(); if (q) setPlateL(q, 0); } else if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'mag') { W.mags = W.mags.filter(m => m.id !== W.sel.id); if (window.mark3D) mark3D(); } else if (W.sel.t === 'latch') { W.latches = W.latches.filter(l => l.id !== W.sel.id); if (window.mark3D) mark3D(); } else if (W.sel.t === 'cut') { W.cuts = W.cuts.filter(c => c.id !== W.sel.id); W.cutManual = true; refreshBeds(); if (window.mark3D) mark3D(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
   else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { undo(); e.preventDefault(); }
   else if (e.key === 'f' || e.key === 'F') fitView();
   else if (W.sel && /^Arrow/.test(e.key)) { const o = W.sel.t === 'hole' ? W.holes.find(h => h.id === W.sel.id) : W.rails.find(r => r.id === W.sel.id); if (!o) return; pushUndo(); const st = e.shiftKey ? 1 : 0.1, dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? st : e.key === 'ArrowDown' ? -st : 0;
@@ -1844,10 +1893,11 @@ function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-mr': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
 function b3Change(id) {
   save();
+  if (id.startsWith('b3-m')) { if (window.autoMagnets) autoMagnets(); renderSide(); draw(); }
   if (id.startsWith('b3-pr')) { if (window.profil3D) profil3D(); return; }
   if (id.startsWith('b3-fil-')) { if (window.liczFilament) liczFilament(); return; }
   if (window.mark3D) mark3D(); if (id === 'b3-cyf') draw();
@@ -1891,6 +1941,8 @@ $('tx-file').onchange = e => { W.txFont = e.target.files[0] || null; if (W.txFon
 showPanel('plik', true);
 $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
+$('b-mg-add').onclick = () => { if (!W.base) return; if (!magWlHtml()) return toast('Najpierw wybierz typ litery Magnet (zakładka Litery)'); W.addMag = !W.addMag; $('b-mg-add').classList.toggle('on', W.addMag); if (W.addMag) toast('Kliknij w literę, przy rancie'); };
+$('b-mg-auto').onclick = () => { if (!W.base || !magWlHtml()) return; pushUndo(); W.mags = []; autoMagnets(); renderSide(); draw(); if (window.mark3D) mark3D(); };
 $('b-zt-add').onclick = () => { if (!W.base) return; if (!zatWlHtml()) { $('p-zt-on').checked = true; recompute(); } W.addZat = !W.addZat; $('b-zt-add').classList.toggle('on', W.addZat); if (W.addZat) toast('Kliknij w literę, w miejscu zatrzasku'); };
 $('b-zt-auto').onclick = () => { if (!W.base) return; pushUndo(); W.latches = []; autoLatches(); renderSide(); draw(); if (window.mark3D) mark3D(); };
 $('b-zt-probka').onclick = () => zatProbka();
