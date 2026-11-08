@@ -346,7 +346,7 @@ const magWl = () => !!(W.pr && $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.
 const magBrzeg = () => W.pr.typ === 'S' ? -num($('b3-st2').value) : W.m.p2;     // zewnętrzna krawędź kołnierza
 function magWym() {
   const v = id => num($(id).value), d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
-  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2 };
+  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-mk') ? v('b3-mk') : 1), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2 };
 }
 function magLinia() {
   const g = magWym(), b = magBrzeg(), key = W.baseId + '|' + b + '|' + g.rp + '|' + g.o; if (W.magL && W.magL.key === key) return W.magL.polys;
@@ -393,8 +393,13 @@ function autoMagnets() {
 // Uszko wypełnia klin między sobą a najbliższym rogiem wnętrza klosza (styczne od rogu do uszka), a jego styki ze ścianką są zaokrąglone promieniem z pola (domyślnie 2 mm).
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
-  const out = { pod: [], kl: [], pocket: [], zDno: -1, uw: [] }; if (!magWl() || !W.mags.length) return out;
+  const out = { pod: [], kl: [], pocket: [], zDno: -1, zs: [], pkAt: () => [], uw: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
+  // faza wylotu gniazda (k mm, schodki co k/5): gniazdo na górze szersze o k, na głębokości k już zwykłe
+  const NF = 5, fz = Math.min(g.k, g.h / 2), schodki = zGora => fz > 0 ? Array.from({ length: NF }, (_, i) => zGora - fz + i * fz / NF) : [], faza = (z, zGora) => fz > 0 ? Math.max(0, fz - (zGora - z)) : 0;
+  const kolo = (m, z, zGora) => [circlePoly(m.x, m.y, 2 * (g.rp + faza(z, zGora)), 64)];
+  const warstwy = (z0, z1, zGora, f) => { const zz = [...new Set([z0, z1, ...schodki(zGora).filter(z => z > z0 && z < z1)])].sort((a, b) => a - b), L = []; for (let i = 0; i + 1 < zz.length; i++) { const mid = (zz[i] + zz[i + 1]) / 2; L.push({ z0: zz[i], z1: zz[i + 1], reg: f(mid) }); } return L; };
+  out.zs = schodki(top); out.pkAt = z => W.mags.flatMap(m => kolo(m, z, top));
   if (p.stMag) out.uw.push(`stopień podstawy podniesiony do ${fmt(p.st, 1)} mm, żeby pod magnesem został 1 mm; kołnierz ${fmt(p.pl, 1)} mm, wybranie pogłębione do ${fmt(p.gw, 1)} mm (dno kieszeni bez zmian, wysokość litery bez zmian)`);
   if (zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
   const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
@@ -402,7 +407,7 @@ function magReg(p, Rbaza, Rkl, o) {
   W.mags.forEach(m => {
     const pk = [circlePoly(m.x, m.y, 2 * g.rp)], obr = [circlePoly(m.x, m.y, 2 * (g.rp + g.s))], usz = [circlePoly(m.x, m.y, 2 * Ru)];
     out.pocket.push(...pk);
-    out.pod.push({ z0: o.z0, z1: top, reg: diff(inter(obr, Rbaza), pk) });
+    out.pod.push(...warstwy(o.z0, top, top, z => diff(inter(obr, Rbaza), kolo(m, z, top))));
     // najbliższy róg wnętrza klosza (wypukły narożnik pustki) w zasięgu 2,5 promienia uszka: klin od rogu do uszka
     let rog = null, rd = 2.5 * Ru;
     kaw.forEach(ring => { const n = ring.length; for (let i = 0; i < n; i++) { const a = ring[(i + n - 1) % n], b = ring[i], c = ring[(i + 1) % n], ux = b.X - a.X, uy = b.Y - a.Y, vx = c.X - b.X, vy = c.Y - b.Y, t = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy), d = Math.hypot(b.X / S - m.x, b.Y / S - m.y); if (t > 0.35 && d < rd) { rd = d; rog = [b.X / S, b.Y / S]; } } });
@@ -411,7 +416,8 @@ function magReg(p, Rbaza, Rkl, o) {
     const led = W.led ? rowekLED(nb, LED_W + 2) : [], klinOk = diff(klin, led);     // klin do rogu nie wchodzi nad pasek LED (nie zasłania światła)
     const A = clip('ctUnion', usz.concat(klinOk, sciana)), zaokr = g.f > 0 ? offRound(offRound(A, g.f), -g.f) : A;     // zaokrąglenia styków zawsze (są za małe, by zasłonić światło)
     const uszko = inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw).concat(inter(usz, Rkl));
-    out.kl.push({ z0: top + g.lz, z1: top + g.lz + g.h, reg: diff(clip('ctUnion', uszko), pk) });     // lz: luz pionowy uszka nad kołnierzem podstawy
+    const u = clip('ctUnion', uszko), a0 = top + g.lz, a1 = a0 + g.h;     // lz: luz pionowy uszka nad kołnierzem podstawy
+    out.kl.push(...warstwy(a0, a1, a1, z => diff(u, kolo(m, z, a1))));
   });
   return out;
 }
@@ -421,14 +427,14 @@ function warstwyFrontlit(p, m) {
   if (!(p.wk > 0) || !(p.ws > 0) || p.ws > p.wk) throw new Error('sprawdź wysokości klosza: ścianka i stopka muszą być dodatnie');
   const mag = magReg(p, Rp2, Rk2, { top: p.st + p.pl, z0: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : p.st, sc: m.k3 }), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl, mag.kl);
   const kiesz = p.wgl && p.gw > 0 ? kieszenFaza(m.kie, p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
-  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : []), ...(mag.zDno > 0 ? [mag.zDno] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
+  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : []), ...(mag.zDno > 0 ? [mag.zDno] : []), ...mag.zs].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.st ? Rp1 : Rp2;
     if (mid > zKiesz) reg = diff(reg, kiesz);
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
     if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
-    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pocket);
+    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pkAt(mid));
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
@@ -440,13 +446,13 @@ function warstwySidelit(p) {
   if (!(p.pCalk > p.sd) || !(p.kCalk > p.sf) || p.sw < 0) throw new Error('sprawdź wymiary Sidelit: całkowite muszą być większe od frontu i dna');
   const mag = magReg(p, R(-p.t2), R0, { top: p.pCalk + p.sw, z0: p.sd, sc: -p.t1, lim: zK + p.ss }), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: zK + gz, z1: zK + gz + p.ss, reg: diff(R0, openR(R(-p.t1), 0)) }, { z0: zK + gz + p.ss, z1: p.sh + gz, reg: R0 }].concat(zat.kl, mag.kl);
   const ringRant = diff(R0, R(-p.t3)), ringSc = diff(openR(R(-p.t2), p.r), R(-p.t3)), rowki = rowkiReg(p, R0, holes), cyf = cyfryReg(p, p.sd);
-  const zs = [...new Set([0, p.sd, p.pCalk, p.pCalk + p.sw, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(mag.zDno > 0 ? [mag.zDno] : [])])].sort((a, b) => a - b), podstawa = [];
+  const zs = [...new Set([0, p.sd, p.pCalk, p.pCalk + p.sw, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(mag.zDno > 0 ? [mag.zDno] : []), ...mag.zs])].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.sd ? R0 : mid < p.pCalk ? ringRant : ringSc;
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
     if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
-    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pocket);
+    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pkAt(mid));
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
