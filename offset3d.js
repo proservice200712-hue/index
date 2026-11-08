@@ -342,7 +342,7 @@ const magWl = () => !!(W.pr && $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.
 const magBrzeg = () => W.pr.typ === 'S' ? -num($('b3-st2').value) : W.m.p2;     // zewnętrzna krawędź kołnierza
 function magWym() {
   const v = id => num($(id).value), d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
-  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), n: Number($('b3-mn').value) || 2 };
+  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2 };
 }
 function magLinia() {
   const g = magWym(), b = magBrzeg(), key = W.baseId + '|' + b + '|' + g.rp + '|' + g.o; if (W.magL && W.magL.key === key) return W.magL.polys;
@@ -393,7 +393,7 @@ function magReg(p, Rbaza, Rkl, o) {
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   if (zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
   const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
-  if (o.lim != null && top + g.h > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.h, 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
+  if (o.lim != null && top + g.lz + g.h > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.lz + g.h, 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
   W.mags.forEach(m => {
     const pk = [circlePoly(m.x, m.y, 2 * g.rp)], obr = [circlePoly(m.x, m.y, 2 * (g.rp + g.s))], usz = [circlePoly(m.x, m.y, 2 * Ru)];
     out.pocket.push(...pk);
@@ -406,7 +406,7 @@ function magReg(p, Rbaza, Rkl, o) {
     const led = W.led ? rowekLED(nb, LED_W + 2) : [];     // wypełnienie nie wchodzi nad pasek LED (nie zasłania światła)
     const zaokr = g.f > 0 ? offRound(offRound(A, g.f), -g.f) : A;
     const uszko = diff(inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw), led).concat(inter(usz, Rkl), klin);
-    out.kl.push({ z0: top, z1: top + g.h, reg: diff(clip('ctUnion', uszko), pk) });
+    out.kl.push({ z0: top + g.lz, z1: top + g.lz + g.h, reg: diff(clip('ctUnion', uszko), pk) });     // lz: luz pionowy uszka nad kołnierzem podstawy
   });
   return out;
 }
