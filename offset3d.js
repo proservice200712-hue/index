@@ -393,13 +393,10 @@ function autoMagnets() {
 // Uszko wypełnia klin między sobą a najbliższym rogiem wnętrza klosza (styczne od rogu do uszka), a jego styki ze ścianką są zaokrąglone promieniem z pola (domyślnie 2 mm).
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
-  const out = { pod: [], kl: [], pocket: [], zDno: -1, zs: [], pkAt: () => [], uw: [] }; if (!magWl() || !W.mags.length) return out;
+  const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
-  // faza wylotu gniazda (k mm, schodki co k/5): gniazdo na górze szersze o k, na głębokości k już zwykłe
-  const NF = 5, fz = Math.min(g.k, g.h / 2), schodki = zGora => fz > 0 ? Array.from({ length: NF }, (_, i) => zGora - fz + i * fz / NF) : [], faza = (z, zGora) => fz > 0 ? Math.max(0, fz - (zGora - z)) : 0;
-  const kolo = (m, z, zGora) => [circlePoly(m.x, m.y, 2 * (g.rp + faza(z, zGora)), 64)];
-  const warstwy = (z0, z1, zGora, f) => { const zz = [...new Set([z0, z1, ...schodki(zGora).filter(z => z > z0 && z < z1)])].sort((a, b) => a - b), L = []; for (let i = 0; i + 1 < zz.length; i++) { const mid = (zz[i] + zz[i + 1]) / 2; L.push({ z0: zz[i], z1: zz[i + 1], reg: f(mid) }); } return L; };
-  out.zs = schodki(top); out.pkAt = z => W.mags.flatMap(m => kolo(m, z, top));
+  // faza wylotu gniazda (k mm pod kątem 45°): stożki odejmowane od gotowych brył w build3D, więc ściana fazy jest gładka
+  const fz = Math.min(g.k, g.h / 2), stozek = (m, zGora) => ({ x: m.x, y: m.y, z0: zGora - fz, h: fz + 0.02, r0: g.rp, r1: g.rp + fz + 0.02 });
   if (p.stMag) out.uw.push(`stopień podstawy podniesiony do ${fmt(p.st, 1)} mm, żeby pod magnesem został 1 mm; kołnierz ${fmt(p.pl, 1)} mm, wybranie pogłębione do ${fmt(p.gw, 1)} mm (dno kieszeni bez zmian, wysokość litery bez zmian)`);
   if (zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
   const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
@@ -407,7 +404,8 @@ function magReg(p, Rbaza, Rkl, o) {
   W.mags.forEach(m => {
     const pk = [circlePoly(m.x, m.y, 2 * g.rp)], obr = [circlePoly(m.x, m.y, 2 * (g.rp + g.s))], usz = [circlePoly(m.x, m.y, 2 * Ru)];
     out.pocket.push(...pk);
-    out.pod.push(...warstwy(o.z0, top, top, z => diff(inter(obr, Rbaza), kolo(m, z, top))));
+    out.pod.push({ z0: o.z0, z1: top, reg: diff(inter(obr, Rbaza), pk) });
+    if (fz > 0) out.stozki.pod.push(stozek(m, top));
     // najbliższy róg wnętrza klosza (wypukły narożnik pustki) w zasięgu 2,5 promienia uszka: klin od rogu do uszka
     let rog = null, rd = 2.5 * Ru;
     kaw.forEach(ring => { const n = ring.length; for (let i = 0; i < n; i++) { const a = ring[(i + n - 1) % n], b = ring[i], c = ring[(i + 1) % n], ux = b.X - a.X, uy = b.Y - a.Y, vx = c.X - b.X, vy = c.Y - b.Y, t = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy), d = Math.hypot(b.X / S - m.x, b.Y / S - m.y); if (t > 0.35 && d < rd) { rd = d; rog = [b.X / S, b.Y / S]; } } });
@@ -416,8 +414,9 @@ function magReg(p, Rbaza, Rkl, o) {
     const led = W.led ? rowekLED(nb, LED_W + 2) : [], klinOk = diff(klin, led);     // klin do rogu nie wchodzi nad pasek LED (nie zasłania światła)
     const A = clip('ctUnion', usz.concat(klinOk, sciana)), zaokr = g.f > 0 ? offRound(offRound(A, g.f), -g.f) : A;     // zaokrąglenia styków zawsze (są za małe, by zasłonić światło)
     const uszko = inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw).concat(inter(usz, Rkl));
-    const u = clip('ctUnion', uszko), a0 = top + g.lz, a1 = a0 + g.h;     // lz: luz pionowy uszka nad kołnierzem podstawy
-    out.kl.push(...warstwy(a0, a1, a1, z => diff(u, kolo(m, z, a1))));
+    const a0 = top + g.lz, a1 = a0 + g.h;     // lz: luz pionowy uszka nad kołnierzem podstawy
+    out.kl.push({ z0: a0, z1: a1, reg: diff(clip('ctUnion', uszko), pk) });
+    if (fz > 0 && o.lim == null) out.stozki.kl.push(stozek(m, a1));     // w Sidelit górę uszka przykrywa front
   });
   return out;
 }
@@ -427,37 +426,37 @@ function warstwyFrontlit(p, m) {
   if (!(p.wk > 0) || !(p.ws > 0) || p.ws > p.wk) throw new Error('sprawdź wysokości klosza: ścianka i stopka muszą być dodatnie');
   const mag = magReg(p, Rp2, Rk2, { top: p.st + p.pl, z0: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : p.st, sc: m.k3 }), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl, mag.kl);
   const kiesz = p.wgl && p.gw > 0 ? kieszenFaza(m.kie, p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
-  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : []), ...(mag.zDno > 0 ? [mag.zDno] : []), ...mag.zs].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
+  const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : []), ...(mag.zDno > 0 ? [mag.zDno] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.st ? Rp1 : Rp2;
     if (mid > zKiesz) reg = diff(reg, kiesz);
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
     if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
-    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pkAt(mid));
+    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pocket);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   podstawa.push(...zat.pod, ...mag.pod); W.zatUw = zat.uw; W.magUw = mag.uw;
-  return { magKl: mag.kl, klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
+  return { magKl: mag.kl, stozki: mag.stozki, klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
 }
 function warstwySidelit(p) {
   const R = d => offsetPolys(W.base, d), R0 = R(0), holes = otworyReg(p), zK = p.sh - p.kCalk;
   if (!(p.pCalk > p.sd) || !(p.kCalk > p.sf) || p.sw < 0) throw new Error('sprawdź wymiary Sidelit: całkowite muszą być większe od frontu i dna');
   const mag = magReg(p, R(-p.t2), R0, { top: p.pCalk + p.sw, z0: p.sd, sc: -p.t1, lim: zK + p.ss }), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: zK + gz, z1: zK + gz + p.ss, reg: diff(R0, openR(R(-p.t1), 0)) }, { z0: zK + gz + p.ss, z1: p.sh + gz, reg: R0 }].concat(zat.kl, mag.kl);
   const ringRant = diff(R0, R(-p.t3)), ringSc = diff(openR(R(-p.t2), p.r), R(-p.t3)), rowki = rowkiReg(p, R0, holes), cyf = cyfryReg(p, p.sd);
-  const zs = [...new Set([0, p.sd, p.pCalk, p.pCalk + p.sw, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(mag.zDno > 0 ? [mag.zDno] : []), ...mag.zs])].sort((a, b) => a - b), podstawa = [];
+  const zs = [...new Set([0, p.sd, p.pCalk, p.pCalk + p.sw, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(mag.zDno > 0 ? [mag.zDno] : [])])].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
     const z0 = zs[i], z1 = zs[i + 1], mid = (z0 + z1) / 2; let reg = mid < p.sd ? R0 : mid < p.pCalk ? ringRant : ringSc;
     if (mid < p.rd && rowki.length) reg = diff(reg, rowki);
     if (mid < cyf.gl) reg = diff(reg, cyf.back);
     if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
-    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pkAt(mid));
+    if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pocket);
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   podstawa.push(...zat.pod, ...mag.pod); W.zatUw = zat.uw; W.magUw = mag.uw;
-  return { klosz, podstawa, pleksa: [], opis: `grubość litery ${fmt(p.sh, 1)} = klosz ${fmt(p.kCalk, 1)} (front ${fmt(p.sf, 1)} + boki ${fmt(p.ss, 1)}) + podstawa ${fmt(p.pCalk, 1)} (dno ${fmt(p.sd, 1)}); pasowanie ${fmt(p.sw, 1)}` };
+  return { stozki: mag.stozki, klosz, podstawa, pleksa: [], opis: `grubość litery ${fmt(p.sh, 1)} = klosz ${fmt(p.kCalk, 1)} (front ${fmt(p.sf, 1)} + boki ${fmt(p.ss, 1)}) + podstawa ${fmt(p.pCalk, 1)} (dno ${fmt(p.sd, 1)}); pasowanie ${fmt(p.sw, 1)}` };
 }
 // litera pełna: wyciągnięty kontur, górna (i opcjonalnie dolna) krawędź zaokrąglona promieniem fr.
 // Na wysokości z kontur jest cofnięty o r·(1 − cos θ), gdzie sin θ = (z − z0)/r (ćwiartka okręgu). Bryłę buduje pelnaGladka;
@@ -562,6 +561,10 @@ async function build3D() {
     if (pbWl()) { try { parts.klosz = kloszPGladki(p, ndel); if (parts.klosz && (plan.magKl || []).length) parts.klosz = ndel(V3.wasm.Manifold.union(parts.klosz, stos(plan.magKl, ndel))); } catch (e) { console.warn(e); uwagi.push('klosz złożony z warstw (schodki): dla tego kształtu nie udało się zbudować gładkiej skorupy'); } }
     else if (W.pr.typ === 'P') { try { parts.litera = pelnaGladka(p, ndel); } catch (e) { console.warn(e); uwagi.push('zaokrąglenie złożone z warstw (schodki): dla tego kształtu nie udało się zbudować gładkiej powierzchni'); } }
     Object.keys(CZESCI).forEach(k => { if (!parts[k]) parts[k] = (plan[k] || []).length ? stos(plan[k], ndel) : null; });
+    // faza wylotu gniazd magnesów: prawdziwe stożki (gładka ściana pod kątem), odjęte od podstawy i klosza
+    if (plan.stozki) { const { Manifold } = V3.wasm, bryla = l => ndel(Manifold.union(l.map(c => ndel(ndel(Manifold.cylinder(c.h, c.r0, c.r1, 64)).translate([c.x, c.y, c.z0])))));
+      if (plan.stozki.pod.length && parts.podstawa) parts.podstawa = ndel(Manifold.difference(parts.podstawa, bryla(plan.stozki.pod)));
+      if (plan.stozki.kl.length && parts.klosz) parts.klosz = ndel(Manifold.difference(parts.klosz, bryla(plan.stozki.kl))); }
     if (W.overlaps.length) uwagi.push(`litery nachodzą na siebie w ${W.overlaps.length} miejscach — bryły są połączone`);
     if (parts.klosz && parts.podstawa) { const v = objetosc(ndel(V3.wasm.Manifold.intersection(parts.klosz, parts.podstawa))); if (v > 1) uwagi.push(`klosz przenika podstawę (${fmt(v, 1)} mm³) — sprawdź offsety`); }
     const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [];     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
