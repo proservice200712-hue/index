@@ -57,6 +57,7 @@
   .pan-h button { background: none; border: none; font-size: 1rem; color: var(--gray); cursor: pointer; }
   .pan-h button:hover { color: var(--dark); }
   .pan h3:first-child { margin-top: 10px; }
+  .pan .fld.rng input[type=range] { width: 100%; accent-color: var(--accent); }
   .pan details.osec { border-top: 1px solid var(--line); margin: 0; } .pan details.osec:first-of-type { border-top: 0; }
   .pan details.osec > summary { font-weight: 800; font-size: .72rem; text-transform: uppercase; letter-spacing: .6px; color: var(--gray); cursor: pointer; padding: 10px 0; list-style: none; } .pan details.osec > summary::before { content: '▸ '; } .pan details.osec[open] > summary::before { content: '▾ '; } .pan details.osec[open] > summary { color: var(--dark); }
   .btn.wide { display: block; width: 100%; margin: 8px 0; color: #fff; }
@@ -239,6 +240,7 @@
         <div class="fld"><span>Średnica</span><input type="text" inputmode="decimal" id="p-dotw" value="4,5"></div>
         <div class="row"><label><input type="radio" name="gdzie" value="1"> góra</label><label><input type="radio" name="gdzie" value="2" checked> środek</label><label><input type="radio" name="gdzie" value="3"> dół</label><label><input type="radio" name="gdzie" value="0"> bez</label></div>
         <div class="fld"><span>Przesunięcie <span class="hint">(+ w górę, − w dół)</span></span><input type="text" inputmode="decimal" id="p-prz" value="0"></div>
+        <div class="fld rng" title="Płynnie przesuwa wszystkie otwory na przewody w górę / w dół (także ręczne)"><span>Przesuń wszystkie <span class="hint">(↓ dół · góra ↑)</span></span><input type="range" id="p-prz-r" min="-60" max="60" step="0.5" value="0"></div>
         <div class="fld"><span>Odległość otworu</span><input type="text" inputmode="decimal" id="p-luz" value="1"></div>
         <div class="row"><label><input type="radio" name="odl" value="k" checked> od krawędzi (zewn.)</label><label><input type="radio" name="odl" value="l"> od paska LED (wewn.)</label></div>
         <div class="hint">Odległość: brzeg otworu od konturu litery (zewn.) albo od brzegu paska LED na osi litery (wewn.). Z profilem wysokość liczy się od jego górnej krawędzi (+ przesunięcie).</div>
@@ -248,6 +250,8 @@
         <div class="row"><label><input type="checkbox" id="p-fix"> FIX po przekątnej w profilu</label></div>
         <div class="fld"><span>Średnica FIX</span><input type="text" inputmode="decimal" id="p-dfix" value="2,5"></div>
         <div class="fld"><span>Luz FIX od konturu</span><input type="text" inputmode="decimal" id="p-luzf" value="4,6"></div>
+        <div class="fld"><span>Przesunięcie <span class="hint">(+ w górę, − w dół)</span></span><input type="text" inputmode="decimal" id="p-fy" value="0"></div>
+        <div class="fld rng" title="Płynnie przesuwa wszystkie otwory FIX w górę / w dół (także ręczne)"><span>Przesuń wszystkie <span class="hint">(↓ dół · góra ↑)</span></span><input type="range" id="p-fy-r" min="-60" max="60" step="0.5" value="0"></div>
         <div class="fld"><span>Łeb śruby <span class="hint">(pomocniczy: na szablonie, bez bryły)</span></span><input type="text" inputmode="decimal" id="p-dleb" value="7"></div>
         <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
         </details>
@@ -548,7 +552,7 @@ function zatParams() { const o = { on: $('p-zt-on').checked, n: Number($('p-zt-n
 function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: Number(r('wielk')),
-    przesun: num($('p-prz').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
+    przesun: num($('p-prz').value), przesunFix: num($('p-fy').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
     dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutK: Math.max(0, num($('p-cutk').value)), zat: zatParams(), p3: p3State(),
     plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
@@ -797,7 +801,7 @@ function placeFix(rails) {
   for (let v = Math.floor((luz0 - 1e-6) / 0.2) * 0.2; v > 0.001; v -= 0.2) luzy.push(Math.round(v * 10) / 10); if (luz0 > 0) luzy.push(0);     // drabinka co 0,2 mm: gdy kreska za wąska, luz maleje tylko tyle, ile trzeba
   rails.forEach(rl => {
     const half = rl.h / 2, off = Math.max(half - FIX_OD_KRAW, Math.min(d, half - d / 2), 0);   // cienki profil: oba rzędy i tak w jego obrębie
-    const yT = rl.yc + off, yB = rl.yc - off;
+    const sf = W.pr.przesunFix || 0, yT = rl.yc + off + sf, yB = rl.yc - off + sf;   // przesunięcie FIX: oba rzędy razem w górę / w dół
     ls.filter(l => l.bb.x1 > rl.x0 && l.bb.x0 < rl.x1 && l.bb.y1 > yB && l.bb.y0 < yT).forEach(l => {
       // luz liczony osobno dla każdej litery; pasek LED nie przeszkadza (może przechodzić przez otwór), liczy się odstęp od konturu
       const wProfilu = s => s[0] >= rl.x0 - 0.01 && s[1] <= rl.x1 + 0.01;
@@ -1379,9 +1383,9 @@ function buildKit() {
   // plasterki: w DXF, ale nie na szablonie
   W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
-  const { typ, dysza, P, B, gdzie, odl, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
+  const { typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = (typ === 'S' || pbOn(W.pr)) && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1921,7 +1925,7 @@ function setParams(pr) {
   const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('odl', pr.odl); setR('wielk', pr.wielk);
   const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
-  sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-luz', pr.luz); sv('p-luzf', pr.luzF); sv('p-pg', pr.profG); sv('p-pl', pr.profL); sv('p-name', pr.name);
+  sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-fy', pr.przesunFix); sv('p-luz', pr.luz); sv('p-luzf', pr.luzF); sv('p-pg', pr.profG); sv('p-pl', pr.profL); sv('p-name', pr.name);
   sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stX); sv('p-sty', pr.stY); sv('p-cutk', pr.cutK);
   if (pr.zat) { $('p-zt-on').checked = !!pr.zat.on; $('p-zt-n').value = String(pr.zat.n || 2); ZAT_POLA.forEach(k => sv('p-zt-' + k, pr.zat[k])); }
   if (pr.fix != null) $('p-fix').checked = !!pr.fix;
@@ -1964,8 +1968,26 @@ function hlSync() {
   if ($('p-hl')) { $('p-hl').value = $(hlId()).value; $('p-hl-l').textContent = s ? 'Grubość litery [mm]' : 'Wysokość litery (z pleksą) [mm]'; }
 }
 function hlPush() { const t = $(hlId()); t.value = $('p-hl').value; t.dispatchEvent(new Event('input', { bubbles: true })); }
+// suwaki Przesuń wszystkie (przewody / FIX): płynnie przesuwają wszystkie otwory danego rodzaju w górę i w dół (automatyczne przez parametr, ręczne o tę samą różnicę)
+function bindHoleSlider(rid, nid, kind) {
+  const r = $(rid), n = $(nid); let undo = false;
+  const sync = () => { const v = Math.max(Number(r.min), Math.min(Number(r.max), num(n.value))); r.value = v; };
+  n.addEventListener('input', sync);
+  r.addEventListener('pointerdown', () => { undo = false; });
+  r.addEventListener('input', () => {
+    const v = Number(r.value), delta = v - num(n.value); if (!delta) return;
+    if (!undo) { pushUndo(); undo = true; }
+    n.value = fmt(v, 1);
+    W.pr = params(); if (kind === 'otw') W.rails.forEach(rl => { delete rl.holeY; });
+    W.holes.forEach(h => { if (h.kind !== kind || !h.manual) return; h.y += delta; const q = holeKlamra(h, h.x, h.y); if (q) { h.x = Math.round(q[0] * 100) / 100; h.y = Math.round(q[1] * 100) / 100; } });
+    autoHoles(); renderSide(); draw();
+  });
+  r.addEventListener('change', () => { recompute(); });
+  sync();
+}
+bindHoleSlider('p-prz-r', 'p-prz', 'otw'); bindHoleSlider('p-fy-r', 'p-fy', 'fix');
 // ===================== start =====================
-restore(); hlSync();
+restore(); hlSync(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
 STEPS['p-hl'] = 1;
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id === 'p-hl') hlPush(); else if (id.startsWith('b3-')) { b3Change(id); if (id === 'b3-h' || id === 'b3-sh') hlSync(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
