@@ -75,7 +75,7 @@ function params3D() {
     otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 10), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   const magOn = $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.typ === 'S' || (W.pr.typ === 'P' && $('b3-fpod').checked));
   if (magOn && W.pr.typ !== 'S') {
-    p.pl = Math.max(0.6, n('b3-mr') || 2); p.gw = p.pl;
+    p.pl = Math.max(0.6, n(magScr() ? 'b3-msk' : 'b3-mr') || 2); p.gw = p.pl;
     // rant (stopień) podstawy przy magnesach najwyżej 2 mm; gdy magnes się nie mieści (zostaje mniej niż 1 mm pod nim), rośnie kołnierz,
     // a wybranie pogłębia się o tyle samo (dno kieszeni i LED zostają na miejscu)
     if (!magScr() && p.st > 2) { p.st = 2; p.stMag = 'rant'; }
@@ -351,7 +351,7 @@ function magWym() {
   const v = id => num($(id).value);
   if (magScr()) {   // śruba od spodu: otwór w podstawie, uszko klosza z gwintem (otwór ślepy); rp = promień otworu w podstawie, s = ścianka uszka wokół
     const dh = Math.max(1, v('b3-msd') || 2.5);
-    return { screw: true, d: dh, h: Math.max(2, v('b3-msh') || 4), rp: dh / 2 + 0.1, s: Math.max(0.8, v('b3-msw') || 2.75), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-msf') ? v('b3-msf') : 0.5), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2, dp: Math.max(0.8, v('b3-msp') || 2) };
+    return { screw: true, d: dh, h: Math.max(2, v('b3-msh') || 5), rp: dh / 2 + 0.1, s: Math.max(0.8, v('b3-msw') || 3), o: Math.max(0, v('b3-mso')), f: Math.max(0, v('b3-msr')), k: Math.max(0, $('b3-msf') ? v('b3-msf') : 2), lz: Math.max(0, v('b3-msz')), n: Number($('b3-msn').value) || 4, dp: Math.max(0.8, v('b3-msp') || dh), fu: Math.max(0, $('b3-msu') ? v('b3-msu') : 1) };
   }
   const d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
   return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-mk') ? v('b3-mk') : 1), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2 };
@@ -465,9 +465,12 @@ function magReg(p, Rbaza, Rkl, o) {
     const uszko = inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw).concat(inter(usz, Rkl));
     if (g.screw) {   // uszko siedzi w wycięciu kołnierza, na stopniu podstawy (kosztem kołnierza); śruba od spodu przez stopień wchodzi w otwór ślepy uszka
       const stopien = o.st != null ? o.st : top, b0 = stopien + g.lz, b1 = b0 + g.h, st = clip('ctUnion', uszko), pil = [circlePoly(m.x, m.y, g.dp)];
+      // górny rant uszka fazowany: schodki co ~0,2 mm (jak warstwy druku), każda warstwa o tyle węższa, ile wynosi faza na tej wysokości
+      const fu = Math.min(g.fu, Math.max(0, g.h - 0.6)), nf = fu > 0.05 ? Math.ceil(fu / 0.2) : 0, dz = nf ? fu / nf : 0;
       out.sHoles.push(circlePoly(m.x, m.y, g.d)); out.sCut.push(...offsetPolys(st, 0.2));
       const fb = Math.min(g.k, Math.max(0, stopien - 0.4)); if (fb > 0) out.stozki.pod.push({ x: m.x, y: m.y, z0: -0.02, h: fb + 0.02, r0: g.d / 2 + fb + 0.02, r1: g.d / 2 });   // faza otworu od spodu podstawy (stożek 45°)
-      out.kl.push({ z0: b0, z1: b1 - 1, reg: diff(st, pil) }, { z0: b1 - 1, z1: b1, reg: st });
+      out.kl.push({ z0: b0, z1: b1 - fu, reg: diff(st, pil) });     // otwór w uszku na przelot
+      for (let i = 0; i < nf; i++) { const za = b1 - fu + i * dz; out.kl.push({ z0: za, z1: za + dz, reg: diff(offsetPolys(st, -fu * (i + 0.5) / nf), pil) }); }
       if (b1 > top + 5 && o.lim == null) out.uw.push(`uszko ${fmt(g.h, 1)} mm sięga ${fmt(b1, 1)} mm, wysoko nad kołnierzem ${fmt(top, 1)} mm — sprawdź wysokość klosza`);
       return;
     }
@@ -659,7 +662,7 @@ async function build3D() {
     if (tops.hK > 0 && tops.zK0 + tops.hK > tops.zKmax && W.plates.some(q => q.type === 'K')) uwagi.push('plasterek klosza sięga wyżej niż podparcie pleksy: zwiększ „niższy o”');
     cyfryMiejsca().forEach(q => { const u = cyfraUwaga(q); if (u) uwagi.push(u); });
     if (W.pr.typ !== 'P') (W.zatUw || []).concat(W.zatWarn || []).forEach(u => uwagi.push('zatrzaski: ' + u));
-    if (magWl()) { (W.magUw || []).concat(W.magWarn || []).forEach(u => uwagi.push((magScr() ? 'śruby: ' : 'magnesy: ') + u)); if (W.mags.length) { const n = W.mags.length; uwagi.push(magScr() ? `śruby od spodu: ${n} szt., otwór ${fmt(magWym().d, 1)} mm w podstawie, ${fmt(magWym().dp, 1)} mm w uszku klosza, kołnierz ${fmt(p.pl, 1)} mm` : `magnesy: ${n} ${n === 1 ? "para" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "pary" : "par"}, kołnierz ${fmt(W.pr.typ === 'S' ? p.sw : p.pl, 1)} mm`); }; }
+    if (magWl()) { (W.magUw || []).concat(W.magWarn || []).forEach(u => uwagi.push((magScr() ? 'śruby: ' : 'magnesy: ') + u)); if (W.mags.length) { const n = W.mags.length; uwagi.push(magScr() ? `śruby od spodu: ${n} szt., otwór ${fmt(magWym().d, 1)} mm w podstawie, przelot ${fmt(magWym().dp, 1)} mm w uszku klosza, kołnierz ${fmt(p.pl, 1)} mm` : `magnesy: ${n} ${n === 1 ? "para" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "pary" : "par"}, kołnierz ${fmt(W.pr.typ === 'S' ? p.sw : p.pl, 1)} mm`); }; }
     if (zatGap()) uwagi.push(`zatrzaski: ${W.latches.length} szt., klosz wyżej o ${fmt(zatGap(), 1)} mm (skok do zwolnienia)`);
     liczFilament(); V3.bodies = bodies; V3.dirty = false; show3D();
     const c = k => bodies.filter(b => b.part === k).length, tris = bodies.reduce((s, b) => s + b.tri.length / 3, 0), wol = bodies.reduce((s, b) => s + b.vol, 0);
