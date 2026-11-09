@@ -144,6 +144,7 @@
   /* litery pełne (typ P): bez offsetów klosza/podstawy, za to wysokość i promień zaokrąglenia */
   .p-only { display: none; }
   .mg-only { display: none; }
+  body:not(.t-MGs) .mg-s { display: none !important; } body.t-MGs .mg-m { display: none !important; }
   body.t-MG .mg-only { display: block; }
   body.t-P .p-only { display: block; }
   body.t-P:not(.t-PB) .fs-only, body.t-P:not(.t-PB) #g3-f, body.t-P #g3-s { display: none !important; }
@@ -268,20 +269,26 @@
         </details>
       </section>
       <section class="pan" data-pan="montaz" data-t="Montaż klosza">
-        <div class="row"><label><input type="checkbox" id="b3-mon"> mocowanie klosza na magnesy</label></div>
-        <div class="hint">Kołnierz podstawy obniżony (domyślnie 2 mm), magnesy wtopione w podstawę i w uszka klosza nad nimi. Działa we Frontlit, Sidelit i literze pełnej z podstawą.</div>
+        <div class="row"><label><input type="checkbox" id="b3-mon"> mocowanie klosza na magnesy / śruby od spodu</label></div>
+        <div class="hint">Kołnierz podstawy obniżony (domyślnie 2 mm). Magnesy wtopione w podstawę i w uszka klosza nad nimi (Frontlit, Sidelit, litera pełna z podstawą) albo śruby od spodu podstawy (Frontlit): uszko klosza siedzi w wycięciu kołnierza na stopniu, śruba przez otwór w podstawie wchodzi w uszko.</div>
+        <div class="fld mg-only"><span>Rodzaj mocowania</span><select id="b3-mrodz"><option value="m" selected>magnesy</option><option value="s">śruby od spodu podstawy</option></select></div>
         <div class="mg-only">
-          <h3>Magnesy neodymowe [mm]</h3>
+          <h3 class="mg-m">Magnesy neodymowe [mm]</h3>
           <div class="fld" title="Kołnierz podstawy, na który nachodzi klosz (małe litery: płyta, Sidelit: pasowanie); magnesy są w nim wtopione. To wysokość minimalna: przy grubszym magnesie kołnierz rośnie, a rant (stopień) zostaje do 2 mm"><span>Kołnierz podstawy</span><input type="text" inputmode="decimal" id="b3-mr" value="2"></div>
-          <div class="fld"><span>Średnica magnesu</span><input type="text" inputmode="decimal" id="b3-md" value="6"></div>
-          <div class="fld"><span>Grubość magnesu</span><input type="text" inputmode="decimal" id="b3-mh" value="2"></div>
-          <div class="fld" title="O ile gniazdo jest większe od magnesu (na średnicy), żeby wszedł z klejem"><span>Luz gniazda (na średnicy)</span><input type="text" inputmode="decimal" id="b3-ml" value="0,2"></div>
-          <div class="fld"><span>Ścianka wokół magnesu</span><input type="text" inputmode="decimal" id="b3-ms" value="0,8"></div>
+          <div class="fld mg-m"><span>Średnica magnesu</span><input type="text" inputmode="decimal" id="b3-md" value="6"></div>
+          <div class="fld mg-m"><span>Grubość magnesu</span><input type="text" inputmode="decimal" id="b3-mh" value="2"></div>
+          <div class="fld mg-m" title="O ile gniazdo jest większe od magnesu (na średnicy), żeby wszedł z klejem"><span>Luz gniazda (na średnicy)</span><input type="text" inputmode="decimal" id="b3-ml" value="0,2"></div>
+          <div class="fld mg-m"><span>Ścianka wokół magnesu</span><input type="text" inputmode="decimal" id="b3-ms" value="0,8"></div>
           <div class="fld" title="Ile gniazdo jest odsunięte od zewnętrznej krawędzi rantu w głąb litery (ścianka gniazda od zewnątrz)"><span>Odsunięcie od krawędzi rantu</span><input type="text" inputmode="decimal" id="b3-mo" value="1"></div>
           <div class="fld" title="Promień zaokrąglenia tam, gdzie uszko z magnesem w kloszu styka się ze ścianką (wzmocnienie)"><span>Zaokrąglenie przy uszku</span><input type="text" inputmode="decimal" id="b3-mf" value="2"></div>
           <div class="fld" title="O tyle uszko z magnesem w kloszu jest wyżej niż wierzch kołnierza podstawy (luz)"><span>Luz uszka nad podstawą</span><input type="text" inputmode="decimal" id="b3-mz" value="0,1"></div>
-          <div class="fld" title="Faza na wylocie gniazda: na górze podstawy i na górze uszka klosza (0 = bez fazy)"><span>Faza wylotu gniazda</span><input type="text" inputmode="decimal" id="b3-mk" value="1"></div>
-          <div class="fld"><span>Magnesy na literę</span><select id="b3-mn"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+          <div class="fld mg-m" title="Faza na wylocie gniazda: na górze podstawy i na górze uszka klosza (0 = bez fazy)"><span>Faza wylotu gniazda</span><input type="text" inputmode="decimal" id="b3-mk" value="1"></div>
+          <h3 class="mg-s">Śruby od spodu podstawy [mm]</h3>
+          <div class="fld mg-s" title="Otwór w stopniu podstawy, przez który wchodzi śruba od spodu"><span>Otwór w podstawie</span><input type="text" inputmode="decimal" id="b3-msd" value="2,5"></div>
+          <div class="fld mg-s" title="Otwór ślepy w uszku klosza na gwint (wkręt samogwintujący)"><span>Otwór w uszku (gwint)</span><input type="text" inputmode="decimal" id="b3-msp" value="2"></div>
+          <div class="fld mg-s" title="Ścianka uszka klosza wokół śruby (promień uszka = promień otworu + ścianka)"><span>Ścianka uszka wokół śruby</span><input type="text" inputmode="decimal" id="b3-msw" value="2,75"></div>
+          <div class="fld mg-s" title="Grubość uszka klosza (od stopnia podstawy w górę); u góry zostaje 1 mm zamknięcia nad otworem"><span>Wysokość uszka</span><input type="text" inputmode="decimal" id="b3-msh" value="4"></div>
+          <div class="fld"><span>Magnesów / śrub na literę</span><select id="b3-mn"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
           <button type="button" class="btn wide" id="b-mg-add" title="Potem kliknij w literę: magnes stanie w najbliższym miejscu rantu">➕ Dodaj magnes (klik na literze)</button>
           <button type="button" class="btn wide" id="b-mg-auto" title="Usuwa ręcznie postawione i proponuje miejsca od nowa">↺ Zaproponuj miejsca od nowa</button>
           <div class="vals" id="mg-info">—</div>
@@ -572,7 +579,7 @@ function computeLayers() {
   const pr = params(), m = model(pr); W.lay = {}; W.warn = []; W.warnN = 0; W.bedLs = null; W.plReg = null; W.m = m; W.pr = pr;
   $('vals').innerHTML = (pr.typ === 'S' ? '' : '<b>Pleksa</b> 0 (baza)<br>') + `<b>Klosz</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.k1)} / ${fmt(m.k2)} / ${fmt(m.k3)}<br><b>Podstawa</b> ${pr.typ === 'S' ? '0 / ' : ''}${fmt(m.p1)} / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}`
     + `<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
-  document.body.classList.toggle('t-P', pr.typ === 'P'); document.body.classList.toggle('t-PB', pbOn(pr)); document.body.classList.toggle('t-MG', !!(pr.p3 && pr.p3['b3-mon'])); if (typeof groups3D === 'function') groups3D();
+  document.body.classList.toggle('t-P', pr.typ === 'P'); document.body.classList.toggle('t-PB', pbOn(pr)); document.body.classList.toggle('t-MG', !!(pr.p3 && pr.p3['b3-mon'])); document.body.classList.toggle('t-MGs', !!(pr.p3 && pr.p3['b3-mon'] && pr.p3['b3-mrodz'] === 's')); if (typeof groups3D === 'function') groups3D();
   if (pbOn(pr)) $('vals').innerHTML = `<b>Klosz</b> 0 / ${fmt(m.k3)} (świeci cały)<br><b>Podstawa</b> 0 / ${fmt(m.p2)}<br>${pr.wielk === 2 ? `<b>Kieszeń</b> ${fmt(m.kie)}<br>` : ''}<span class="hint">ścianka klosza ${fmt(m.scianka)} · klosz wewn. ↔ podstawa wewn. ${fmt(m.k3 - m.p2)}</span>`;
   else if (pr.typ === 'P') $('vals').innerHTML = '<b>Litera pełna</b> 0 (baza)<br><span class="hint">wysokość i promień zaokrąglenia — pola powyżej</span>';
   if (!W.base) return;
@@ -1678,7 +1685,7 @@ function magInfo() {
   const b = $('mg-info'); if (!b) return;
   if (!magWlHtml()) { b.textContent = $('b3-mon').checked ? 'Litera pełna bez podstawy nie ma klosza: magnesy działają z podstawą (zakładka Litery).' : '—'; return; }
   const n = W.mags.length, uw = (W.magWarn || []).concat(W.magUw || []), mw = magWym();
-  b.innerHTML = `<b>${n}</b> ${n === 1 ? 'para magnesów' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'pary magnesów' : 'par magnesów'} (${fmt(mw.d, 1)} × ${fmt(mw.h, 1)} mm) na ${bedLetters().length} literach` + (uw.length ? `<br><span style="color:#c53030">${uw.map(esc).join('<br>')}</span>` : '');
+  b.innerHTML = (mw.screw ? `<b>${n}</b> ${n === 1 ? 'śruba' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'śruby' : 'śrub'} od spodu (otwór ${fmt(mw.d, 1)} mm w podstawie, ${fmt(mw.dp, 1)} mm w uszku) na ${bedLetters().length} literach` : `<b>${n}</b> ${n === 1 ? 'para magnesów' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'pary magnesów' : 'par magnesów'} (${fmt(mw.d, 1)} × ${fmt(mw.h, 1)} mm) na ${bedLetters().length} literach`) + (uw.length ? `<br><span style="color:#c53030">${uw.map(esc).join('<br>')}</span>` : '');
 }
 const zatWlHtml = () => typeof zatWl === 'function' && zatWl();     // zatWl jest w offset3d.js (const, więc nie ma go w window)
 function zatInfo() {
@@ -1947,7 +1954,7 @@ const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1,
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
 function b3Change(id) {
   save();
-  if (id === 'b3-mon') return recompute();     // kołnierz, miejsca magnesów, warstwy
+  if (id === 'b3-mon' || id === 'b3-mrodz') return recompute();     // kołnierz, miejsca magnesów, warstwy
   if (id === 'b3-fpod' || id === 'b3-fks') return recompute();     // zmienia kontury klosza i podstawy (otwory, plasterki)
   if (id.startsWith('b3-m')) { if (window.autoMagnets) autoMagnets(); renderSide(); draw(); }
   if (id.startsWith('b3-pr')) { if (window.profil3D) profil3D(); return; }
