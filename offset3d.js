@@ -76,8 +76,10 @@ function params3D() {
   const magOn = $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.typ === 'S' || (W.pr.typ === 'P' && $('b3-fpod').checked));
   if (magOn && W.pr.typ !== 'S') {
     p.pl = Math.max(0.6, n('b3-mr') || 2); p.gw = p.pl;
-    // kołnierz zawsze swój (2 mm); gdy magnes się nie mieści, rośnie stopień, a wybranie pogłębia się o tyle samo (dno kieszeni i LED zostają na miejscu)
-    const mh = Math.max(0.5, n('b3-mh') || 2); if (p.st + p.pl < mh + 1) { const d = mh + 1 - p.pl - p.st; p.st += d; p.gw += d; p.stMag = true; }
+    // rant (stopień) podstawy przy magnesach najwyżej 2 mm; gdy magnes się nie mieści (zostaje mniej niż 1 mm pod nim), rośnie kołnierz,
+    // a wybranie pogłębia się o tyle samo (dno kieszeni i LED zostają na miejscu)
+    if (p.st > 2) { p.st = 2; p.stMag = 'rant'; }
+    const mh = Math.max(0.5, n('b3-mh') || 2); if (p.st + p.pl < mh + 1) { const d = mh + 1 - p.pl - p.st; p.pl += d; p.gw += d; p.kolMag = true; }
   }     // magnesy: niski kołnierz zamiast płyty; duże litery: LED na dnie kieszeni, małe: pełna płyta
   if (W.pr.typ === 'P' && $('b3-fpod').checked) { p.ks = Math.max(0.4, n('b3-fks') || 1.2); p.kf = Math.max(0.4, n('b3-fkf') || 1.5); }
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
@@ -434,7 +436,8 @@ function magReg(p, Rbaza, Rkl, o) {
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   // faza wylotu gniazda (k mm pod kątem 45°): stożki odejmowane od gotowych brył w build3D, więc ściana fazy jest gładka
   const fz = Math.min(g.k, g.h / 2), stozek = (m, zGora) => ({ x: m.x, y: m.y, z0: zGora - fz, h: fz + 0.02, r0: g.rp, r1: g.rp + fz + 0.02 });
-  if (p.stMag) out.uw.push(`stopień podstawy podniesiony do ${fmt(p.st, 1)} mm, żeby pod magnesem został 1 mm; kołnierz ${fmt(p.pl, 1)} mm, wybranie pogłębione do ${fmt(p.gw, 1)} mm (dno kieszeni bez zmian, wysokość litery bez zmian)`);
+  if (p.kolMag) out.uw.push(`kołnierz podstawy podniesiony do ${fmt(p.pl, 1)} mm, żeby pod magnesem został 1 mm; rant (stopień) ${fmt(p.st, 1)} mm, wybranie pogłębione do ${fmt(p.gw, 1)} mm (dno kieszeni bez zmian, wysokość litery bez zmian)`);
+  if (p.stMag === 'rant') out.uw.push('rant (stopień) podstawy przy magnesach ograniczony do 2 mm');
   if (zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
   const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
   if (o.lim != null && top + g.lz + g.h > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.lz + g.h, 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
