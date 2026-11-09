@@ -143,7 +143,8 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 9px 16px; font-size: .85rem; z-index: 50; }
   /* litery pełne (typ P): bez offsetów klosza/podstawy, za to wysokość i promień zaokrąglenia */
   .p-only { display: none; }
-  .mg-only { display: none; }
+  .mg-only { display: none; } .zt-only { display: none; } body.t-ZT .zt-only { display: block; }
+  .mtsel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 6px 0 8px; } .mtsel label { border: 1.5px solid var(--line); text-align: center; padding: 7px 2px; cursor: pointer; font-size: .78rem; font-weight: 700; background: #fff; line-height: 1.15; } .mtsel label:has(input:checked) { border-color: var(--accent); background: #f0fbe8; } .mtsel input { display: none; } .mtsel small { display: block; font-weight: 500; font-size: .62rem; color: var(--gray); }
   body:not(.t-MGs) .mg-s { display: none !important; } body.t-MGs .mg-m { display: none !important; }
   body.t-MG .mg-only { display: block; }
   body.t-P .p-only { display: block; }
@@ -269,9 +270,14 @@
         </details>
       </section>
       <section class="pan" data-pan="montaz" data-t="Montaż klosza">
-        <div class="row"><label><input type="checkbox" id="b3-mon"> mocowanie klosza na magnesy / śruby od spodu</label></div>
-        <div class="hint">Kołnierz podstawy obniżony (domyślnie 2 mm). Magnesy wtopione w podstawę i w uszka klosza nad nimi (Frontlit, Sidelit, litera pełna z podstawą) albo śruby od spodu podstawy (Frontlit): uszko klosza siedzi w wycięciu kołnierza na stopniu, śruba przez otwór w podstawie wchodzi w uszko.</div>
-        <div class="fld mg-only"><span>Rodzaj mocowania</span><select id="b3-mrodz"><option value="m" selected>magnesy</option><option value="s">śruby od spodu podstawy</option></select></div>
+        <div class="mtsel" id="mt-sel">
+          <label><input type="radio" name="mtyp" value="0" checked><span>Bez</span></label>
+          <label><input type="radio" name="mtyp" value="m"><span>Magnesy</span></label>
+          <label><input type="radio" name="mtyp" value="s"><span>Śruby</span></label>
+          <label><input type="radio" name="mtyp" value="c"><span>Click<small>w budowie</small></span></label>
+        </div>
+        <div class="hint">Rodzaj mocowania klosza do podstawy (jeden naraz). <b>Bez</b>: klosz przykręcany śrubami przez klosz. <b>Magnesy</b>: wtopione w kołnierz podstawy i w uszka klosza (Frontlit, Sidelit, litera pełna z podstawą). <b>Śruby</b>: od spodu podstawy (Frontlit): uszko klosza siedzi w wycięciu kołnierza na stopniu, śruba przez otwór w podstawie wchodzi w uszko. <b>Click</b>: zatrzask push-push — w budowie.</div>
+        <div style="display:none"><label><input type="checkbox" id="b3-mon"></label><select id="b3-mrodz"><option value="m" selected>magnesy</option><option value="s">śruby od spodu podstawy</option></select></div>
         <div class="mg-only">
           <h3 class="mg-m">Magnesy neodymowe [mm]</h3>
           <div class="fld" title="Kołnierz podstawy, na który nachodzi klosz (małe litery: płyta, Sidelit: pasowanie); magnesy są w nim wtopione. To wysokość minimalna: przy grubszym magnesie kołnierz rośnie, a rant (stopień) zostaje do 2 mm"><span>Kołnierz podstawy</span><input type="text" inputmode="decimal" id="b3-mr" value="2"></div>
@@ -286,6 +292,7 @@
           <h3 class="mg-s">Śruby od spodu podstawy [mm]</h3>
           <div class="fld mg-s" title="Otwór w stopniu podstawy, przez który wchodzi śruba od spodu"><span>Otwór w podstawie</span><input type="text" inputmode="decimal" id="b3-msd" value="2,5"></div>
           <div class="fld mg-s" title="Otwór ślepy w uszku klosza na gwint (wkręt samogwintujący)"><span>Otwór w uszku (gwint)</span><input type="text" inputmode="decimal" id="b3-msp" value="2"></div>
+          <div class="fld mg-s" title="Faza otworu od spodu podstawy (stożek 45°, na łeb śruby); 0 = bez fazy"><span>Faza od spodu podstawy</span><input type="text" inputmode="decimal" id="b3-msf" value="0,5"></div>
           <div class="fld mg-s" title="Ścianka uszka klosza wokół śruby (promień uszka = promień otworu + ścianka)"><span>Ścianka uszka wokół śruby</span><input type="text" inputmode="decimal" id="b3-msw" value="2,75"></div>
           <div class="fld mg-s" title="Grubość uszka klosza (od stopnia podstawy w górę); u góry zostaje 1 mm zamknięcia nad otworem"><span>Wysokość uszka</span><input type="text" inputmode="decimal" id="b3-msh" value="4"></div>
           <div class="fld"><span>Magnesów / śrub na literę</span><select id="b3-mn"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
@@ -294,8 +301,9 @@
           <div class="vals" id="mg-info">—</div>
           <div class="hint">Magnes w podstawie leży w rancie (wierzch równo z rantem, gniazdo schodzi w stopień), drugi w uszku klosza tuż nad nim — twarzą w twarz. Klik na literze stawia magnes w najbliższym miejscu rantu, przeciągnięcie przesuwa go wzdłuż rantu, Delete usuwa. Bieguny: w podstawie zawsze N do góry (oznacz tę stronę kropką), w kloszu na wierzchu S — wtedy każda para się przyciąga. Uszko klosza wisi nad krawędzią klosza o wysokość rantu — w slicerze daj pod nim podporę.</div>
         </div>
-        <details style="margin-top:10px"><summary>Zatrzaski klik (wcześniejsza próba)</summary>
-        <div class="row"><label><input type="checkbox" id="p-zt-on"> zatrzaski klik (push-push) zamiast śrub</label></div>
+        <div class="zt-only">
+        <h3>Click — zatrzask push-push (w budowie)</h3>
+        <div style="display:none"><input type="checkbox" id="p-zt-on"></div>
         <div class="fld"><span>Zatrzaski na literę</span><select id="p-zt-n"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></div>
         <button type="button" class="btn wide" id="b-zt-add" title="Potem kliknij w literę, w miejscu, gdzie ma stać zatrzask">➕ Dodaj zatrzask (klik na literze)</button>
         <button type="button" class="btn wide" id="b-zt-auto" title="Usuwa ręcznie postawione i rozmieszcza od nowa">↺ Rozmieść automatycznie</button>
@@ -325,7 +333,7 @@
         <div class="fld" title="Grubość dachu uchwytu (Frontlit); odstęp od stopki klosza jest wypełniony litym blokiem"><span>Dach uchwytu: grubość</span><input type="text" inputmode="decimal" id="p-zt-at" value="3"></div>
         <button type="button" class="btn wide" id="b-zt-probka">⬇ Próbka do wydruku (STL)</button>
         <div class="hint">Najpierw wydrukuj próbki: ramki na płytkę z grzybkiem (do podstawy) i uchwyty na korpus klika (do klosza). Sprawdź z prawdziwymi częściami, czy płytka wchodzi w ramkę, czy korpus wchodzi i trzyma się w uchwycie oraz jak zatrzask się zatrzaskuje i zwalnia; potem popraw wymiary wyżej.</div>
-        </details>
+        </div>
       </section>
       <section class="pan" data-pan="podzial" data-t="Podział na stół">
         <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
@@ -1944,7 +1952,8 @@ function setParams(pr) {
   if (pr.pin != null) { W.pin = !!pr.pin; pinUI(); }
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
   hlSync();
-  if (pr.typ === 'M') { setR('typ', 'F'); $('b3-mon').checked = true; }     // dawny typ Magnet = Frontlit z mocowaniem na magnesy
+  if (pr.typ === 'M') { setR('typ', 'F'); $('b3-mon').checked = true; }
+  mtSync();     // dawny typ Magnet = Frontlit z mocowaniem na magnesy
 }
 function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; if (!(o.std >= 6) && o.pr.p3) Object.entries({ 'b3-h': 40, 'b3-pl': 6, 'b3-gw': 6, 'b3-cyf': 5 }).forEach(([k, v]) => { if (parseFloat(String(o.pr.p3[k]).replace(',', '.')) === v) delete o.pr.p3[k]; }); delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
@@ -2006,13 +2015,22 @@ $('b-pcenter').onclick = () => {
   autoHoles(); renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D();
 };
 bindHoleSlider('p-prz-r', 'p-prz', 'otw'); bindHoleSlider('p-fy-r', 'p-fy', 'fix');
+// rodzaj mocowania klosza: Bez / Magnesy / Śruby / Click — jedno naraz; stan trzymają ukryte b3-mon, b3-mrodz i p-zt-on
+const mtMode = () => $('p-zt-on').checked ? 'c' : $('b3-mon').checked ? ($('b3-mrodz').value === 's' ? 's' : 'm') : '0';
+function mtSync() {
+  if ($('p-zt-on').checked && $('b3-mon').checked) $('b3-mon').checked = false;     // zapis z obu: wygrywa click
+  const v = mtMode(); document.querySelectorAll('input[name=mtyp]').forEach(r => { r.checked = r.value === v; });
+  document.body.classList.toggle('t-ZT', v === 'c'); document.body.classList.toggle('t-MG', v === 'm' || v === 's'); document.body.classList.toggle('t-MGs', v === 's');
+}
+function setMontaz(v) { $('b3-mon').checked = v === 'm' || v === 's'; if (v === 'm' || v === 's') $('b3-mrodz').value = v; $('p-zt-on').checked = v === 'c'; mtSync(); recompute(); }
 // ===================== start =====================
-restore(); hlSync(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
+restore(); hlSync(); mtSync(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
 STEPS['p-hl'] = 1;
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id === 'p-hl') hlPush(); else if (id.startsWith('b3-')) { b3Change(id); if (id === 'b3-h' || id === 'b3-sh') hlSync(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
   if (i.id.startsWith('tx-') || i.id.startsWith('pl-') || i.type === 'file' || i.type === 'range') return;
   if (i.id === 'p-name') return save();
+  if (i.name === 'mtyp') return setMontaz(i.value);
   if (i.id === 'p-hl') return hlPush();
   if (i.id === 'b3-h' || i.id === 'b3-sh') hlSync();
   if (i.name === 'typ') hlSync();

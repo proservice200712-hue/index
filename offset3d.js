@@ -351,7 +351,7 @@ function magWym() {
   const v = id => num($(id).value);
   if (magScr()) {   // śruba od spodu: otwór w podstawie, uszko klosza z gwintem (otwór ślepy); rp = promień otworu w podstawie, s = ścianka uszka wokół
     const dh = Math.max(1, v('b3-msd') || 2.5);
-    return { screw: true, d: dh, h: Math.max(2, v('b3-msh') || 4), rp: dh / 2 + 0.1, s: Math.max(0.8, v('b3-msw') || 2.75), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: 0, lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2, dp: Math.max(0.8, v('b3-msp') || 2) };
+    return { screw: true, d: dh, h: Math.max(2, v('b3-msh') || 4), rp: dh / 2 + 0.1, s: Math.max(0.8, v('b3-msw') || 2.75), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-msf') ? v('b3-msf') : 0.5), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2, dp: Math.max(0.8, v('b3-msp') || 2) };
   }
   const d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
   return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-mk') ? v('b3-mk') : 1), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2 };
@@ -466,6 +466,7 @@ function magReg(p, Rbaza, Rkl, o) {
     if (g.screw) {   // uszko siedzi w wycięciu kołnierza, na stopniu podstawy (kosztem kołnierza); śruba od spodu przez stopień wchodzi w otwór ślepy uszka
       const stopien = o.st != null ? o.st : top, b0 = stopien + g.lz, b1 = b0 + g.h, st = clip('ctUnion', uszko), pil = [circlePoly(m.x, m.y, g.dp)];
       out.sHoles.push(circlePoly(m.x, m.y, g.d)); out.sCut.push(...offsetPolys(st, 0.2));
+      const fb = Math.min(g.k, Math.max(0, stopien - 0.4)); if (fb > 0) out.stozki.pod.push({ x: m.x, y: m.y, z0: -0.02, h: fb + 0.02, r0: g.d / 2 + fb + 0.02, r1: g.d / 2 });   // faza otworu od spodu podstawy (stożek 45°)
       out.kl.push({ z0: b0, z1: b1 - 1, reg: diff(st, pil) }, { z0: b1 - 1, z1: b1, reg: st });
       if (b1 > top + 5 && o.lim == null) out.uw.push(`uszko ${fmt(g.h, 1)} mm sięga ${fmt(b1, 1)} mm, wysoko nad kołnierzem ${fmt(top, 1)} mm — sprawdź wysokość klosza`);
       return;
