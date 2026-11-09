@@ -74,18 +74,18 @@ function params3D() {
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
     otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 10), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   const magOn = $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.typ === 'S' || (W.pr.typ === 'P' && $('b3-fpod').checked));
-  if (magOn && W.pr.typ !== 'S') {
-    p.pl = Math.max(0.6, n(magScr() ? 'b3-msk' : 'b3-mr') || 2); p.gw = p.pl;
+  if (magOn && W.pr.typ !== 'S' && !magScr()) {     // magnesy: niski kołnierz zamiast płyty; śruby: grubość płyty, kieszeń i stopień z panelu Bryła 3D
+    p.pl = Math.max(0.6, n('b3-mr') || 2); p.gw = p.pl;
     // rant (stopień) podstawy przy magnesach najwyżej 2 mm; gdy magnes się nie mieści (zostaje mniej niż 1 mm pod nim), rośnie kołnierz,
     // a wybranie pogłębia się o tyle samo (dno kieszeni i LED zostają na miejscu)
-    if (!magScr() && p.st > 2) { p.st = 2; p.stMag = 'rant'; }
-    const mh = Math.max(0.5, n('b3-mh') || 2); if (!magScr() && p.st + p.pl < mh + 1) { const d = mh + 1 - p.pl - p.st; p.pl += d; p.gw += d; p.kolMag = true; }
+    if (p.st > 2) { p.st = 2; p.stMag = 'rant'; }
+    const mh = Math.max(0.5, n('b3-mh') || 2); if (p.st + p.pl < mh + 1) { const d = mh + 1 - p.pl - p.st; p.pl += d; p.gw += d; p.kolMag = true; }
   }     // magnesy: niski kołnierz zamiast płyty; duże litery: LED na dnie kieszeni, małe: pełna płyta
   if (W.pr.typ === 'P' && $('b3-fpod').checked) { p.ks = Math.max(0.4, n('b3-fks') || 1.2); p.kf = Math.max(0.4, n('b3-fkf') || 1.5); }
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
   if (p.ks) { p.wk = p.fh - p.st; p.ws = p.wk - p.kf; }     // pełna z podstawą: klosz od stopnia do wierzchu litery
   p.kCalk = p.sf + p.ss; p.pCalk = p.sh - p.kCalk; p.sw = au('b3-sw', p.ss - 0.5);
-  if (magOn && W.pr.typ === 'S') p.sw = Math.max(0.6, n('b3-mr') || 2);     // Sidelit z magnesami: niskie pasowanie
+  if (magOn && W.pr.typ === 'S' && !magScr()) p.sw = Math.max(0.6, n('b3-mr') || 2);     // Sidelit z magnesami: niskie pasowanie
   return p;
 }
 // otwory i rowki profilu (w tyle podstawy, z odstępem od krawędzi — jak _wytnijRowekProfilu)
@@ -438,7 +438,7 @@ function autoMagnets() {
 // Uszko wypełnia klin między sobą a najbliższym rogiem wnętrza klosza (styczne od rogu do uszka), a jego styki ze ścianką są zaokrąglone promieniem z pola (domyślnie 2 mm).
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
-  const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [] }; if (!magWl() || !W.mags.length) return out;
+  const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   // faza wylotu gniazda (k mm pod kątem 45°): stożki odejmowane od gotowych brył w build3D, więc ściana fazy jest gładka
   const fz = Math.min(g.k, g.h / 2), stozek = (m, zGora) => ({ x: m.x, y: m.y, z0: zGora - fz, h: fz + 0.02, r0: g.rp, r1: g.rp + fz + 0.02 });
@@ -465,12 +465,13 @@ function magReg(p, Rbaza, Rkl, o) {
     const uszko = inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw).concat(inter(usz, Rkl));
     if (g.screw) {   // uszko siedzi w wycięciu kołnierza, na stopniu podstawy (kosztem kołnierza); śruba od spodu przez stopień wchodzi w otwór ślepy uszka
       const stopien = o.st != null ? o.st : top, b0 = stopien + g.lz, b1 = b0 + g.h, st = clip('ctUnion', uszko), pil = [circlePoly(m.x, m.y, g.dp)];
-      // górny rant uszka fazowany: schodki co ~0,2 mm (jak warstwy druku), każda warstwa o tyle węższa, ile wynosi faza na tej wysokości
-      const fu = Math.min(g.fu, Math.max(0, g.h - 0.6)), nf = fu > 0.05 ? Math.ceil(fu / 0.2) : 0, dz = nf ? fu / nf : 0;
+      // górny rant uszka fazowany gładko: górna część (fu) to wyciągnięcie obrysu uszka ze skalą góry (zwężenie 45° przy okręgu uszka), otwór dociera z góry w build3D
+      const fu = Math.min(g.fu, Math.max(0, g.h - 0.6));
       out.sHoles.push(circlePoly(m.x, m.y, g.d)); out.sCut.push(...offsetPolys(st, 0.2));
       const fb = Math.min(g.k, Math.max(0, stopien - 0.4)); if (fb > 0) out.stozki.pod.push({ x: m.x, y: m.y, z0: -0.02, h: fb + 0.02, r0: g.d / 2 + fb + 0.02, r1: g.d / 2 });   // faza otworu od spodu podstawy (stożek 45°)
       out.kl.push({ z0: b0, z1: b1 - fu, reg: diff(st, pil) });     // otwór w uszku na przelot
-      for (let i = 0; i < nf; i++) { const za = b1 - fu + i * dz; out.kl.push({ z0: za, z1: za + dz, reg: diff(offsetPolys(st, -fu * (i + 0.5) / nf), pil) }); }
+      if (fu > 0.05) out.lugi.push({ x: m.x, y: m.y, z: b1 - fu, fu, scale: Math.max(0.3, (Ru - fu) / Ru), polys: st, r: g.dp / 2, zD0: b0 - 0.1, zD1: b1 + 0.1 });
+      else out.kl.push({ z0: b1 - 0.001, z1: b1, reg: diff(st, pil) });
       if (b1 > top + 5 && o.lim == null) out.uw.push(`uszko ${fmt(g.h, 1)} mm sięga ${fmt(b1, 1)} mm, wysoko nad kołnierzem ${fmt(top, 1)} mm — sprawdź wysokość klosza`);
       return;
     }
@@ -500,7 +501,7 @@ function warstwyFrontlit(p, m) {
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   podstawa.push(...zat.pod, ...mag.pod); W.zatUw = zat.uw; W.magUw = mag.uw;
-  return { magKl: mag.kl, stozki: mag.stozki, klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
+  return { magKl: mag.kl, stozki: mag.stozki, lugi: mag.lugi, klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
 }
 function warstwySidelit(p) {
   const R = d => offsetPolys(W.base, d), R0 = R(0), holes = otworyReg(p), zK = p.sh - p.kCalk;
@@ -627,6 +628,11 @@ async function build3D() {
     if (plan.stozki) { const { Manifold } = V3.wasm, bryla = l => ndel(Manifold.union(l.map(c => ndel(ndel(Manifold.cylinder(c.h, c.r0, c.r1, 64)).translate([c.x, c.y, c.z0])))));
       if (plan.stozki.pod.length && parts.podstawa) parts.podstawa = ndel(Manifold.difference(parts.podstawa, bryla(plan.stozki.pod)));
       if (plan.stozki.kl.length && parts.klosz) parts.klosz = ndel(Manifold.difference(parts.klosz, bryla(plan.stozki.kl))); }
+    // gładka faza górnego ranta uszek (śruby od spodu): górna część uszka zwężana liniowo, otwór na przelot wycięty walcem
+    if (plan.lugi && plan.lugi.length && parts.klosz) { const { Manifold } = V3.wasm;
+      const caps = plan.lugi.map(L => { const polys = toPolys(L.polys).map(r => r.map(([x, y]) => [x - L.x, y - L.y])); return ndel(ndel(Manifold.extrude(polys, L.fu, 0, 0, [L.scale, L.scale])).translate([L.x, L.y, L.z])); });
+      const otw = plan.lugi.map(L => ndel(ndel(Manifold.cylinder(L.zD1 - L.zD0, L.r, L.r, 48)).translate([L.x, L.y, L.zD0])));
+      parts.klosz = ndel(Manifold.difference(ndel(Manifold.union([parts.klosz, ...caps])), ndel(Manifold.union(otw)))); }
     if (W.overlaps.length) uwagi.push(`litery nachodzą na siebie w ${W.overlaps.length} miejscach — bryły są połączone`);
     if (parts.klosz && parts.podstawa) { const v = objetosc(ndel(V3.wasm.Manifold.intersection(parts.klosz, parts.podstawa))); if (v > 1) uwagi.push(`klosz przenika podstawę (${fmt(v, 1)} mm³) — sprawdź offsety`); }
     const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [];     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem

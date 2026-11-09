@@ -295,8 +295,7 @@
           <div class="fld mg-s" title="Faza otworu od spodu podstawy (stożek 45°, na łeb śruby); 0 = bez fazy"><span>Faza od spodu podstawy</span><input type="text" inputmode="decimal" id="b3-msf" value="2"></div>
           <div class="fld mg-s" title="Ścianka uszka klosza wokół śruby (promień uszka = promień otworu + ścianka)"><span>Ścianka uszka wokół śruby</span><input type="text" inputmode="decimal" id="b3-msw" value="3"></div>
           <div class="fld mg-s" title="Grubość uszka klosza (od stopnia podstawy w górę)"><span>Wysokość uszka</span><input type="text" inputmode="decimal" id="b3-msh" value="5"></div>
-          <div class="fld mg-s" title="Faza górnego ranta uszka (45°, schodki co 0,2 mm); 0 = bez fazy"><span>Faza górnego ranta uszka</span><input type="text" inputmode="decimal" id="b3-msu" value="1"></div>
-          <div class="fld mg-s" title="Kołnierz podstawy (rant, na który nachodzi klosz)"><span>Kołnierz podstawy</span><input type="text" inputmode="decimal" id="b3-msk" value="3"></div>
+          <div class="fld mg-s" title="Faza górnego ranta uszka (zwężenie 45° przy okręgu uszka, gładkie); 0 = bez fazy"><span>Faza górnego ranta uszka</span><input type="text" inputmode="decimal" id="b3-msu" value="1"></div>
           <div class="fld mg-s" title="Ile otwór jest odsunięty od zewnętrznej krawędzi rantu w głąb litery"><span>Odsunięcie od krawędzi rantu</span><input type="text" inputmode="decimal" id="b3-mso" value="1"></div>
           <div class="fld mg-s" title="Promień zaokrąglenia tam, gdzie uszko styka się ze ścianką klosza"><span>Zaokrąglenie przy uszku</span><input type="text" inputmode="decimal" id="b3-msr" value="2"></div>
           <div class="fld mg-s" title="O tyle uszko jest wyżej niż stopień podstawy (luz)"><span>Luz uszka nad podstawą</span><input type="text" inputmode="decimal" id="b3-msz" value="0"></div>
@@ -2028,7 +2027,9 @@ function mtSync() {
   const v = mtMode(); document.querySelectorAll('input[name=mtyp]').forEach(r => { r.checked = r.value === v; });
   document.body.classList.toggle('t-ZT', v === 'c'); document.body.classList.toggle('t-MG', v === 'm' || v === 's'); document.body.classList.toggle('t-MGs', v === 's');
 }
-function setMontaz(v) { $('b3-mon').checked = v === 'm' || v === 's'; if (v === 'm' || v === 's') $('b3-mrodz').value = v; $('p-zt-on').checked = v === 'c'; mtSync(); recompute(); }
+function setMontaz(v) {
+  if (v === 's' && mtMode() !== 's' && num($('b3-pl').value) === 5 && num($('b3-gw').value) === 4.5) { $('b3-pl').value = '3'; $('b3-gw').value = '3'; }   // standard kołnierza dla śrub 3 mm (potem do zmiany w Bryła 3D)
+  $('b3-mon').checked = v === 'm' || v === 's'; if (v === 'm' || v === 's') $('b3-mrodz').value = v; $('p-zt-on').checked = v === 'c'; mtSync(); recompute(); }
 // ===================== start =====================
 restore(); hlSync(); mtSync(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
 STEPS['p-hl'] = 1;
