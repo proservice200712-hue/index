@@ -826,6 +826,7 @@ function placeFix(rails) {
 function autoHoles() {
   const pr = W.pr; W.holes = W.holes.filter(h => h.manual); W.warn.length = W.warnN || 0;
   if (!W.base) return;
+  W.holes.forEach(h => { const q = holeKlamra(h, h.x, h.y); if (q && (Math.abs(q[0] - h.x) > 0.005 || Math.abs(q[1] - h.y) > 0.005)) { h.x = Math.round(q[0] * 100) / 100; h.y = Math.round(q[1] * 100) / 100; } });   // ręczne otwory wracają do wybrania
   const railY = W.rails.length ? W.rails.slice().sort((a, b) => b.yc - a.yc) : null;
   // otwory na przewody: przypięte liczą się od profilu; nieprzypięte zostają na wysokości sprzed przesunięcia profilu (holeY)
   if (pr.gdzie > 0) W.holes.push(...placeHoles('otw', pr.dOtw, railY));
@@ -1743,10 +1744,12 @@ function renderSel() {
   const apply = inp => { pushUndo(); const fol = s.t === 'rail' ? (railHold(o), railFollowers(o)) : [], c0 = o.yc, t0 = o.yc + o.h / 2; o[inp.dataset.k] = num(inp.value); o.manual = true; if (s.t === 'hole') { const q = holeKlamra(o, o.x, o.y); if (q) { o.x = Math.round(q[0] * 100) / 100; o.y = Math.round(q[1] * 100) / 100; } } if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') { shiftFollowers(fol, o.yc - c0, o.yc + o.h / 2 - t0); autoHoles(); } renderSide(); draw(); save(); };
   b.querySelectorAll('[data-k]').forEach(inp => { inp.onchange = () => apply(inp); addSpin(inp, { x: 0.5, y: 0.5, d: 0.5, yc: 0.5, h: 1, x0: 1, x1: 1 }[inp.dataset.k] || 0.5, () => apply(inp)); });
 }
-// otwór w całości w obrębie podstawy (obrys podstawy, czyli wewnątrz stopki klosza — bez kolizji z kloszem), z 0,3 mm zapasu na ściankę; null = w tej literze się nie zmieści
+// otwór w całości w obrębie wybrania (duże litery: kontur kieszeni, fioletowa kreska) albo obrysu podstawy (małe litery: wewnątrz stopki klosza,
+// bez kolizji z kloszem), z zapasem na ściankę; null = w tej literze się nie zmieści
 function holeKlamra(h, x, y) {
   if (!W.base || !W.m) return [x, y];
-  const r = (h.d || 0) / 2 + 0.3, d0 = W.pr && W.pr.typ === 'P' ? 0 : W.m.p2, key = W.baseId + '|' + d0 + '|' + r;
+  const pocket = W.pr && W.pr.typ !== 'P' && W.pr.wielk === 2 && W.m.kie != null;
+  const r = (h.d || 0) / 2 + (pocket ? 0.1 : 0.3), d0 = W.pr && W.pr.typ === 'P' ? 0 : pocket ? W.m.kie : W.m.p2, key = W.baseId + '|' + d0 + '|' + r;
   if (!W.holeOk || W.holeOk.key !== key) W.holeOk = { key, polys: offsetPolys(offsetPolys(W.base, d0), -r) };
   return W.holeOk.polys.length ? magNajblizszy(W.holeOk.polys, x, y, true) : null;
 }
