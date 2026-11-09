@@ -245,6 +245,17 @@
         <div class="row"><label><input type="radio" name="odl" value="k" checked> od krawędzi (zewn.)</label><label><input type="radio" name="odl" value="l"> od paska LED (wewn.)</label></div>
         <div class="hint">Odległość: brzeg otworu od konturu litery (zewn.) albo od brzegu paska LED na osi litery (wewn.). Z profilem wysokość liczy się od jego górnej krawędzi (+ przesunięcie).</div>
         </details>
+        <details class="osec"><summary>Profil montażowy</summary>
+        <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
+        <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
+        <button type="button" class="btn wide" id="b-pin" title="Włączone: przesuwasz profil — otwory na przewody jadą razem z nim. Wyłączone: zostają na swojej wysokości.">📌 Przypnij do profila</button>
+        <button type="button" class="btn wide" id="b-pcenter" title="Ustawia profil w pionie na środku wysokości liter (z otworami, które jadą razem z profilem)">⇕ Centruj profil</button>
+        <div class="hint">Krawędzie profilu przyciągają się do krawędzi liter (Alt = bez przyciągania). Otwory automatyczne przy każdym przesunięciu układają się od nowa w obrębie litery.</div>
+        <div class="row"><label><input type="checkbox" id="b3-row"> rowki profilu w tyle podstawy</label></div>
+        <div class="fld"><span>Rowek: szerokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rg" placeholder="auto"></div>
+        <div class="fld"><span>Rowek: głębokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rd" placeholder="auto"></div>
+        <div class="fld"><span>Rowek: od krawędzi</span><input type="text" inputmode="decimal" id="b3-rm" value="1,2"></div>
+        </details>
         <details class="osec"><summary>Otwory FIX</summary>
         <div class="row"><label><input type="checkbox" id="b3-fix" checked> otwory FIX</label></div>
         <div class="row"><label><input type="checkbox" id="p-fix"> FIX po przekątnej w profilu</label></div>
@@ -254,16 +265,6 @@
         <div class="fld rng" title="Płynnie przesuwa wszystkie otwory FIX w górę / w dół (także ręczne)"><span>Przesuń wszystkie <span class="hint">(↓ dół · góra ↑)</span></span><input type="range" id="p-fy-r" min="-60" max="60" step="0.5" value="0"></div>
         <div class="fld"><span>Łeb śruby <span class="hint">(pomocniczy: na szablonie, bez bryły)</span></span><input type="text" inputmode="decimal" id="p-dleb" value="7"></div>
         <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
-        </details>
-        <details class="osec"><summary>Profil montażowy</summary>
-        <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
-        <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
-        <button type="button" class="btn wide" id="b-pin" title="Włączone: przesuwasz profil — otwory na przewody jadą razem z nim. Wyłączone: zostają na swojej wysokości.">📌 Przypnij do profila</button>
-        <div class="hint">Krawędzie profilu przyciągają się do krawędzi liter (Alt = bez przyciągania). Otwory automatyczne przy każdym przesunięciu układają się od nowa w obrębie litery.</div>
-        <div class="row"><label><input type="checkbox" id="b3-row"> rowki profilu w tyle podstawy</label></div>
-        <div class="fld"><span>Rowek: szerokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rg" placeholder="auto"></div>
-        <div class="fld"><span>Rowek: głębokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rd" placeholder="auto"></div>
-        <div class="fld"><span>Rowek: od krawędzi</span><input type="text" inputmode="decimal" id="b3-rm" value="1,2"></div>
         </details>
       </section>
       <section class="pan" data-pan="montaz" data-t="Montaż klosza">
@@ -1985,6 +1986,18 @@ function bindHoleSlider(rid, nid, kind) {
   r.addEventListener('change', () => { recompute(); });
   sync();
 }
+// Centruj profil: środek profilu na środku wysokości liter, które obejmuje (otwory jadą razem z nim, jak przy przesuwaniu)
+$('b-pcenter').onclick = () => {
+  if (!W.base) return;
+  if (!W.rails.length) return toast('Najpierw ustaw grubość profilu (większą niż 0)');
+  pushUndo(); const ls = letters(W.base);
+  W.rails.forEach(r => {
+    const on = ls.filter(l => l.bb.x1 > r.x0 && l.bb.x0 < r.x1); if (!on.length) return;
+    const yc = (Math.min(...on.map(l => l.bb.y0)) + Math.max(...on.map(l => l.bb.y1))) / 2, fol = (railHold(r), railFollowers(r)), c0 = r.yc, t0 = r.yc + r.h / 2;
+    r.yc = Math.round(yc * 100) / 100; r.manual = true; shiftFollowers(fol, r.yc - c0, r.yc + r.h / 2 - t0);
+  });
+  autoHoles(); renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D();
+};
 bindHoleSlider('p-prz-r', 'p-prz', 'otw'); bindHoleSlider('p-fy-r', 'p-fy', 'fix');
 // ===================== start =====================
 restore(); hlSync(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
