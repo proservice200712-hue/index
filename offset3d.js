@@ -72,7 +72,7 @@ function kieszenFaza(d, f) {
 function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
-    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 5), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
+    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 10), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   const magOn = $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.typ === 'S' || (W.pr.typ === 'P' && $('b3-fpod').checked));
   if (magOn && W.pr.typ !== 'S') {
     p.pl = Math.max(0.6, n('b3-mr') || 2); p.gw = p.pl;
@@ -352,14 +352,38 @@ function magLinia() {
   const g = magWym(), b = magBrzeg(), key = W.baseId + '|' + b + '|' + g.rp + '|' + g.o; if (W.magL && W.magL.key === key) return W.magL.polys;
   const polys = offsetPolys(W.base, b - g.rp - g.o); W.magL = { key, polys }; return polys;     // o: ścianka gniazda od zewnętrznej krawędzi rantu
 }
-// najbliższy punkt linii środków magnesów w obrębie litery li
-function magNaLinii(x, y, li) {
-  const L = bedLetters()[li]; let best = null, bd = Infinity;
-  magLinia().forEach(p => {
-    if (L && C.Clipper.PointInPolygon(p[0], L.p) === 0) return;
+// miejsca awaryjne w literze li, gdy linia środków magnesów nie ma w niej miejsca (litera za wąska, offsety za duże): wnętrze litery z coraz mniejszym marginesem
+// od krawędzi rantu, a gdy nawet to puste — najgłębsze punkty litery. Dzięki temu magnes da się zawsze postawić, przesunąć, dodać i usunąć.
+function magAwaryjne(li) {
+  const L = bedLetters()[li]; if (!L) return [];
+  const g = magWym(), key = W.baseId + '|' + li + '|' + magBrzeg() + '|' + g.rp + '|' + g.o; if (W.magAw && W.magAw.key === key) return W.magAw.polys;
+  let polys = [];
+  for (const e of [g.rp + g.o, g.rp, g.rp / 2, 0.3, 0]) { polys = inter(offsetPolys(W.base, magBrzeg() - e), [L.p]); if (polys.length) break; }
+  if (!polys.length) { let prev = [L.p]; for (let k = 0.5; k < 200; k += 0.5) { const r = offsetPolys([L.p], -k); if (!r.length) break; prev = r; } polys = prev; }
+  W.magAw = { key, polys }; return polys;
+}
+// punkty co ~1,5 mm wzdłuż obrysów (do wyboru miejsca magnesu)
+function magProbki(polys, filtr) {
+  const pts = [];
+  polys.forEach(p => {
+    if (filtr && !filtr(p)) return;
+    for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], ax = a.X / S, ay = a.Y / S, bx = b.X / S, by = b.Y / S, n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 1.5)); for (let k = 0; k < n; k++) pts.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n]); }
+  });
+  return pts;
+}
+// najbliższy punkt na obrysach polys; z wnetrze = true punkt już leżący wewnątrz obszaru zostaje bez zmiany
+function magNajblizszy(polys, x, y, wnetrze) {
+  if (wnetrze) { const pt = { X: Math.round(x * S), Y: Math.round(y * S) }; let w = 0; polys.forEach(p => { if (C.Clipper.PointInPolygon(pt, p) !== 0) w += area(p) > 0 ? 1 : -1; }); if (w > 0) return [Math.round(x * 100) / 100, Math.round(y * 100) / 100]; }
+  let best = null, bd = Infinity;
+  polys.forEach(p => {
     for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1))), qx = ax + t * dx, qy = ay + t * dy, d = Math.hypot(qx - x, qy - y); if (d < bd) { bd = d; best = [Math.round(qx * 100) / 100, Math.round(qy * 100) / 100]; } }
   });
   return best;
+}
+// najbliższy punkt linii środków magnesów w obrębie litery li; gdy w tej literze linii nie ma — najbliższy punkt obszaru awaryjnego (magnes wymuszony)
+function magNaLinii(x, y, li) {
+  const L = bedLetters()[li], lin = magLinia().filter(p => !L || C.Clipper.PointInPolygon(p[0], L.p) !== 0);
+  return lin.length ? magNajblizszy(lin, x, y, false) : magNajblizszy(magAwaryjne(li), x, y, true);
 }
 // propozycja: po n na literę, jak najdalej od siebie, z dala od paska LED, otworów, linii podziału i plasterków; ręcznie postawione zostają
 function autoMagnets() {
@@ -386,7 +410,20 @@ function autoMagnets() {
       if (!best || (jest.length && bs < 2 * R + 2)) break;
       W.mags.push({ id: uid++, li, x: Math.round(best[0] * 100) / 100, y: Math.round(best[1] * 100) / 100, manual: false }); jest.push(best); dodane++;
     }
-    if (dodane < ile) W.magWarn.push(`litera ${li + 1}: zmieściło się ${moje.length + dodane} z ${g.n}`);
+    if (dodane < ile) {
+      // wymuszenie: najpierw cała linia środków bez omijania przeszkód, a gdy litera nie ma linii — obszar awaryjny; każdy kolejny magnes jak najdalej od pozostałych
+      const lin = linia.filter(pp => C.Clipper.PointInPolygon(pp[0], l.p) !== 0);
+      const dod = lin.length ? magProbki(lin) : magProbki(magAwaryjne(li));
+      let wym = 0;
+      for (let k = dodane; k < ile; k++) {
+        let best = null, bs = -1;
+        dod.forEach(q => { const s = jest.length ? Math.min(...jest.map(o => Math.hypot(o[0] - q[0], o[1] - q[1]))) : Math.hypot(q[0] - cx, q[1] - cy); if (s > bs) { bs = s; best = q; } });
+        if (!best || (jest.length && bs < 0.5)) break;
+        W.mags.push({ id: uid++, li, x: Math.round(best[0] * 100) / 100, y: Math.round(best[1] * 100) / 100, manual: false, wymus: true }); jest.push(best); wym++;
+      }
+      if (wym) W.magWarn.push(`litera ${li + 1}: ${wym === 1 ? 'magnes wymuszony' : wym + ' magnesy wymuszone'} poza zalecanym polem (przeszkody, za mało miejsca albo za wąska litera) — sprawdź i przesuń lub usuń`);
+      if (moje.length + dodane + wym < g.n) W.magWarn.push(`litera ${li + 1}: zmieściło się ${moje.length + dodane + wym} z ${g.n}`);
+    }
   });
 }
 // bryły: pogrubienie kołnierza z gniazdem w podstawie (od z0 do wierzchu kołnierza), uszko z gniazdem w kloszu sięgające jego wewnętrznej ścianki (offset sc).
@@ -868,7 +905,7 @@ async function export3MF() {
 [['b3-ck', 0], ['b3-cp', 0], ['b3-cx', 5]].forEach(([id, d]) => { const s = $(id), had = s.dataset.v; s.innerHTML = PALETA3.map(([n, c]) => `<option value="${c}">${n}</option>`).join(''); s.value = String(PALETA3[d][1]); });
 try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o && o.pr && o.pr.p3) ['b3-ck', 'b3-cp', 'b3-cx'].forEach(id => { if (o.pr.p3[id]) $(id).value = o.pr.p3[id]; }); } catch (e) { /* zostają domyślne */ }
 groups3D();
-$('b-3d').onclick = open3D; $('b-2d').onclick = close3D; $('b3-open').onclick = open3D; $('v3-b').onclick = () => build3D();
+$('b-3d').onclick = open3D; $('b-2d').onclick = close3D; $('v3-b').onclick = () => build3D();
 $('b3-stl').onclick = exportSTL; $('b3-3mf').onclick = export3MF;
 document.querySelectorAll('#v3-bar [data-v]').forEach(b => { b.onclick = () => setView(b.dataset.v); });
 ['v3-k', 'v3-p', 'v3-x', 'v3-l', 'v3-o', 'v3-pr'].forEach(id => { $(id).onchange = apply3D; }); $('v3-e').oninput = apply3D;

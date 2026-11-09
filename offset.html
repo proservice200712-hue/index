@@ -57,6 +57,8 @@
   .pan-h button { background: none; border: none; font-size: 1rem; color: var(--gray); cursor: pointer; }
   .pan-h button:hover { color: var(--dark); }
   .pan h3:first-child { margin-top: 10px; }
+  .pan details.osec { border-top: 1px solid var(--line); margin: 0; } .pan details.osec:first-of-type { border-top: 0; }
+  .pan details.osec > summary { font-weight: 800; font-size: .72rem; text-transform: uppercase; letter-spacing: .6px; color: var(--gray); cursor: pointer; padding: 10px 0; list-style: none; } .pan details.osec > summary::before { content: '▸ '; } .pan details.osec[open] > summary::before { content: '▾ '; } .pan details.osec[open] > summary { color: var(--dark); }
   .btn.wide { display: block; width: 100%; margin: 8px 0; color: #fff; }
   .fld1 input { width: 100%; padding: 5px 7px; border: 1px solid #cbd5e0; font: inherit; }
   .seg { display: inline-flex; }
@@ -145,7 +147,7 @@
   body.t-P .p-only { display: block; }
   body.t-P:not(.t-PB) .fs-only, body.t-P:not(.t-PB) #g3-f, body.t-P #g3-s { display: none !important; }
   /* pełna z podstawą: pola podstawy jak we Frontlit, bez pleksy i ścianek klosza (klosz liczy się z pól litery pełnej) */
-  body.t-PB .fld:has(#p-P), body.t-PB #g3-f .fld:has(#b3-gp), body.t-PB #g3-f .fld:has(#b3-h), body.t-PB #g3-f .fld:has(#b3-wk), body.t-PB #g3-f .fld:has(#b3-ws), body.t-PB .row:has(#b3-fd) { display: none !important; }
+  body.t-PB .fld:has(#p-hl), body.t-PB .fld:has(#p-P), body.t-PB #g3-f .fld:has(#b3-gp), body.t-PB #g3-f .fld:has(#b3-h), body.t-PB #g3-f .fld:has(#b3-wk), body.t-PB #g3-f .fld:has(#b3-ws), body.t-PB .row:has(#b3-fd) { display: none !important; }
   .pb-only { display: none; }
   body.t-PB .pb-only { display: block; }
 </style>
@@ -204,6 +206,8 @@
           <label class="pick" title="Podstawa z pełnym środkiem, bez wybrania; otwory liczone od wewnętrznego konturu podstawy"><input type="radio" name="wielk" value="1"><svg viewBox="0 0 120 62"><polygon points="14,32 46,46 46,57 14,43" fill="#a0aec0"/><polygon points="46,46 104,22 104,33 46,57" fill="#cbd5e0"/><polygon points="14,32 72,8 104,22 46,46" fill="#f7fafc" stroke="#718096" stroke-width=".6"/></svg><b>małe litery</b><small>pełny środek</small></label>
         </div>
         <div class="hint">Prawy klawisz na literze = cyfra do rozróżnienia takich samych liter (wewnątrz i w lustrze na tyle).</div>
+        <h3 class="fs-only">Wymiar litery</h3>
+        <div class="fld fs-only" title="To samo pole co w zakładce Bryła 3D — zmiana tu zmienia i tam"><span id="p-hl-l">Wysokość litery (z pleksą) [mm]</span><input type="text" inputmode="decimal" id="p-hl"></div>
         <h3 class="fs-only">Dysza</h3>
         <div class="row fs-only"><label><input type="radio" name="dysza" value="4"> 0,4 mm</label><label><input type="radio" name="dysza" value="6" checked> 0,6 mm</label></div>
         <div class="p-only">
@@ -230,7 +234,24 @@
         <div class="hint">Oś paska biegnie środkiem litery, także tam, gdzie pasek wchodzi na kontury. Długość to długość tej osi. Filament to szacunek z warstw brył i ustawień druku (Bryła 3D → Druk), a nie wynik slicera.</div>
       </section>
       <section class="pan" data-pan="otwory" data-t="Otwory i profil">
-        <h3>Profil montażowy</h3>
+        <details class="osec"><summary>Otwory na przewody</summary>
+        <div class="row"><label><input type="checkbox" id="b3-otw" checked> otwory na przewody</label></div>
+        <div class="fld"><span>Średnica</span><input type="text" inputmode="decimal" id="p-dotw" value="4,5"></div>
+        <div class="row"><label><input type="radio" name="gdzie" value="1"> góra</label><label><input type="radio" name="gdzie" value="2" checked> środek</label><label><input type="radio" name="gdzie" value="3"> dół</label><label><input type="radio" name="gdzie" value="0"> bez</label></div>
+        <div class="fld"><span>Przesunięcie <span class="hint">(+ w górę, − w dół)</span></span><input type="text" inputmode="decimal" id="p-prz" value="0"></div>
+        <div class="fld"><span>Odległość otworu</span><input type="text" inputmode="decimal" id="p-luz" value="1"></div>
+        <div class="row"><label><input type="radio" name="odl" value="k" checked> od krawędzi (zewn.)</label><label><input type="radio" name="odl" value="l"> od paska LED (wewn.)</label></div>
+        <div class="hint">Odległość: brzeg otworu od konturu litery (zewn.) albo od brzegu paska LED na osi litery (wewn.). Z profilem wysokość liczy się od jego górnej krawędzi (+ przesunięcie).</div>
+        </details>
+        <details class="osec"><summary>Otwory FIX</summary>
+        <div class="row"><label><input type="checkbox" id="b3-fix" checked> otwory FIX</label></div>
+        <div class="row"><label><input type="checkbox" id="p-fix"> FIX po przekątnej w profilu</label></div>
+        <div class="fld"><span>Średnica FIX</span><input type="text" inputmode="decimal" id="p-dfix" value="2,5"></div>
+        <div class="fld"><span>Luz FIX od konturu</span><input type="text" inputmode="decimal" id="p-luzf" value="4,6"></div>
+        <div class="fld"><span>Łeb śruby <span class="hint">(pomocniczy: na szablonie, bez bryły)</span></span><input type="text" inputmode="decimal" id="p-dleb" value="7"></div>
+        <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+        </details>
+        <details class="osec"><summary>Profil montażowy</summary>
         <div class="fld"><span>Grubość <span class="hint">(0 = bez profilu)</span></span><input type="text" inputmode="decimal" id="p-pg" value="0"></div>
         <div class="fld"><span>Długość <span class="hint">(0 = auto)</span></span><input type="text" inputmode="decimal" id="p-pl" value="0"></div>
         <button type="button" class="btn wide" id="b-pin" title="Włączone: przesuwasz profil — otwory na przewody jadą razem z nim. Wyłączone: zostają na swojej wysokości.">📌 Przypnij do profila</button>
@@ -239,21 +260,7 @@
         <div class="fld"><span>Rowek: szerokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rg" placeholder="auto"></div>
         <div class="fld"><span>Rowek: głębokość <span class="hint">(puste = wg dyszy)</span></span><input type="text" inputmode="decimal" id="b3-rd" placeholder="auto"></div>
         <div class="fld"><span>Rowek: od krawędzi</span><input type="text" inputmode="decimal" id="b3-rm" value="1,2"></div>
-        <h3>Na przewody</h3>
-        <div class="row"><label><input type="checkbox" id="b3-otw" checked> otwory na przewody</label></div>
-        <div class="fld"><span>Średnica</span><input type="text" inputmode="decimal" id="p-dotw" value="4,5"></div>
-        <div class="row"><label><input type="radio" name="gdzie" value="1"> góra</label><label><input type="radio" name="gdzie" value="2" checked> środek</label><label><input type="radio" name="gdzie" value="3"> dół</label><label><input type="radio" name="gdzie" value="0"> bez</label></div>
-        <div class="fld"><span>Przesunięcie <span class="hint">(+ w górę, − w dół)</span></span><input type="text" inputmode="decimal" id="p-prz" value="0"></div>
-        <div class="fld"><span>Odległość otworu</span><input type="text" inputmode="decimal" id="p-luz" value="1"></div>
-        <div class="row"><label><input type="radio" name="odl" value="k" checked> od krawędzi (zewn.)</label><label><input type="radio" name="odl" value="l"> od paska LED (wewn.)</label></div>
-        <div class="hint">Odległość: brzeg otworu od konturu litery (zewn.) albo od brzegu paska LED na osi litery (wewn.). Z profilem wysokość liczy się od jego górnej krawędzi (+ przesunięcie).</div>
-        <h3>Montażowe FIX</h3>
-        <div class="row"><label><input type="checkbox" id="b3-fix" checked> otwory FIX</label></div>
-        <div class="row"><label><input type="checkbox" id="p-fix"> FIX po przekątnej w profilu</label></div>
-        <div class="fld"><span>Średnica FIX</span><input type="text" inputmode="decimal" id="p-dfix" value="2,5"></div>
-        <div class="fld"><span>Luz FIX od konturu</span><input type="text" inputmode="decimal" id="p-luzf" value="4,6"></div>
-        <div class="fld"><span>Łeb śruby <span class="hint">(pomocniczy: na szablonie, bez bryły)</span></span><input type="text" inputmode="decimal" id="p-dleb" value="7"></div>
-        <div class="fld"><span>Liczba na literę <span class="hint">(auto = 2–3)</span></span><select id="p-fixn"><option value="0">auto</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+        </details>
       </section>
       <section class="pan" data-pan="montaz" data-t="Montaż klosza">
         <div class="row"><label><input type="checkbox" id="b3-mon"> mocowanie klosza na magnesy</label></div>
@@ -335,18 +342,17 @@
       </section>
       <section class="pan" data-pan="warstwy" data-t="Warstwy"><div id="lays"></div></section>
       <section class="pan" data-pan="bryla" data-t="Bryła 3D">
-        <button type="button" class="btn wide go" id="b3-open">Pokaż bryły 3D</button>
         <div id="g3-f">
           <h3>Wymiary Frontlit [mm]</h3>
           <img class="sch" src="frontlit_schemat.png" alt="Przekrój litery Frontlit">
           <div class="fld"><span>1. Grubość pleksy</span><input type="text" inputmode="decimal" id="b3-gp" value="3"></div>
-          <div class="fld"><span>2. Wysokość litery (z pleksą)</span><input type="text" inputmode="decimal" id="b3-h" value="40"></div>
+          <div class="fld"><span>2. Wysokość litery (z pleksą)</span><input type="text" inputmode="decimal" id="b3-h" value="30"></div>
           <div class="fld"><span>3. Stopień podstawy</span><input type="text" inputmode="decimal" id="b3-st" value="1,5"></div>
-          <div class="fld"><span>4. Grubość płyty podstawy</span><input type="text" inputmode="decimal" id="b3-pl" value="6"></div>
+          <div class="fld"><span>4. Grubość płyty podstawy</span><input type="text" inputmode="decimal" id="b3-pl" value="5"></div>
           <div class="fld"><span>5. Ścianka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-wk" placeholder="auto"></div>
           <div class="fld"><span>6. Stopka klosza <span class="hint">(puste = auto)</span></span><input type="text" inputmode="decimal" id="b3-ws" placeholder="auto"></div>
           <div class="row"><label><input type="checkbox" id="b3-wgl" checked> 7. wytnij kieszeń LED</label></div>
-          <div class="fld"><span>Głębokość kieszeni</span><input type="text" inputmode="decimal" id="b3-gw" value="6"></div>
+          <div class="fld"><span>Głębokość kieszeni</span><input type="text" inputmode="decimal" id="b3-gw" value="4,5"></div>
         </div>
         <div id="g3-s">
           <h3>Wymiary Sidelit [mm]</h3>
@@ -378,7 +384,7 @@
           <div class="hint">Domyślnie jak Twój profil Bambu H2D 0,6: podstawa 3 ściany, 4 + 4 warstwy, klosz 2 ściany, bez góry, 4 dołu, wypełnienie 15% (grid). PLA ≈ 1,24, PETG ≈ 1,27.</div>
         </details>
         <h3>Cyfry na literach</h3>
-        <div class="fld" title="Cyfrę dodajesz prawym klawiszem na literze. Gdy nie zmieści się w tej wielkości obok paska LED, program ją zmniejszy i pokaże uwagę."><span>Wysokość cyfry [mm]</span><input type="text" inputmode="decimal" id="b3-cyf" value="5"></div>
+        <div class="fld" title="Cyfrę dodajesz prawym klawiszem na literze. Gdy nie zmieści się w tej wielkości obok paska LED, program ją zmniejszy i pokaże uwagę."><span>Wysokość cyfry [mm]</span><input type="text" inputmode="decimal" id="b3-cyf" value="10"></div>
         <h3>Kanty</h3>
         <div class="row"><label><input type="checkbox" id="b3-rnd" checked> zaokrąglaj kanty pasowania</label></div>
         <div class="fld"><span>Promień</span><input type="text" inputmode="decimal" id="b3-r" value="0,1"></div>
@@ -1734,8 +1740,15 @@ function renderSel() {
   const fld = (k, lab, v) => `<div class="fld"><span>${lab}</span><input type="text" inputmode="decimal" data-k="${k}" value="${fmt(v, 2)}"></div>`;
   b.innerHTML = s.t === 'hole' ? `<b>${o.kind === 'fix' ? 'Otwór montażowy (FIX)' : 'Otwór na przewody'}</b>${fld('x', 'X [mm]', o.x)}${fld('y', 'Y [mm]', o.y)}${fld('d', 'Średnica', o.d)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`
     : `<b>Profil</b>${fld('yc', 'Środek Y', o.yc)}${fld('h', 'Grubość', o.h)}${fld('x0', 'Od X', o.x0)}${fld('x1', 'Do X', o.x1)}<div class="hint">${o.manual ? 'ustawiony ręcznie' : 'automatyczny'} · Delete = usuń</div>`;
-  const apply = inp => { pushUndo(); const fol = s.t === 'rail' ? (railHold(o), railFollowers(o)) : [], c0 = o.yc, t0 = o.yc + o.h / 2; o[inp.dataset.k] = num(inp.value); o.manual = true; if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') { shiftFollowers(fol, o.yc - c0, o.yc + o.h / 2 - t0); autoHoles(); } renderSide(); draw(); save(); };
+  const apply = inp => { pushUndo(); const fol = s.t === 'rail' ? (railHold(o), railFollowers(o)) : [], c0 = o.yc, t0 = o.yc + o.h / 2; o[inp.dataset.k] = num(inp.value); o.manual = true; if (s.t === 'hole') { const q = holeKlamra(o, o.x, o.y); if (q) { o.x = Math.round(q[0] * 100) / 100; o.y = Math.round(q[1] * 100) / 100; } } if (inp.dataset.k === 'h') o.manualH = true; if (s.t === 'rail') { shiftFollowers(fol, o.yc - c0, o.yc + o.h / 2 - t0); autoHoles(); } renderSide(); draw(); save(); };
   b.querySelectorAll('[data-k]').forEach(inp => { inp.onchange = () => apply(inp); addSpin(inp, { x: 0.5, y: 0.5, d: 0.5, yc: 0.5, h: 1, x0: 1, x1: 1 }[inp.dataset.k] || 0.5, () => apply(inp)); });
+}
+// otwór w całości w obrębie podstawy (obrys podstawy, czyli wewnątrz stopki klosza — bez kolizji z kloszem), z 0,3 mm zapasu na ściankę; null = w tej literze się nie zmieści
+function holeKlamra(h, x, y) {
+  if (!W.base || !W.m) return [x, y];
+  const r = (h.d || 0) / 2 + 0.3, d0 = W.pr && W.pr.typ === 'P' ? 0 : W.m.p2, key = W.baseId + '|' + d0 + '|' + r;
+  if (!W.holeOk || W.holeOk.key !== key) W.holeOk = { key, polys: offsetPolys(offsetPolys(W.base, d0), -r) };
+  return W.holeOk.polys.length ? magNajblizszy(W.holeOk.polys, x, y, true) : null;
 }
 // ===================== mysz =====================
 let drag = null;
@@ -1799,6 +1812,7 @@ cv.addEventListener('pointermove', e => {
   const sn = v => e.altKey ? v : Math.round(v * 10) / 10;           // co 0,1 mm (Alt = bez przyciągania)
   if (drag.t === 'hole' || drag.t === 'latch') {
     let nx = sn(drag.ox + dx), ny = sn(drag.oy + dy);
+    if (drag.t === 'hole') { const q = holeKlamra(drag.o, nx, ny); if (!q) return; nx = Math.round(q[0] * 10) / 10; ny = Math.round(q[1] * 10) / 10; }   // otwór nie wyjdzie poza podstawę
     if (drag.t === 'latch') { const q = zatPrzyciagnij(nx, ny, drag.o.li, drag.o.ang); if (!q) return; nx = Math.round(q[0] * 10) / 10; ny = Math.round(q[1] * 10) / 10; }   // nie wyjdzie poza klosz
     drag.o.x = nx; drag.o.y = ny; drag.o.manual = true;
   }
@@ -1845,7 +1859,7 @@ function letterAt(x, y) { const pt = { X: Math.round(x * S), Y: Math.round(y * S
 function magDodaj(x, y) {
   W.addMag = false; $('b-mg-add').classList.remove('on');
   const li = letterAt(x, y); if (li < 0) return toast('Kliknij w środku litery');
-  const q = magNaLinii(x, y, li); if (!q) return toast('W tej literze nie ma miejsca na magnes');
+  const q = magNaLinii(x, y, li); if (!q) return toast('W tej literze nie da się postawić magnesu');
   pushUndo(); const m = { id: uid++, li, x: q[0], y: q[1], manual: true }; W.mags.push(m); W.sel = { t: 'mag', id: m.id };
   renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D();
 }
@@ -1899,7 +1913,7 @@ document.addEventListener('keydown', e => {
 });
 // ===================== ustawienia (pamiętane w przeglądarce) =====================
 const KEY = 'OFFSET_WIZARD_V1';
-function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 5 })); } catch (e) { /* bez pamięci */ } }
+function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 6 })); } catch (e) { /* bez pamięci */ } }
 function setParams(pr) {
   const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('odl', pr.odl); setR('wielk', pr.wielk);
@@ -1914,10 +1928,11 @@ function setParams(pr) {
   sv('p-pll', pr.plLP); sv('p-plk', pr.plLK); sv('p-ploff', pr.plOffP); sv('p-plh', pr.plH); sv('p-plgr', pr.plGr); sv('p-plfl', pr.plFloor); sv('p-pkoff', pr.plOffK); sv('p-pkt', pr.plTK); sv('p-pkd', pr.plDownK);
   if (pr.pin != null) { W.pin = !!pr.pin; pinUI(); }
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
+  hlSync();
   if (pr.typ === 'M') { setR('typ', 'F'); $('b3-mon').checked = true; }     // dawny typ Magnet = Frontlit z mocowaniem na magnesy
 }
 function restore() {
-  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; if (!(o.std >= 6) && o.pr.p3) Object.entries({ 'b3-h': 40, 'b3-pl': 6, 'b3-gw': 6, 'b3-cyf': 5 }).forEach(([k, v]) => { if (parseFloat(String(o.pr.p3[k]).replace(',', '.')) === v) delete o.pr.p3[k]; }); delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
 const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-fks': 0.1, 'b3-fkf': 0.1, 'b3-mr': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-mo': 0.25, 'b3-mf': 0.5, 'b3-mz': 0.05, 'b3-mk': 0.25, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
@@ -1939,12 +1954,23 @@ function addSpin(inp, step, after) {
   sb.children[0].onclick = e => bump(1, e.shiftKey); sb.children[1].onclick = e => bump(-1, e.shiftKey);
   inp.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); bump(e.key === 'ArrowUp' ? 1 : -1, e.shiftKey); } });
 }
+// wysokość litery (Frontlit) / grubość litery (Sidelit): kopia pola z zakładki Bryła 3D w zakładce Litery, oba pola zawsze równe
+const hlId = () => ((document.querySelector('input[name=typ]:checked') || {}).value === 'S' ? 'b3-sh' : 'b3-h');
+function hlSync() {
+  const s = (document.querySelector('input[name=typ]:checked') || {}).value === 'S';
+  if ($('p-hl')) { $('p-hl').value = $(hlId()).value; $('p-hl-l').textContent = s ? 'Grubość litery [mm]' : 'Wysokość litery (z pleksą) [mm]'; }
+}
+function hlPush() { const t = $(hlId()); t.value = $('p-hl').value; t.dispatchEvent(new Event('input', { bubbles: true })); }
 // ===================== start =====================
-restore();
-Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id.startsWith('b3-')) b3Change(id); else if (!id.startsWith('tx-')) recompute(); }));
+restore(); hlSync();
+STEPS['p-hl'] = 1;
+Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id === 'p-hl') hlPush(); else if (id.startsWith('b3-')) { b3Change(id); if (id === 'b3-h' || id === 'b3-sh') hlSync(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
   if (i.id.startsWith('tx-') || i.id.startsWith('pl-') || i.type === 'file' || i.type === 'range') return;
   if (i.id === 'p-name') return save();
+  if (i.id === 'p-hl') return hlPush();
+  if (i.id === 'b3-h' || i.id === 'b3-sh') hlSync();
+  if (i.name === 'typ') hlSync();
   if (i.id === 'b3-wgl') { W.plReg = null; refreshPlates(); draw(); }
   if (i.id === 'b3-cyf') draw();
   if (i.id.startsWith('b3-')) return b3Change(i.id);
