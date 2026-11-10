@@ -511,6 +511,7 @@ const num = s => { const v = parseFloat(String(s).replace(',', '.')); return Num
 const toast = (t, ms = 3500) => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), ms); };
 // --- stałe modelu jak w makrze Corela (Offsety_dla_Fusion.bas) ---
 const DYSZA = { 4: { out: 0.8, in: 1.2, kie: 2.0 }, 6: { out: 1.2, in: 1.2, kie: 2.4 } };
+const KIE_MONTAZ = 1.2;                               // rant wybrania przy montażu na magnesy / śruby
 const PROFIL_ZAPAS = 10;
 const FIX_OD_KRAW = 5, FIX_SZER_3 = 40;               // FIX: rzędy 5 mm od góry / dołu profilu; litera szersza niż 40 mm — 3 otwory
 const LED_W = 6;                                      // pasek LED 6 mm na środku kanału (kieszeni)
@@ -579,7 +580,8 @@ function params() {
 }
 const pbOn = pr => pr.typ === 'P' && !!pr.p3 && pr.p3['b3-fpod'] !== false;     // litera pełna z podstawą i świecącym kloszem
 function model(pr) {
-  const d = DYSZA[pr.dysza] || DYSZA[6];
+  const d = { ...(DYSZA[pr.dysza] || DYSZA[6]) };
+  if (pr.p3 && pr.p3['b3-mon']) d.kie = KIE_MONTAZ;     // montaż na magnesy lub śruby: rant wybrania (od krawędzi podstawy do kieszeni) 1,2 mm zamiast 2 / 2,4 mm
   if (pbOn(pr)) {   // pełna z podstawą: klosz na zewnątrz równo z konturem litery, podstawa w nim jak we Frontlit
     const ks = Math.max(0.4, num((pr.p3 || {})['b3-fks'] || '1,2')), k3 = -ks, p2 = k3 - pr.B, kie = p2 - d.kie;
     return { k1: 0, k2: 0, k3, p1: 0, p2, kie, spec: [['Klosz', [0, k3]], ['Podstawa', [0, p2]], ...(pr.wielk === 2 ? [['Kieszen', [kie]]] : [])], scianka: ks };
