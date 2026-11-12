@@ -439,7 +439,7 @@ function autoMagnets() {
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
   const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
-  const g = magWym(), top0 = o.top, top = top0 + (g.screw ? 0 : g.u || 0), zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
+  const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   // faza wylotu gniazda (k mm pod kątem 45°): stożki odejmowane od gotowych brył w build3D, więc ściana fazy jest gładka
   const fz = Math.min(g.k, g.h / 2), stozek = (m, zGora) => ({ x: m.x, y: m.y, z0: zGora - fz, h: fz + 0.02, r0: g.rp, r1: g.rp + fz + 0.02 });
   if (g.screw && W.pr.typ !== 'F') { out.uw.push('mocowanie na śruby od spodu działa we Frontlit — w tym rodzaju litery pominięte (użyj magnesów)'); return out; }
@@ -447,7 +447,7 @@ function magReg(p, Rbaza, Rkl, o) {
   if (p.stMag === 'rant') out.uw.push('rant (stopień) podstawy przy magnesach ograniczony do 2 mm');
   if (!g.screw && zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
   const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
-  if (!g.screw && o.lim != null && top + g.lz + g.h > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.lz + g.h, 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
+  if (!g.screw && o.lim != null && top + g.lz + g.h + (g.u || 0) > o.lim) out.uw.push(`uszko klosza z magnesem sięga ${fmt(top + g.lz + g.h + (g.u || 0), 1)} mm, a frontu od ${fmt(o.lim, 1)} mm — za płaska litera albo za gruby magnes`);
   W.mags.forEach(m => {
     const pk = [circlePoly(m.x, m.y, 2 * g.rp)], obr = [circlePoly(m.x, m.y, 2 * (g.rp + g.s))], usz = [circlePoly(m.x, m.y, 2 * Ru)];
     if (!g.screw) {
@@ -476,7 +476,7 @@ function magReg(p, Rbaza, Rkl, o) {
       if (b1 > top + 5 && o.lim == null) out.uw.push(`uszko ${fmt(g.h, 1)} mm sięga ${fmt(b1, 1)} mm, wysoko nad kołnierzem ${fmt(top, 1)} mm — sprawdź wysokość klosza`);
       return;
     }
-    const a0 = top + g.lz, a1 = a0 + g.h;     // lz: luz pionowy uszka nad kołnierzem podstawy
+    const a0 = top + g.lz, a1 = a0 + g.h + (g.u || 0);     // lz: luz pionowy uszka nad kołnierzem podstawy; u: uszko wyższe od magnesu (więcej materiału przy ściankach, gniazdo dalej na wylot)
     out.kl.push({ z0: a0, z1: a1, reg: diff(clip('ctUnion', uszko), pk) });
     if (fz > 0 && o.lim == null) out.stozki.kl.push(stozek(m, a1));     // w Sidelit górę uszka przykrywa front
   });
