@@ -354,7 +354,7 @@ function magWym() {
     return { screw: true, d: dh, h: Math.max(2, v('b3-msh') || 5), rp: dh / 2 + 0.1, s: Math.max(0.8, v('b3-msw') || 3), o: Math.max(0, v('b3-mso')), f: Math.max(0, v('b3-msr')), k: Math.max(0, $('b3-msf') ? v('b3-msf') : 2), lz: Math.max(0, v('b3-msz')), n: Number($('b3-msn').value) || 4, dp: Math.max(0.8, v('b3-msp') || dh), fu: Math.max(0, $('b3-msu') ? v('b3-msu') : 1) };
   }
   const d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
-  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-mk') ? v('b3-mk') : 1), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), n: Number($('b3-mn').value) || 2 };
+  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-mk') ? v('b3-mk') : 1), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), u: Math.max(0, $('b3-mu') ? v('b3-mu') : 0), n: Number($('b3-mn').value) || 2 };
 }
 function magLinia() {
   const g = magWym(), b = magBrzeg(), key = W.baseId + '|' + b + '|' + g.rp + '|' + g.o; if (W.magL && W.magL.key === key) return W.magL.polys;
@@ -439,7 +439,7 @@ function autoMagnets() {
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
   const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
-  const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
+  const g = magWym(), top0 = o.top, top = top0 + (g.screw ? 0 : g.u || 0), zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   // faza wylotu gniazda (k mm pod kątem 45°): stożki odejmowane od gotowych brył w build3D, więc ściana fazy jest gładka
   const fz = Math.min(g.k, g.h / 2), stozek = (m, zGora) => ({ x: m.x, y: m.y, z0: zGora - fz, h: fz + 0.02, r0: g.rp, r1: g.rp + fz + 0.02 });
   if (g.screw && W.pr.typ !== 'F') { out.uw.push('mocowanie na śruby od spodu działa we Frontlit — w tym rodzaju litery pominięte (użyj magnesów)'); return out; }
@@ -453,6 +453,7 @@ function magReg(p, Rbaza, Rkl, o) {
     if (!g.screw) {
       out.pocket.push(...pk);
       out.pod.push({ z0: o.z0, z1: top, reg: diff(inter(obr, Rbaza), pk) });
+      if (zD - o.z0 > 0.05) out.pod.push({ z0: o.z0, z1: zD, reg: inter(pk, Rbaza) });     // dno gniazda: pod magnesem pełny materiał (też wewnątrz kieszeni LED)
       if (fz > 0) out.stozki.pod.push(stozek(m, top));
     }
     // najbliższy róg wnętrza klosza (wypukły narożnik pustki) w zasięgu 2,5 promienia uszka: klin od rogu do uszka
