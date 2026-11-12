@@ -75,11 +75,11 @@ function params3D() {
     otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 10), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   const magOn = $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.typ === 'S' || (W.pr.typ === 'P' && $('b3-fpod').checked));
   if (magOn && W.pr.typ !== 'S' && !magScr()) {     // magnesy: niski kołnierz zamiast płyty; śruby: grubość płyty, kieszeń i stopień z panelu Bryła 3D
-    p.pl = Math.max(0.6, n('b3-mr') || 2); p.gw = p.pl;
+    const dn = Math.max(0.3, $('b3-mdn') ? n('b3-mdn') : 1), mh = Math.max(0.5, n('b3-mh') || 2);     // dno gniazda od spodu litery + grubość magnesu = wierzch kołnierza (magnes równo z wierzchem)
     // rant (stopień) podstawy przy magnesach najwyżej 2 mm; gdy magnes się nie mieści (zostaje mniej niż 1 mm pod nim), rośnie kołnierz,
     // a wybranie pogłębia się o tyle samo (dno kieszeni i LED zostają na miejscu)
     if (p.st > 2) { p.st = 2; p.stMag = 'rant'; }
-    const mh = Math.max(0.5, n('b3-mh') || 2); if (p.st + p.pl < mh + 1) { const d = mh + 1 - p.pl - p.st; p.pl += d; p.gw += d; p.kolMag = true; }
+    p.pl = Math.max(0.6, dn + mh - p.st); p.gw = p.pl; p.dn = dn; p.mh = mh;
   }     // magnesy: niski kołnierz zamiast płyty; duże litery: LED na dnie kieszeni, małe: pełna płyta
   if (W.pr.typ === 'P' && $('b3-fpod').checked) { p.ks = Math.max(0.4, n('b3-fks') || 1.2); p.kf = Math.max(0.4, n('b3-fkf') || 1.5); }
   p.wk = au('b3-wk', p.h - p.st); p.ws = au('b3-ws', p.wk - p.gp);
@@ -438,12 +438,12 @@ function autoMagnets() {
 // Uszko wypełnia klin między sobą a najbliższym rogiem wnętrza klosza (styczne od rogu do uszka), a jego styki ze ścianką są zaokrąglone promieniem z pola (domyślnie 2 mm).
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
-  const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
+  const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], sWrap: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   // faza wylotu gniazda (k mm pod kątem 45°): stożki odejmowane od gotowych brył w build3D, więc ściana fazy jest gładka
   const fz = Math.min(g.k, g.h / 2), stozek = (m, zGora) => ({ x: m.x, y: m.y, z0: zGora - fz, h: fz + 0.02, r0: g.rp, r1: g.rp + fz + 0.02 });
   if (g.screw && W.pr.typ !== 'F') { out.uw.push('mocowanie na śruby od spodu działa we Frontlit — w tym rodzaju litery pominięte (użyj magnesów)'); return out; }
-  if (p.kolMag) out.uw.push(`kołnierz podstawy podniesiony do ${fmt(p.pl, 1)} mm, żeby pod magnesem został 1 mm; rant (stopień) ${fmt(p.st, 1)} mm, wybranie pogłębione do ${fmt(p.gw, 1)} mm (dno kieszeni bez zmian, wysokość litery bez zmian)`);
+  if (p.dn != null && p.st + p.pl - p.mh > p.dn + 0.05) out.uw.push(`dno gniazda magnesu jest ${fmt(p.st + p.pl - p.mh, 1)} mm od spodu zamiast ${fmt(p.dn, 1)} mm: stopień podstawy (${fmt(p.st, 1)} mm) jest za wysoki na tak cienki magnes`);
   if (p.stMag === 'rant') out.uw.push('rant (stopień) podstawy przy magnesach ograniczony do 2 mm');
   if (!g.screw && zD < 0.6) out.uw.push(`gniazdo magnesu (${fmt(g.h, 1)} mm) za głębokie: pod magnesem zostaje ${fmt(Math.max(0, zD), 1)} mm, a powinno co najmniej 0,6 mm — podnieś kołnierz albo stopień`);
   const kaw = offsetPolys(W.base, o.sc);     // wnętrze klosza przy kołnierzu
@@ -480,13 +480,15 @@ function magReg(p, Rbaza, Rkl, o) {
     out.kl.push({ z0: a0, z1: a1, reg: diff(clip('ctUnion', uszko), pk) });
     if (fz > 0 && o.lim == null) out.stozki.kl.push(stozek(m, a1));     // w Sidelit górę uszka przykrywa front
   });
+  // rant (ścianka wybrania) nie urywa się przy uszku: obiega wycięcie po jego zaokrągleniu (grubość jak rant) i łączy się z paskiem po obu stronach
+  if (g.screw && o.rw > 0 && out.sCut.length) { const cu = clip('ctUnion', out.sCut); out.sWrap = inter(diff(offRound(cu, o.rw), cu), Rbaza); }
   return out;
 }
 // każda część: lista warstw {z0, z1, reg}
 function warstwyFrontlit(p, m) {
   const R = d => offsetPolys(W.base, d), Rk2 = R(m.k2), Rk1 = R(m.k1), void3 = closeR(R(m.k3), p.r), Rp1 = R(m.p1), Rp2 = openR(R(m.p2), p.r), holes = otworyReg(p), top = p.st + p.pl;
   if (!(p.wk > 0) || !(p.ws > 0) || p.ws > p.wk) throw new Error('sprawdź wysokości klosza: ścianka i stopka muszą być dodatnie');
-  const mag = magReg(p, Rp2, Rk2, { top: p.st + p.pl, z0: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : p.st, sc: m.k3, st: p.st }), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl, mag.kl);
+  const mag = magReg(p, Rp2, Rk2, { top: p.st + p.pl, z0: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : p.st, sc: m.k3, st: p.st, rw: p.wgl && p.gw > 0 ? Math.abs(m.p2 - m.kie) : 0 }), zat = zatReg(p), gz = zat.gap, klosz = [{ z0: p.st + gz, z1: p.st + gz + p.ws, reg: diff(Rk2, void3) }, { z0: p.st + gz + p.ws, z1: p.st + gz + p.wk, reg: diff(Rk2, Rk1) }].filter(l => l.z1 - l.z0 > 1e-6).concat(zat.kl, mag.kl);
   const kiesz = p.wgl && p.gw > 0 ? kieszenFaza(m.kie, p.f) : [], rowki = rowkiReg(p, Rp1, holes), zKiesz = kiesz.length ? Math.max(0.2, top - p.gw) : Infinity, cyf = cyfryReg(p, Math.min(zKiesz, top));
   const zs = [...new Set([0, p.st, top, ...(rowki.length ? [p.rd] : []), ...(cyf.gl ? [cyf.gl] : []), ...(zKiesz < top ? [zKiesz] : []), ...(mag.zDno > 0 ? [mag.zDno] : [])].filter(z => z >= 0 && z <= top))].sort((a, b) => a - b), podstawa = [];
   for (let i = 0; i + 1 < zs.length; i++) {
@@ -497,6 +499,7 @@ function warstwyFrontlit(p, m) {
     if (zat.screw.length && mid < zat.zF) reg = diff(reg, zat.screw);
     if (mag.pocket.length && mid > mag.zDno) reg = diff(reg, mag.pocket);
     if (mag.sCut.length && mid > p.st) reg = diff(reg, mag.sCut);       // kołnierz wycięty pod uszka klosza (śruby od spodu)
+    if (mag.sWrap.length && mid > p.st) reg = clip('ctUnion', reg.concat(mag.sWrap));     // rant obiega wycięcie
     if (mag.sHoles.length && mid < p.st) reg = diff(reg, mag.sHoles);   // otwory na śruby w stopniu podstawy
     podstawa.push({ z0, z1, reg: diff(reg, holes) });
   }
