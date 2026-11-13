@@ -510,6 +510,27 @@ function puzzleObszar(c, luz, kind) {
   const A = clip('ctUnion', parts);
   return { A, G: luz > 0 ? offRound(A, luz) : A, n: ile };
 }
+// klosz: ścianki przecinane pod skosem (patrząc od góry). Linia cięcia zostaje prosta, ale w otoczeniu każdego przecięcia ze ścianką (promień 3,5 mm)
+// granica obszaru A jest obrócona tak, że płaszczyzna cięcia tworzy z normalną do ścianki kąt skos; światło nie ucieka prosto przez szczelinę.
+function kloszObszar(c, skos) {
+  const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), O = [c.c.x, c.c.y], BIG = 3000, R = 3.5, sg = skos * Math.PI / 180;
+  const frame = (px, py, an) => (u, v) => ({ X: Math.round((px + Math.cos(an) * u - Math.sin(an) * v) * S), Y: Math.round((py + Math.sin(an) * u + Math.cos(an) * v) * S) });
+  const F0 = frame(O[0], O[1], a), A0 = [[F0(-BIG, 0), F0(BIG, 0), F0(BIG, BIG), F0(-BIG, BIG)]];
+  const wall = offsetPolys(W.base, (W.m.k1 + W.m.k2) / 2), cross = (ax, ay, bx, by) => ax * by - ay * bx, pts = [];
+  wall.forEach(ring => { for (let i = 0; i < ring.length; i++) {
+    const p = ring[i], q = ring[(i + 1) % ring.length], px = p.X / S, py = p.Y / S, ex = q.X / S - px, ey = q.Y / S - py, den = cross(ex, ey, dx, dy); if (Math.abs(den) < 1e-9) continue;
+    const s = cross(O[0] - px, O[1] - py, dx, dy) / den; if (s < 0 || s >= 1) continue;
+    const X = px + s * ex, Y = py + s * ey; if (pts.some(t => Math.hypot(t.x - X, t.y - Y) < 0.4)) continue;
+    const l = Math.hypot(ex, ey); let nx = -ey / l, ny = ex / l; if (nx * dx + ny * dy < 0) { nx = -nx; ny = -ny; }
+    const th = Math.atan2(cross(nx, ny, dx, dy), nx * dx + ny * dy); if (Math.abs(th) >= sg - 0.035) continue;      // już dość skośnie
+    const t2 = (th >= 0 ? 1 : -1) * sg, d2 = [Math.cos(t2) * nx - Math.sin(t2) * ny, Math.sin(t2) * nx + Math.cos(t2) * ny];
+    pts.push({ x: X, y: Y, an: Math.atan2(d2[1], d2[0]) });
+  } });
+  if (!pts.length) return { A: A0, G: A0, n: 0 };
+  const circ = pts.map(t => circlePoly(t.x, t.y, 2 * R)), wedges = pts.map((t, i) => { const F = frame(t.x, t.y, t.an); return inter([[F(-BIG, 0), F(BIG, 0), F(BIG, BIG), F(-BIG, BIG)]], [circ[i]]); }).flat();
+  const A = clip('ctUnion', diff(A0, clip('ctUnion', circ)).concat(wedges));
+  return { A, G: A, n: pts.length };
+}
 // każda część: lista warstw {z0, z1, reg}
 function warstwyFrontlit(p, m) {
   const R = d => offsetPolys(W.base, d), Rk2 = R(m.k2), Rk1 = R(m.k1), void3 = closeR(R(m.k3), p.r), Rp1 = R(m.p1), Rp2 = openR(R(m.p2), p.r), holes = otworyReg(p), top = p.st + p.pl;
@@ -679,7 +700,7 @@ async function build3D() {
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
       if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
         const L = ls[c.li]; if (!L) return;
-        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c, p.puzl, p.puzk) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
+        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c, p.puzl, p.puzk) : k === 'klosz' && kSkos() > 0 ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
         list.forEach(b => {
