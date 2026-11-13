@@ -115,6 +115,16 @@
   aside details { margin: 6px 0; }
   aside summary { cursor: pointer; color: var(--gray); font-size: .78rem; }
   .sch { display: block; width: 100%; height: auto; margin-bottom: 6px; border: 1px solid var(--line); }
+  .sch-v { position: relative; background: #fff; }
+  .sch-v svg { display: block; width: 100%; height: auto; }
+  .sch-v .bd { cursor: pointer; }
+  .sch-v .bd circle { fill: #2f9e44; stroke: #fff; stroke-width: 1.4; }
+  .sch-v .bd:hover circle { fill: #1e7a30; }
+  .sch-v .bd text { fill: #fff; font: 700 9px sans-serif; text-anchor: middle; pointer-events: none; }
+  .sch-v .vl { fill: #1a202c; font: 700 10.5px sans-serif; text-anchor: middle; pointer-events: none; }
+  .sch-v .vl.au { fill: #718096; font-style: italic; }
+  .sch-v .ed { position: absolute; width: 46px; padding: 1px 3px; font-size: 12px; text-align: center; border: 2px solid #2f9e44; border-radius: 4px; transform: translate(-50%, -50%); z-index: 3; }
+  body.t-PB .sch-v { display: none; }
   #rail-warn { position: relative; }
   #warn-n { position: absolute; top: 3px; right: 10px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e53e3e; color: #fff; font: 700 .66rem/17px Arial, sans-serif; text-align: center; }
   #warn-list div { color: #c05621; padding: 7px 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
@@ -373,7 +383,7 @@
       <section class="pan" data-pan="bryla" data-t="Bryła 3D">
         <div id="g3-f">
           <h3>Wymiary Frontlit [mm]</h3>
-          <img class="sch" src="frontlit_schemat.png" alt="Przekrój litery Frontlit">
+          <div class="sch sch-v" id="sch-f" title="Kliknij numer, żeby zmienić wymiar"></div>
           <div class="fld"><span>1. Grubość pleksy</span><input type="text" inputmode="decimal" id="b3-gp" value="3"></div>
           <div class="fld"><span>2. Wysokość litery (z pleksą)</span><input type="text" inputmode="decimal" id="b3-h" value="30"></div>
           <div class="fld"><span>3. Stopień podstawy</span><input type="text" inputmode="decimal" id="b3-st" value="1,5"></div>
@@ -1972,8 +1982,60 @@ function restore() {
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
 const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-fks': 0.1, 'b3-fkf': 0.1, 'b3-mr': 0.5, 'b3-mdn': 0.5, 'b3-mu': 0.5, 'b3-mrz': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-mo': 0.25, 'b3-mf': 0.5, 'b3-mz': 0.05, 'b3-mk': 0.25, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
+
+// ===================== schemat Frontlit (wektorowy): numery = pola panelu, pod numerem aktualny wymiar, klik w numer = edycja =====================
+const SCH_F = [   // n: numer, id: pole panelu, bx/by: środek znacznika, br: linia pomiarowa [x0,y0,x1,y1], ld: kreska od znacznika do miejsca, auto: puste pole = liczy się samo
+  { n: 1, id: 'b3-gp', bx: 112, by: 31 },
+  { n: 2, id: 'b3-h', bx: 40, by: 72, br: [40, 24, 40, 124] },
+  { n: 3, id: 'b3-st', bx: 266, by: 138, br: [252, 118, 252, 124], ld: [252, 121] },
+  { n: 4, id: 'b3-pl', bx: 266, by: 98, br: [252, 104, 252, 118], ld: [252, 111] },
+  { n: 5, id: 'b3-wk', bx: 234, by: 68, br: [234, 24, 234, 118], auto: true },
+  { n: 6, id: 'b3-ws', bx: 106, by: 84, br: [106, 76, 106, 104], auto: true },
+  { n: 7, id: 'b3-gw', bx: 152, by: 82, ld: [152, 106] }
+];
+function schemat3D() {
+  const box = document.getElementById('sch-f'); if (!box) return;
+  const v = id => num($(id).value), au = (id, d) => { const t = $(id).value.trim(); return t ? num(t) : d; };
+  const h = v('b3-h'), st = v('b3-st'), gp = v('b3-gp'), wk = au('b3-wk', h - st), ws = au('b3-ws', wk - gp);
+  const val = { 'b3-gp': gp, 'b3-h': h, 'b3-st': st, 'b3-pl': v('b3-pl'), 'b3-wk': wk, 'b3-ws': ws, 'b3-gw': v('b3-gw') };
+  let g = '<rect width="280" height="158" fill="#fff"/><text x="4" y="12" font-family="sans-serif" font-size="9.5" fill="#1a202c">FRONTLIT — przekrój litery</text>';
+  g += '<rect x="64" y="24" width="16" height="94" fill="#f1e3a6" stroke="#b49b4a"/><rect x="200" y="24" width="16" height="94" fill="#f1e3a6" stroke="#b49b4a"/>';      // ścianki klosza
+  g += '<rect x="80" y="24" width="120" height="14" fill="#8fb0ee" stroke="#4a6fb5"/><text x="150" y="34" font-family="sans-serif" font-size="9" font-weight="700" fill="#1a365d">pleksa</text>';
+  g += '<rect x="80" y="76" width="12" height="28" fill="#8a8f98" stroke="#555"/><rect x="188" y="76" width="12" height="28" fill="#8a8f98" stroke="#555"/>';        // stopki klosza
+  g += '<rect x="60" y="104" width="160" height="20" fill="#a9afb8" stroke="#555"/><rect x="98" y="104" width="84" height="8" fill="#e6e9ee" stroke="#555"/>';      // podstawa: stopień + płyta, kieszeń
+  g += '<text x="140" y="120" font-family="sans-serif" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">kieszeń LED</text>';
+  const tick = (x0, y0, x1, y1) => `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="#2d3748" stroke-width="1"/><line x1="${x0 - 4}" y1="${y0}" x2="${x0 + 4}" y2="${y0}" stroke="#2d3748"/><line x1="${x1 - 4}" y1="${y1}" x2="${x1 + 4}" y2="${y1}" stroke="#2d3748"/>`;
+  SCH_F.forEach(o => {
+    if (o.br) g += tick(...o.br);
+    if (o.ld) g += `<line x1="${o.bx}" y1="${o.by}" x2="${o.ld[0]}" y2="${o.ld[1]}" stroke="#2d3748" stroke-width="1" stroke-dasharray="2 2"/>`;
+  });
+  SCH_F.forEach(o => {
+    const empty = o.auto && !$(o.id).value.trim();
+    g += `<g class="bd" data-id="${o.id}" data-x="${o.bx}" data-y="${o.by}"><circle cx="${o.bx}" cy="${o.by}" r="7.5"/><text x="${o.bx}" y="${o.by + 3.2}">${o.n}</text></g>`
+      + `<text class="vl${empty ? ' au' : ''}" x="${o.bx}" y="${o.by + 18}">${fmt(val[o.id], 2)}</text>`;
+  });
+  box.querySelectorAll('.ed').forEach(e => e.remove());
+  box.innerHTML = `<svg viewBox="0 0 280 158" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+  box.querySelectorAll('.bd').forEach(b => b.addEventListener('click', () => schEdit(box, b)));
+}
+function schEdit(box, b) {
+  box.querySelectorAll('.ed').forEach(e => e.remove());
+  const f = $(b.dataset.id), r = box.getBoundingClientRect(), k = r.width / 280, inp = document.createElement('input');
+  inp.className = 'ed'; inp.type = 'text'; inp.inputMode = 'decimal'; inp.value = f.value.trim() || b.nextSibling.textContent;
+  inp.style.left = (b.dataset.x * k) + 'px'; inp.style.top = (b.dataset.y * k) + 'px';
+  const auto = f.placeholder === 'auto'; let done = false;
+  const end = ok => {
+    if (done) return; done = true;
+    const t = inp.value.trim(); inp.remove();
+    if (ok && (t || auto) && t !== f.value.trim()) { f.value = t; f.dispatchEvent(new Event('input', { bubbles: true })); }
+    schemat3D();
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') end(true); else if (e.key === 'Escape') end(false); e.stopPropagation(); });
+  inp.addEventListener('blur', () => end(true));
+  box.appendChild(inp); inp.focus(); inp.select();
+}
 function b3Change(id) {
-  save();
+  save(); if (window.schemat3D) schemat3D();
   if (id === 'b3-mon' || id === 'b3-mrodz') return recompute();     // kołnierz, miejsca magnesów, warstwy
   if (id === 'b3-fpod' || id === 'b3-fks') return recompute();     // zmienia kontury klosza i podstawy (otwory, plasterki)
   if (id.startsWith('b3-m')) { if (window.autoMagnets) autoMagnets(); renderSide(); draw(); }
@@ -2037,7 +2099,7 @@ function setMontaz(v) {
   if (v === 's' && mtMode() !== 's' && num($('b3-pl').value) === 5 && num($('b3-gw').value) === 4.5) { $('b3-pl').value = '3'; $('b3-gw').value = '3'; }   // standard kołnierza dla śrub 3 mm (potem do zmiany w Bryła 3D)
   $('b3-mon').checked = v === 'm' || v === 's'; if (v === 'm' || v === 's') $('b3-mrodz').value = v; $('p-zt-on').checked = v === 'c'; mtSync(); recompute(); }
 // ===================== start =====================
-restore(); hlSync(); mtSync(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
+restore(); hlSync(); mtSync(); schemat3D(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
 STEPS['p-hl'] = 1;
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id === 'p-hl') hlPush(); else if (id.startsWith('b3-')) { b3Change(id); if (id === 'b3-h' || id === 'b3-sh') hlSync(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
@@ -2061,7 +2123,7 @@ function showPanel(name, force) {
   document.querySelectorAll('.pan').forEach(p => p.classList.toggle('hidden', p.dataset.pan !== W.panel));
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.pan === W.panel));
   const p = document.querySelector(`.pan[data-pan="${W.panel}"]`); $('panel-title').textContent = p ? p.dataset.t : '';
-  $('panel').scrollTop = 0;
+  $('panel').scrollTop = 0; if (name === 'bryla' && window.schemat3D) schemat3D();
 }
 document.querySelectorAll('#rail button').forEach(b => { b.onclick = () => showPanel(b.dataset.pan); });
 $('panel-x').onclick = () => showPanel(W.panel);
