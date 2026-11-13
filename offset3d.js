@@ -354,7 +354,7 @@ function magWym() {
     return { screw: true, d: dh, h: Math.max(2, v('b3-msh') || 5), rp: dh / 2 + 0.1, s: Math.max(0.8, v('b3-msw') || 3), o: Math.max(0, v('b3-mso')), f: Math.max(0, v('b3-msr')), k: Math.max(0, $('b3-msf') ? v('b3-msf') : 2), lz: Math.max(0, v('b3-msz')), n: Number($('b3-msn').value) || 4, dp: Math.max(0.8, v('b3-msp') || dh), fu: Math.max(0, $('b3-msu') ? v('b3-msu') : 1) };
   }
   const d = Math.max(1, v('b3-md') || 6), l = Math.max(0, v('b3-ml'));
-  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-mk') ? v('b3-mk') : 1), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), u: Math.max(0, $('b3-mu') ? v('b3-mu') : 0), n: Number($('b3-mn').value) || 2 };
+  return { d, h: Math.max(0.5, v('b3-mh') || 2), rp: d / 2 + l / 2, s: Math.max(0.4, v('b3-ms') || 0.8), o: Math.max(0, v('b3-mo')), f: Math.max(0, $('b3-mf') ? v('b3-mf') : 2), k: Math.max(0, $('b3-mk') ? v('b3-mk') : 1), lz: Math.max(0, $('b3-mz') ? v('b3-mz') : 0.1), u: Math.max(0, $('b3-mu') ? v('b3-mu') : 0), rz: Math.max(0, $('b3-mrz') ? v('b3-mrz') : 0), n: Number($('b3-mn').value) || 2 };
 }
 function magLinia() {
   const g = magWym(), b = magBrzeg(), key = W.baseId + '|' + b + '|' + g.rp + '|' + g.o; if (W.magL && W.magL.key === key) return W.magL.polys;
@@ -438,7 +438,7 @@ function autoMagnets() {
 // Uszko wypełnia klin między sobą a najbliższym rogiem wnętrza klosza (styczne od rogu do uszka), a jego styki ze ścianką są zaokrąglone promieniem z pola (domyślnie 2 mm).
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
 function magReg(p, Rbaza, Rkl, o) {
-  const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], sWrap: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
+  const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], sWrap: [], lugZ: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
   // faza wylotu gniazda (k mm pod kątem 45°): stożki odejmowane od gotowych brył w build3D, więc ściana fazy jest gładka
   const fz = Math.min(g.k, g.h / 2), stozek = (m, zGora) => ({ x: m.x, y: m.y, z0: zGora - fz, h: fz + 0.02, r0: g.rp, r1: g.rp + fz + 0.02 });
@@ -476,6 +476,7 @@ function magReg(p, Rbaza, Rkl, o) {
       if (b1 > top + 5 && o.lim == null) out.uw.push(`uszko ${fmt(g.h, 1)} mm sięga ${fmt(b1, 1)} mm, wysoko nad kołnierzem ${fmt(top, 1)} mm — sprawdź wysokość klosza`);
       return;
     }
+    out.lugZ.push(...offsetPolys(clip('ctUnion', uszko), 0.3));     // obrys uszka klosza (+0,3 mm): tu podwyższony rant podstawy się kończy
     const a0 = top + g.lz, a1 = a0 + g.h + (g.u || 0);     // lz: luz pionowy uszka nad kołnierzem podstawy; u: uszko wyższe od magnesu (więcej materiału przy ściankach, gniazdo dalej na wylot)
     out.kl.push({ z0: a0, z1: a1, reg: diff(clip('ctUnion', uszko), pk) });
     if (fz > 0 && o.lim == null) out.stozki.kl.push(stozek(m, a1));     // w Sidelit górę uszka przykrywa front
@@ -505,6 +506,13 @@ function warstwyFrontlit(p, m) {
   }
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   podstawa.push(...zat.pod, ...mag.pod); W.zatUw = zat.uw; W.magUw = mag.uw;
+  // podwyższony rant podstawy (magnesy, Frontlit): pasek ranta wyżej o rz, ale nie tam, gdzie siedzi uszko klosza z magnesem
+  const gm = magWl() && W.mags.length ? magWym() : null;
+  if (gm && !gm.screw && gm.rz > 0 && mag.lugZ.length) {
+    const zMax = p.st + gz + p.wk - p.gp - 0.5, rz = Math.min(gm.rz, zMax - top);     // pod pleksą zostaje 0,5 mm
+    if (rz > 0.05) { const rim = kiesz.length ? diff(Rp2, kiesz) : diff(Rp2, offsetPolys(W.base, m.p2 - 1.2)); podstawa.push({ z0: top, z1: top + rz, reg: diff(diff(rim, holes), mag.lugZ) }); }
+    if (rz < gm.rz - 0.05) mag.uw.push(`podwyższenie ranta ograniczone do ${fmt(Math.max(0, rz), 1)} mm (pod pleksą musi zostać 0,5 mm)`);
+  }
   return { magKl: mag.kl, stozki: mag.stozki, lugi: mag.lugi, klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
 }
 function warstwySidelit(p) {
