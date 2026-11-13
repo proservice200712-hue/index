@@ -53,6 +53,8 @@
   aside { scrollbar-width: thin; scrollbar-gutter: stable; }
   aside.closed { width: 0; border-right: none; }
   #panel-in { width: 283px; padding: 0 10px 30px 12px; }
+  body.pan-bryla aside:not(.closed) { width: 392px; }
+  body.pan-bryla #panel-in { width: 375px; }
   .pan-h { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 10px 0 8px; border-bottom: 1px solid var(--line); font-size: .95rem; }
   .pan-h button { background: none; border: none; font-size: 1rem; color: var(--gray); cursor: pointer; }
   .pan-h button:hover { color: var(--dark); }
@@ -120,8 +122,8 @@
   .sch-v .bd { cursor: pointer; }
   .sch-v .bd circle { fill: #2f9e44; stroke: #fff; stroke-width: 1.4; }
   .sch-v .bd:hover circle { fill: #1e7a30; }
-  .sch-v .bd text { fill: #fff; font: 700 9px sans-serif; text-anchor: middle; pointer-events: none; }
-  .sch-v .vl { fill: #1a202c; font: 700 10.5px sans-serif; text-anchor: middle; pointer-events: none; }
+  .sch-v .bd text { fill: #fff; font: 700 11px sans-serif; text-anchor: middle; pointer-events: none; }
+  .sch-v .vl { fill: #1a202c; font: 700 12.5px sans-serif; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
   .sch-v .vl.au { fill: #718096; font-style: italic; }
   .sch-v .ed { position: absolute; width: 46px; padding: 1px 3px; font-size: 12px; text-align: center; border: 2px solid #2f9e44; border-radius: 4px; transform: translate(-50%, -50%); z-index: 3; }
   body.t-PB .sch-v { display: none; }
@@ -1984,38 +1986,40 @@ const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1,
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
 
 // ===================== schemat Frontlit (wektorowy): numery = pola panelu, pod numerem aktualny wymiar, klik w numer = edycja =====================
-const SCH_F = [   // n: numer, id: pole panelu, bx/by: środek znacznika, br: linia pomiarowa [x0,y0,x1,y1], ld: kreska od znacznika do miejsca, auto: puste pole = liczy się samo
-  { n: 1, id: 'b3-gp', bx: 112, by: 31 },
-  { n: 2, id: 'b3-h', bx: 40, by: 72, br: [40, 24, 40, 124] },
-  { n: 3, id: 'b3-st', bx: 266, by: 138, br: [252, 118, 252, 124], ld: [252, 121] },
-  { n: 4, id: 'b3-pl', bx: 266, by: 98, br: [252, 104, 252, 118], ld: [252, 111] },
-  { n: 5, id: 'b3-wk', bx: 234, by: 68, br: [234, 24, 234, 118], auto: true },
-  { n: 6, id: 'b3-ws', bx: 106, by: 84, br: [106, 76, 106, 104], auto: true },
-  { n: 7, id: 'b3-gw', bx: 152, by: 82, ld: [152, 106] }
+const SCH_F = [   // n: numer, id: pole panelu, bx/by: środek znacznika (pod nim wartość), br: linia pomiarowa [x0,y0,x1,y1] (przerwana na czas znacznika, gdy gap), auto: puste pole = liczy się samo
+  { n: 1, id: 'b3-gp', bx: 140, by: 39 },
+  { n: 2, id: 'b3-h', bx: 30, by: 105, br: [30, 30, 30, 180], gap: 1 },
+  { n: 3, id: 'b3-st', bx: 270, by: 196, br: [252, 172, 252, 180], ld: [252, 176] },
+  { n: 4, id: 'b3-pl', bx: 270, by: 152, br: [252, 142, 252, 172] },
+  { n: 5, id: 'b3-wk', bx: 236, by: 101, br: [236, 30, 236, 172], gap: 1, auto: true },
+  { n: 6, id: 'b3-ws', bx: 104, by: 95, br: [104, 48, 104, 142], gap: 1, auto: true },
+  { n: 7, id: 'b3-gw', bx: 170, by: 112, br: [170, 142, 170, 164] }
 ];
 function schemat3D() {
   const box = document.getElementById('sch-f'); if (!box) return;
   const v = id => num($(id).value), au = (id, d) => { const t = $(id).value.trim(); return t ? num(t) : d; };
   const h = v('b3-h'), st = v('b3-st'), gp = v('b3-gp'), wk = au('b3-wk', h - st), ws = au('b3-ws', wk - gp);
   const val = { 'b3-gp': gp, 'b3-h': h, 'b3-st': st, 'b3-pl': v('b3-pl'), 'b3-wk': wk, 'b3-ws': ws, 'b3-gw': v('b3-gw') };
-  let g = '<rect width="280" height="158" fill="#fff"/><text x="4" y="12" font-family="sans-serif" font-size="9.5" fill="#1a202c">FRONTLIT — przekrój litery</text>';
-  g += '<rect x="64" y="24" width="16" height="94" fill="#f1e3a6" stroke="#b49b4a"/><rect x="200" y="24" width="16" height="94" fill="#f1e3a6" stroke="#b49b4a"/>';      // ścianki klosza
-  g += '<rect x="80" y="24" width="120" height="14" fill="#8fb0ee" stroke="#4a6fb5"/><text x="150" y="34" font-family="sans-serif" font-size="9" font-weight="700" fill="#1a365d">pleksa</text>';
-  g += '<rect x="80" y="76" width="12" height="28" fill="#8a8f98" stroke="#555"/><rect x="188" y="76" width="12" height="28" fill="#8a8f98" stroke="#555"/>';        // stopki klosza
-  g += '<rect x="60" y="104" width="160" height="20" fill="#a9afb8" stroke="#555"/><rect x="98" y="104" width="84" height="8" fill="#e6e9ee" stroke="#555"/>';      // podstawa: stopień + płyta, kieszeń
-  g += '<text x="140" y="120" font-family="sans-serif" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">kieszeń LED</text>';
-  const tick = (x0, y0, x1, y1) => `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="#2d3748" stroke-width="1"/><line x1="${x0 - 4}" y1="${y0}" x2="${x0 + 4}" y2="${y0}" stroke="#2d3748"/><line x1="${x1 - 4}" y1="${y1}" x2="${x1 + 4}" y2="${y1}" stroke="#2d3748"/>`;
+  const tx = (x, y, t, st2) => `<text x="${x}" y="${y}" font-family="sans-serif" ${st2}>${t}</text>`;
+  let g = '<rect width="280" height="222" fill="#fff"/>' + tx(4, 12, 'FRONTLIT — przekrój litery', 'font-size="10.5" fill="#1a202c"');
+  const wall = (x, w, y0, y1) => `<rect x="${x}" y="${y0}" width="${w}" height="${y1 - y0}" fill="#f6e8b0" stroke="#4a4a4a"/>`;
+  g += wall(62, 18, 30, 172) + wall(200, 18, 30, 172);                                                       // klosz: ścianki zewnętrzne
+  g += '<rect x="80" y="30" width="120" height="18" fill="#8fb0ee" stroke="#3f5f9f"/>' + tx(176, 43, 'pleksa', 'font-size="11" font-weight="700" fill="#1a365d" text-anchor="middle"');
+  g += wall(80, 8, 48, 172) + wall(192, 8, 48, 172);                                                         // klosz: ścianka pod pleksą (stopka)
+  g += '<rect x="58" y="172" width="164" height="8" fill="#98a0aa" stroke="#4a4a4a"/><rect x="88" y="164" width="104" height="8" fill="#b2b8c0" stroke="#4a4a4a"/>';   // podstawa: stopień, płyta
+  g += '<rect x="88" y="142" width="12" height="22" fill="#8a8f98" stroke="#4a4a4a"/><rect x="180" y="142" width="12" height="22" fill="#8a8f98" stroke="#4a4a4a"/>';      // rant podstawy wokół kieszeni
+  const seg = (x, ya, yb, t0, t1) => `<line x1="${x}" y1="${ya}" x2="${x}" y2="${yb}" stroke="#1f4fc0" stroke-width="1.2"/>` + (t0 ? `<line x1="${x - 4}" y1="${ya}" x2="${x + 4}" y2="${ya}" stroke="#1f4fc0" stroke-width="1.2"/>` : '') + (t1 ? `<line x1="${x - 4}" y1="${yb}" x2="${x + 4}" y2="${yb}" stroke="#1f4fc0" stroke-width="1.2"/>` : '');
   SCH_F.forEach(o => {
-    if (o.br) g += tick(...o.br);
-    if (o.ld) g += `<line x1="${o.bx}" y1="${o.by}" x2="${o.ld[0]}" y2="${o.ld[1]}" stroke="#2d3748" stroke-width="1" stroke-dasharray="2 2"/>`;
+    if (o.br) { const [x, y0, , y1] = o.br; g += o.gap ? seg(x, y0, o.by - 13, true, false) + seg(x, o.by + 27, y1, false, true) : seg(x, y0, y1, true, true); }
+    if (o.ld) g += `<line x1="${o.bx}" y1="${o.by}" x2="${o.ld[0]}" y2="${o.ld[1]}" stroke="#1f4fc0" stroke-width="1" stroke-dasharray="2 2"/>`;
   });
   SCH_F.forEach(o => {
     const empty = o.auto && !$(o.id).value.trim();
-    g += `<g class="bd" data-id="${o.id}" data-x="${o.bx}" data-y="${o.by}"><circle cx="${o.bx}" cy="${o.by}" r="7.5"/><text x="${o.bx}" y="${o.by + 3.2}">${o.n}</text></g>`
-      + `<text class="vl${empty ? ' au' : ''}" x="${o.bx}" y="${o.by + 18}">${fmt(val[o.id], 2)}</text>`;
+    g += `<g class="bd" data-id="${o.id}" data-x="${o.bx}" data-y="${o.by}"><circle cx="${o.bx}" cy="${o.by}" r="9"/><text x="${o.bx}" y="${o.by + 3.8}">${o.n}</text></g>`
+      + `<text class="vl${empty ? ' au' : ''}" x="${o.bx}" y="${o.by + 22}">${fmt(val[o.id], 2)}</text>`;
   });
   box.querySelectorAll('.ed').forEach(e => e.remove());
-  box.innerHTML = `<svg viewBox="0 0 280 158" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
+  box.innerHTML = `<svg viewBox="0 0 280 222" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
   box.querySelectorAll('.bd').forEach(b => b.addEventListener('click', () => schEdit(box, b)));
 }
 function schEdit(box, b) {
@@ -2123,6 +2127,7 @@ function showPanel(name, force) {
   document.querySelectorAll('.pan').forEach(p => p.classList.toggle('hidden', p.dataset.pan !== W.panel));
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.pan === W.panel));
   const p = document.querySelector(`.pan[data-pan="${W.panel}"]`); $('panel-title').textContent = p ? p.dataset.t : '';
+  document.body.classList.toggle('pan-bryla', W.panel === 'bryla'); window.dispatchEvent(new Event('resize'));
   $('panel').scrollTop = 0; if (name === 'bryla' && window.schemat3D) schemat3D();
 }
 document.querySelectorAll('#rail button').forEach(b => { b.onclick = () => showPanel(b.dataset.pan); });
