@@ -72,7 +72,7 @@ function kieszenFaza(d, f) {
 function params3D() {
   const n = id => num($(id).value), au = (id, v) => { const s = $(id).value.trim(); return s ? num(s) : v; }, cb = id => $(id).checked, dysza04 = W.pr.dysza === 4;
   const p = { gp: n('b3-gp'), h: n('b3-h'), st: n('b3-st'), pl: n('b3-pl'), wgl: cb('b3-wgl'), gw: n('b3-gw'), sh: n('b3-sh'), ss: n('b3-ss'), sf: n('b3-sf'), sd: n('b3-sd'), t1: n('b3-st1'), t2: n('b3-st2'), t3: n('b3-st3'),
-    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), puz: cb('b3-puz'), puzl: Math.max(0, n('b3-puzl')), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 10), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
+    otw: cb('b3-otw'), fix: cb('b3-fix'), cut: cb('b3-cut'), puz: cb('b3-puz'), puzk: $('b3-puzk') ? $('b3-puzk').value : 'o', puzl: Math.max(0, n('b3-puzl')), row: cb('b3-row'), rg: au('b3-rg', dysza04 ? 0.42 : 0.62), rd: au('b3-rd', dysza04 ? 0.24 : 0.30), rm: n('b3-rm'), r: cb('b3-rnd') ? n('b3-r') : 0, f: cb('b3-rnd') ? n('b3-f') : 0, cyf: Math.max(2, n('b3-cyf') || 10), fh: n('b3-fh'), fr: Math.max(0, n('b3-fr')), fg: cb('b3-fg'), fd: cb('b3-fd') };
   const magOn = $('b3-mon').checked && (W.pr.typ === 'F' || W.pr.typ === 'S' || (W.pr.typ === 'P' && $('b3-fpod').checked));
   if (magOn && W.pr.typ !== 'S' && !magScr()) {     // magnesy: niski kołnierz zamiast płyty; śruby: grubość płyty, kieszeń i stopień z panelu Bryła 3D
     const dn = Math.max(0.3, $('b3-mdn') ? n('b3-mdn') : 1), mh = Math.max(0.5, n('b3-mh') || 2);     // dno gniazda od spodu litery + grubość magnesu = wierzch kołnierza (magnes równo z wierzchem)
@@ -252,7 +252,7 @@ function autoLatches() {
   });
   const Z = W.pr.zat, d = zatWym(Z), ls = bedLetters(), A = zatObszar(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
   const pas = c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l * 2, ny = dx / l * 2; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); };
-  const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d + 2)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(W.cuts.filter(c => c.sK).map(cutK))).map(pas)));
+  const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d + 2)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(kSzew().map(cutK))).map(pas)));
   ls.forEach((l, li) => {
     const moje = W.latches.filter(q => q.li === li), ile = Z.n - moje.length; if (ile <= 0) return;
     const floorL = inter(A.floor, [l.p]), led = W.led ? plus(rowekLED(floorL, LED_W + 1)) : [];
@@ -400,7 +400,7 @@ function autoMagnets() {
   W.mags = W.mags.filter(m => m.manual);
   const g = magWym(), R = g.rp + g.s, ls = bedLetters(), plus = ps => ps.map(q => area(q) < 0 ? q.slice().reverse() : q);
   const pas = c => { const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l; return toCl([[c.a[0] + nx, c.a[1] + ny], [c.b[0] + nx, c.b[1] + ny], [c.b[0] - nx, c.b[1] - ny], [c.a[0] - nx, c.a[1] - ny]]); };
-  const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(W.cuts.filter(c => c.sK).map(cutK))).map(pas)), W.led ? plus(rowekLED(offsetPolys(W.base, magBrzeg()), LED_W)) : []);
+  const przeszkody = W.holes.map(h => circlePoly(h.x, h.y, h.d)).concat(plus(W.plates.flatMap(q => q.polys)), plus(cutSegs().concat(cutSegs(kSzew().map(cutK))).map(pas)), W.led ? plus(rowekLED(offsetPolys(W.base, magBrzeg()), LED_W)) : []);
   const zakaz = offsetPolys(clip('ctUnion', przeszkody), R + 0.5);
   const wZakazie = (x, y) => { const pt = { X: Math.round(x * S), Y: Math.round(y * S) }; let w = 0; zakaz.forEach(p => { if (C.Clipper.PointInPolygon(pt, p) !== 0) w += area(p) > 0 ? 1 : -1; }); return w > 0; };
   const linia = magLinia();
@@ -487,7 +487,7 @@ function magReg(p, Rbaza, Rkl, o) {
 }
 // łączenie jak puzzle: obszar A = półpłaszczyzna po stronie normalnej linii podziału + wypustki (łebek na szyjce) w każdym miejscu, gdzie litera jest dość gruba;
 // druga część dostaje wcięcie z luzem. Zwraca wielokąty A (Clipper) i A powiększone o luz.
-function puzzleObszar(c, luz) {
+function puzzleObszar(c, luz, kind) {
   const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, O = [c.c.x, c.c.y], BIG = 3000;
   const W2 = (u, v) => ({ X: Math.round((O[0] + dx * u + nx * v) * S), Y: Math.round((O[1] + dy * u + ny * v) * S) });
   const spans = lineSpans(offsetPolys(W.base, W.m.p2), c.c).filter(sp => sp[1] - sp[0] >= 10);
@@ -496,12 +496,15 @@ function puzzleObszar(c, luz) {
   spans.forEach(([u0, u1]) => {
     const uc = (u0 + u1) / 2;
     for (let D = Math.min(0.5 * (u1 - u0), 14); D >= 5; D -= 0.5) {     // największy łebek, który mieści się w literze (pasek pod kątem do linii bywa węższy niż odcinek linii)
-      const r = D / 2, wn = 0.5 * D, nl = 0.3 * D;
-      const neck = [W2(uc - wn / 2, -nl - r), W2(uc + wn / 2, -nl - r), W2(uc + wn / 2, 0.5), W2(uc - wn / 2, 0.5)];     // szyjka (zachodzi na A)
-      const head = Array.from({ length: n }, (_, i) => W2(uc + r * Math.cos(i / n * 2 * Math.PI), -nl - r + r * Math.sin(i / n * 2 * Math.PI)));    // łebek
-      const knob = clip('ctUnion', [neck, head]);
+      const r = D / 2;
+      let neck = [], head;
+      if (kind === 'j') {     // jaskółczy ogon: trapez, wąski przy linii (0,55 D), szeroki na końcu (1,15 D), głębokość 0,8 D
+        head = [W2(uc - 0.275 * D, 0.5), W2(uc + 0.275 * D, 0.5), W2(uc + 0.575 * D, -0.8 * D), W2(uc - 0.575 * D, -0.8 * D)].reverse();
+        head = [W2(uc - 0.575 * D, -0.8 * D), W2(uc + 0.575 * D, -0.8 * D), W2(uc + 0.275 * D, 0.5), W2(uc - 0.275 * D, 0.5)];
+      } else head = Array.from({ length: n }, (_, i) => W2(uc + r * Math.cos(i / n * 2 * Math.PI), -0.6 * r + r * Math.sin(i / n * 2 * Math.PI)));     // okrąg o środku 0,6 r za linią: łebek bez szyjki, szyjka = cięciwa 1,6 r
+      const knob = clip('ctUnion', [head]);
       if (diff(knob, wn_).length) continue;
-      parts.push(neck, head); ile++; break;
+      parts.push(head); ile++; break;
     }
   });
   const A = clip('ctUnion', parts);
@@ -676,7 +679,7 @@ async function build3D() {
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
       if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
         const L = ls[c.li]; if (!L) return;
-        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c, p.puzl) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
+        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c, p.puzl, p.puzk) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
         list.forEach(b => {
