@@ -487,28 +487,67 @@ function magReg(p, Rbaza, Rkl, o) {
 }
 // łączenie jak puzzle: obszar A = półpłaszczyzna po stronie normalnej linii podziału + wypustki (łebek na szyjce) w każdym miejscu, gdzie litera jest dość gruba;
 // druga część dostaje wcięcie z luzem. Zwraca wielokąty A (Clipper) i A powiększone o luz.
-function puzzleObszar(c, luz, kind) {
-  const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, O = [c.c.x, c.c.y], BIG = 3000;
+// parametry łączenia z panelu: kształt, luz, jaskółczy ogon (szerokość i wysokość ząbka), puzzle (średnica łebka) — jako ułamek szerokości litery w miejscu cięcia
+function puzPrm() {
+  const n = id => $(id) ? num($(id).value) : NaN, pc = (id, d) => { const v = n(id); return (v > 0 ? v : d) / 100; };
+  return { kind: $('b3-puzk') ? $('b3-puzk').value : 'o', luz: Math.max(0, n('b3-puzl') || 0), fw: pc('b3-puzw', 100 / 3), fh: pc('b3-puzh', 25), fd: pc('b3-puzd', 50) };
+}
+function puzzleObszar(c, q = puzPrm()) {
+  const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, O = [c.c.x, c.c.y], BIG = 3000, luz = q.luz, knobs = [];
   const W2 = (u, v) => ({ X: Math.round((O[0] + dx * u + nx * v) * S), Y: Math.round((O[1] + dy * u + ny * v) * S) });
   const spans = lineSpans(offsetPolys(W.base, W.m.p2), c.c).filter(sp => sp[1] - sp[0] >= 10);
   const parts = [[W2(-BIG, 0), W2(BIG, 0), W2(BIG, BIG), W2(-BIG, BIG)]], wn_ = offsetPolys(W.base, W.m.p2 - 2.5), n = 40;     // wnętrze litery bez 2,5 mm przy krawędzi: tu łebek musi się zmieścić w całości
   let ile = 0;
   spans.forEach(([u0, u1]) => {
-    const uc = (u0 + u1) / 2;
-    for (let D = Math.min(0.5 * (u1 - u0), 14); D >= 5; D -= 0.5) {     // największy łebek, który mieści się w literze (pasek pod kątem do linii bywa węższy niż odcinek linii)
-      const r = D / 2;
-      let neck = [], head;
-      if (kind === 'j') {     // jaskółczy ogon: trapez, wąski przy linii (0,55 D), szeroki na końcu (1,15 D), głębokość 0,8 D
-        head = [W2(uc - 0.275 * D, 0.5), W2(uc + 0.275 * D, 0.5), W2(uc + 0.575 * D, -0.8 * D), W2(uc - 0.575 * D, -0.8 * D)].reverse();
-        head = [W2(uc - 0.575 * D, -0.8 * D), W2(uc + 0.575 * D, -0.8 * D), W2(uc + 0.275 * D, 0.5), W2(uc - 0.275 * D, 0.5)];
-      } else head = Array.from({ length: n }, (_, i) => W2(uc + r * Math.cos(i / n * 2 * Math.PI), -0.6 * r + r * Math.sin(i / n * 2 * Math.PI)));     // okrąg o środku 0,6 r za linią: łebek bez szyjki, szyjka = cięciwa 1,6 r
+    const uc = (u0 + u1) / 2, s = u1 - u0;
+    // największy łebek / ząbek (do zadanego % szerokości), który mieści się w literze (pasek pod kątem do linii bywa węższy niż odcinek linii)
+    for (let k = 1; k > 0.04; k -= 0.05) {
+      let head, path;
+      if (q.kind === 'j') {     // jaskółczy ogon: trapez, szeroki (szerokość ząbka) na końcu, przy linii 0,48 tej szerokości, wysoki na wysokość ząbka
+        const Wd = q.fw * s * k, h = q.fh * s * k, nk = 0.48 * Wd; if (Wd < 4 || h < 1.5) break;
+        head = [W2(uc - Wd / 2, -h), W2(uc + Wd / 2, -h), W2(uc + nk / 2, 0), W2(uc + nk / 2, 0.5), W2(uc - nk / 2, 0.5), W2(uc - nk / 2, 0)];
+        path = [[uc - nk / 2, 0], [uc - Wd / 2, -h], [uc + Wd / 2, -h], [uc + nk / 2, 0]];
+      } else {     // okrąg o środku 0,6 r za linią: łebek bez szyjki, szyjka = cięciwa 1,6 r
+        const D = q.fd * s * k, r = D / 2, al = Math.asin(0.6); if (D < 5) break;
+        head = Array.from({ length: n }, (_, i) => W2(uc + r * Math.cos(i / n * 2 * Math.PI), -0.6 * r + r * Math.sin(i / n * 2 * Math.PI)));
+        path = Array.from({ length: 33 }, (_, i) => { const t = Math.PI - al + (Math.PI + 2 * al) * i / 32; return [uc + r * Math.cos(t), -0.6 * r + r * Math.sin(t)]; });
+      }
       const knob = clip('ctUnion', [head]);
       if (diff(knob, wn_).length) continue;
-      parts.push(head); ile++; break;
+      parts.push(head); knobs.push({ uc, path }); ile++; break;
     }
   });
   const A = clip('ctUnion', parts);
-  return { A, G: luz > 0 ? offRound(A, luz) : A, n: ile };
+  return { A, G: luz > 0 ? offRound(A, luz) : A, n: ile, knobs };
+}
+// mostki w kloszu na łączeniach (zamiast plasterków klosza): żebro w poprzek wnętrza klosza na linii cięcia klosza, łączy wolne końce ścianek.
+// Od dołu odsunięte (miejsce na LED), od góry niżej niż pleksa (nie zaciemnia jej), górna krawędź łukiem jak żebro łodzi.
+// Grubość 2 × (3 × dysza): linia klosza dzieli żebro na pół, każda część ma swoje 3 dysze i klosze skleja się na mostku;
+// góra każdej połówki fazowana 45° od strony wnętrza jej części (przekrój jak daszek), więc światło rozchodzi się dalej.
+function mostkiBryla(zK0, zKmax, ndel, uw) {
+  const { Manifold } = V3.wasm, t = mostekT(), zB = zK0 + Math.max(0, num($('b3-kmd').value) || 0), zT = zKmax - Math.max(0, num($('b3-kmg').value) || 0), H = zT - zB;
+  if (H < 3) { uw.push(`mostki w kloszu pominięte: między odstępem od dołu a odstępem od pleksy zostaje ${fmt(Math.max(0, H), 1)} mm (potrzeba co najmniej 3 mm)`); return null; }
+  // przy ściance cięcie klosza jest skośne (kloszObszar): granica części przesuwa się tam o s w poprzek linii, więc końce mostka są poszerzone (klin przy ściance),
+  // żeby każda połówka zawsze zrastała się ze ścianką swojej części
+  const sk = kSkos() * Math.PI / 180, dc = Math.max(0, (W.m.k1 + W.m.k2) / 2 - plateRegs().dK), ph = sk > 0 ? Math.min(3.5, dc * Math.tan(Math.min(sk, 1.4)) + t) + 0.3 : t, pl = 3.5;
+  const ribs = W.mostki.map(mk => {
+    const { u0, u1, ln } = mk, ua = u0 - 3, ub = u1 + 3, um = (u0 + u1) / 2, hw = (u1 - u0) / 2;
+    // łuk: na końcach (przy ściankach) pełna wysokość, w środku niżej — najwyżej do 40 % wysokości (min. 3 mm), nie głębiej niż 0,35 długości
+    const sag = Math.max(0, Math.min(H - Math.max(3, 0.4 * H), 0.35 * (u1 - u0))), R = sag > 0.01 ? (hw * hw + sag * sag) / (2 * sag) : 0, cz = zT - sag + R;
+    const top = u => sag > 0.01 && Math.abs(u - um) < hw ? cz - Math.sqrt(Math.max(0, R * R - (u - um) ** 2)) : zT, N = 48, ring = [[ua, zB - 20], [ub, zB - 20], [ub, zT]];
+    for (let i = N; i >= 0; i--) { const u = u0 + (u1 - u0) * i / N; ring.push([u, top(u)]); }
+    ring.push([ua, zT]);
+    // lokalnie: x = wzdłuż linii, y = wysokość, z = w poprzek; daszek fazy = część wspólna dwóch pochylonych (45°) kopii profilu
+    const pr = ndel(ndel(Manifold.extrude([ring], 2 * (t + 2))).translate([0, 0, -(t + 2)]));
+    const a1 = ndel(pr.warp(v => { v[1] -= v[2]; })), a2 = ndel(pr.warp(v => { v[1] += v[2]; }));
+    const box = (x0, x1, h) => ndel(ndel(Manifold.cube([x1 - x0, zT - zB + 5, 2 * h], false)).translate([x0, zB, -h]));
+    const slab = ph > t + 0.01 ? ndel(Manifold.union([box(ua, ub, t), box(ua, Math.min(um, u0 + pl), ph), box(Math.max(um, u1 - pl), ub, ph)])) : box(ua, ub, t);
+    const rib = ndel(Manifold.intersection(ndel(Manifold.intersection(a1, a2)), slab)), a = ln.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
+    return ndel(rib.warp(v => { const u = v[0], z = v[1], w = -v[2]; v[0] = ln.x + u * dx + w * nx; v[1] = ln.y + u * dy + w * ny; v[2] = z; }));
+  });
+  // tylko we wnętrzu klosza (+0,6 mm w ściankę, żeby się z nią zrosły)
+  const wn = stos([{ z0: zB - 1, z1: zT + 1, reg: offsetPolys(W.base, plateRegs().dK + 0.6) }], ndel);
+  return wn ? ndel(Manifold.intersection(ndel(Manifold.union(ribs)), wn)) : null;
 }
 // klosz: ścianki przecinane pod skosem (patrząc od góry). Linia cięcia zostaje prosta, ale w otoczeniu każdego przecięcia ze ścianką (promień 3,5 mm)
 // granica obszaru A jest obrócona tak, że płaszczyzna cięcia tworzy z normalną do ścianki kąt skos; światło nie ucieka prosto przez szczelinę.
@@ -693,6 +732,9 @@ async function build3D() {
       parts.klosz = ndel(Manifold.difference(ndel(Manifold.union([parts.klosz, ...caps])), ndel(Manifold.union(otw)))); }
     if (W.overlaps.length) uwagi.push(`litery nachodzą na siebie w ${W.overlaps.length} miejscach — bryły są połączone`);
     if (parts.klosz && parts.podstawa) { const v = objetosc(ndel(V3.wasm.Manifold.intersection(parts.klosz, parts.podstawa))); if (v > 1) uwagi.push(`klosz przenika podstawę (${fmt(v, 1)} mm³) — sprawdź offsety`); }
+    const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK0: p.pCalk + p.sw + zatGap(), zKmax: p.sh - p.sf + zatGap() } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK0: p.st + p.pl + zatGap(), zKmax: p.st + p.ws + zatGap() };
+    if (mostkiChce() && W.cuts.length && !mostkiWl()) uwagi.push(`mostki w kloszu się nie mieszczą (między odstępem od dołu a od pleksy zostaje ${fmt(Math.max(0, mostkiH()), 1)} mm, potrzeba 3 mm) — zamiast nich plasterki klosza`);
+    if (parts.klosz && mostkiWl() && (W.mostki || []).length) { const mb = mostkiBryla(tops.zK0, tops.zKmax, ndel, uwagi); if (mb) parts.klosz = ndel(V3.wasm.Manifold.union(parts.klosz, mb)); }
     const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [];     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
     Object.keys(CZESCI).forEach(k => {
       if (!parts[k]) return;
@@ -700,7 +742,7 @@ async function build3D() {
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
       if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
         const L = ls[c.li]; if (!L) return;
-        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c, p.puzl, p.puzk) : k === 'klosz' && kSkos() > 0 ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
+        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c) : k === 'klosz' && kSkos() > 0 ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
         list.forEach(b => {
@@ -715,7 +757,7 @@ async function build3D() {
       rows.forEach(r => { nr[r.li] = (nr[r.li] || 0) + 1; const mesh = r.b.getMesh(); bodies.push({ part: k, name: `${CZESCI[k]}_${String(r.li + 1).padStart(2, '0')}${cnt[r.li] > 1 ? String.fromCharCode(96 + nr[r.li]) : ''}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(r.b), bb: r.bb }); });
     });
     // plasterki łączące: osobne elementy do wydruku (nie są cięte ani łączone z częściami)
-    const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK0: p.pCalk + p.sw + zatGap(), zKmax: p.sh - p.sf + zatGap() } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK0: p.st + p.pl + zatGap(), zKmax: p.st + p.ws + zatGap() }, holes2 = otworyReg(p), cntPl = {};
+    const holes2 = otworyReg(p), cntPl = {};
     let nKpom = 0;
     W.plates.forEach(q => {
       if (!q.polys.length) return;

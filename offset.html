@@ -159,6 +159,7 @@
   .mtsel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 6px 0 8px; } .mtsel label { border: 1.5px solid var(--line); text-align: center; padding: 7px 2px; cursor: pointer; font-size: .78rem; font-weight: 700; background: #fff; line-height: 1.15; } .mtsel label:has(input:checked) { border-color: var(--accent); background: #f0fbe8; } .mtsel input { display: none; } .mtsel small { display: block; font-weight: 500; font-size: .62rem; color: var(--gray); }
   body:not(.t-MGs) .mg-s { display: none !important; } body.t-MGs .mg-m { display: none !important; }
   body.t-MG .mg-only { display: block; }
+  body.puz-j .puz-o, body:not(.puz-j) .puz-j, body:not(.kmo) .km, body.kmo .pl-k { display: none !important; }
   body.t-P .p-only { display: block; }
   body.t-P:not(.t-PB) .fs-only, body.t-P:not(.t-PB) #g3-f, body.t-P #g3-s { display: none !important; }
   /* pełna z podstawą: pola podstawy jak we Frontlit, bez pleksy i ścianek klosza (klosz liczy się z pól litery pełnej) */
@@ -366,11 +367,17 @@
         <div class="row"><label><input type="checkbox" id="b3-cut" checked> tnij po liniach podziału</label></div>
         <div class="row" title="Podstawa nie jest cięta prostą linią: jedna część ma wypustkę w kształcie puzzla (łebek na szyjce) w każdym grubszym miejscu litery, druga odpowiadające wcięcie. Części składa się z góry. Klosz zostaje ciętym prosto."><label><input type="checkbox" id="b3-puz" checked> podstawa: łączenie jak puzzle (zamiast prostego cięcia)</label></div>
         <div class="fld" title="Okrąg: prosta linia z okrągłym łebkiem bez szyjki. Jaskółczy ogon: trapezowa wypustka, rozszerzająca się od linii."><span>Kształt łączenia</span><select id="b3-puzk"><option value="o" selected>okrąg</option><option value="j">jaskółczy ogon</option></select></div>
-        <div class="fld" title="Szczelina między częściami puzzla w poziomie (na tolerancję druku)"><span>Luz puzzli [mm]</span><input type="text" inputmode="decimal" id="b3-puzl" value="0,15"></div>
+        <div class="fld" title="Szczelina między częściami puzzla w poziomie (na tolerancję druku)"><span>Luz puzzli [mm]</span><input type="text" inputmode="decimal" id="b3-puzl" value="0,05"></div>
+        <div class="fld puz-o" title="Średnica okrągłego łebka jako % szerokości litery w miejscu cięcia. Gdy się nie mieści (2,5 mm od krawędzi), jest mniejszy."><span>Łebek puzzla [% szerokości]</span><input type="text" inputmode="decimal" id="b3-puzd" value="50"></div>
+        <div class="fld puz-j" title="Szerokość ząbka na jego szerokim końcu jako % szerokości litery w miejscu cięcia (przy linii ząbek ma 0,48 tej szerokości). Gdy się nie mieści, całość jest proporcjonalnie mniejsza."><span>Ząbek: szerokość [% szerokości]</span><input type="text" inputmode="decimal" id="b3-puzw" value="33"></div>
+        <div class="fld puz-j" title="Wysokość ząbka (jak daleko wchodzi w drugą część) jako % szerokości litery w miejscu cięcia"><span>Ząbek: wysokość [% szerokości]</span><input type="text" inputmode="decimal" id="b3-puzh" value="25"></div>
+        <div class="row" title="Frontlit: w kloszu, na linii jego cięcia, żebro w poprzek wnętrza łączące wolne końce ścianek. Każda część ma swoją połówkę (3 × dysza), klosze skleja się na mostku — wtedy bez plasterków klosza. Od dołu odsunięte na LED, od góry na pleksę, góra łukiem i fazowana 45° od wnętrza."><label><input type="checkbox" id="b3-kmo" checked> klosz: mostki na łączeniach (zamiast plasterków klosza)</label></div>
+        <div class="fld km" title="Wolne miejsce pod mostkiem, od wierzchu podstawy (na LED i przewody)"><span>Mostek: odstęp od dołu [mm]</span><input type="text" inputmode="decimal" id="b3-kmd" value="6"></div>
+        <div class="fld km" title="Odstęp końców mostka od pleksy (Sidelit: od frontu); w środku łuk schodzi niżej"><span>Mostek: odstęp od pleksy [mm]</span><input type="text" inputmode="decimal" id="b3-kmg" value="8"></div>
         <h3>Plasterki łączące</h3>
         <div class="row"><label><input type="checkbox" id="p-plon" checked> dodaj plasterki na łączeniach</label></div>
         <div class="fld"><span>Długość: podstawa</span><input type="text" inputmode="decimal" id="p-pll" value="40"></div>
-        <div class="fld"><span>Długość: klosz</span><input type="text" inputmode="decimal" id="p-plk" value="40"></div>
+        <div class="fld pl-k"><span>Długość: klosz</span><input type="text" inputmode="decimal" id="p-plk" value="40"></div>
         <details><summary>Wymiary plasterków</summary>
           <div class="fld"><span>Podstawa: odsunięcie od ścianki</span><input type="text" inputmode="decimal" id="p-ploff" value="0,5"></div>
           <div class="fld"><span>Podstawa: grubość</span><input type="text" inputmode="decimal" id="p-plh" value="1,2"></div>
@@ -1104,7 +1111,7 @@ function plateRegs() {
   if (W.plReg) return W.plReg;
   const pr = W.pr, m = W.m, side = pr.typ === 'S', pocket = side || $('b3-wgl').checked, R = d => offsetPolys(W.base, d);
   const dP = side ? -num($('b3-st3').value) : pocket ? m.kie : m.p2, dK = side ? -num($('b3-st1').value) : m.k3;
-  return (W.plReg = { P: R(dP - pr.plOffP), K: diff(R(dK - pr.plOffK), R(dK - pr.plOffK - pr.plTK)), pocket });
+  return (W.plReg = { P: R(dP - pr.plOffP), K: diff(R(dK - pr.plOffK), R(dK - pr.plOffK - pr.plTK)), I: R(dK), dK, pocket });
 }
 // odcinki, w których prosta (linia c przesunięta o s w poprzek) leży w obszarze: [u0, u1] wzdłuż linii
 function lineSpans(polys, c, s = 0) {
@@ -1114,13 +1121,16 @@ function lineSpans(polys, c, s = 0) {
   return out;
 }
 function refreshPlates() {
-  W.plates = []; const pr = W.pr; if (!pr || (pr.typ === 'P' && !pbOn(pr)) || !pr.plOn || !W.base || !W.cuts.length) return renderPlateList();
-  const regs = plateRegs(), ls = bedLetters();
+  W.plates = []; W.mostki = []; const pr = W.pr; if (!pr || (pr.typ === 'P' && !pbOn(pr)) || !W.base || !W.cuts.length) return renderPlateList();
+  const regs = plateRegs(), ls = bedLetters(), most = mostkiWl();
   W.cuts.forEach(c => {
     const l = ls[c.li]; if (!l) return;
     const a = c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
     const inBB = p => { const b = bboxOf([p]); return b.x1 > l.bb.x0 - 3 && b.x0 < l.bb.x1 + 3 && b.y1 > l.bb.y0 - 3 && b.y0 < l.bb.y1 + 3; };
-    [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].forEach(([type, reg, defL]) => {
+    // mostki klosza: odcinki linii klosza we wnętrzu klosza tej litery
+    if (most) { const ln = cutK(c), la = ln.ang * Math.PI / 180; lineSpans(regs.I.filter(inBB), ln).forEach(sp => { const um = (sp[0] + sp[1]) / 2, x = ln.x + Math.cos(la) * um, y = ln.y + Math.sin(la) * um; if (sp[1] - sp[0] >= 2 && x >= l.bb.x0 - 3 && x <= l.bb.x1 + 3 && y >= l.bb.y0 - 3 && y <= l.bb.y1 + 3) W.mostki.push({ c, ln, li: c.li, u0: sp[0], u1: sp[1] }); }); }
+    if (!pr.plOn) return;
+    [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].filter(([type]) => !(most && type === 'K')).forEach(([type, reg, defL]) => {
       const ln = type === 'K' ? cutK(c) : c, W2 = (u, s) => [ln.x + dx * u + nx * s, ln.y + dy * u + ny * s];
       const near = reg.filter(inBB), spans = lineSpans(near, ln).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return x >= l.bb.x0 - 3 && x <= l.bb.x1 + 3 && y >= l.bb.y0 - 3 && y <= l.bb.y1 + 3; });
       spans.forEach((sp, i) => {
@@ -1147,6 +1157,21 @@ function rowekLED(polys, szer) {
   if (!paths.length) return [];
   const co = new C.ClipperOffset(2, 0.03 * S), out = new C.Paths(); co.AddPaths(paths, C.JoinType.jtRound, C.EndType.etOpenRound); co.Execute(out, szer / 2 * S);
   return inter(out, polys);
+}
+// mostki w kloszu (Frontlit, gdy włączone): zastępują plasterki klosza; grubość jednej połówki = 3 × dysza.
+// Gdy między odstępem od dołu a od pleksy nie zostają 3 mm (niska litera), mostków nie ma i wracają plasterki klosza.
+const mostkiChce = () => !!($('b3-kmo') && $('b3-kmo').checked && W.pr && W.pr.typ === 'F');
+const mostkiH = () => { try { const p = params3D(); return p.ws - p.pl - Math.max(0, num($('b3-kmd').value) || 0) - Math.max(0, num($('b3-kmg').value) || 0); } catch (e) { return -1; } };
+const mostkiWl = () => mostkiChce() && typeof params3D === 'function' && mostkiH() >= 3;
+const mostekT = () => 3 * ((W.pr && W.pr.dysza) || 4) / 10;
+function mostekPoly(mk) { const t = mostekT(), a = mk.ln.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), P = (u, v) => [mk.ln.x + dx * u - dy * v, mk.ln.y + dy * u + dx * v]; return [P(mk.u0, -t), P(mk.u1, -t), P(mk.u1, t), P(mk.u0, t)]; }
+function puzSync() { document.body.classList.toggle('puz-j', $('b3-puzk').value === 'j'); document.body.classList.toggle('kmo', $('b3-kmo').checked); }
+// kształt łączenia podstawy na linii podziału (puzzle / jaskółczy ogon) do widoku 2D: wynik puzzleObszar pamiętany, dopóki nie zmieni się litera, linia albo parametry
+function puzKnoby(c) {
+  if (typeof puzzleObszar !== 'function' || !$('b3-puz').checked || !W.pr || (W.pr.typ === 'P' && !pbOn(W.pr))) return null;
+  const k0 = JSON.stringify([W.baseId, W.m && W.m.p2, puzPrm()]); if (!W.puzC || W.puzC.key !== k0) W.puzC = { key: k0, m: {} };
+  const k = [c.li, c.c.x, c.c.y, c.c.ang].join('|'); if (!(k in W.puzC.m)) { try { W.puzC.m[k] = puzzleObszar(c).knobs; } catch (e) { W.puzC.m[k] = null; } }
+  return W.puzC.m[k];
 }
 const plateName = q => `litera ${q.li + 1} · ${q.type === 'P' ? 'podstawa' : 'klosz'} ${q.key.slice(1)}`;
 function setPlateL(q, v) { pushUndo(); q.c.plL = q.c.plL || {}; q.c.plL[q.key] = Math.max(0, v); refreshPlates(); renderSel(); draw(); if (window.mark3D) mark3D(); }
@@ -1681,13 +1706,22 @@ function draw() {
     if (d && d.above > 0.01) { ext(d.y1, X(d.x0), '#718096'); seg(yRT, d.y1, `${fmt(d.above, 1)} mm`, '#4a5568'); }
   });
   // linie podziału i prostokąty stołu drukarki
+  if (!W.show.Stol && W.cuts.length && W.pr && W.pr.podz) W.beds.forEach(b => { g.beginPath(); b.pts.forEach((q, i) => i ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1]))); g.closePath(); g.strokeStyle = b.ok ? 'rgba(56,161,105,.22)' : 'rgba(229,62,62,.3)'; g.lineWidth = 1; g.setLineDash([8, 5]); g.stroke(); g.setLineDash([]); });     // przy podziale cały zarys stołu zawsze, bardzo blady
   if (W.show.Stol) W.beds.forEach(b => { g.beginPath(); b.pts.forEach((q, i) => i ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1]))); g.closePath(); g.fillStyle = b.ok ? 'rgba(56,161,105,.05)' : 'rgba(229,62,62,.1)'; g.fill(); g.strokeStyle = b.ok ? '#38a169' : '#e53e3e'; g.lineWidth = 1; g.setLineDash([8, 5]); g.stroke(); g.setLineDash([]); });
   if (W.show.Podzial) cutSegs().forEach(c => {
-    const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id; g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial; g.lineWidth = sel ? 3 : 1.8; g.stroke();
+    const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id, kn = puzKnoby(c);
+    if (kn && kn.length) {     // podstawa łączona na puzzle / jaskółczy ogon: linia z wypustkami, pod nią blada prosta (cięcie klosza, gdy idzie tą samą linią)
+      const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), P = (u, v) => [c.c.x + dx * u - dy * v, c.c.y + dy * u + dx * v], uA = (c.a[0] - c.c.x) * dx + (c.a[1] - c.c.y) * dy, uB = (c.b[0] - c.c.x) * dx + (c.b[1] - c.c.y) * dy;
+      g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial + '55'; g.lineWidth = 1; g.stroke();
+      const pts = [[uA, 0]]; kn.slice().sort((p, q) => (p.uc - q.uc) * Math.sign(uB - uA)).forEach(k => { const pp = uB < uA ? k.path.slice().reverse() : k.path; pts.push(...pp); }); pts.push([uB, 0]);
+      g.beginPath(); pts.forEach(([u, v], i) => { const [x, y] = P(u, v); i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)); }); g.strokeStyle = LCOL.Podzial; g.lineWidth = sel ? 3 : 1.8; g.lineJoin = 'round'; g.stroke(); g.lineJoin = 'miter';
+    } else { g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial; g.lineWidth = sel ? 3 : 1.8; g.stroke(); }
     [c.a, c.b].forEach(p => { g.beginPath(); g.arc(X(p[0]), Y(p[1]), sel ? 6 : 4.5, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 1.8; g.strokeStyle = LCOL.Podzial; g.stroke(); });
     if (sel) { g.fillStyle = LCOL.Podzial; g.font = '700 12px Segoe UI, Arial'; g.fillText(`${fmt(c.c.ang, 1)}°`, X(c.b[0]) + 9, Y(c.b[1]) - 7); }
   });
   if (W.show.Podzial) cutSegs(kSzew().map(cutK)).forEach(c => { const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id; g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = '#3182ce'; g.lineWidth = sel ? 3 : 1.8; g.setLineDash([9, 5]); g.stroke(); g.setLineDash([]); });
+  // mostki w kloszu (rzut z góry: pasek 2 × 3 dysze na linii klosza)
+  if (W.show.Plaster && (W.mostki || []).length) W.mostki.forEach(mk => { const q = mostekPoly(mk); g.beginPath(); q.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); g.fillStyle = '#3182ce88'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = 1; g.stroke(); });
   // plasterki łączące
   if (W.show.Plaster) W.plates.forEach(q => { if (!q.polys.length) return; const sel = W.sel && W.sel.t === 'plate' && W.sel.id === q.c.id && W.sel.key === q.key, col = q.type === 'P' ? '#dd6b20' : '#3182ce'; path(q.polys); g.fillStyle = sel ? col + 'aa' : col + '55'; g.fill('evenodd'); g.strokeStyle = col; g.lineWidth = sel ? 2.5 : 1; g.stroke(); if (q.groove.length) { path(q.groove); g.fillStyle = 'rgba(116,66,16,.3)'; g.fill(); } });
   // cyfry na literach; przy małym powiększeniu sama cyfra byłaby niewidoczna, więc dochodzi znaczek
@@ -1969,7 +2003,7 @@ document.addEventListener('keydown', e => {
 });
 // ===================== ustawienia (pamiętane w przeglądarce) =====================
 const KEY = 'OFFSET_WIZARD_V1';
-function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 6 })); } catch (e) { /* bez pamięci */ } }
+function save() { try { const pr = params(); localStorage.setItem(KEY, JSON.stringify({ pr, std: 7 })); } catch (e) { /* bez pamięci */ } }
 function setParams(pr) {
   const setR = (n, v) => { const el = document.querySelector(`input[name=${n}][value="${v}"]`); if (el) el.checked = true; };
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('odl', pr.odl); setR('wielk', pr.wielk);
@@ -1989,10 +2023,10 @@ function setParams(pr) {
   mtSync();     // dawny typ Magnet = Frontlit z mocowaniem na magnesy
 }
 function restore() {
-  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; if (!(o.std >= 6) && o.pr.p3) Object.entries({ 'b3-h': 40, 'b3-pl': 6, 'b3-gw': 6, 'b3-cyf': 5 }).forEach(([k, v]) => { if (parseFloat(String(o.pr.p3[k]).replace(',', '.')) === v) delete o.pr.p3[k]; }); delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; if (!(o.std >= 6) && o.pr.p3) Object.entries({ 'b3-h': 40, 'b3-pl': 6, 'b3-gw': 6, 'b3-cyf': 5 }).forEach(([k, v]) => { if (parseFloat(String(o.pr.p3[k]).replace(',', '.')) === v) delete o.pr.p3[k]; }); if (!(o.std >= 7) && o.pr.p3 && parseFloat(String(o.pr.p3['b3-puzl']).replace(',', '.')) === 0.15) delete o.pr.p3['b3-puzl']; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-fks': 0.1, 'b3-fkf': 0.1, 'b3-puzl': 0.05, 'b3-mr': 0.5, 'b3-mdn': 0.5, 'b3-mu': 0.5, 'b3-mrz': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-mo': 0.25, 'b3-mf': 0.5, 'b3-mz': 0.05, 'b3-mk': 0.25, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+const STEPS = { 'b3-puzl': 0.05, 'b3-puzd': 5, 'b3-puzw': 5, 'b3-puzh': 5, 'b3-kmd': 1, 'b3-kmg': 1, 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-fks': 0.1, 'b3-fkf': 0.1, 'b3-puzl': 0.05, 'b3-mr': 0.5, 'b3-mdn': 0.5, 'b3-mu': 0.5, 'b3-mrz': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-mo': 0.25, 'b3-mf': 0.5, 'b3-mz': 0.05, 'b3-mk': 0.25, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
 
 // ===================== schemat Frontlit (wektorowy): numery = pola panelu, pod numerem aktualny wymiar, klik w numer = edycja =====================
@@ -2067,6 +2101,8 @@ function b3Change(id) {
   save(); if (window.schemat3D) schemat3D();
   if (id === 'b3-mon' || id === 'b3-mrodz') return recompute();     // kołnierz, miejsca magnesów, warstwy
   if (id === 'b3-fpod' || id === 'b3-fks') return recompute();     // zmienia kontury klosza i podstawy (otwory, plasterki)
+  if (id.startsWith('b3-puz')) { puzSync(); draw(); }     // kształt łączenia widać na liniach podziału w 2D
+  if (id.startsWith('b3-km') || id === 'b3-h' || id === 'b3-pl' || id === 'b3-ws' || id === 'b3-gp') { puzSync(); refreshPlates(); draw(); }     // mostki zamiast plasterków klosza
   if (id.startsWith('b3-m')) { if (window.autoMagnets) autoMagnets(); renderSide(); draw(); }
   if (id.startsWith('b3-pr')) { if (window.profil3D) profil3D(); return; }
   if (id.startsWith('b3-fil-')) { if (window.liczFilament) liczFilament(); return; }
@@ -2128,7 +2164,7 @@ function setMontaz(v) {
   if (v === 's' && mtMode() !== 's' && num($('b3-pl').value) === 5 && num($('b3-gw').value) === 4.5) { $('b3-pl').value = '3'; $('b3-gw').value = '3'; }   // standard kołnierza dla śrub 3 mm (potem do zmiany w Bryła 3D)
   $('b3-mon').checked = v === 'm' || v === 's'; if (v === 'm' || v === 's') $('b3-mrodz').value = v; $('p-zt-on').checked = v === 'c'; mtSync(); recompute(); }
 // ===================== start =====================
-restore(); hlSync(); mtSync(); schemat3D(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
+restore(); hlSync(); mtSync(); puzSync(); schemat3D(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
 STEPS['p-hl'] = 1;
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id === 'p-hl') hlPush(); else if (id.startsWith('b3-')) { b3Change(id); if (id === 'b3-h' || id === 'b3-sh') hlSync(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
