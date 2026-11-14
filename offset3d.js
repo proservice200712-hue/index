@@ -495,7 +495,7 @@ function puzPrm() {
 function puzzleObszar(c, q = puzPrm()) {
   const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, O = [c.c.x, c.c.y], BIG = 3000, luz = q.luz, knobs = [];
   const W2 = (u, v) => ({ X: Math.round((O[0] + dx * u + nx * v) * S), Y: Math.round((O[1] + dy * u + ny * v) * S) });
-  const spans = lineSpans(offsetPolys(W.base, W.m.p2), c.c).filter(sp => sp[1] - sp[0] >= 10);
+  const L = bedLetters()[c.li], spans = lineSpans(offsetPolys(W.base, W.m.p2), c.c).filter(sp => sp[1] - sp[0] >= 10 && wLiterze(L, O[0] + dx * (sp[0] + sp[1]) / 2, O[1] + dy * (sp[0] + sp[1]) / 2) && (!c.c.ray || sp[0] + sp[1] > 0));     // tylko w swojej literze (promień: po swojej stronie)
   const parts = [[W2(-BIG, 0), W2(BIG, 0), W2(BIG, BIG), W2(-BIG, BIG)]], wn_ = offsetPolys(W.base, W.m.p2 - 2.5), n = 40;     // wnętrze litery bez 2,5 mm przy krawędzi: tu łebek musi się zmieścić w całości
   let ile = 0;
   spans.forEach(([u0, u1]) => {
@@ -514,11 +514,12 @@ function puzzleObszar(c, q = puzPrm()) {
       }
       const knob = clip('ctUnion', [head]);
       if (diff(knob, wn_).length) continue;
-      parts.push(head); knobs.push({ uc, path }); ile++; break;
+      parts.push(head); knobs.push({ uc, path, head }); ile++; break;
     }
   });
   const A = clip('ctUnion', parts);
-  return { A, G: luz > 0 ? offRound(A, luz) : A, n: ile, knobs };
+  const H = knobs.length ? clip('ctUnion', knobs.map(k => k.head)) : [];
+  return { A, G: luz > 0 ? offRound(A, luz) : A, n: ile, knobs, H };
 }
 // mostki w kloszu na łączeniach (zamiast plasterków klosza): żebro w poprzek wnętrza klosza na linii cięcia klosza, łączy wolne końce ścianek.
 // Od dołu odsunięte (miejsce na LED), od góry niżej niż pleksa (nie zaciemnia jej), górna krawędź łukiem jak żebro łodzi.
@@ -544,6 +545,23 @@ function mostkiBryla(zK0, zKmax, ndel, uw) {
   // tylko we wnętrzu klosza (+0,6 mm w ściankę, żeby się z nią zrosły)
   const wn = stos([{ z0: zB - 1, z1: zT + 1, reg: offsetPolys(W.base, plateRegs().dK + 0.6) }], ndel);
   return wn ? ndel(Manifold.intersection(ndel(Manifold.union(ribs)), wn)) : null;
+}
+// cięcia promieniowe jednej litery: obszary między promieniami (prostokąt wokół litery minus szczeliny), każdy powiększony o pół szczeliny;
+// podstawa z puzzlami: łebki dochodzą do obszaru po stronie normalnej promienia, z obszaru po drugiej stronie znikają (z luzem)
+function sektory(L, rs, puz) {
+  const e = 0.01, M = 60, bb = L.bb, box = toCl([[bb.x0 - M, bb.y0 - M], [bb.x1 + M, bb.y0 - M], [bb.x1 + M, bb.y1 + M], [bb.x0 - M, bb.y1 + M]]);
+  // promienie klosza są przesunięte (linia klosza obok linii podstawy), więc ich początki łączy krótki odcinek przez otwór litery — obszary się zamykają
+  const ox = rs.reduce((t, c) => t + c.c.x, 0) / rs.length, oy = rs.reduce((t, c) => t + c.c.y, 0) / rs.length;
+  const most = c => { const L2 = Math.hypot(c.c.x - ox, c.c.y - oy); if (L2 < 0.01) return null; return szczelina({ x: ox, y: oy, ang: Math.atan2(c.c.y - oy, c.c.x - ox) * 180 / Math.PI }, e, L2 + e); };
+  const parts = letters(diff([box], clip('ctUnion', rs.map(c => szczelina(c.c, e)).concat(rs.map(most).filter(Boolean))))).map(q => offsetPolys([q.p].concat(q.holes), e));
+  if (puz) rs.forEach(c => {
+    const pz = puzzleObszar(c); if (!pz.n || !pz.H.length) return;
+    const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), uc = pz.knobs[0].uc, P = v => ({ X: Math.round((c.c.x + dx * uc - dy * v) * S), Y: Math.round((c.c.y + dy * uc + dx * v) * S) });
+    const iA = parts.findIndex(p => C.Clipper.PointInPolygon(P(1), p[0]) !== 0), iB = parts.findIndex(p => C.Clipper.PointInPolygon(P(-1), p[0]) !== 0);
+    if (iA < 0 || iB < 0 || iA === iB) return;
+    parts[iA] = clip('ctUnion', parts[iA].concat(pz.H)); parts[iB] = diff(parts[iB], puzPrm().luz > 0 ? offRound(pz.H, puzPrm().luz) : pz.H);
+  });
+  return parts;
 }
 // klosz: ścianki przecinane pod skosem (patrząc od góry). Linia cięcia zostaje prosta, ale w otoczeniu każdego przecięcia ze ścianką (promień 3,5 mm)
 // granica obszaru A jest obrócona tak, że płaszczyzna cięcia tworzy z normalną do ścianki kąt skos; światło nie ucieka prosto przez szczelinę.
@@ -737,7 +755,7 @@ async function build3D() {
       let list = parts[k].decompose().map(ndel);
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
       if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
-        const L = ls[c.li]; if (!L) return;
+        const L = ls[c.li]; if (!L || c.c.ray) return;     // promienie osobno, niżej
         const pz = k === 'podstawa' && p.puz ? puzzleObszar(c) : k === 'klosz' && kSkos() > 0 && !mostkiWl() ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
@@ -745,6 +763,19 @@ async function build3D() {
           const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2;
           if (cx < L.bb.x0 - 3 || cx > L.bb.x1 + 3 || cy < L.bb.y0 - 3 || cy > L.bb.y1 + 3) { next.push(b); return; }
           const [u, v] = pzM ? [ndel(V3.wasm.Manifold.intersection(b, pzM.A)), ndel(V3.wasm.Manifold.difference(b, pzM.G))] : b.splitByPlane(n, off); if (!pzM) { ndel(u); ndel(v); } [u, v].forEach(h => { if (!h.isEmpty()) h.decompose().map(ndel).forEach(q => next.push(q)); });
+        });
+        list = next;
+      });
+      // cięcia promieniowe: każda bryła litery dzielona na obszary między promieniami
+      const rays = k === 'pleksa' ? [] : (k === 'klosz' ? segsK : segs).filter(c => c.c.ray), byLi = {};
+      rays.forEach(c => { (byLi[c.li] = byLi[c.li] || []).push(c); });
+      Object.keys(byLi).forEach(li => {
+        const L = ls[li]; if (!L) return;
+        const { Manifold } = V3.wasm, prism = P => ndel(ndel(Manifold.extrude(toPolys(P), 2000)).translate([0, 0, -50])), sk = sektory(L, byLi[li], k === 'podstawa' && p.puz).map(prism), next = [];
+        list.forEach(b => {
+          const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2;
+          if (cx < L.bb.x0 - 3 || cx > L.bb.x1 + 3 || cy < L.bb.y0 - 3 || cy > L.bb.y1 + 3) { next.push(b); return; }
+          sk.forEach(m => { const q = ndel(Manifold.intersection(b, m)); if (!q.isEmpty()) q.decompose().map(ndel).forEach(x => { if (objetosc(x) > 0.5) next.push(x); }); });
         });
         list = next;
       });
