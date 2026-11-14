@@ -603,7 +603,7 @@ function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: Number(r('wielk')),
     przesun: num($('p-prz').value), przesunFix: num($('p-fy').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
-    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutKon: $('p-cutkon').checked, cutKraw: Math.max(0, num($('p-cutk').value)), cutK: $('p-cutkon').checked ? Math.max(0, num($('p-cutk').value)) : 0, cutKa: num($('p-cutka').value), zat: zatParams(), p3: p3State(),
+    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stXraw: Math.max(10, num($('p-stx').value)), stYraw: Math.max(10, num($('p-sty').value)), stX: Math.max(10, Math.min(num($('p-stx').value), stolPlyty().X)), stY: Math.max(10, Math.min(num($('p-sty').value), stolPlyty().Y)), cutKon: $('p-cutkon').checked, cutKraw: Math.max(0, num($('p-cutk').value)), cutK: $('p-cutkon').checked ? Math.max(0, num($('p-cutk').value)) : 0, cutKa: num($('p-cutka').value), zat: zatParams(), p3: p3State(),
     plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
 const pbOn = pr => pr.typ === 'P' && !!pr.p3 && pr.p3['b3-fpod'] !== false;     // litera pełna z podstawą i świecącym kloszem
@@ -1056,11 +1056,38 @@ function dwieLinie(l, pts, cx, cy, nMax, pr) {
   }
   return (W.two2C[key] = best ? best.cs : null);
 }
+// obszar płyty, na którym „Rozmieść” kładzie części: szerokość bez stref jednej dyszy (chyba że włączone) i marginesów, głębokość bez marginesów
+function stolPlyty() {
+  const g = id => $(id) ? num($(id).value) : NaN, Wd = g('pl-w') || 350, D = g('pl-d') || 320, sz = Math.max(0, g('pl-sz') || 0), mg = Math.max(0, g('pl-mg') || 0);
+  const L = !!($('pl-l') && $('pl-l').checked), R = !!($('pl-r') && $('pl-r').checked) && !L;
+  return { X: Wd - (L ? 0 : sz) - (R ? 0 : sz) - 2 * mg - 2, Y: D - 2 * mg - 2 };
+}
+// czy wszystkie kawałki litery (razem z wystającymi łebkami puzzli podstawy) mieszczą się na stole
+function pasujeZLebkami(l, cs, pr) {
+  const pcs = cutPieces(l, cs).map(q => [q.p].concat(q.holes));
+  if ($('b3-puz') && $('b3-puz').checked && typeof puzzleObszar === 'function' && W.m && W.lay && (pr.typ !== 'P' || pbOn(pr))) cutSegs(cs).forEach(sg => {
+    let pz = null; try { pz = puzzleObszar(sg); } catch (e) { return; } if (!pz || !pz.n) return;
+    const a = sg.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a);
+    pz.knobs.forEach(k => { const P = { X: Math.round((sg.c.x + dx * k.uc - dy) * S), Y: Math.round((sg.c.y + dy * k.uc + dx) * S) }, i = pcs.findIndex(p => C.Clipper.PointInPolygon(P, p[0]) !== 0); if (i >= 0) pcs[i] = clip('ctUnion', pcs[i].concat([k.head])); });
+  });
+  return pcs.every(p => fitBed(p.flatMap(r => fromCl(r)), pr.stX, pr.stY).ok);
+}
 function autoCuts() {
   if (W.cutManual) return;
   W.cuts = []; const pr = W.pr; if (!pr.podz || !W.base) return;
   const add = (li, x, y, ang) => W.cuts.push({ id: uid++, li, x, y, ang: (ang % 180 + 180) % 180 });
   bedLetters().forEach((l, li) => {
+    const ms = [0, 6, 12, 20, 30, 42, 56, 72];
+    for (let i = 0; i < ms.length; i++) {
+      const n0 = W.cuts.length; planLit(l, li, { ...pr, stX: pr.stX - ms[i], stY: pr.stY - ms[i] }, add);
+      if (W.cuts.length === n0 || i === ms.length - 1 || pasujeZLebkami(l, W.cuts.slice(n0), pr)) return;
+      W.cuts.length = n0;
+    }
+  });
+}
+// podział jednej litery na stół pr.stX × pr.stY (bez łebków puzzli — te sprawdza pasujeZLebkami)
+function planLit(l, li, pr, add) {
+  {
     if (l.bb.x1 - l.bb.x0 <= pr.stX && l.bb.y1 - l.bb.y0 <= pr.stY) return;     // mieści się wprost
     const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2, pts = simplifyRing(fromCl(l.p));
     if (fitBed(pts, pr.stX, pr.stY).ok) return;                                 // mieści się po obróceniu stołu — bez cięcia
@@ -1098,7 +1125,7 @@ function autoCuts() {
     const g = { a: best.q.a, cx, cy };
     best.XX.pos.forEach(p => { const [x, y] = fromUV(g, p, 0); add(li, x, y, g.a + 90); });
     best.YY.pos.forEach(p => { const [x, y] = fromUV(g, 0, p); add(li, x, y, g.a); });
-  });
+  }
 }
 // odcinki linii podziału: przez punkt (x, y) pod kątem ang, od pierwszego do ostatniego przecięcia z obrysem swojej litery + zapas
 // (linia skośna nie wychodzi na sąsiednią literę); punkt (x, y) w obrysie litery l
@@ -1154,7 +1181,7 @@ function refreshBeds() {
   // wtyczka Fusion tnie każdą bryłę, której prostokąt obejmujący dotyka linii — ostrzeżenie, gdy linia zahacza o sąsiednią literę
   if (W.cuts.some(c => c.ray)) W.cutWarn.push('cięcia promieniowe (od środka litery): działają w bryłach 3D Wizarda; wtyczka Fusion tnie całą linią');
   cutSegs().forEach(c => { const x0 = Math.min(c.a[0], c.b[0]), x1 = Math.max(c.a[0], c.b[0]), y0 = Math.min(c.a[1], c.b[1]), y1 = Math.max(c.a[1], c.b[1]); if (ls.some((l, i) => i !== c.li && x0 <= l.bb.x1 && x1 >= l.bb.x0 && y0 <= l.bb.y1 && y1 >= l.bb.y0)) W.cutWarn.push('linia podziału zahacza o prostokąt sąsiedniej litery: we Fusion potnie też ją (w bryłach 3D Wizarda nie)'); });
-  $('podz-info').innerHTML = (cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : cutL < 5 ? 'litery' : 'liter'}, razem ${parts} części.` : 'Żadna litera nie wymaga cięcia.') + (turned ? `<br>Stół obrócony przy ${turned} ${turned === 1 ? 'części' : 'częściach'}.` : '') + (W.cuts.some(c => !c.sKm && Math.abs(c.sK || 0) < pr.cutK - 0.01) ? `<br><span style="color:#c53030">Na ${W.cuts.filter(c => !c.sKm && Math.abs(c.sK || 0) < pr.cutK - 0.01).length} liniach klosz przesunięty mniej niż ${fmt(pr.cutK, 0)} mm: inaczej część nie zmieści się na stole.</span>` : '') + '<br><span class="hint">Pleksy nie dzielimy: jest cięta laserem w całości.</span>';
+  $('podz-info').innerHTML = (cutL ? `<b>Do podziału:</b> ${cutL} ${cutL === 1 ? 'litera' : cutL < 5 ? 'litery' : 'liter'}, razem ${parts} części.` : 'Żadna litera nie wymaga cięcia.') + (turned ? `<br>Stół obrócony przy ${turned} ${turned === 1 ? 'części' : 'częściach'}.` : '') + (W.cuts.some(c => !c.sKm && Math.abs(c.sK || 0) < pr.cutK - 0.01) ? `<br><span style="color:#c53030">Na ${W.cuts.filter(c => !c.sKm && Math.abs(c.sK || 0) < pr.cutK - 0.01).length} liniach klosz przesunięty mniej niż ${fmt(pr.cutK, 0)} mm: inaczej część nie zmieści się na stole.</span>` : '') + `<br><span class="hint">Części dzielone na ${fmt(pr.stX, 0)} × ${fmt(pr.stY, 0)} mm${pr.stX < pr.stXraw - 0.5 || pr.stY < pr.stYraw - 0.5 ? ' (obszar płyty z panelu Płyta: bez stref dysz i marginesów)' : ''}, razem z łebkami puzzli.</span>` + '<br><span class="hint">Pleksy nie dzielimy: jest cięta laserem w całości.</span>';
 }
 // ===================== plasterki łączące części po podziale =====================
 // Osobno drukowane elementy klejone na łączeniu, po jednym na każde miejsce, gdzie linia podziału przecina kieszeń (P) albo ściankę klosza (K).
@@ -2066,7 +2093,7 @@ function setParams(pr) {
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('odl', pr.odl); setR('wielk', pr.wielk);
   const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
   sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-fy', pr.przesunFix); sv('p-luz', pr.luz); sv('p-luzf', pr.luzF); sv('p-pg', pr.profG); sv('p-pl', pr.profL); sv('p-name', pr.name);
-  sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stX); sv('p-sty', pr.stY); sv('p-cutk', pr.cutKraw != null ? pr.cutKraw : pr.cutK); if (pr.cutKon != null) $('p-cutkon').checked = !!pr.cutKon; cutKSync(); sv('p-cutka', pr.cutKa);
+  sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stXraw != null ? pr.stXraw : pr.stX); sv('p-sty', pr.stYraw != null ? pr.stYraw : pr.stY); sv('p-cutk', pr.cutKraw != null ? pr.cutKraw : pr.cutK); if (pr.cutKon != null) $('p-cutkon').checked = !!pr.cutKon; cutKSync(); sv('p-cutka', pr.cutKa);
   if (pr.zat) { $('p-zt-on').checked = !!pr.zat.on; $('p-zt-n').value = String(pr.zat.n || 2); ZAT_POLA.forEach(k => sv('p-zt-' + k, pr.zat[k])); }
   if (pr.fix != null) $('p-fix').checked = !!pr.fix;
   if (pr.fixN != null) $('p-fixn').value = String(pr.fixN);

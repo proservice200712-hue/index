@@ -63,8 +63,11 @@ function plMask(it, ang, c, d) {
     md = new Uint8Array(W * H); const off = []; for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) if (dx * dx + dy * dy <= d * d + 0.5) off.push([dx, dy]);
     for (let r = 0; r < H; r++) for (let i = 0; i < W; i++) if (m[r * W + i]) for (const [dx, dy] of off) { const rr = r + dy, ii = i + dx; if (rr >= 0 && rr < H && ii >= 0 && ii < W) md[rr * W + ii] = 1; }
   }
-  const rows = []; for (let r = 0; r < H; r++) { const ru = []; let s = -1; for (let i = 0; i <= W; i++) { const v = i < W && md[r * W + i]; if (v && s < 0) s = i; else if (!v && s >= 0) { ru.push(s, i); s = -1; } } rows.push(ru); }
-  return { ang, W, H, rows, area: n0 * c * c };
+  let r0 = H, r1 = -1, c0 = W, c1 = -1; for (let r = 0; r < H; r++) for (let i = 0; i < W; i++) if (md[r * W + i]) { if (r < r0) r0 = r; if (r > r1) r1 = r; if (i < c0) c0 = i; if (i > c1) c1 = i; }
+  if (r1 < 0) { r0 = 0; r1 = H - 1; c0 = 0; c1 = W - 1; }
+  const W2 = c1 - c0 + 1, H2 = r1 - r0 + 1, rows = [];
+  for (let r = r0; r <= r1; r++) { const ru = []; let s = -1; for (let i = c0; i <= c1 + 1; i++) { const v = i <= c1 && md[r * W + i]; if (v && s < 0) s = i - c0; else if (!v && s >= 0) { ru.push(s, i - c0); s = -1; } } rows.push(ru); }
+  return { ang, W: W2, H: H2, rows, area: n0 * c * c, cx: W / 2 - c0, cy: H / 2 - r0 };
 }
 
 const plFits = (occ, GW, M, px, py) => {
@@ -101,14 +104,16 @@ async function plPack() {
       for (const it of list) {
         plMsg(`Rozmieszczam: ${label} ${++done}/${items.length}`); await new Promise(r => setTimeout(r, 0));
         if (it.zh > o.H + 0.01) warn.push(`${it.name}: wysokość ${fmt(it.zh, 1)} mm przekracza ${fmt(o.H, 0)} mm`);
-        const masks = angs.map(a => plMask(it, a, c, d)).filter(M => M.W <= GW && M.H <= GH);
+        let masks = angs.map(a => plMask(it, a, c, d)).filter(M => M.W <= GW && M.H <= GH);
+        if (!masks.length) { const P = []; for (let v = 0; v < it.xyz.length; v += 3) P.push([it.xyz[v], it.xyz[v + 1]]); const f = fitBed(P, o.xb - o.xa, o.yb - o.ya), a = Math.round(f.a * 10) / 10;
+          masks = [a, -a, a + 90, 90 - a, a + 180, 180 - a].map(x => plMask(it, (x % 360 + 360) % 360, c, d)).filter(M => M.W <= GW && M.H <= GH); }
         if (!masks.length) { warn.push(`${it.name}: nie mieści się na płycie (${fmt(it.w, 0)} × ${fmt(it.h, 0)} mm) — pominięta`); continue; }
         let put = null, plate = null;
         for (const pl of gp) { put = plBest(pl.occ, GW, GH, masks, stride); if (put) { plate = pl; break; } }
         if (!put) { plate = { grp: g, label, no: gp.length + 1, occ: new Uint8Array(GW * GH), items: [], area: 0 }; gp.push(plate); put = plBest(plate.occ, GW, GH, masks, stride); }
         if (!put) { warn.push(`${it.name}: nie udało się ułożyć`); continue; }
         plMark(plate.occ, GW, put.M, put.px, put.py);
-        plate.items.push({ it, ang: put.M.ang, x: gx0 + (put.px + put.M.W / 2) * c, y: gy0 + (put.py + put.M.H / 2) * c }); plate.area += put.M.area;
+        plate.items.push({ it, ang: put.M.ang, x: gx0 + (put.px + put.M.cx) * c, y: gy0 + (put.py + put.M.cy) * c }); plate.area += put.M.area;
       }
       plates.push(...gp);
     }
@@ -255,7 +260,7 @@ $('vpl-n').onchange = plDraw; new ResizeObserver(() => { if (!PL.open) return; i
 $('vpl-m2').onclick = () => plMode('2d'); $('vpl-m3').onclick = () => plMode('3d'); document.querySelectorAll('#vpl-views [data-v]').forEach(b => { b.onclick = () => pl3View(b.dataset.v); });
 $('vpl-cv').addEventListener('click', e => { const id = plStripAt(e); if (!id) return; $(id).checked = !$(id).checked; plExclusive(id); plSave(); plAuto(); });
 $('vpl-cv').addEventListener('mousemove', e => { $('vpl-cv').style.cursor = plStripAt(e) ? 'pointer' : ''; });
-['pl-w', 'pl-d', 'pl-hz', 'pl-sz', 'pl-gap', 'pl-mg'].forEach(id => addSpin($(id), { 'pl-w': 5, 'pl-d': 5, 'pl-hz': 5, 'pl-sz': 1, 'pl-gap': 0.5, 'pl-mg': 0.5 }[id], () => { plSave(); plAuto(); }));
+['pl-w', 'pl-d', 'pl-hz', 'pl-sz', 'pl-gap', 'pl-mg'].forEach(id => addSpin($(id), { 'pl-w': 5, 'pl-d': 5, 'pl-hz': 5, 'pl-sz': 1, 'pl-gap': 0.5, 'pl-mg': 0.5 }[id], () => { plSave(); if (['pl-w', 'pl-d', 'pl-sz', 'pl-mg'].includes(id)) plPodzial(); else plAuto(); }));
 // ustawienia płyty zapamiętane w przeglądarce
 const PL_IDS = ['pl-w', 'pl-d', 'pl-hz', 'pl-sz', 'pl-l', 'pl-r', 'pl-gap', 'pl-mg', 'pl-rot', 'pl-res', 'pl-gpodstawa', 'pl-gklosz', 'pl-glitera', 'pl-gplaster', 'pl-fk'];
 function plSave() { try { const o = {}; PL_IDS.forEach(id => { const e = $(id); o[id] = e.type === 'checkbox' ? e.checked : e.value; }); localStorage.setItem(PL_KEY, JSON.stringify(o)); } catch (e) { /* bez zapisu */ } }
@@ -266,4 +271,7 @@ function plAuto() { clearTimeout(plTmr); plTmr = setTimeout(() => { if (PL.busy)
 // strefa lewa i prawa nie mogą działać naraz: albo jedna, albo druga, albo żadna
 function plExclusive(id) { if ($(id).checked) $(id === 'pl-l' ? 'pl-r' : 'pl-l').checked = false; }
 if ($('pl-l').checked && $('pl-r').checked) $('pl-r').checked = false;
-PL_IDS.forEach(id => $(id).addEventListener($(id).type === 'text' ? 'input' : 'change', () => { if (id === 'pl-l' || id === 'pl-r') plExclusive(id); plSave(); plAuto(); }));
+PL_IDS.forEach(id => $(id).addEventListener($(id).type === 'text' ? 'input' : 'change', () => { if (id === 'pl-l' || id === 'pl-r') plExclusive(id); plSave(); if (['pl-w', 'pl-d', 'pl-sz', 'pl-l', 'pl-r', 'pl-mg'].includes(id)) plPodzial(); else plAuto(); }));
+// obszar płyty wyznacza też podział liter: po zmianie liczony od nowa (z opóźnieniem), potem nowe bryły i rozmieszczenie
+let plPTmr = 0;
+function plPodzial() { clearTimeout(plPTmr); plPTmr = setTimeout(() => { if (W.base) recompute(); plAuto(); }, 600); }
