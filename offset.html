@@ -159,7 +159,7 @@
   .mtsel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 6px 0 8px; } .mtsel label { border: 1.5px solid var(--line); text-align: center; padding: 7px 2px; cursor: pointer; font-size: .78rem; font-weight: 700; background: #fff; line-height: 1.15; } .mtsel label:has(input:checked) { border-color: var(--accent); background: #f0fbe8; } .mtsel input { display: none; } .mtsel small { display: block; font-weight: 500; font-size: .62rem; color: var(--gray); }
   body:not(.t-MGs) .mg-s { display: none !important; } body.t-MGs .mg-m { display: none !important; }
   body.t-MG .mg-only { display: block; }
-  body.puz-j .puz-o, body:not(.puz-j) .puz-j, body:not(.kmo) .km, body.kmo .pl-k { display: none !important; }
+  body.cutk-off .cutk-f, body.puz-j .puz-o, body:not(.puz-j) .puz-j, body:not(.kmo) .km, body.kmo .pl-k { display: none !important; }
   body.t-P .p-only { display: block; }
   body.t-P:not(.t-PB) .fs-only, body.t-P:not(.t-PB) #g3-f, body.t-P #g3-s { display: none !important; }
   /* pełna z podstawą: pola podstawy jak we Frontlit, bez pleksy i ścianek klosza (klosz liczy się z pól litery pełnej) */
@@ -361,7 +361,8 @@
         <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
         <div class="fld"><span>Stół X [mm]</span><input type="text" inputmode="decimal" id="p-stx" value="320"></div>
         <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
-        <div class="fld" title="Linia klosza idzie obok linii podstawy, żeby łączenia nie wypadały w jednym miejscu. 0 = w tym samym miejscu."><span>Klosz: podział obok podstawy o [mm]</span><input type="text" inputmode="decimal" id="p-cutk" value="30"></div>
+        <div class="row" title="Wyłączone: klosz cięty w tym samym miejscu co podstawa (bez przesunięcia linii klosza)"><label><input type="checkbox" id="p-cutkon" checked> klosz: podział obok podstawy</label></div>
+        <div class="fld cutk-f" title="Linia klosza idzie obok linii podstawy, żeby łączenia nie wypadały w jednym miejscu. 0 = w tym samym miejscu."><span>Klosz: podział obok podstawy o [mm]</span><input type="text" inputmode="decimal" id="p-cutk" value="30"></div>
         <div class="fld" title="Klosz jest przecinany w ściankach pod skosem (patrząc od góry): płaszczyzna cięcia tworzy ten kąt z normalną do ścianki, więc światło nie ucieka prosto przez szczelinę. 0 = cięcie prosto w poprzek ścianki. Przy mostkach w kloszu zawsze prosto."><span>Klosz: skos cięcia ścianek [°]</span><input type="text" inputmode="decimal" id="p-cutka" value="45"></div>
         <div class="vals" id="podz-info"></div>
         <div class="row"><label><input type="checkbox" id="b3-cut" checked> tnij po liniach podziału</label></div>
@@ -602,7 +603,7 @@ function params() {
   const r = n => (document.querySelector(`input[name=${n}]:checked`) || {}).value;
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: Number(r('wielk')),
     przesun: num($('p-prz').value), przesunFix: num($('p-fy').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
-    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutK: Math.max(0, num($('p-cutk').value)), cutKa: num($('p-cutka').value), zat: zatParams(), p3: p3State(),
+    dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stX: Math.max(10, num($('p-stx').value)), stY: Math.max(10, num($('p-sty').value)), cutKon: $('p-cutkon').checked, cutKraw: Math.max(0, num($('p-cutk').value)), cutK: $('p-cutkon').checked ? Math.max(0, num($('p-cutk').value)) : 0, cutKa: num($('p-cutka').value), zat: zatParams(), p3: p3State(),
     plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
 const pbOn = pr => pr.typ === 'P' && !!pr.p3 && pr.p3['b3-fpod'] !== false;     // litera pełna z podstawą i świecącym kloszem
@@ -1112,8 +1113,11 @@ function cutSegs(list = W.cuts) {
 }
 // linia klosza = linia podstawy przesunięta w poprzek o c.sK: łączenia podstawy i klosza nie wypadają w jednym miejscu, więc litera jest sztywniejsza
 const kSkos = () => { const v = $('p-cutka') ? num($('p-cutka').value) : 0; return Math.max(0, Math.min(80, v)); };     // skos cięcia ścianek klosza (patrząc od góry): kąt linii cięcia względem normalnej do ścianki, °
-const cutK = c => { const a = c.ang * Math.PI / 180, s = c.sK || 0; return { ...c, x: c.x - Math.sin(a) * s, y: c.y + Math.cos(a) * s, ang: c.ang + (c.kA || 0) }; };
-const kSzew = () => W.cuts.filter(c => c.sK || c.kA);     // cięcia, które mają własną linię klosza (przesunięcie i / lub obrót)
+// wyłącznik „klosz: podział obok podstawy”: linia klosza w miejscu linii podstawy (także ręcznie przesunięta)
+const kOn = () => !$('p-cutkon') || $('p-cutkon').checked;
+function cutKSync() { document.body.classList.toggle('cutk-off', !kOn()); }
+const cutK = c => { const a = c.ang * Math.PI / 180, s = kOn() ? c.sK || 0 : 0; return { ...c, x: c.x - Math.sin(a) * s, y: c.y + Math.cos(a) * s, ang: c.ang + (c.kA || 0) }; };
+const kSzew = () => W.cuts.filter(c => (kOn() && c.sK) || c.kA);     // cięcia, które mają własną linię klosza (przesunięcie i / lub obrót)
 // strona i wielkość przesunięcia: pełne, jeśli części klosza mieszczą się na stole, jest ich tyle samo co w podstawie i żadna nie wychodzi skrawkiem; inaczej krócej
 function autoShifts(l, cs, pr) {
   const n0 = cutPieces(l, cs).length;
@@ -2062,7 +2066,7 @@ function setParams(pr) {
   setR('typ', pr.typ); setR('dysza', pr.dysza); setR('gdzie', pr.gdzie); setR('odl', pr.odl); setR('wielk', pr.wielk);
   const sv = (id, v) => { if (v != null) $(id).value = typeof v === 'number' ? fmt(v, 3) : v; };
   sv('p-P', pr.P); sv('p-B', pr.B); sv('p-prz', pr.przesun); sv('p-fy', pr.przesunFix); sv('p-luz', pr.luz); sv('p-luzf', pr.luzF); sv('p-pg', pr.profG); sv('p-pl', pr.profL); sv('p-name', pr.name);
-  sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stX); sv('p-sty', pr.stY); sv('p-cutk', pr.cutK); sv('p-cutka', pr.cutKa);
+  sv('p-dotw', pr.dOtw); sv('p-dfix', pr.dFix); sv('p-dleb', pr.dLeb); sv('p-stx', pr.stX); sv('p-sty', pr.stY); sv('p-cutk', pr.cutKraw != null ? pr.cutKraw : pr.cutK); if (pr.cutKon != null) $('p-cutkon').checked = !!pr.cutKon; cutKSync(); sv('p-cutka', pr.cutKa);
   if (pr.zat) { $('p-zt-on').checked = !!pr.zat.on; $('p-zt-n').value = String(pr.zat.n || 2); ZAT_POLA.forEach(k => sv('p-zt-' + k, pr.zat[k])); }
   if (pr.fix != null) $('p-fix').checked = !!pr.fix;
   if (pr.fixN != null) $('p-fixn').value = String(pr.fixN);
@@ -2217,7 +2221,7 @@ function setMontaz(v) {
   if (v === 's' && mtMode() !== 's' && num($('b3-pl').value) === 5 && num($('b3-gw').value) === 4.5) { $('b3-pl').value = '3'; $('b3-gw').value = '3'; }   // standard kołnierza dla śrub 3 mm (potem do zmiany w Bryła 3D)
   $('b3-mon').checked = v === 'm' || v === 's'; if (v === 'm' || v === 's') $('b3-mrodz').value = v; $('p-zt-on').checked = v === 'c'; mtSync(); recompute(); }
 // ===================== start =====================
-restore(); hlSync(); mtSync(); puzSync(); schemat3D(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
+restore(); hlSync(); mtSync(); puzSync(); cutKSync(); $('p-cutkon').addEventListener('change', cutKSync); schemat3D(); ['p-prz', 'p-fy'].forEach(id => $(id).dispatchEvent(new Event('input')));
 STEPS['p-hl'] = 1;
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id === 'p-hl') hlPush(); else if (id.startsWith('b3-')) { b3Change(id); if (id === 'b3-h' || id === 'b3-sh') hlSync(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
