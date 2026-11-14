@@ -522,14 +522,11 @@ function puzzleObszar(c, q = puzPrm()) {
 }
 // mostki w kloszu na łączeniach (zamiast plasterków klosza): żebro w poprzek wnętrza klosza na linii cięcia klosza, łączy wolne końce ścianek.
 // Od dołu odsunięte (miejsce na LED), od góry niżej niż pleksa (nie zaciemnia jej), górna krawędź łukiem jak żebro łodzi.
-// Grubość 2 × (3 × dysza): linia klosza dzieli żebro na pół, każda część ma swoje 3 dysze i klosze skleja się na mostku;
+// Z mostkami klosz cięty prosto (bez skosu w ściankach), więc mostek z góry jest prostym paskiem. Grubość 2 × (3 × dysza): linia klosza dzieli żebro na pół, każda część ma swoje 3 dysze i klosze skleja się na mostku;
 // góra każdej połówki fazowana 45° od strony wnętrza jej części (przekrój jak daszek), więc światło rozchodzi się dalej.
 function mostkiBryla(zK0, zKmax, ndel, uw) {
   const { Manifold } = V3.wasm, t = mostekT(), zB = zK0 + Math.max(0, num($('b3-kmd').value) || 0), zT = zKmax - Math.max(0, num($('b3-kmg').value) || 0), H = zT - zB;
   if (H < 3) { uw.push(`mostki w kloszu pominięte: między odstępem od dołu a odstępem od pleksy zostaje ${fmt(Math.max(0, H), 1)} mm (potrzeba co najmniej 3 mm)`); return null; }
-  // przy ściance cięcie klosza jest skośne (kloszObszar): granica części przesuwa się tam o s w poprzek linii, więc końce mostka są poszerzone (klin przy ściance),
-  // żeby każda połówka zawsze zrastała się ze ścianką swojej części
-  const sk = kSkos() * Math.PI / 180, dc = Math.max(0, (W.m.k1 + W.m.k2) / 2 - plateRegs().dK), ph = sk > 0 ? Math.min(3.5, dc * Math.tan(Math.min(sk, 1.4)) + t) + 0.3 : t, pl = 3.5;
   const ribs = W.mostki.map(mk => {
     const { u0, u1, ln } = mk, ua = u0 - 3, ub = u1 + 3, um = (u0 + u1) / 2, hw = (u1 - u0) / 2;
     // łuk: na końcach (przy ściankach) pełna wysokość, w środku niżej — najwyżej do 40 % wysokości (min. 3 mm), nie głębiej niż 0,35 długości
@@ -540,8 +537,7 @@ function mostkiBryla(zK0, zKmax, ndel, uw) {
     // lokalnie: x = wzdłuż linii, y = wysokość, z = w poprzek; daszek fazy = część wspólna dwóch pochylonych (45°) kopii profilu
     const pr = ndel(ndel(Manifold.extrude([ring], 2 * (t + 2))).translate([0, 0, -(t + 2)]));
     const a1 = ndel(pr.warp(v => { v[1] -= v[2]; })), a2 = ndel(pr.warp(v => { v[1] += v[2]; }));
-    const box = (x0, x1, h) => ndel(ndel(Manifold.cube([x1 - x0, zT - zB + 5, 2 * h], false)).translate([x0, zB, -h]));
-    const slab = ph > t + 0.01 ? ndel(Manifold.union([box(ua, ub, t), box(ua, Math.min(um, u0 + pl), ph), box(Math.max(um, u1 - pl), ub, ph)])) : box(ua, ub, t);
+    const slab = ndel(ndel(Manifold.cube([ub - ua, zT - zB + 5, 2 * t], false)).translate([ua, zB, -t]));
     const rib = ndel(Manifold.intersection(ndel(Manifold.intersection(a1, a2)), slab)), a = ln.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
     return ndel(rib.warp(v => { const u = v[0], z = v[1], w = -v[2]; v[0] = ln.x + u * dx + w * nx; v[1] = ln.y + u * dy + w * ny; v[2] = z; }));
   });
@@ -742,7 +738,7 @@ async function build3D() {
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
       if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
         const L = ls[c.li]; if (!L) return;
-        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c) : k === 'klosz' && kSkos() > 0 ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
+        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c) : k === 'klosz' && kSkos() > 0 && !mostkiWl() ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
         list.forEach(b => {
