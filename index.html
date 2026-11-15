@@ -2404,6 +2404,29 @@ async function autoDoorThumbs() {
   finally { doorThumbRun = false; }
 }
 // powiązany element „Drzwi — A”: tworzony / zmieniany / usuwany razem ze ścianą
+// =====================================================================
+//  PLIK DRZWI W PHOTOSHOPIE: przy ścianie z drzwiami ścieżka pliku grafiki ściany (el.psPath) i przycisk,
+//  który pobiera skrypt Photoshopa (szablon ps/drzwi.jsx + dane): wymiar i spad ściany, położenie, wymiar i spady drzwi.
+//  Skrypt sam rozpoznaje, czy plik ściany jest ze spadem czy netto i ile ma pikseli na mm, wycina drzwi i zapisuje obok jako TIFF.
+// =====================================================================
+async function psDrzwi(cur, el) {
+  if (!hasDoor(cur)) return toast('Najpierw zaznacz drzwi w ścianie');
+  if (!hasDims(cur)) return toast('Najpierw wpisz wymiar ściany');
+  const nm = markOf({ ...el, ...cur }), b0 = bleedOf(cur), sp = cur.bleedBox || { l: b0, r: b0, t: b0, b: b0 }, ds = doorList(cur);
+  const drzwi = ds.map((d, i) => {
+    const mv = doorView(cur, d), p = doorPos(mv), de = el.id && S.elements.find(e => e.doorFor === el.id && (e.doorIdx || 0) === i), k = (de && de.bleedBox) || doorBleed(mv) || { l: 0, r: 0, t: 0, b: 0 };
+    return { znak: ds.length > 1 ? doorMarkI(nm, i) : nm, x: p.x, w: p.w, h: p.h, l: +k.l || 0, r: +k.r || 0, t: +k.t || 0, b: +k.b || 0 };
+  });
+  if (drzwi.some(d => d.x < 0 || d.x + d.w > Number(cur.w))) return toast('Drzwi wychodzą poza ścianę — popraw odległość od krawędzi');
+  const P = { stoisko: (S.project && S.project.name) || '', sciana: nm, plik: String(el.psPath || '').trim().replace(/^"|"$/g, '').replace(/\\/g, '/'), W: Number(cur.w), H: Number(cur.h), spadSciany: { l: +sp.l || 0, r: +sp.r || 0, t: +sp.t || 0, b: +sp.b || 0 }, drzwi };
+  let t;
+  try { t = await fetch('ps/drzwi.jsx', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }); }
+  catch (e) { return toast('Nie udało się pobrać szablonu skryptu: ' + e.message); }
+  if (!t.includes('/*__DANE__*/null')) return toast('Szablon skryptu jest niepoprawny');
+  const js = '\uFEFF' + t.replace('/*__DANE__*/null', JSON.stringify(P)), nazwa = ('INDEX_drzwi_' + P.stoisko + '_' + nm).replace(/[^\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ-]+/g, '_');
+  download(nazwa + '.jsx', new Blob([js], { type: 'application/javascript' }));
+  toast(P.plik ? 'Pobrano skrypt Photoshopa — kliknij go dwukrotnie (albo w Photoshopie: Plik → Skrypty → Przeglądaj…)' : 'Pobrano skrypt Photoshopa — bez ścieżki zapyta o plik ściany. Uruchom: dwuklik albo Plik → Skrypty → Przeglądaj…', 8000);
+}
 async function syncDoorElement(mainId, main) {
   const pid = S.project.id, ds = doorList(main);
   const exAll = S.elements.filter(e => e.doorFor === mainId);
@@ -5018,6 +5041,9 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
           <div class="door-pos">Odległość od <div class="seg" id="ed-door-from"><button type="button" data-dfrom="left" class="${dr.from !== 'right' ? 'on' : ''}">lewej</button><button type="button" data-dfrom="right" class="${dr.from === 'right' ? 'on' : ''}">prawej</button></div>
             krawędzi ściany do drzwi <input type="number" id="ed-door-dist" min="0" step="${unitStep()}" value="${esc(fromMM(dr.dist))}"> ${UNIT()}</div>
           <div id="ed-door-prev"></div>
+          <div class="door-ps" style="margin-top:10px"><div class="hint" style="margin-bottom:4px">Plik grafiki ściany na dysku — z niego Photoshop wytnie plik na drzwi (ze spadami z INDEX)</div>
+            <div style="display:flex;gap:6px;align-items:center"><input type="text" id="ed-ps-path" placeholder="np. D:\\Targi\\Gushen\\A4.tif" value="${esc(el.psPath || '')}" style="flex:1;min-width:0">
+            <button type="button" class="btn" id="ed-ps-go" title="Pobiera skrypt Photoshopa z wymiarami ściany, położeniem drzwi i spadami. Dwuklik w pobrany plik (albo w Photoshopie: Plik → Skrypty → Przeglądaj…) — Photoshop otworzy plik ściany, wytnie drzwi i zapisze obok jako TIFF.">Plik drzwi (Photoshop)</button></div></div>
           <div class="hint">Drzwi dostaną osobny element „Drzwi — ${esc(lab)}” (grafika na drzwi) obok ściany.</div></div>` : ''}</div>`;
     }
     // spady (Blackback standard, Folia, Płyta PCW) — pod wymiarem, nad uwagami
@@ -5065,6 +5091,8 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
     $('ed-doorslot').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
     $('ed-doorslot').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
+    const psp = $('ed-ps-path'); if (psp) psp.addEventListener('input', () => { el.psPath = psp.value; });
+    const psg = $('ed-ps-go'); if (psg) psg.onclick = () => psDrzwi(read(), el);
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
@@ -5322,7 +5350,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, psPath: hasDoor(d) ? String(el.psPath || '').trim() : '', thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
@@ -5334,7 +5362,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         m.close();
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
-        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, psPath: hasDoor(d) ? String(el.psPath || '').trim() : '', thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
