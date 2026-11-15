@@ -1948,6 +1948,7 @@ const snapState = () => JSON.stringify({ holes: W.holes, rails: W.rails, cuts: W
 function pushUndo() { W.undo.push(snapState()); if (W.undo.length > 80) W.undo.shift(); }
 function undo() { const s = W.undo.pop(); if (!s) return; const o = JSON.parse(s); if (o.base) { W.base = o.base; W.baseId++; computeLayers(); } W.holes = o.holes; W.rails = o.rails; W.cuts = o.cuts || []; W.marks = o.marks || []; W.latches = o.latches || []; W.mags = o.mags || []; W.cutManual = !!o.cutManual; W.sel = null; refreshBeds(); if (o.base) checkOverlaps(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); }
 function hit(px, py) {
+  if (W.show.Cyfra && W.marks.length) { const x = wx(px), y = wy(py), q = cyfryMiejsca().slice().reverse().find(q => !q.brak && ((q.h * W.view.s < 16 && Math.hypot(X(q.x) - px, Y(q.y) - py) <= 10) || (Math.abs(x - q.x) <= cyfraSzer(q.t, q.h) / 2 + 3 / W.view.s && Math.abs(y - q.y) <= q.h / 2 + 3 / W.view.s))); if (q) return { t: 'mark', id: q.li, o: W.marks.find(m => m.li === q.li), cx: q.x, cy: q.y }; }
   const hh = W.holes.slice().reverse().find(h => Math.hypot(X(h.x) - px, Y(h.y) - py) <= Math.max(6, h.d / 2 * W.view.s + 3));
   if (hh) return { t: 'hole', id: hh.id, o: hh };
   if (W.show.Mag && magWlHtml()) { const mw = magWym(), q = W.mags.slice().reverse().find(m => Math.hypot(X(m.x) - px, Y(m.y) - py) <= Math.max(6, (mw.rp + mw.s) * W.view.s)); if (q) return { t: 'mag', id: q.id, o: q }; }
@@ -1981,14 +1982,14 @@ cv.addEventListener('pointerdown', e => {
   closePlatePop(); W.rdown = e.button === 2 ? [px, py] : null;
   if (W.addZat && e.button === 0) { zatDodaj(wx(px), wy(py)); return; }
   if (W.addMag && e.button === 0) { magDodaj(wx(px), wy(py)); return; }
-  drag = h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy, plate: h } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.x : h.o.x0, oy: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
+  drag = h && h.t === 'mark' ? { kind: 'obj', o: h.o, t: 'mark', sx: px, sy: py, ox: h.cx, oy: h.cy, moved: false } : h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy, plate: h } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.x : h.o.x0, oy: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
   cv.setPointerCapture(e.pointerId); cv.classList.add('drag'); draw();
 });
 cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = W.addZat || W.addMag ? 'copy' : !h ? '' : h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' || e.ctrlKey || e.metaKey ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
+  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = W.addZat || W.addMag ? 'copy' : !h ? '' : h.t === 'hole' || h.t === 'latch' || h.t === 'mag' || h.t === 'mark' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' || e.ctrlKey || e.metaKey ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
   const dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
   if (drag.plate && Math.hypot(px - drag.sx, py - drag.sy) >= 3) drag.plate = null;
   if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
@@ -2003,6 +2004,7 @@ cv.addEventListener('pointermove', e => {
     else { c.x = Math.round((drag.x0 + dx) * 10) / 10; c.y = Math.round((drag.y0 + dy) * 10) / 10; }
     W.cutManual = true; refreshBeds(); renderSel(); return draw();
   }
+  if (drag.t === 'mark') { const m = drag.o, l = bedLetters()[m.li]; if (!l) return; m.ux = Math.round((drag.ox + dx - l.bb.x0) * 10) / 10; m.uy = Math.round((drag.oy + dy - l.bb.y0) * 10) / 10; return draw(); }
   if (drag.t === 'mag') { const tx = drag.ox + dx, ty = drag.oy + dy, li = letterAt(tx, ty), q = magNaLinii(tx, ty, li >= 0 ? li : drag.o.li); if (q) { drag.o.x = q[0]; drag.o.y = q[1]; if (li >= 0) drag.o.li = li; } drag.o.manual = true; renderSel(); return draw(); }
   const sn = v => e.altKey ? v : Math.round(v * 10) / 10;           // co 0,1 mm (Alt = bez przyciągania)
   if (drag.t === 'hole' || drag.t === 'latch') {
@@ -2083,12 +2085,14 @@ cv.addEventListener('contextmenu', e => {
 });
 const endDrag = () => { const had = drag && drag.moved, klik = drag && drag.plate, kx = drag && drag.sx, ky = drag && drag.sy;
   if (had && drag.t === 'mag') { renderSide(); if (window.mark3D) mark3D(); }
+  if (had && drag.t === 'mark') { if (window.mark3D) mark3D(); const q = cyfryMiejsca().find(m => m.li === drag.o.li), u = q && cyfraUwaga(q); if (u) toast(u, 5000); }
   if (had && drag.t === 'latch') { const l = drag.o, li = letterAt(l.x, l.y); if (li >= 0) l.li = li; if (window.mark3D) mark3D(); }
   if (had && drag.kind === 'cut') { const c = drag.c, li = bedLetters().findIndex(l => c.x >= l.bb.x0 && c.x <= l.bb.x1 && c.y >= l.bb.y0 && c.y <= l.bb.y1); if (li >= 0) c.li = li; refreshBeds(); if (window.mark3D) mark3D(); }
   drag = null; cv.classList.remove('drag'); if (had) { renderSide(); save(); } draw(); if (klik) openPlatePop(klik, kx, ky); };
 cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('dblclick', e => {
   if (!W.base) return; const r = cv.getBoundingClientRect(); pushUndo();
+  const hm = hit(e.clientX - r.left, e.clientY - r.top); if (hm && hm.t === 'mark') { if (hm.o) { delete hm.o.ux; delete hm.o.uy; } renderSide(); draw(); save(); if (window.mark3D) mark3D(); toast('Cyfra wraca na miejsce wybrane automatycznie'); return; }
   if (e.altKey) { // nowa linia podziału przez literę pod kursorem
     const x = wx(e.clientX - r.left), y = wy(e.clientY - r.top), li = bedLetters().findIndex(l => x >= l.bb.x0 && x <= l.bb.x1 && y >= l.bb.y0 && y <= l.bb.y1); if (li < 0) return;
     const c = { id: uid++, li, x, y, ang: e.shiftKey ? 0 : 90 }; W.cuts.push(c); W.sel = { t: 'cut', id: c.id };
