@@ -1008,9 +1008,11 @@ function fitBed(pts, stX, stY) {
 // miejsca cięcia: odcinki, w których linia przechodzi przez literę (u wzdłuż linii od punktu c); promień — tylko po jego stronie.
 // c.off = numery miejsc (od 1, wzdłuż linii), w których linia NIE tnie: cięcie tylko w wybranych miejscach (np. tylko jedna kreska litery).
 function cutSpansL(c, l) { if (!l) return []; let sp = lineSpans([l.p].concat(l.holes), c); if (c.ray) sp = sp.filter(q => q[1] > 0); return sp; }
-function cutAkt(c, l = bedLetters()[c.li]) { const sp = cutSpansL(c, l); return c.off && c.off.length ? sp.filter((q, i) => !c.off.includes(i + 1)) : sp; }
-const czesciowe = c => !!(c.ray || (c.off && c.off.length));
-const naCieciu = (c, u) => !(c.off && c.off.length) || cutAkt(c).some(q => u >= q[0] - 2 && u <= q[1] + 2);
+// pojedyncze cięcie (c.one): przecina tylko jedną kreskę litery — tę, przez którą przechodzi w swoim punkcie (x, y)
+function cutJedno(sp) { if (!sp.length) return null; return sp.find(q => q[0] - 1 <= 0 && q[1] + 1 >= 0) || sp.slice().sort((p, q) => Math.min(Math.abs(p[0]), Math.abs(p[1])) - Math.min(Math.abs(q[0]), Math.abs(q[1])))[0]; }
+function cutAkt(c, l = bedLetters()[c.li]) { const sp = cutSpansL(c, l); if (c.one) { const q = cutJedno(sp); return q ? [q] : []; } return c.off && c.off.length ? sp.filter((q, i) => !c.off.includes(i + 1)) : sp; }
+const czesciowe = c => !!(c.ray || c.one || (c.off && c.off.length));
+const naCieciu = (c, u) => !(c.one || (c.off && c.off.length)) || cutAkt(c).some(q => u >= q[0] - 2 && u <= q[1] + 2);
 // cięcie tylko w części miejsc (albo promień) = szczeliny przez aktywne miejsca
 function szczelinyCiecia(c, e = 0.01, l) {
   if (c.ray && !(c.off && c.off.length)) return [szczelina(c, e)];
@@ -1019,6 +1021,7 @@ function szczelinyCiecia(c, e = 0.01, l) {
 }
 // Shift + klik w linię: w tym miejscu tnij / nie tnij
 function przelaczMiejsce(c, x, y) {
+  if (c.one) return toast('To pojedyncze cięcie: tnie tylko jedną kreskę (przesuń je strzałkami ↑ ↓ albo obróć ← →)');
   const l = bedLetters()[c.li], a = c.ang * Math.PI / 180, u = (x - c.x) * Math.cos(a) + (y - c.y) * Math.sin(a), sp = cutSpansL(c, l), i = sp.findIndex(q => u >= q[0] - 3 && u <= q[1] + 3);
   if (i < 0) return toast('Kliknij z Shift na linii tam, gdzie przechodzi przez literę');
   pushUndo(); c.off = (c.off || []).filter(k => k !== i + 1).concat((c.off || []).includes(i + 1) ? [] : [i + 1]); if (!c.off.length) delete c.off;
@@ -1114,12 +1117,39 @@ function pasujeZLebkami(l, cs, pr) {
   });
   return pcs.every(p => fitBed(p.flatMap(r => fromCl(r)), pr.stX, pr.stY).ok);
 }
+// podział pojedynczymi cięciami (każde przecina jedną kreskę), jak najmniej cięć: zachłannie — za każdym razem największa część, która się nie mieści,
+// dostaje cięcie (kąty co 15°, 9 miejsc w poprzek), po którym najmniej wystaje poza stół; tylko gdy żadne pojedyncze jej nie rozdziela (pierścień) — para cięć jednej linii
+function planPojedyncze(l, pr) {
+  const hs = W.holes.filter(h => h.x >= l.bb.x0 && h.x <= l.bb.x1 && h.y >= l.bb.y0 && h.y <= l.bb.y1);
+  const key = JSON.stringify([Math.round(area(l.p)), l.bb.x0, l.bb.y0, l.bb.x1, l.bb.y1, pr.stX, pr.stY, hs.map(h => [h.x, h.y, h.d])]); W.oneC = W.oneC || {}; if (key in W.oneC) return W.oneC[key];
+  const lS = { p: toCl(simplifyRing(fromCl(l.p))), holes: l.holes.map(h => toCl(simplifyRing(fromCl(h)))), bb: l.bb }, fit = q => fitBed(fromCl(q.p), pr.stX, pr.stY);
+  const ocen = cs => { const pcs = cutPieces(lS, cs); let zle = 0, over = 0, maly = 0; pcs.forEach(q => { const f = fit(q); if (!f.ok) { zle++; over += f.over; } if (area(q.p) < 600) maly++; }); return { n: pcs.length, zle, over, maly, pcs }; };
+  const wPc = (q, x, y) => { const P = { X: Math.round(x * S), Y: Math.round(y * S) }; return C.Clipper.PointInPolygon(P, q.p) !== 0 && !q.holes.some(h => C.Clipper.PointInPolygon(P, h) === 1); };
+  const kara = c => { const a = c.ang * Math.PI / 180; let k = 0; hs.forEach(h => { if (Math.abs(-(h.x - c.x) * Math.sin(a) + (h.y - c.y) * Math.cos(a)) < h.d / 2 + 1.5 && Math.hypot(h.x - c.x, h.y - c.y) < 80) k += 1000; }); return k; };
+  let cuts = [], st = ocen(cuts);
+  for (let krok = 0; krok < 12 && st.zle > 0; krok++) {
+    const P = st.pcs.filter(q => !fit(q).ok).sort((a, b) => area(b.p) - area(a.p))[0], pts = simplifyRing(fromCl(P.p)), bb = bboxOf([P.p]), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2, linie = [];
+    for (let a = 0; a < 180; a += 15) {
+      const ar = a * Math.PI / 180, dx = Math.cos(ar), dy = Math.sin(ar), nx = -dy, ny = dx; let v0 = Infinity, v1 = -Infinity;
+      pts.forEach(([x, y]) => { const v = (x - cx) * nx + (y - cy) * ny; if (v < v0) v0 = v; if (v > v1) v1 = v; });
+      for (let i = 1; i < 10; i++) { const v = v0 + (v1 - v0) * i / 10, c = { x: cx + nx * v, y: cy + ny * v, ang: a }; linie.push({ c, dx, dy, sp: lineSpans([lS.p].concat(lS.holes), c).filter(q => q[1] - q[0] > 1 && wPc(P, c.x + dx * (q[0] + q[1]) / 2, c.y + dy * (q[0] + q[1]) / 2)) }); }
+    }
+    const jedno = (L, q) => ({ x: Math.round((L.c.x + L.dx * (q[0] + q[1]) / 2) * 10) / 10, y: Math.round((L.c.y + L.dy * (q[0] + q[1]) / 2) * 10) / 10, ang: L.c.ang, one: true });
+    let best = null;
+    const probuj = (cs, dl) => { const o = ocen(cuts.concat(cs)); if (o.n <= st.n || o.maly > st.maly) return; const s = o.zle * 1e6 + o.over * 20 + dl * (cs[0].ang % 90 ? 1.15 : 1) + cs.reduce((t, c) => t + kara(c), 0); if (!best || s < best.s) best = { s, cs, o }; };
+    linie.forEach(L => L.sp.forEach(q => probuj([jedno(L, q)], q[1] - q[0])));
+    if (!best) linie.forEach(L => { for (let i = 0; i < L.sp.length; i++) for (let j = i + 1; j < L.sp.length; j++) probuj([jedno(L, L.sp[i]), jedno(L, L.sp[j])], L.sp[i][1] - L.sp[i][0] + L.sp[j][1] - L.sp[j][0]); });
+    if (!best) break;
+    cuts = cuts.concat(best.cs); st = best.o;
+  }
+  return (W.oneC[key] = st.zle === 0 && cuts.length ? cuts : null);
+}
 function autoCuts() {
   if (W.cutManual) return;
   W.cuts = []; const pr = W.pr; if (!pr.podz || !W.base) return;
   const add = (li, x, y, ang) => W.cuts.push({ id: uid++, li, x, y, ang: (ang % 180 + 180) % 180 });
   bedLetters().forEach((l, li) => {
-    const ms = [0, 6, 12, 20, 30, 42, 56, 72];
+    const ms = [0, 10, 25, 45, 70];
     for (let i = 0; i < ms.length; i++) {
       const n0 = W.cuts.length; planLit(l, li, { ...pr, stX: pr.stX - ms[i], stY: pr.stY - ms[i] }, add);
       if (W.cuts.length === n0 || i === ms.length - 1 || pasujeZLebkami(l, W.cuts.slice(n0), pr)) return;
@@ -1132,7 +1162,9 @@ function planLit(l, li, pr, add) {
   {
     if (l.bb.x1 - l.bb.x0 <= pr.stX && l.bb.y1 - l.bb.y0 <= pr.stY) return;     // mieści się wprost
     const cx = (l.bb.x0 + l.bb.x1) / 2, cy = (l.bb.y0 + l.bb.y1) / 2, pts = simplifyRing(fromCl(l.p));
-    if (fitBed(pts, pr.stX, pr.stY).ok) return;                                 // mieści się po obróceniu stołu — bez cięcia
+    if (fitBed(pts, pr.stX, pr.stY).ok) return;
+    { const jed = planPojedyncze(l, pr), ray = l.holes.length ? promienie(l, 99, pr) : null, wyb = jed && ray ? (ray.length < jed.length ? ray : jed) : jed || ray;
+      if (wyb) { wyb.forEach(c => W.cuts.push(c.ray ? { id: uid++, li, x: c.x, y: c.y, ang: (c.ang % 360 + 360) % 360, ray: true } : { id: uid++, li, x: c.x, y: c.y, ang: (c.ang % 180 + 180) % 180, one: true })); return; } }                                 // mieści się po obróceniu stołu — bez cięcia
     const partsAt = a => { const b = uvBox(pts, a, cx, cy); return { a, b, nx: nParts(b.u1 - b.u0, pr.stX), ny: nParts(b.v1 - b.v0, pr.stY) }; };
     let cand = []; for (let a = 0; a < 180; a += 5) cand.push(partsAt(a));
     const min0 = Math.min(...cand.map(q => q.nx * q.ny)), around = cand.filter(q => q.nx * q.ny === min0).map(q => q.a);
@@ -1176,7 +1208,8 @@ function cutSegs(list = W.cuts) {
   const ls = bedLetters();
   return list.map(c => {
     const l = ls[c.li], dx = Math.cos(c.ang * Math.PI / 180), dy = Math.sin(c.ang * Math.PI / 180); let t0 = -50, t1 = 50;
-    if (l) { const sp = c.ray ? lineSpans([l.p].concat(l.holes), c).filter(q => q[1] > 0) : lineSpans([l.p], c); if (sp.length) { t0 = c.ray ? Math.max(0, sp[0][0]) : sp[0][0]; t1 = sp[sp.length - 1][1]; } else { const P = l.pts || (l.pts = fromCl(l.p)); t0 = Infinity; t1 = -Infinity; P.forEach(q => { const t = (q[0] - c.x) * dx + (q[1] - c.y) * dy; if (t < t0) t0 = t; if (t > t1) t1 = t; }); } }
+    if (l && c.one) { const q = cutJedno(cutSpansL(c, l)); if (q) { t0 = q[0]; t1 = q[1]; } }
+    else if (l) { const sp = c.ray ? lineSpans([l.p].concat(l.holes), c).filter(q => q[1] > 0) : lineSpans([l.p], c); if (sp.length) { t0 = c.ray ? Math.max(0, sp[0][0]) : sp[0][0]; t1 = sp[sp.length - 1][1]; } else { const P = l.pts || (l.pts = fromCl(l.p)); t0 = Infinity; t1 = -Infinity; P.forEach(q => { const t = (q[0] - c.x) * dx + (q[1] - c.y) * dy; if (t < t0) t0 = t; if (t > t1) t1 = t; }); } }
     return { c, id: c.id, li: c.li, a: [c.x + dx * (t0 - CUT_ZAPAS), c.y + dy * (t0 - CUT_ZAPAS)], b: [c.x + dx * (t1 + CUT_ZAPAS), c.y + dy * (t1 + CUT_ZAPAS)] };
   });
 }
@@ -1506,7 +1539,7 @@ async function loadFile(f) {
       computeLayers(); const rows = rowsOf(letters(bedSrc())); W.rails.forEach(r => { let bi = 0, bd = Infinity; rows.forEach((row, i) => { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)), d = r.yc < y0 ? y0 - r.yc : r.yc > y1 ? r.yc - y1 : 0; if (d < bd) { bd = d; bi = i; } }); r.row = bi; });
     }
     recompute(false);
-    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; const of = (source.meta.off || [])[i]; if (of && of.length) c.off = of; const L = kitLines[i]; if ((source.meta.ray || [])[i] && L) { c.ray = true; c.x = L[0][0]; c.y = L[0][1]; c.ang = Math.round((Math.atan2(L[1][1] - L[0][1], L[1][0] - L[0][0]) * 180 / Math.PI + 360) % 360 * 100) / 100; } }); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.mags) { const L = bedLetters(); W.mags = source.meta.mags.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, manual: true })); } if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
+    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; if ((source.meta.one || [])[i]) c.one = true; const of = (source.meta.off || [])[i]; if (of && of.length) c.off = of; const L = kitLines[i]; if ((source.meta.ray || [])[i] && L) { c.ray = true; c.x = L[0][0]; c.y = L[0][1]; c.ang = Math.round((Math.atan2(L[1][1] - L[0][1], L[1][0] - L[0][0]) * 180 / Math.PI + 360) % 360 * 100) / 100; } }); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.mags) { const L = bedLetters(); W.mags = source.meta.mags.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, manual: true })); } if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
     if (W.panel === 'plik' || !W.panel) showPanel('litery', true);
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
@@ -1600,7 +1633,7 @@ function buildKit() {
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
   const { typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = (typ === 'S' || pbOn(W.pr)) && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), ray: W.cuts.map(c => c.ray ? 1 : 0), off: W.cuts.map(c => c.off && c.off.length ? c.off : 0), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), ray: W.cuts.map(c => c.ray ? 1 : 0), off: W.cuts.map(c => c.off && c.off.length ? c.off : 0), one: W.cuts.map(c => c.one ? 1 : 0), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1961,7 +1994,7 @@ function renderSel() {
   }
   if (s.t === 'cut') {
     const c = W.cuts.find(q => q.id === s.id); if (!c) { W.sel = null; b.classList.add('hidden'); return; }
-    const spM = cutSpansL(c, bedLetters()[c.li]), msc = spM.length > 1 ? `<div class="fld" title="Miejsca, w których linia przechodzi przez literę (numery na rysunku). Odznaczone = w tym miejscu bez cięcia. To samo: Shift + klik w linię."><span>Tnie w miejscach</span><span style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:flex-end">${spM.map((q, i) => `<label style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer"><input type="checkbox" style="width:auto;margin:0" data-sp="${i + 1}" ${c.off && c.off.includes(i + 1) ? '' : 'checked'}>${i + 1}</label>`).join('')}</span></div>` : '';
+    const spM = c.one ? [] : cutSpansL(c, bedLetters()[c.li]), msc = spM.length > 1 ? `<div class="fld" title="Miejsca, w których linia przechodzi przez literę (numery na rysunku). Odznaczone = w tym miejscu bez cięcia. To samo: Shift + klik w linię."><span>Tnie w miejscach</span><span style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:flex-end">${spM.map((q, i) => `<label style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer"><input type="checkbox" style="width:auto;margin:0" data-sp="${i + 1}" ${c.off && c.off.includes(i + 1) ? '' : 'checked'}>${i + 1}</label>`).join('')}</span></div>` : '';
     b.classList.remove('hidden'); b.innerHTML = `<b>Linia podziału</b><div class="fld"><span>Kąt [°]</span><input type="text" inputmode="decimal" id="sel-ang" value="${fmt(c.ang, 1)}"></div><div class="fld" title="W którą stronę i o ile linia klosza leży obok linii podstawy. Puste = automatycznie."><span>Klosz obok o [mm]</span><input type="text" inputmode="decimal" id="sel-sk" value="${c.sKm ? fmt(c.sK || 0, 1) : ''}" placeholder="${fmt(c.sK || 0, 1)}"></div><div class="fld" title="Linia klosza może być obrócona względem linii podstawy. 0 = równoległa."><span>Klosz: kąt względem podstawy [°]</span><input type="text" inputmode="decimal" id="sel-ka" value="${fmt(c.kA || 0, 1)}"></div>${msc}<div class="hint">← → = obrót wokół środka linii (Shift = co 15°) · ↑ ↓ = przesuń w górę / w dół (Shift = 10 mm) · Shift + klik w linię = tnij / nie tnij w tym miejscu · chwyć linię = przesuń · Ctrl + przeciągnij linię albo kółko na końcu = obróć (Shift = co 15°) · niebieska linia klosza: to samo · Delete = usuń</div>`;
     const inp = $('sel-ang'), done = () => { W.cutManual = true; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); }, go = () => { pushUndo(); const m = c.ray ? 360 : 180; c.ang = ((num(inp.value) % m) + m) % m; done(); };
     const iS = $('sel-sk'), goS = () => { pushUndo(); const t = iS.value.trim(); c.sKm = !!t; if (t) c.sK = num(t); done(); };
@@ -2386,7 +2419,7 @@ $('b-cut-add').onclick = () => { if (!W.base) return; W.addCut = !W.addCut; $('b
 // nowa linia cięcia w klikniętym miejscu litery (pionowa); od razu zaznaczona — ← → obracają, ↑ ↓ przesuwają
 function cutDodaj(x, y) {
   const li = letterAt(x, y); if (li < 0) return toast('Kliknij w literę');
-  pushUndo(); const c = { id: uid++, li, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, ang: 90 }; W.cuts.push(c); W.sel = { t: 'cut', id: c.id };
+  pushUndo(); const c = { id: uid++, li, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, ang: 90, one: true }; W.cuts.push(c); W.sel = { t: 'cut', id: c.id };
   W.addCut = false; $('b-cut-add').classList.remove('on'); W.cutManual = true; refreshBeds(); renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D();
 }
 $('b-zt-add').onclick = () => { if (!W.base) return; if (!zatWlHtml()) { $('p-zt-on').checked = true; recompute(); } W.addZat = !W.addZat; $('b-zt-add').classList.toggle('on', W.addZat); if (W.addZat) toast('Kliknij w literę, w miejscu zatrzasku'); };
