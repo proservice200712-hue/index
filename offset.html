@@ -165,7 +165,7 @@
   .pchip { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: #f7fafc; padding: 3px 4px; font-size: .74rem; cursor: pointer; min-width: 0; } .pchip .ti { font-size: 15px; color: var(--gray); flex: none; } .pchip > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pchip input[type=text] { width: 44px; padding: 3px 4px; border: 1px solid #cbd5e0; font: inherit; } .pchip .spin { flex: none; } .pchip .spin input { width: 40px; } .pchip .spin .sb button { width: 16px; } .pchip input[type=checkbox] { margin: 0; flex: none; }
   .phid { display: none; }
   .pfold { border-top: 1px solid var(--line); padding: 3px 0; } .pfold summary { cursor: pointer; list-style: none; font-size: .76rem; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 6px; padding: 4px 0; } .pfold summary::-webkit-details-marker { display: none; } .pfold summary .ti { font-size: 16px; color: var(--gray); } .pfold summary .ti-chevron-right { transition: transform .15s; } .pfold[open] summary .ti-chevron-right { transform: rotate(90deg); }
-  body.puz-off .puz-p, body.plw .km, body.plw .pl-k { display: none !important; }
+  body.puz-off .puz-p, body.plw .km, body.plw .pl-k, body.plw .pl-pod, body:not(.plw) .pl-w { display: none !important; }
   .mg-only { display: none; } .zt-only { display: none; } body.t-ZT .zt-only { display: block; }
   .mtsel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 6px 0 8px; } .mtsel label { border: 1.5px solid var(--line); text-align: center; padding: 7px 2px; cursor: pointer; font-size: .78rem; font-weight: 700; background: #fff; line-height: 1.15; } .mtsel label:has(input:checked) { border-color: var(--accent); background: #f0fbe8; } .mtsel input { display: none; } .mtsel small { display: block; font-weight: 500; font-size: .62rem; color: var(--gray); }
   body:not(.t-MGs) .mg-s { display: none !important; } body.t-MGs .mg-m { display: none !important; }
@@ -407,6 +407,7 @@
             <label class="pchip km" title="Odstęp końców mostka od pleksy (Sidelit: od frontu); w środku łuk schodzi niżej"><i class="ti ti-arrow-bar-to-down"></i><span>do pleksy</span><input type="text" inputmode="decimal" id="b3-kmg" value="8"></label>
             <label class="pchip km" title="Jak mocno góra mostka opada w środku: 0 = prosta góra na wysokości końców, 100 = najgłębszy łuk (w środku zostają 3 mm mostka, najwyżej półkole). Przy ściankach mostek zawsze ma pełną wysokość."><i class="ti ti-ease-in-out"></i><span>łuk %</span><input type="text" inputmode="decimal" id="b3-kmk" value="60"></label>
             <label class="pchip pl-k" title="Długość plasterka klosza (w poprzek linii) [mm]"><i class="ti ti-ruler-measure"></i><span>długość</span><input type="text" inputmode="decimal" id="p-plk" value="40"></label>
+            <label class="pchip pl-w" title="Długość wspólnego plasterka U (w poprzek linii) [mm]; przy przesuniętej linii klosza plasterek jest dłuższy o to przesunięcie"><i class="ti ti-ruler-measure"></i><span>długość</span><input type="text" inputmode="decimal" id="p-plwl" value="40"></label>
           </div>
           <div class="phid"><input type="checkbox" id="b3-kmo" checked><input type="checkbox" id="p-plw"></div>
         </div>
@@ -417,9 +418,9 @@
             <label class="pchip" title="Klosz jest przecinany w ściankach pod skosem (patrząc od góry): płaszczyzna cięcia tworzy ten kąt z normalną do ścianki, więc światło nie ucieka prosto przez szczelinę. 0 = cięcie prosto w poprzek ścianki. Przy mostkach w kloszu zawsze prosto."><i class="ti ti-angle"></i><span>skos [°]</span><input type="text" inputmode="decimal" id="p-cutka" value="45"></label>
           </div>
         </div>
-        <div class="pcat"><div class="pct"><i class="ti ti-rectangle"></i>Plasterki podstawy</div>
+        <div class="pcat pl-pod"><div class="pct"><i class="ti ti-rectangle"></i>Plasterki podstawy</div>
           <div class="pchips">
-            <label class="pchip" title="Plasterki klejone na łączeniach podstawy (plasterki klosza: w Łączeniu klosza)"><span>dodaj</span><input type="checkbox" id="p-plon" checked></label>
+            <label class="pchip" title="Plasterki w kieszeni podstawy na jej łączeniach (tylko podstawa; plasterki klosza i wspólny U wybiera się w Łączeniu klosza)"><span>dodaj</span><input type="checkbox" id="p-plon" checked></label>
             <label class="pchip" title="Długość plasterka podstawy (w poprzek linii) [mm]"><i class="ti ti-ruler-measure"></i><span>długość</span><input type="text" inputmode="decimal" id="p-pll" value="40"></label>
           </div>
         </div>
@@ -651,7 +652,7 @@ function params() {
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: Number(r('wielk')),
     przesun: num($('p-prz').value), przesunFix: num($('p-fy').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
     dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stXraw: Math.max(10, num($('p-stx').value)), stYraw: Math.max(10, num($('p-sty').value)), stX: Math.max(10, Math.min(num($('p-stx').value), stolPlyty().X)), stY: Math.max(10, Math.min(num($('p-sty').value), stolPlyty().Y)), cutKon: $('p-cutkon').checked, cutKraw: Math.max(0, num($('p-cutk').value)), cutK: $('p-cutkon').checked ? Math.max(0, num($('p-cutk').value)) : 0, cutKa: num($('p-cutka').value), zat: zatParams(), p3: p3State(),
-    plOn: $('p-plon').checked, plW: $('p-plw').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
+    plOn: $('p-plon').checked, plW: $('p-plw').checked, plLW: Math.max(0, num($('p-plwl').value) || 0), plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
 const pbOn = pr => pr.typ === 'P' && !!pr.p3 && pr.p3['b3-fpod'] !== false;     // litera pełna z podstawą i świecącym kloszem
 function model(pr) {
@@ -1328,13 +1329,12 @@ function refreshPlates() {
     const inBB = p => { const b = bboxOf([p]); return b.x1 > l.bb.x0 - 3 && b.x0 < l.bb.x1 + 3 && b.y1 > l.bb.y0 - 3 && b.y0 < l.bb.y1 + 3; };
     // mostki klosza: odcinki linii klosza we wnętrzu klosza tej litery
     if (most) { const ln = cutK(c), la = ln.ang * Math.PI / 180; lineSpans(regs.I.filter(inBB), ln).forEach(sp => { const um = (sp[0] + sp[1]) / 2, x = ln.x + Math.cos(la) * um, y = ln.y + Math.sin(la) * um; if (sp[1] - sp[0] >= 2 && wLiterze(l, x, y) && (!ln.ray || um > 0) && naCieciu(ln, um)) W.mostki.push({ c, ln, li: c.li, u0: sp[0], u1: sp[1] }); }); }
-    if (!pr.plOn) return;
     if (plWsp()) {
       // wspólny plasterek: po jednym na każde przejście linii przez wnętrze klosza; w poprzek obejmuje linię podstawy i przesuniętą linię klosza
       const s = kOn() ? (c.sK || 0) : 0, W2 = (u, v) => [c.x + dx * u + nx * v, c.y + dy * u + ny * v];
       const spans = lineSpans(regs.I.filter(inBB), c).filter(sp => { const [x, y] = W2((sp[0] + sp[1]) / 2, 0); return sp[1] - sp[0] >= 2 && wLiterze(l, x, y) && (!c.ray || sp[0] + sp[1] > 0) && naCieciu(c, (sp[0] + sp[1]) / 2); });
       spans.forEach((sp, i) => {
-        const key = 'W' + (i + 1), L = c.plL && c.plL[key] != null ? c.plL[key] : Math.max(pr.plLP, pr.plLK), plate = { c, key, type: 'W', li: c.li, L, polys: [], groove: [], floor: [], pw: [], rim: [], kw: [] };
+        const key = 'W' + (i + 1), L = c.plL && c.plL[key] != null ? c.plL[key] : pr.plLW, plate = { c, key, type: 'W', li: c.li, L, polys: [], groove: [], floor: [], pw: [], rim: [], kw: [] };
         W.plates.push(plate); if (!(L > 0)) return;
         const u0 = i ? (spans[i - 1][1] + sp[0]) / 2 : sp[0] - 2000, u1 = i < spans.length - 1 ? (sp[1] + spans[i + 1][0]) / 2 : sp[1] + 2000, v0 = Math.min(0, s) - L / 2, v1 = Math.max(0, s) + L / 2;
         let rect = toCl([W2(u0, v0), W2(u1, v0), W2(u1, v1), W2(u0, v1)]); if (C.Clipper.Area(rect) < 0) rect = rect.reverse();
@@ -1348,7 +1348,7 @@ function refreshPlates() {
       });
       return;
     }
-    [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].filter(([type]) => !(most && type === 'K')).forEach(([type, reg, defL]) => {
+    [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].filter(([type]) => type === 'P' ? pr.plOn : !most).forEach(([type, reg, defL]) => {
       const ln = type === 'K' ? cutK(c) : c, W2 = (u, s) => [ln.x + dx * u + nx * s, ln.y + dy * u + ny * s];
       const near = reg.filter(inBB), spans = lineSpans(near, ln).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return wLiterze(l, x, y) && (!ln.ray || s[0] + s[1] > 0) && naCieciu(ln, (s[0] + s[1]) / 2); });
       spans.forEach((sp, i) => {
@@ -1380,7 +1380,7 @@ function rowekLED(polys, szer) {
 // Gdy między odstępem od dołu a od pleksy nie zostają 3 mm (niska litera), mostków nie ma i wracają plasterki klosza.
 const mostkiChce = () => !!($('b3-kmo') && $('b3-kmo').checked && W.pr && W.pr.typ === 'F' && !plWsp());
 // jeden wspólny plasterek (podstawa + klosz, w kształcie U) — tylko Frontlit
-const plWsp = () => !!(W.pr && W.pr.typ === 'F' && W.pr.plOn && W.pr.plW);
+const plWsp = () => !!(W.pr && W.pr.typ === 'F' && W.pr.plW);
 const mostkiH = () => { try { const p = params3D(); return p.ws - p.pl - Math.max(0, num($('b3-kmd').value) || 0) - Math.max(0, num($('b3-kmg').value) || 0); } catch (e) { return -1; } };
 const mostkiWl = () => mostkiChce() && typeof params3D === 'function' && mostkiH() >= 3;
 const mostekT = () => 3 * ((W.pr && W.pr.dysza) || 4) / 10;
@@ -1394,7 +1394,7 @@ function podzSync() {
   document.body.classList.toggle('puz-off', !puz); document.body.classList.toggle('plw', $('p-plw').checked);
 }
 document.querySelectorAll('input[name=puzseg]').forEach(r => { r.onchange = () => { const cb = $('b3-puz'), sel = $('b3-puzk'); cb.checked = r.value !== '0'; if (r.value !== '0') sel.value = r.value; [cb, sel].forEach(x => x.dispatchEvent(new Event('change', { bubbles: true }))); }; });
-document.querySelectorAll('input[name=kseg]').forEach(r => { r.onchange = () => { const km = $('b3-kmo'), pw = $('p-plw'), po = $('p-plon'); km.checked = r.value === 'm'; pw.checked = r.value === 'w'; if (r.value !== 'm') po.checked = true; [km, pw, po].forEach(x => x.dispatchEvent(new Event('change', { bubbles: true }))); }; });
+document.querySelectorAll('input[name=kseg]').forEach(r => { r.onchange = () => { const km = $('b3-kmo'), pw = $('p-plw'), po = $('p-plon'); km.checked = r.value === 'm'; pw.checked = r.value === 'w'; [km, pw].forEach(x => x.dispatchEvent(new Event('change', { bubbles: true }))); }; });
 $('b-cut-auto').onclick = () => { if (!W.base) return; pushUndo(); W.cuts = []; W.cutManual = false; W.sel = null; recompute(); toast('Linie podziału ułożone od nowa'); };
 // kształt łączenia podstawy na linii podziału (puzzle / jaskółczy ogon) do widoku 2D: wynik puzzleObszar pamiętany, dopóki nie zmieni się litera, linia albo parametry
 function puzKnoby(c) {
@@ -2278,6 +2278,7 @@ function setParams(pr) {
   if (pr.podz != null) $('p-podz').checked = !!pr.podz;
   if (pr.plOn != null) $('p-plon').checked = !!pr.plOn;
   if (pr.plW != null) $('p-plw').checked = !!pr.plW;
+  if (pr.plLW != null) $('p-plwl').value = fmt(pr.plLW, 3);
   sv('p-pll', pr.plLP); sv('p-plk', pr.plLK); sv('p-ploff', pr.plOffP); sv('p-plh', pr.plH); sv('p-plgr', pr.plGr); sv('p-plfl', pr.plFloor); sv('p-pkoff', pr.plOffK); sv('p-pkt', pr.plTK); sv('p-pkd', pr.plDownK);
   if (pr.pin != null) { W.pin = !!pr.pin; pinUI(); }
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
@@ -2289,7 +2290,7 @@ function restore() {
   try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (!o || !o.pr) return; if (!(o.std >= 4) && (o.pr.dOtw === 4.5 || o.pr.dOtw === 3)) delete o.pr.dOtw; if (!(o.std >= 3) && o.pr.plDownK === 10) delete o.pr.plDownK; if (!(o.std >= 5) && o.pr.p3 && /^2([.,]0+)?$/.test(String(o.pr.p3['b3-st']))) delete o.pr.p3['b3-st']; if (!(o.std >= 6) && o.pr.p3) Object.entries({ 'b3-h': 40, 'b3-pl': 6, 'b3-gw': 6, 'b3-cyf': 5 }).forEach(([k, v]) => { if (parseFloat(String(o.pr.p3[k]).replace(',', '.')) === v) delete o.pr.p3[k]; }); if (!(o.std >= 7) && o.pr.p3 && parseFloat(String(o.pr.p3['b3-puzl']).replace(',', '.')) === 0.15) delete o.pr.p3['b3-puzl']; delete o.pr.P; delete o.pr.B; setParams(o.pr); } catch (e) { /* zostają domyślne */ }   // stary standard 4,5 → nowy 3 mm; stopień podstawy: stary standard 2 → nowy 1,5 mm
 }
 // strzałki góra / dół przy polach liczbowych (i klawisze ↑ ↓ w polu; Shift = ×10)
-const STEPS = { 'b3-puzl': 0.05, 'b3-puzdm': 1, 'b3-puzwm': 1, 'b3-puzhm': 1, 'b3-kmd': 1, 'b3-kmg': 1, 'b3-kmk': 10, 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-fks': 0.1, 'b3-fkf': 0.1, 'b3-puzl': 0.05, 'b3-mr': 0.5, 'b3-mdn': 0.5, 'b3-mu': 0.5, 'b3-mrz': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-mo': 0.25, 'b3-mf': 0.5, 'b3-mz': 0.05, 'b3-mk': 0.25, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
+const STEPS = { 'p-plwl': 5, 'b3-puzl': 0.05, 'b3-puzdm': 1, 'b3-puzwm': 1, 'b3-puzhm': 1, 'b3-kmd': 1, 'b3-kmg': 1, 'b3-kmk': 10, 'p-P': 0.05, 'p-B': 0.05, 'p-prz': 0.5, 'p-luz': 0.1, 'p-pg': 1, 'p-pl': 10, 'p-dotw': 0.5, 'p-dfix': 0.5, 'p-luzf': 0.1, 'p-dleb': 0.5, 'p-stx': 5, 'p-sty': 5, 'p-cutk': 5, 'b3-fh': 1, 'b3-fr': 0.5, 'b3-gp': 0.5, 'b3-h': 1, 'b3-st': 0.5, 'b3-pl': 0.5, 'b3-gw': 0.5, 'b3-sh': 1, 'b3-ss': 0.5, 'b3-sf': 0.5, 'b3-sd': 0.5, 'b3-st1': 0.1, 'b3-st2': 0.1, 'b3-st3': 0.1, 'b3-r': 0.05, 'b3-f': 0.25, 'b3-rm': 0.1, 'b3-cyf': 1, 'b3-fks': 0.1, 'b3-fkf': 0.1, 'b3-puzl': 0.05, 'b3-mr': 0.5, 'b3-mdn': 0.5, 'b3-mu': 0.5, 'b3-mrz': 0.5, 'b3-md': 1, 'b3-mh': 0.5, 'b3-ml': 0.05, 'b3-ms': 0.2, 'b3-mo': 0.25, 'b3-mf': 0.5, 'b3-mz': 0.05, 'b3-mk': 0.25, 'b3-prs': 0.5, 'b3-prd': 5, 'b3-fil-pw': 1, 'b3-fil-pt': 1, 'b3-fil-pb': 1, 'b3-fil-pi': 5, 'b3-fil-kw': 1, 'b3-fil-kt': 1, 'b3-fil-kb': 1, 'b3-fil-ki': 5, 'b3-fil-lh': 0.04, 'b3-fil-lw': 0.02, 'b3-fil-ro': 0.01, 'tx-h': 5, 'p-pll': 5, 'p-plk': 5, 'p-ploff': 0.1, 'p-plh': 0.1, 'p-plgr': 0.5, 'p-plfl': 0.1, 'p-pkoff': 0.05, 'p-pkt': 0.1, 'p-pkd': 1 };
 // pola Bryła 3D: profil i ustawienia druku nie przebudowują brył, reszta tak
 
 // ===================== schemat Frontlit (wektorowy): numery = pola panelu, pod numerem aktualny wymiar, klik w numer = edycja =====================
