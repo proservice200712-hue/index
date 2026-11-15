@@ -973,13 +973,13 @@ function konturyGeom(g, T) {
 }
 function show3D() {
   init3D(); const T = V3.THREE;
-  V3.meshes.forEach(m => { m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); V3.group.remove(m); }); V3.meshes = []; V3.hl = null;
+  V3.meshes.forEach(m => { m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); V3.group.remove(m); }); V3.rozsun = null; V3.meshes = []; V3.hl = null;
   let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
   V3.bodies.forEach(b => {
     const g = new T.BufferGeometry(), n = b.numProp || 3, pos = n === 3 ? b.pos : Float32Array.from({ length: b.pos.length / n * 3 }, (_, i) => b.pos[Math.floor(i / 3) * n + i % 3]);
     g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setIndex(new T.BufferAttribute(b.tri, 1));
     const mesh = new T.Mesh(g, material3D(b.part, b.plType)), edges = new T.LineSegments(konturyGeom(g, T), new T.LineBasicMaterial({ color: 0x2d3748, transparent: true, opacity: 0.6 }));
-    mesh.add(edges); mesh.userData = { part: b.part, plType: b.plType, plate: b.plate }; mesh.renderOrder = b.part === 'podstawa' ? 0 : b.part === 'klosz' ? 1 : 2; V3.group.add(mesh); V3.meshes.push(mesh);
+    mesh.add(edges); mesh.userData = { part: b.part, plType: b.plType, plate: b.plate, bb: b.bb }; mesh.renderOrder = b.part === 'podstawa' ? 0 : b.part === 'klosz' ? 1 : 2; V3.group.add(mesh); V3.meshes.push(mesh);
     for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], b.bb.min[i]); mx[i] = Math.max(mx[i], b.bb.max[i]); }
   });
   const first = !V3.box;
@@ -989,7 +989,11 @@ function show3D() {
 function apply3D() {
   const e = Number($('v3-e').value) || 0, vis = { klosz: $('v3-k').checked, podstawa: $('v3-p').checked, pleksa: $('v3-x').checked, plaster: $('v3-l').checked, litera: true }, lift = { litera: 0, podstawa: 0, klosz: e, pleksa: 2 * e };
   const ob = $('v3-o').checked; if (V3.prof) { V3.prof.visible = $('v3-pr').checked; V3.prof.position.z = -e; }
-  V3.meshes.forEach(m => { const u = m.userData; m.children.forEach(c => { if (c.isLineSegments) c.visible = ob; }); m.visible = vis[u.part]; m.position.z = u.part === 'plaster' ? (u.plType === 'K' ? e : 0) : lift[u.part]; });
+  // części podzielonej litery (podstawa i klosz osobno) rozsuwane w poziomie od środka litery, o tyle samo co podniesienie
+  if (!V3.rozsun) { V3.rozsun = new Map(); const ls = bedLetters(), grp = {};
+    V3.meshes.forEach(m => { const u = m.userData; if (!u.bb || (u.part !== 'podstawa' && u.part !== 'klosz')) return; const cx = (u.bb.min[0] + u.bb.max[0]) / 2, cy = (u.bb.min[1] + u.bb.max[1]) / 2, li = ls.findIndex(l => cx >= l.bb.x0 - 3 && cx <= l.bb.x1 + 3 && cy >= l.bb.y0 - 3 && cy <= l.bb.y1 + 3); if (li < 0) return; (grp[u.part + li] = grp[u.part + li] || []).push({ m, cx, cy, l: ls[li] }); });
+    Object.values(grp).forEach(g => { if (g.length < 2) return; g.forEach(({ m, cx, cy, l }) => { const dx = cx - (l.bb.x0 + l.bb.x1) / 2, dy = cy - (l.bb.y0 + l.bb.y1) / 2, d = Math.hypot(dx, dy) || 1; V3.rozsun.set(m, [dx / d, dy / d]); }); }); }
+  V3.meshes.forEach(m => { const u = m.userData, r = V3.rozsun.get(m) || [0, 0]; m.children.forEach(c => { if (c.isLineSegments) c.visible = ob; }); m.visible = vis[u.part]; m.position.z = u.part === 'plaster' ? (u.plType === 'K' ? e : 0) : lift[u.part]; m.position.x = r[0] * e; m.position.y = r[1] * e; });
   render3D();
 }
 // profil montażowy „U” za literami (tylko podgląd, nie idzie do STL / 3MF): szerokość = grubość profilu z zakładki Otwory,
