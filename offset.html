@@ -358,6 +358,7 @@
         </div>
       </section>
       <section class="pan" data-pan="podzial" data-t="Podział na stół">
+        <button type="button" class="btn wide" id="b-cut-add" title="Potem kliknij w literę: w tym miejscu powstaje pionowa linia cięcia. Strzałki przesuwają zaznaczoną linię, Ctrl + ← → ją obraca.">✂ Wstaw cięcie</button>
         <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
         <div class="fld"><span>Stół X [mm]</span><input type="text" inputmode="decimal" id="p-stx" value="320"></div>
         <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
@@ -1961,7 +1962,7 @@ function renderSel() {
   if (s.t === 'cut') {
     const c = W.cuts.find(q => q.id === s.id); if (!c) { W.sel = null; b.classList.add('hidden'); return; }
     const spM = cutSpansL(c, bedLetters()[c.li]), msc = spM.length > 1 ? `<div class="fld" title="Miejsca, w których linia przechodzi przez literę (numery na rysunku). Odznaczone = w tym miejscu bez cięcia. To samo: Shift + klik w linię."><span>Tnie w miejscach</span><span style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;justify-content:flex-end">${spM.map((q, i) => `<label style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer"><input type="checkbox" style="width:auto;margin:0" data-sp="${i + 1}" ${c.off && c.off.includes(i + 1) ? '' : 'checked'}>${i + 1}</label>`).join('')}</span></div>` : '';
-    b.classList.remove('hidden'); b.innerHTML = `<b>Linia podziału</b><div class="fld"><span>Kąt [°]</span><input type="text" inputmode="decimal" id="sel-ang" value="${fmt(c.ang, 1)}"></div><div class="fld" title="W którą stronę i o ile linia klosza leży obok linii podstawy. Puste = automatycznie."><span>Klosz obok o [mm]</span><input type="text" inputmode="decimal" id="sel-sk" value="${c.sKm ? fmt(c.sK || 0, 1) : ''}" placeholder="${fmt(c.sK || 0, 1)}"></div><div class="fld" title="Linia klosza może być obrócona względem linii podstawy. 0 = równoległa."><span>Klosz: kąt względem podstawy [°]</span><input type="text" inputmode="decimal" id="sel-ka" value="${fmt(c.kA || 0, 1)}"></div>${msc}<div class="hint">← → = obrót wokół środka linii (Shift = co 15°) · Shift + klik w linię = tnij / nie tnij w tym miejscu · chwyć linię = przesuń · Ctrl + przeciągnij linię albo kółko na końcu = obróć (Shift = co 15°) · niebieska linia klosza: to samo · Delete = usuń</div>`;
+    b.classList.remove('hidden'); b.innerHTML = `<b>Linia podziału</b><div class="fld"><span>Kąt [°]</span><input type="text" inputmode="decimal" id="sel-ang" value="${fmt(c.ang, 1)}"></div><div class="fld" title="W którą stronę i o ile linia klosza leży obok linii podstawy. Puste = automatycznie."><span>Klosz obok o [mm]</span><input type="text" inputmode="decimal" id="sel-sk" value="${c.sKm ? fmt(c.sK || 0, 1) : ''}" placeholder="${fmt(c.sK || 0, 1)}"></div><div class="fld" title="Linia klosza może być obrócona względem linii podstawy. 0 = równoległa."><span>Klosz: kąt względem podstawy [°]</span><input type="text" inputmode="decimal" id="sel-ka" value="${fmt(c.kA || 0, 1)}"></div>${msc}<div class="hint">strzałki = przesuń (Shift = 10 mm) · Ctrl + ← → = obrót wokół środka linii (Shift = co 15°) · Shift + klik w linię = tnij / nie tnij w tym miejscu · chwyć linię = przesuń · Ctrl + przeciągnij linię albo kółko na końcu = obróć (Shift = co 15°) · niebieska linia klosza: to samo · Delete = usuń</div>`;
     const inp = $('sel-ang'), done = () => { W.cutManual = true; refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); }, go = () => { pushUndo(); const m = c.ray ? 360 : 180; c.ang = ((num(inp.value) % m) + m) % m; done(); };
     const iS = $('sel-sk'), goS = () => { pushUndo(); const t = iS.value.trim(); c.sKm = !!t; if (t) c.sK = num(t); done(); };
     const iK = $('sel-ka'), goK = () => { pushUndo(); c.kA = Math.max(-80, Math.min(80, num(iK.value))) || 0; done(); };
@@ -2035,6 +2036,7 @@ cv.addEventListener('pointerdown', e => {
   closePlatePop(); W.rdown = e.button === 2 ? [px, py] : null;
   if (W.addZat && e.button === 0) { zatDodaj(wx(px), wy(py)); return; }
   if (W.addMag && e.button === 0) { magDodaj(wx(px), wy(py)); return; }
+  if (W.addCut && e.button === 0) { cutDodaj(wx(px), wy(py)); return; }
   drag = h && h.t === 'mark' ? { kind: 'obj', o: h.o, t: 'mark', sx: px, sy: py, ox: h.cx, oy: h.cy, moved: false } : h && h.t === 'plate' ? { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy, plate: h } : h && h.t === 'cut' ? { kind: 'cut', c: h.c, mode: h.mode, end: h.end, sx: px, sy: py, x0: h.c.x, y0: h.c.y, moved: false } : h ? { kind: 'obj', o: h.o, t: h.t, mode: h.mode, sx: px, sy: py, ox: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.x : h.o.x0, oy: h.t === 'hole' || h.t === 'latch' || h.t === 'mag' ? h.o.y : h.o.yc, ow: h.t === 'rail' ? h.o.x1 - h.o.x0 : 0,
       r0: h.t === 'rail' ? { x0: h.o.x0, x1: h.o.x1, top: h.o.yc + h.o.h / 2, bot: h.o.yc - h.o.h / 2 } : null, tg: h.t === 'rail' ? snapTargets() : null, moved: false }
     : { kind: 'pan', sx: px, sy: py, ox: W.view.ox, oy: W.view.oy };
@@ -2042,7 +2044,7 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointermove', e => {
   const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = W.addZat || W.addMag ? 'copy' : !h ? '' : h.t === 'hole' || h.t === 'latch' || h.t === 'mag' || h.t === 'mark' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' || e.ctrlKey || e.metaKey ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
+  if (!drag) { if (W.view) { const h = hit(px, py); cv.style.cursor = W.addZat || W.addMag || W.addCut ? 'copy' : !h ? '' : h.t === 'hole' || h.t === 'latch' || h.t === 'mag' || h.t === 'mark' ? 'move' : h.t === 'plate' ? 'pointer' : h.t === 'cut' ? (h.mode === 'rot' || e.ctrlKey || e.metaKey ? 'crosshair' : 'move') : { x0: 'ew-resize', x1: 'ew-resize', top: 'ns-resize', bot: 'ns-resize', move: 'move' }[h.mode]; } return; }
   const dx = (px - drag.sx) / W.view.s, dy = -(py - drag.sy) / W.view.s;
   if (drag.plate && Math.hypot(px - drag.sx, py - drag.sy) >= 3) drag.plate = null;
   if (drag.kind === 'pan') { W.view.ox = drag.ox + px - drag.sx; W.view.oy = drag.oy + py - drag.sy; return draw(); }
@@ -2160,7 +2162,13 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'Delete' || e.key === 'Backspace') && W.sel) { pushUndo(); if (W.sel.t === 'plate') { const q = W.plates.find(p => p.c.id === W.sel.id && p.key === W.sel.key); W.undo.pop(); if (q) setPlateL(q, 0); } else if (W.sel.t === 'hole') W.holes = W.holes.filter(h => h.id !== W.sel.id); else if (W.sel.t === 'mag') { W.mags = W.mags.filter(m => m.id !== W.sel.id); if (window.mark3D) mark3D(); } else if (W.sel.t === 'latch') { W.latches = W.latches.filter(l => l.id !== W.sel.id); if (window.mark3D) mark3D(); } else if (W.sel.t === 'cut') { W.cuts = W.cuts.filter(c => c.id !== W.sel.id); W.cutManual = true; refreshBeds(); if (window.mark3D) mark3D(); } else W.rails = W.rails.filter(r => r.id !== W.sel.id); W.sel = null; renderSide(); draw(); save(); e.preventDefault(); }
   else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) { undo(); e.preventDefault(); }
   else if (e.key === 'f' || e.key === 'F') fitView();
-  else if (W.sel && W.sel.t === 'cut' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+  else if (W.sel && W.sel.t === 'cut' && /^Arrow/.test(e.key) && !e.ctrlKey && !e.metaKey) {     // strzałki: linia w lewo / prawo / górę / dół (co 1 mm, Shift = 10 mm)
+    const c = W.cuts.find(q => q.id === W.sel.id); if (!c) return; pushUndo();
+    const st = e.shiftKey ? 10 : 1; c.x = Math.round((c.x + (e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0)) * 10) / 10; c.y = Math.round((c.y + (e.key === 'ArrowUp' ? st : e.key === 'ArrowDown' ? -st : 0)) * 10) / 10;
+    const li = bedLetters().findIndex(l => c.x >= l.bb.x0 && c.x <= l.bb.x1 && c.y >= l.bb.y0 && c.y <= l.bb.y1); if (li >= 0) c.li = li;
+    W.cutManual = true; refreshBeds(); renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); e.preventDefault();
+  }
+  else if (W.sel && W.sel.t === 'cut' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {     // Ctrl + ← →: obrót wokół środka linii
     const c = W.cuts.find(q => q.id === W.sel.id); if (!c) return; pushUndo();
     const sg = cutSegs([c])[0], d = (e.key === 'ArrowLeft' ? 1 : -1) * (e.shiftKey ? 15 : 1), m = c.ray ? 360 : 180;
     if (!c.ray && sg) { c.x = Math.round((sg.a[0] + sg.b[0]) / 2 * 10) / 10; c.y = Math.round((sg.a[1] + sg.b[1]) / 2 * 10) / 10; }     // promień obraca się wokół swojego początku
@@ -2373,6 +2381,13 @@ $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
 $('b-mg-add').onclick = () => { if (!W.base) return; if (!magWlHtml()) return toast($('b3-mon').checked ? 'Litera pełna bez podstawy nie ma klosza: włącz „z podstawą” (zakładka Litery)' : 'Najpierw zaznacz „mocowanie klosza na magnesy”'); W.addMag = !W.addMag; $('b-mg-add').classList.toggle('on', W.addMag); if (W.addMag) toast('Kliknij w literę, przy rancie'); };
 $('b-mg-auto').onclick = () => { if (!W.base || !magWlHtml()) return; pushUndo(); W.mags = []; autoMagnets(); renderSide(); draw(); if (window.mark3D) mark3D(); };
+$('b-cut-add').onclick = () => { if (!W.base) return; W.addCut = !W.addCut; $('b-cut-add').classList.toggle('on', W.addCut); if (W.addCut) toast('Kliknij w literę, w miejscu cięcia'); };
+// nowa linia cięcia w klikniętym miejscu litery (pionowa); od razu zaznaczona — strzałki ją przesuwają, Ctrl + ← → obraca
+function cutDodaj(x, y) {
+  const li = letterAt(x, y); if (li < 0) return toast('Kliknij w literę');
+  pushUndo(); const c = { id: uid++, li, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, ang: 90 }; W.cuts.push(c); W.sel = { t: 'cut', id: c.id };
+  W.addCut = false; $('b-cut-add').classList.remove('on'); W.cutManual = true; refreshBeds(); renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D();
+}
 $('b-zt-add').onclick = () => { if (!W.base) return; if (!zatWlHtml()) { $('p-zt-on').checked = true; recompute(); } W.addZat = !W.addZat; $('b-zt-add').classList.toggle('on', W.addZat); if (W.addZat) toast('Kliknij w literę, w miejscu zatrzasku'); };
 $('b-zt-auto').onclick = () => { if (!W.base) return; pushUndo(); W.latches = []; autoLatches(); renderSide(); draw(); if (window.mark3D) mark3D(); };
 $('b-zt-probka').onclick = () => zatProbka();
