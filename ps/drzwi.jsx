@@ -68,7 +68,8 @@ app.bringToFront();
     if (mL) { s = Math.min(mL, Dw - mL); lustro(doc, [mL, 0, mL + s, Dh], true, false, mL - s, 0); uzup.push('lewo ' + mm(mL, sx)); }
     if (mR) { s = Math.min(mR, Dw - mR); lustro(doc, [Dw - mR - s, 0, Dw - mR, Dh], true, false, Dw - mR, 0); uzup.push('prawo ' + mm(mR, sx)); }
     if (doc.layers.length > 1) doc.flatten();
-    var out = new File(f.parent.fsName + '/' + bazaNazwy(f) + '_drzwi_' + d.znak + '.tif');
+    // nazwa: plik ściany + znak drzwi + wymiar pliku drzwi do druku (ze spadami), np. A4_drzwi_A4_1400x2300mm.tif
+    var out = new File(f.parent.fsName + '/' + bazaNazwy(f) + '_drzwi_' + d.znak + '_' + (d.w + d.l + d.r) + 'x' + (d.h + d.t + d.b) + 'mm.tif');
     var o = new TiffSaveOptions(); o.imageCompression = TIFFEncoding.TIFFLZW; o.layers = false; o.embedColorProfile = true;
     doc.saveAs(out, o, false, Extension.LOWERCASE);
     if (cicho) doc.close(SaveOptions.DONOTSAVECHANGES);
