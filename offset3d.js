@@ -111,6 +111,20 @@ const CYF_UP = 0.3, CYF_GLIFY = {
   8: [[[.25, .52], [.05, .65], [.05, .87], [.25, 1], [.75, 1], [.95, .87], [.95, .65], [.75, .52], [.25, .52], [0, .38], [0, .14], [.25, 0], [.75, 0], [1, .14], [1, .38], [.75, .52]]]
 };
 CYF_GLIFY[9] = CYF_GLIFY[6].map(s => s.map(([x, y]) => [1 - x, 1 - y]));
+// litery A–Z i „-” do nazw części (te same kreski co cyfry)
+Object.assign(CYF_GLIFY, {
+  A: [[[0, 0], [.5, 1], [1, 0]], [[.22, .42], [.78, .42]]], B: [[[0, 0], [0, 1], [.7, 1], [.95, .86], [.95, .66], [.7, .53], [0, .53]], [[.7, .53], [1, .38], [1, .15], [.75, 0], [0, 0]]],
+  C: [[[1, .85], [.75, 1], [.25, 1], [0, .8], [0, .2], [.25, 0], [.75, 0], [1, .15]]], D: [[[0, 0], [0, 1], [.6, 1], [1, .75], [1, .25], [.6, 0], [0, 0]]],
+  E: [[[1, 1], [0, 1], [0, 0], [1, 0]], [[0, .52], [.75, .52]]], F: [[[1, 1], [0, 1], [0, 0]], [[0, .52], [.75, .52]]],
+  G: [[[1, .85], [.75, 1], [.25, 1], [0, .8], [0, .2], [.25, 0], [.75, 0], [1, .2], [1, .45], [.55, .45]]], H: [[[0, 0], [0, 1]], [[1, 0], [1, 1]], [[0, .52], [1, .52]]],
+  I: [[[.5, 0], [.5, 1]], [[.2, 1], [.8, 1]], [[.2, 0], [.8, 0]]], J: [[[1, 1], [1, .2], [.75, 0], [.25, 0], [0, .2]]],
+  K: [[[0, 0], [0, 1]], [[1, 1], [0, .4]], [[.32, .62], [1, 0]]], L: [[[0, 1], [0, 0], [1, 0]]], M: [[[0, 0], [0, 1], [.5, .45], [1, 1], [1, 0]]], N: [[[0, 0], [0, 1], [1, 0], [1, 1]]],
+  P: [[[0, 0], [0, 1], [.75, 1], [1, .85], [1, .6], [.75, .45], [0, .45]]], R: [[[0, 0], [0, 1], [.75, 1], [1, .85], [1, .6], [.75, .45], [0, .45]], [[.45, .45], [1, 0]]],
+  S: [[[1, .85], [.75, 1], [.25, 1], [0, .85], [0, .65], [.25, .52], [.75, .48], [1, .35], [1, .15], [.75, 0], [.25, 0], [0, .15]]], T: [[[0, 1], [1, 1]], [[.5, 1], [.5, 0]]],
+  U: [[[0, 1], [0, .2], [.25, 0], [.75, 0], [1, .2], [1, 1]]], V: [[[0, 1], [.5, 0], [1, 1]]], W: [[[0, 1], [.2, 0], [.5, .6], [.8, 0], [1, 1]]], X: [[[0, 0], [1, 1]], [[0, 1], [1, 0]]],
+  Y: [[[0, 1], [.5, .5], [1, 1]], [[.5, .5], [.5, 0]]], Z: [[[0, 1], [1, 1], [0, 0], [1, 0]]], '-': [[[.15, .5], [.85, .5]]]
+});
+CYF_GLIFY.O = CYF_GLIFY[0]; CYF_GLIFY.Q = CYF_GLIFY[0].concat([[[.6, .3], [1, 0]]]);
 const cyfraSzer = (t, h) => t.length * 0.6 * h + (t.length - 1) * 0.3 * h;
 function cyfraPolys(t, cx, cy, h, sw, lustro) {
   const c = CL(), w = 0.6 * h, x0 = cx - cyfraSzer(t, h) / 2, y0 = cy - h / 2, paths = [];
@@ -127,7 +141,7 @@ function cyfryDno(p, m) {
 function cyfryMiejsca() {
   if (!W.marks.length || !W.base || !W.pr || (W.pr.typ === 'P' && !pbWl())) return [];
   // wynik pamiętany osobno dla każdej cyfry: przy przeciąganiu jednej pozostałe nie są liczone od nowa
-  const p = params3D(), key = JSON.stringify([W.baseId, W.pr.typ, W.pr.dysza, W.pr.dLeb, W.m, p.st, p.pl, p.wgl, p.gw, p.f, p.r, p.sd, p.t3, p.rg, p.cyf, W.holes.map(h => [h.x, h.y, h.d, h.kind]), W.rails.map(r => [r.x0, r.x1, r.yc, r.h]), W.cuts.map(c => [c.li, c.x, c.y, c.ang]), W.plates.map(q => q.L), W.led && W.led.key]);
+  const p = params3D(), key = JSON.stringify([W.baseId, W.pr.typ, W.pr.dysza, W.pr.dLeb, W.m, p.st, p.pl, p.wgl, p.gw, p.f, p.r, p.sd, p.t3, p.rg, p.cyf, W.holes.map(h => [h.x, h.y, h.d, h.kind]), W.rails.map(r => [r.x0, r.x1, r.yc, r.h]), W.cuts.map(c => [c.li, c.x, c.y, c.ang, c.ray, c.off, c.sK]), W.plates.map(q => q.L), W.led && W.led.key]);
   if (V3.cyfKey !== key) { V3.cyfKey = key; V3.cyfM = new Map(); }
   const ls = bedLetters(); let ctx = null;
   const policz = m => {
@@ -138,7 +152,7 @@ function cyfryMiejsca() {
   ctx = { dno, sw0, plus, twarde, profile };
   }
     const { dno, sw0, plus, twarde, profile } = ctx;
-    const l = ls[m.li], pole = inter(dno.reg, [l.p]);
+    const l = ls[m.li], pc = m.pu != null && typeof czescLitery === 'function' ? czescLitery(m.li, l.bb.x0 + m.pu, l.bb.y0 + m.pv) : null, pole = inter(dno.reg, pc || [l.p]);
     // cyfra przesunięta ręcznie (przeciągnięta w 2D): stoi tam, gdzie ją położono, w wielkości z panelu
     if (m.ux != null && m.uy != null) {
       const h = Math.round(p.cyf * 10) / 10, sw = Math.max(sw0, h * 0.14), x = l.bb.x0 + m.ux, y = l.bb.y0 + m.uy, front = cyfraPolys(m.t, x, y, h, sw);
@@ -155,10 +169,10 @@ function cyfryMiejsca() {
     }
     return { li: m.li, t: m.t, h: 0, x: l.bb.x0, y: l.bb.y1, brak: true, front: [], back: [] };
   };
-  V3.cyf = W.marks.filter(m => ls[m.li]).map(m => { const k = JSON.stringify(m); if (!V3.cyfM.has(k)) V3.cyfM.set(k, policz(m)); return V3.cyfM.get(k); });
+  V3.cyf = W.marks.filter(m => ls[m.li]).map(m => { const k = JSON.stringify(m); if (!V3.cyfM.has(k)) V3.cyfM.set(k, policz(m)); return Object.assign({}, V3.cyfM.get(k), { mark: m, czesc: m.pu != null }); });
   return V3.cyf;
 }
-const cyfraUwaga = q => q.poza ? `cyfra ${q.t} na literze ${q.li + 1} (położona ręcznie) wychodzi poza dno — przesuń ją w głąb litery` : q.brak ? `cyfra ${q.t} na literze ${q.li + 1}: za mało miejsca, nie będzie jej na bryle` : q.naProfilu ? `cyfra ${q.t} na literze ${q.li + 1} leży na profilu` : q.naLED ? `cyfra ${q.t} na literze ${q.li + 1} leży pod paskiem LED` : q.h < q.hChce - 0.05 ? `cyfra ${q.t} na literze ${q.li + 1} zmniejszona do ${fmt(q.h, 1)} mm: większa nie zmieści się obok paska LED` : '';
+const cyfraUwaga = q => q.poza ? `${q.czesc ? `napis ${q.t} na części litery ${q.li + 1}` : `cyfra ${q.t} na literze ${q.li + 1}`} (położona ręcznie) wychodzi poza dno — przesuń ją w głąb litery` : q.brak ? `${q.czesc ? `napis ${q.t} na części litery ${q.li + 1}` : `cyfra ${q.t} na literze ${q.li + 1}`}: za mało miejsca, nie będzie jej na bryle` : q.naProfilu ? `${q.czesc ? `napis ${q.t} na części litery ${q.li + 1}` : `cyfra ${q.t} na literze ${q.li + 1}`} leży na profilu` : q.naLED ? `${q.czesc ? `napis ${q.t} na części litery ${q.li + 1}` : `cyfra ${q.t} na literze ${q.li + 1}`} leży pod paskiem LED` : q.h < q.hChce - 0.05 ? `${q.czesc ? `napis ${q.t} na części litery ${q.li + 1}` : `cyfra ${q.t} na literze ${q.li + 1}`} zmniejszona do ${fmt(q.h, 1)} mm: większa nie zmieści się obok paska LED` : '';
 function cyfryReg(p, zDna) {
   const c = cyfryMiejsca(), back = c.flatMap(q => q.back);
   return { front: c.flatMap(q => q.front), back, gl: back.length ? Math.min(p.rd > 0 ? p.rd : 0.3, zDna / 2) : 0, zDna };
@@ -510,7 +524,7 @@ function puzPrm() {
 function puzzleObszar(c, q = puzPrm()) {
   const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, O = [c.c.x, c.c.y], BIG = 3000, luz = q.luz, knobs = [];
   const W2 = (u, v) => ({ X: Math.round((O[0] + dx * u + nx * v) * S), Y: Math.round((O[1] + dy * u + ny * v) * S) });
-  const L = bedLetters()[c.li], spans = lineSpans(offsetPolys(W.base, W.m.p2), c.c).filter(sp => sp[1] - sp[0] >= 10 && wLiterze(L, O[0] + dx * (sp[0] + sp[1]) / 2, O[1] + dy * (sp[0] + sp[1]) / 2) && (!c.c.ray || sp[0] + sp[1] > 0));     // tylko w swojej literze (promień: po swojej stronie)
+  const L = bedLetters()[c.li], spans = lineSpans(offsetPolys(W.base, W.m.p2), c.c).filter(sp => sp[1] - sp[0] >= 10 && wLiterze(L, O[0] + dx * (sp[0] + sp[1]) / 2, O[1] + dy * (sp[0] + sp[1]) / 2) && (!c.c.ray || sp[0] + sp[1] > 0) && naCieciu(c.c, (sp[0] + sp[1]) / 2));     // tylko w swojej literze (promień: po swojej stronie; tylko w miejscach, gdzie linia tnie)
   const parts = [[W2(-BIG, 0), W2(BIG, 0), W2(BIG, BIG), W2(-BIG, BIG)]], wn_ = offsetPolys(W.base, W.m.p2 - 2.5), n = 40;     // wnętrze litery bez 2,5 mm przy krawędzi: tu łebek musi się zmieścić w całości
   let ile = 0;
   spans.forEach(([u0, u1]) => {
@@ -540,13 +554,29 @@ function puzzleObszar(c, q = puzPrm()) {
 // Od dołu odsunięte (miejsce na LED), od góry niżej niż pleksa (nie zaciemnia jej), górna krawędź łukiem jak żebro łodzi.
 // Z mostkami klosz cięty prosto (bez skosu w ściankach), więc mostek z góry jest prostym paskiem. Grubość 2 × (3 × dysza): linia klosza dzieli żebro na pół, każda część ma swoje 3 dysze i klosze skleja się na mostku;
 // góra każdej połówki fazowana 45° od strony wnętrza jej części (przekrój jak daszek), więc światło rozchodzi się dalej.
+// nazwa części (prawy klawisz na części podzielonej litery): bryła należy do części, w której leży większość jej wierzchołków
+function nazwaCzesci(k, li, mesh, cache) {
+  const pm = W.marks.filter(m => m.pu != null && m.li === li); if (!pm.length || k === 'pleksa') return null;
+  const L = bedLetters()[li]; if (!L) return null;
+  const kk = (k === 'klosz' ? 'k' : 'p') + li; if (!cache[kk]) { const cs = W.cuts.filter(c => c.li === li); cache[kk] = cs.length ? cutPieces(L, k === 'klosz' ? cs.map(cutK) : cs) : []; }
+  const pcs = cache[kk], st = mesh.numProp, V = mesh.vertProperties, n = V.length / st, krok = Math.max(1, Math.floor(n / 80)), pts = [];
+  for (let v = 0; v < n; v += krok) pts.push({ X: Math.round(V[v * st] * S), Y: Math.round(V[v * st + 1] * S) });
+  for (const m of pm) {
+    const P = { X: Math.round((L.bb.x0 + m.pu) * S), Y: Math.round((L.bb.y0 + m.pv) * S) }, q = pcs.find(q => C.Clipper.PointInPolygon(P, q.p) !== 0 && !q.holes.some(h => C.Clipper.PointInPolygon(P, h) === 1));
+    if (!q) continue; const qq = q.grow || (q.grow = offsetPolys([q.p], 0.5)[0] || q.p);     // ścianki klosza leżą na samym obrysie
+    if (pts.filter(p => C.Clipper.PointInPolygon(p, qq) !== 0).length > pts.length * 0.6) return m.t;
+  }
+  return null;
+}
 function mostkiBryla(zK0, zKmax, ndel, uw) {
   const { Manifold } = V3.wasm, t = mostekT(), zB = zK0 + Math.max(0, num($('b3-kmd').value) || 0), zT = zKmax - Math.max(0, num($('b3-kmg').value) || 0), H = zT - zB;
   if (H < 3) { uw.push(`mostki w kloszu pominięte: między odstępem od dołu a odstępem od pleksy zostaje ${fmt(Math.max(0, H), 1)} mm (potrzeba co najmniej 3 mm)`); return null; }
   const ribs = W.mostki.map(mk => {
     const { u0, u1, ln } = mk, ua = u0 - 3, ub = u1 + 3, um = (u0 + u1) / 2, hw = (u1 - u0) / 2;
     // łuk: na końcach (przy ściankach) pełna wysokość, w środku niżej — najwyżej do 40 % wysokości (min. 3 mm), nie głębiej niż 0,35 długości
-    const sag = Math.max(0, Math.min(H - Math.max(3, 0.4 * H), 0.35 * (u1 - u0))), R = sag > 0.01 ? (hw * hw + sag * sag) / (2 * sag) : 0, cz = zT - sag + R;
+    // krzywizna łuku z panelu: 0 % = prosta góra, 100 % = najgłębszy łuk (w środku zostają 3 mm, najwyżej półkole)
+    const kmk = Math.max(0, Math.min(100, $('b3-kmk') && $('b3-kmk').value.trim() !== '' ? num($('b3-kmk').value) : 60)) / 100;
+    const sag = kmk * Math.max(0, Math.min(H - 3, 0.5 * (u1 - u0))), R = sag > 0.01 ? (hw * hw + sag * sag) / (2 * sag) : 0, cz = zT - sag + R;
     const top = u => sag > 0.01 && Math.abs(u - um) < hw ? cz - Math.sqrt(Math.max(0, R * R - (u - um) ** 2)) : zT, N = 48, ring = [[ua, zB - 20], [ub, zB - 20], [ub, zT]];
     for (let i = N; i >= 0; i--) { const u = u0 + (u1 - u0) * i / N; ring.push([u, top(u)]); }
     ring.push([ua, zT]);
@@ -564,11 +594,8 @@ function mostkiBryla(zK0, zKmax, ndel, uw) {
 // cięcia promieniowe jednej litery: obszary między promieniami (prostokąt wokół litery minus szczeliny), każdy powiększony o pół szczeliny;
 // podstawa z puzzlami: łebki dochodzą do obszaru po stronie normalnej promienia, z obszaru po drugiej stronie znikają (z luzem)
 function sektory(L, rs, puz) {
-  const e = 0.01, M = 60, bb = L.bb, box = toCl([[bb.x0 - M, bb.y0 - M], [bb.x1 + M, bb.y0 - M], [bb.x1 + M, bb.y1 + M], [bb.x0 - M, bb.y1 + M]]);
-  // promienie klosza są przesunięte (linia klosza obok linii podstawy), więc ich początki łączy krótki odcinek przez otwór litery — obszary się zamykają
-  const ox = rs.reduce((t, c) => t + c.c.x, 0) / rs.length, oy = rs.reduce((t, c) => t + c.c.y, 0) / rs.length;
-  const most = c => { const L2 = Math.hypot(c.c.x - ox, c.c.y - oy); if (L2 < 0.01) return null; return szczelina({ x: ox, y: oy, ang: Math.atan2(c.c.y - oy, c.c.x - ox) * 180 / Math.PI }, e, L2 + e); };
-  const parts = letters(diff([box], clip('ctUnion', rs.map(c => szczelina(c.c, e)).concat(rs.map(most).filter(Boolean))))).map(q => offsetPolys([q.p].concat(q.holes), e));
+  // obszary = obrys litery (+1 mm) pocięty szczelinami (promienie, aktywne miejsca cięcia); każda szczelina przechodzi przez całą kreskę, więc ją rozdziela
+  const e = 0.01, parts = letters(diff(offsetPolys([L.p].concat(L.holes), 1), clip('ctUnion', rs.flatMap(c => szczelinyCiecia(c.c, e, L))))).map(q => offsetPolys([q.p].concat(q.holes), e));
   if (puz) rs.forEach(c => {
     const pz = puzzleObszar(c); if (!pz.n || !pz.H.length) return;
     const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), uc = pz.knobs[0].uc, P = v => ({ X: Math.round((c.c.x + dx * uc - dy * v) * S), Y: Math.round((c.c.y + dy * uc + dx * v) * S) });
@@ -764,13 +791,13 @@ async function build3D() {
     const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK0: p.pCalk + p.sw + zatGap(), zKmax: p.sh - p.sf + zatGap() } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK0: p.st + p.pl + zatGap(), zKmax: p.st + p.ws + zatGap() };
     if (mostkiChce() && W.cuts.length && !mostkiWl()) uwagi.push(`mostki w kloszu się nie mieszczą (między odstępem od dołu a od pleksy zostaje ${fmt(Math.max(0, mostkiH()), 1)} mm, potrzeba 3 mm) — zamiast nich plasterki klosza`);
     if (parts.klosz && mostkiWl() && (W.mostki || []).length) { const mb = mostkiBryla(tops.zK0, tops.zKmax, ndel, uwagi); if (mb) parts.klosz = ndel(V3.wasm.Manifold.union(parts.klosz, mb)); }
-    const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [];     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
+    const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [], pcC = {}, uzyte = new Set();     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
     Object.keys(CZESCI).forEach(k => {
       if (!parts[k]) return;
       let list = parts[k].decompose().map(ndel);
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
       if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
-        const L = ls[c.li]; if (!L || c.c.ray) return;     // promienie osobno, niżej
+        const L = ls[c.li]; if (!L || czesciowe(c.c)) return;     // promienie i cięcia tylko w wybranych miejscach osobno, niżej
         const pz = k === 'podstawa' && p.puz ? puzzleObszar(c) : k === 'klosz' && kSkos() > 0 && !mostkiWl() ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
@@ -782,7 +809,7 @@ async function build3D() {
         list = next;
       });
       // cięcia promieniowe: każda bryła litery dzielona na obszary między promieniami
-      const rays = k === 'pleksa' ? [] : (k === 'klosz' ? segsK : segs).filter(c => c.c.ray), byLi = {};
+      const rays = k === 'pleksa' ? [] : (k === 'klosz' ? segsK : segs).filter(c => czesciowe(c.c)), byLi = {};
       rays.forEach(c => { (byLi[c.li] = byLi[c.li] || []).push(c); });
       Object.keys(byLi).forEach(li => {
         const L = ls[li]; if (!L) return;
@@ -796,7 +823,8 @@ async function build3D() {
       });
       const rows = list.map(b => { const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2; let li = ls.findIndex(l => cx >= l.bb.x0 && cx <= l.bb.x1 && cy >= l.bb.y0 && cy <= l.bb.y1); if (li < 0) li = 0; return { b, bb, li, cx }; }).sort((a, c) => a.li - c.li || a.cx - c.cx);
       const cnt = {}; rows.forEach(r => { cnt[r.li] = (cnt[r.li] || 0) + 1; }); const nr = {};
-      rows.forEach(r => { nr[r.li] = (nr[r.li] || 0) + 1; const mesh = r.b.getMesh(); bodies.push({ part: k, name: `${CZESCI[k]}_${String(r.li + 1).padStart(2, '0')}${cnt[r.li] > 1 ? String.fromCharCode(96 + nr[r.li]) : ''}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(r.b), bb: r.bb }); });
+      rows.forEach(r => { nr[r.li] = (nr[r.li] || 0) + 1; const mesh = r.b.getMesh(), nz = nazwaCzesci(k, r.li, mesh, pcC); let name = nz ? `${CZESCI[k]}_${nz}` : `${CZESCI[k]}_${String(r.li + 1).padStart(2, '0')}${cnt[r.li] > 1 ? String.fromCharCode(96 + nr[r.li]) : ''}`;
+        if (uzyte.has(name)) { let i = 2; while (uzyte.has(name + '_' + i)) i++; name += '_' + i; } uzyte.add(name); bodies.push({ part: k, name, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(r.b), bb: r.bb }); });
     });
     // plasterki łączące: osobne elementy do wydruku (nie są cięte ani łączone z częściami)
     const holes2 = otworyReg(p), cntPl = {};
@@ -847,7 +875,7 @@ function init3D() {
   el.addEventListener('contextmenu', e => {
     e.preventDefault(); const d = dnP; dnP = null; if (!d || Math.hypot(e.clientX - d[0], e.clientY - d[1]) >= 3) return;
     const h = ray3D(e).intersectObjects(V3.meshes.filter(m => m.visible), false)[0], li = h ? letterAt(h.point.x, h.point.y) : -1; if (li < 0) return;
-    const st = $('stage').getBoundingClientRect(); openMarkPop(li, e.clientX - st.left, e.clientY - st.top);
+    const st = $('stage').getBoundingClientRect(); openLiteraPop(li, e.clientX - st.left, e.clientY - st.top, h.point.x, h.point.y);
   });
   el.addEventListener('pointerup', e => {
     const d = dn; dn = null; if (!d || Math.hypot(e.clientX - d[0], e.clientY - d[1]) >= 3) return;
