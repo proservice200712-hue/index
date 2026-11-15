@@ -377,6 +377,7 @@
         <div class="fld km" title="Odstęp końców mostka od pleksy (Sidelit: od frontu); w środku łuk schodzi niżej"><span>Mostek: odstęp od pleksy [mm]</span><input type="text" inputmode="decimal" id="b3-kmg" value="8"></div>
         <h3>Plasterki łączące</h3>
         <div class="row"><label><input type="checkbox" id="p-plon" checked> dodaj plasterki na łączeniach</label></div>
+        <div class="row" title="Frontlit: zamiast osobnych plasterków podstawy i klosza jeden element w kształcie U: dno w kieszeni podstawy (z rowkiem na LED), ścianka przy ściance kieszeni, przejście po rancie podstawy i ścianki przy ściankach klosza. Skleja naraz części podstawy i klosza; gdy linia klosza jest przesunięta, plasterek jest szerszy i obejmuje obie linie. Zastępuje też mostki."><label><input type="checkbox" id="p-plw"> jeden wspólny plasterek: podstawa + klosz</label></div>
         <div class="fld"><span>Długość: podstawa</span><input type="text" inputmode="decimal" id="p-pll" value="40"></div>
         <div class="fld pl-k"><span>Długość: klosz</span><input type="text" inputmode="decimal" id="p-plk" value="40"></div>
         <details><summary>Wymiary plasterków</summary>
@@ -604,7 +605,7 @@ function params() {
   return { typ: r('typ'), dysza: Number(r('dysza')), P: num($('p-P').value), B: num($('p-B').value), gdzie: Number(r('gdzie')), odl: r('odl') === 'l' ? 'l' : 'k', wielk: Number(r('wielk')),
     przesun: num($('p-prz').value), przesunFix: num($('p-fy').value), luz: Math.max(0, num($('p-luz').value)), luzF: Math.max(0, num($('p-luzf').value)), profG: Math.max(0, num($('p-pg').value)), profL: Math.max(0, num($('p-pl').value)), fix: $('p-fix').checked, fixN: Number($('p-fixn').value) || 0, name: $('p-name').value.trim(),
     dOtw: Math.max(0.5, num($('p-dotw').value)), dFix: Math.max(0.5, num($('p-dfix').value)), dLeb: Math.max(0.5, num($('p-dleb').value)), pin: W.pin, podz: $('p-podz').checked, stXraw: Math.max(10, num($('p-stx').value)), stYraw: Math.max(10, num($('p-sty').value)), stX: Math.max(10, Math.min(num($('p-stx').value), stolPlyty().X)), stY: Math.max(10, Math.min(num($('p-sty').value), stolPlyty().Y)), cutKon: $('p-cutkon').checked, cutKraw: Math.max(0, num($('p-cutk').value)), cutK: $('p-cutkon').checked ? Math.max(0, num($('p-cutk').value)) : 0, cutKa: num($('p-cutka').value), zat: zatParams(), p3: p3State(),
-    plOn: $('p-plon').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
+    plOn: $('p-plon').checked, plW: $('p-plw').checked, plLP: Math.max(0, num($('p-pll').value)), plLK: Math.max(0, num($('p-plk').value)), plOffP: num($('p-ploff').value), plH: Math.max(0.2, num($('p-plh').value)), plGr: Math.max(0, num($('p-plgr').value)), plFloor: Math.max(0.1, num($('p-plfl').value)), plOffK: num($('p-pkoff').value), plTK: Math.max(0.2, num($('p-pkt').value)), plDownK: num($('p-pkd').value) };
 }
 const pbOn = pr => pr.typ === 'P' && !!pr.p3 && pr.p3['b3-fpod'] !== false;     // litera pełna z podstawą i świecącym kloszem
 function model(pr) {
@@ -1188,12 +1189,12 @@ function refreshBeds() {
 // P: kształt kieszeni zwężony o 0,5 mm z każdej strony, gr. 1,2 mm, rowek 8 mm na LED (pod rowkiem 0,6 mm).
 // K: pasek po wewnętrznej ściance klosza, 0,1 mm od niej, gr. 1,2 mm, wysokość = klosz − 15 mm, od góry podstawy w górę; leży na linii klosza (cutK).
 // Długość każdego można zmienić osobno (c.plL[klucz]); są w DXF (warstwy Plaster_*) i w bryłach, nie ma ich na szablonie.
-const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150], ['Szew_K', '#3182ce', 150], ['Cyfra', '#d53f8c', 6], ['Cyfra_tyl', '#97266d', 6]];
+const PL_LAYERS = [['Plaster_P', '#dd6b20', 30], ['Plaster_W', '#805ad5', 200], ['Plaster_R', '#744210', 40], ['Plaster_K', '#3182ce', 150], ['Szew_K', '#3182ce', 150], ['Cyfra', '#d53f8c', 6], ['Cyfra_tyl', '#97266d', 6]];
 function plateRegs() {
   if (W.plReg) return W.plReg;
   const pr = W.pr, m = W.m, side = pr.typ === 'S', pocket = side || $('b3-wgl').checked, R = d => offsetPolys(W.base, d);
   const dP = side ? -num($('b3-st3').value) : pocket ? m.kie : m.p2, dK = side ? -num($('b3-st1').value) : m.k3;
-  return (W.plReg = { P: R(dP - pr.plOffP), K: diff(R(dK - pr.plOffK), R(dK - pr.plOffK - pr.plTK)), I: R(dK), dK, pocket });
+  return (W.plReg = { P: R(dP - pr.plOffP), Pin: R(dP - pr.plOffP - pr.plTK), Kout: R(dK - pr.plOffK), K: diff(R(dK - pr.plOffK), R(dK - pr.plOffK - pr.plTK)), I: R(dK), dK, pocket });
 }
 // odcinki, w których prosta (linia c przesunięta o s w poprzek) leży w obszarze: [u0, u1] wzdłuż linii
 function lineSpans(polys, c, s = 0) {
@@ -1212,6 +1213,25 @@ function refreshPlates() {
     // mostki klosza: odcinki linii klosza we wnętrzu klosza tej litery
     if (most) { const ln = cutK(c), la = ln.ang * Math.PI / 180; lineSpans(regs.I.filter(inBB), ln).forEach(sp => { const um = (sp[0] + sp[1]) / 2, x = ln.x + Math.cos(la) * um, y = ln.y + Math.sin(la) * um; if (sp[1] - sp[0] >= 2 && wLiterze(l, x, y) && (!ln.ray || um > 0)) W.mostki.push({ c, ln, li: c.li, u0: sp[0], u1: sp[1] }); }); }
     if (!pr.plOn) return;
+    if (plWsp()) {
+      // wspólny plasterek: po jednym na każde przejście linii przez wnętrze klosza; w poprzek obejmuje linię podstawy i przesuniętą linię klosza
+      const s = kOn() ? (c.sK || 0) : 0, W2 = (u, v) => [c.x + dx * u + nx * v, c.y + dy * u + ny * v];
+      const spans = lineSpans(regs.I.filter(inBB), c).filter(sp => { const [x, y] = W2((sp[0] + sp[1]) / 2, 0); return sp[1] - sp[0] >= 2 && wLiterze(l, x, y) && (!c.ray || sp[0] + sp[1] > 0); });
+      spans.forEach((sp, i) => {
+        const key = 'W' + (i + 1), L = c.plL && c.plL[key] != null ? c.plL[key] : Math.max(pr.plLP, pr.plLK), plate = { c, key, type: 'W', li: c.li, L, polys: [], groove: [], floor: [], pw: [], rim: [], kw: [] };
+        W.plates.push(plate); if (!(L > 0)) return;
+        const u0 = i ? (spans[i - 1][1] + sp[0]) / 2 : sp[0] - 2000, u1 = i < spans.length - 1 ? (sp[1] + spans[i + 1][0]) / 2 : sp[1] + 2000, v0 = Math.min(0, s) - L / 2, v1 = Math.max(0, s) + L / 2;
+        let rect = toCl([W2(u0, v0), W2(u1, v0), W2(u1, v1), W2(u0, v1)]); if (C.Clipper.Area(rect) < 0) rect = rect.reverse();
+        // części: dno (w kieszeni; bez kieszeni na wierzchu podstawy), ścianka przy ściance kieszeni, przejście po rancie, ścianki przy ściankach klosza
+        const floor = regs.pocket ? regs.P : regs.Kout, pw = regs.pocket ? diff(regs.P, regs.Pin) : [], rim = regs.pocket ? diff(regs.Kout, regs.Pin) : [];
+        const all = inter(clip('ctUnion', floor.concat(rim, regs.K)), [rect]), [mx, my] = W2((sp[0] + sp[1]) / 2, 0), mid = { X: Math.round(mx * S), Y: Math.round(my * S) };
+        const comp = letters(all).find(q => C.Clipper.PointInPolygon(mid, q.p) !== 0); if (!comp) return;
+        const cp = [comp.p].concat(comp.holes);
+        plate.polys = cp; plate.floor = inter(floor, cp); plate.pw = pw.length ? inter(pw, cp) : []; plate.rim = rim.length ? inter(rim, cp) : []; plate.kw = inter(regs.K, cp);
+        plate.groove = rowekLED(plate.floor, pr.plGr);
+      });
+      return;
+    }
     [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].filter(([type]) => !(most && type === 'K')).forEach(([type, reg, defL]) => {
       const ln = type === 'K' ? cutK(c) : c, W2 = (u, s) => [ln.x + dx * u + nx * s, ln.y + dy * u + ny * s];
       const near = reg.filter(inBB), spans = lineSpans(near, ln).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return wLiterze(l, x, y) && (!ln.ray || s[0] + s[1] > 0); });
@@ -1242,7 +1262,9 @@ function rowekLED(polys, szer) {
 }
 // mostki w kloszu (Frontlit, gdy włączone): zastępują plasterki klosza; grubość jednej połówki = 3 × dysza.
 // Gdy między odstępem od dołu a od pleksy nie zostają 3 mm (niska litera), mostków nie ma i wracają plasterki klosza.
-const mostkiChce = () => !!($('b3-kmo') && $('b3-kmo').checked && W.pr && W.pr.typ === 'F');
+const mostkiChce = () => !!($('b3-kmo') && $('b3-kmo').checked && W.pr && W.pr.typ === 'F' && !plWsp());
+// jeden wspólny plasterek (podstawa + klosz, w kształcie U) — tylko Frontlit
+const plWsp = () => !!(W.pr && W.pr.typ === 'F' && W.pr.plOn && W.pr.plW);
 const mostkiH = () => { try { const p = params3D(); return p.ws - p.pl - Math.max(0, num($('b3-kmd').value) || 0) - Math.max(0, num($('b3-kmg').value) || 0); } catch (e) { return -1; } };
 const mostkiWl = () => mostkiChce() && typeof params3D === 'function' && mostkiH() >= 3;
 const mostekT = () => 3 * ((W.pr && W.pr.dysza) || 4) / 10;
@@ -1255,7 +1277,7 @@ function puzKnoby(c) {
   const k = [c.li, c.c.x, c.c.y, c.c.ang].join('|'); if (!(k in W.puzC.m)) { try { W.puzC.m[k] = puzzleObszar(c).knobs; } catch (e) { W.puzC.m[k] = null; } }
   return W.puzC.m[k];
 }
-const plateName = q => `litera ${q.li + 1} · ${q.type === 'P' ? 'podstawa' : 'klosz'} ${q.key.slice(1)}`;
+const plateName = q => `litera ${q.li + 1} · ${q.type === 'P' ? 'podstawa' : q.type === 'W' ? 'podstawa + klosz' : 'klosz'} ${q.key.slice(1)}`;
 function setPlateL(q, v) { pushUndo(); q.c.plL = q.c.plL || {}; q.c.plL[q.key] = Math.max(0, v); refreshPlates(); renderSel(); draw(); if (window.mark3D) mark3D(); }
 function renderPlateList() {
   const box = $('plate-list'); if (!box) return;
@@ -1533,7 +1555,7 @@ function buildKit() {
   cutSegs().forEach(c => ents.push(['Podzial', 'line', [c.a, c.b]]));
   cutSegs(kSzew().map(cutK)).forEach(c => ents.push(['Szew_K', 'line', [c.a, c.b]]));     // nazwa bez „Podzial”: wtyczka Fusion tnie po tej warstwie całe bryły
   // plasterki: w DXF, ale nie na szablonie
-  W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
+  W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : q.type === 'W' ? 'Plaster_W' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
   const { typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = (typ === 'S' || pbOn(W.pr)) && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
@@ -1807,7 +1829,7 @@ function draw() {
   // mostki w kloszu (rzut z góry: pasek 2 × 3 dysze na linii klosza)
   if (W.show.Plaster && (W.mostki || []).length) W.mostki.forEach(mk => { const q = mostekPoly(mk); g.beginPath(); q.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); g.fillStyle = '#3182ce88'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = 1; g.stroke(); });
   // plasterki łączące
-  if (W.show.Plaster) W.plates.forEach(q => { if (!q.polys.length) return; const sel = W.sel && W.sel.t === 'plate' && W.sel.id === q.c.id && W.sel.key === q.key, col = q.type === 'P' ? '#dd6b20' : '#3182ce'; path(q.polys); g.fillStyle = sel ? col + 'aa' : col + '55'; g.fill('evenodd'); g.strokeStyle = col; g.lineWidth = sel ? 2.5 : 1; g.stroke(); if (q.groove.length) { path(q.groove); g.fillStyle = 'rgba(116,66,16,.3)'; g.fill(); } });
+  if (W.show.Plaster) W.plates.forEach(q => { if (!q.polys.length) return; const sel = W.sel && W.sel.t === 'plate' && W.sel.id === q.c.id && W.sel.key === q.key, col = q.type === 'P' ? '#dd6b20' : q.type === 'W' ? '#805ad5' : '#3182ce'; path(q.polys); g.fillStyle = sel ? col + 'aa' : col + '55'; g.fill('evenodd'); g.strokeStyle = col; g.lineWidth = sel ? 2.5 : 1; g.stroke(); if (q.groove.length) { path(q.groove); g.fillStyle = 'rgba(116,66,16,.3)'; g.fill(); } });
   // cyfry na literach; przy małym powiększeniu sama cyfra byłaby niewidoczna, więc dochodzi znaczek
   if (W.show.Cyfra && W.marks.length) cyfryMiejsca().forEach(q => {
     if (q.front.length) { path(q.front); g.fillStyle = '#d53f8c'; g.fill('evenodd'); }
@@ -2099,6 +2121,7 @@ function setParams(pr) {
   if (pr.fixN != null) $('p-fixn').value = String(pr.fixN);
   if (pr.podz != null) $('p-podz').checked = !!pr.podz;
   if (pr.plOn != null) $('p-plon').checked = !!pr.plOn;
+  if (pr.plW != null) $('p-plw').checked = !!pr.plW;
   sv('p-pll', pr.plLP); sv('p-plk', pr.plLK); sv('p-ploff', pr.plOffP); sv('p-plh', pr.plH); sv('p-plgr', pr.plGr); sv('p-plfl', pr.plFloor); sv('p-pkoff', pr.plOffK); sv('p-pkt', pr.plTK); sv('p-pkd', pr.plDownK);
   if (pr.pin != null) { W.pin = !!pr.pin; pinUI(); }
   if (pr.p3) Object.entries(pr.p3).forEach(([id, v]) => { const i = $(id); if (!i) return; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; });
@@ -2259,6 +2282,7 @@ document.querySelectorAll('aside input, aside select').forEach(i => i.addEventLi
   if (i.id === 'b3-h' || i.id === 'b3-sh') hlSync();
   if (i.name === 'typ') hlSync();
   if (i.id === 'b3-wgl') { W.plReg = null; refreshPlates(); draw(); }
+  if (i.id === 'p-plw') { W.pr = params(); refreshPlates(); }
   if (i.id === 'b3-cyf') draw();
   if (i.id.startsWith('b3-')) return b3Change(i.id);
   if (i.name === 'dysza') { $('p-P').value = '0,1'; $('p-B').value = '0,1'; }   // standard offsetów dla obu dysz

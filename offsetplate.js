@@ -131,7 +131,7 @@ function plTabs() {
   PL.plates.forEach((p, i) => { const b = document.createElement('button'); b.className = 'btn' + (i === PL.sel ? ' on' : ''); b.textContent = `${p.label} ${p.no} (${p.items.length})`; b.onclick = () => { PL.sel = i; plTabs(); plDraw(); }; t.appendChild(b); });
 }
 const plHex = v => '#' + (Number(v) || 0).toString(16).padStart(6, '0');
-function plColor(it) { return it.grp === 'klosz' ? plHex($('b3-ck').value) : it.grp === 'plaster' ? (it.plType === 'K' ? '#3182ce' : '#dd6b20') : plHex($('b3-cp').value); }
+function plColor(it) { return it.grp === 'klosz' ? plHex($('b3-ck').value) : it.grp === 'plaster' ? (it.plType === 'K' ? '#3182ce' : it.plType === 'W' ? '#805ad5' : '#dd6b20') : plHex($('b3-cp').value); }
 function plTint(it) {
   const col = plColor(it), k = it.col === col && it.tint; if (k) return it.tint;
   const sp = plSprite(it), cv = document.createElement('canvas'); cv.width = sp.sw; cv.height = sp.sh; const x = cv.getContext('2d');

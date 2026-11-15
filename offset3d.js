@@ -789,7 +789,12 @@ async function build3D() {
     W.plates.forEach(q => {
       if (!q.polys.length) return;
       if (q.type === 'K' && !(tops.hK > 0)) { nKpom++; return; }
-      const pl = W.pr, warstwy = q.type === 'K' ? [{ z0: tops.zK0, z1: tops.zK0 + tops.hK, reg: q.polys }] : q.groove.length ? [{ z0: tops.zP, z1: tops.zP + pl.plFloor, reg: diff(q.polys, holes2) }, { z0: tops.zP + pl.plFloor, z1: tops.zP + pl.plH, reg: diff(diff(q.polys, q.groove), holes2) }] : [{ z0: tops.zP, z1: tops.zP + pl.plH, reg: diff(q.polys, holes2) }];
+      const pl = W.pr, zB = p.st + p.pl, zF = p.wgl && p.gw > 0 ? tops.zP : zB;
+      // wspólny plasterek (U): dno z rowkiem na LED, ścianka przy kieszeni do wierzchu podstawy, przejście po rancie, ścianki przy klosz od wierzchu podstawy w górę
+      const warstwy = q.type === 'W' ? [
+        { z0: zF, z1: zF + pl.plFloor, reg: diff(q.floor, holes2) }, { z0: zF + pl.plFloor, z1: zF + pl.plH, reg: diff(diff(q.floor, q.groove), holes2) },
+        { z0: zF, z1: zB, reg: diff(q.pw, holes2) }, { z0: zB, z1: zB + pl.plTK, reg: diff(q.rim, holes2) }, { z0: zB, z1: tops.zK0 + tops.hK, reg: q.kw },
+      ].filter(l => l.reg.length && l.z1 - l.z0 > 1e-6) : q.type === 'K' ? [{ z0: tops.zK0, z1: tops.zK0 + tops.hK, reg: q.polys }] : q.groove.length ? [{ z0: tops.zP, z1: tops.zP + pl.plFloor, reg: diff(q.polys, holes2) }, { z0: tops.zP + pl.plFloor, z1: tops.zP + pl.plH, reg: diff(diff(q.polys, q.groove), holes2) }] : [{ z0: tops.zP, z1: tops.zP + pl.plH, reg: diff(q.polys, holes2) }];
       const s = stos(warstwy, ndel); if (!s) return;
       s.decompose().map(ndel).forEach(b => { const tag = `Plaster_${q.type}_${String(q.li + 1).padStart(2, '0')}`; cntPl[tag] = (cntPl[tag] || 0) + 1; const mesh = b.getMesh(), bb = b.boundingBox(); bodies.push({ part: 'plaster', plType: q.type, plate: { id: q.c.id, key: q.key }, name: `${tag}_${cntPl[tag]}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(b), bb }); });
     });
@@ -898,7 +903,7 @@ function hover3D(m) {
   V3.ren.domElement.style.cursor = m ? 'pointer' : ''; render3D();
 }
 function material3D(part, plType) {
-  if (part === 'plaster') return new V3.THREE.MeshStandardMaterial({ color: plType === 'K' ? 0x3182ce : 0xdd6b20, flatShading: true, roughness: 0.55, side: V3.THREE.DoubleSide });
+  if (part === 'plaster') return new V3.THREE.MeshStandardMaterial({ color: plType === 'K' ? 0x3182ce : plType === 'W' ? 0x805ad5 : 0xdd6b20, flatShading: true, roughness: 0.55, side: V3.THREE.DoubleSide });
   const T = V3.THREE, sel = { klosz: ['b3-ck', 'b3-tk', 0.5], podstawa: ['b3-cp', 'b3-tp', 0.55], pleksa: ['b3-cx', 'b3-tx', 0.45], litera: ['b3-cp', 'b3-tp', 0.55] }[part], tr = $(sel[1]).checked;
   return new T.MeshStandardMaterial({ color: Number($(sel[0]).value), flatShading: true, roughness: 0.55, metalness: 0.02, transparent: tr, opacity: tr ? sel[2] : 1, depthWrite: !tr, side: T.DoubleSide });
 }
@@ -978,7 +983,9 @@ function filamentMasy(p, plan) {
     out[k] = vol * ro / 1000;
   });
   const hK = W.pr.typ === 'S' ? p.kCalk - W.pr.plDownK : p.wk - W.pr.plDownK;
-  out.plaster = W.plates.reduce((s, q) => s + (q.type === 'K' ? Math.max(0, A(q.polys)) * Math.max(0, hK) : Math.max(0, A(q.polys)) * W.pr.plH - Math.max(0, A(q.groove)) * (W.pr.plH - W.pr.plFloor)), 0) * ro / 1000;
+  const zB = p.st + p.pl, zF = p.wgl && p.gw > 0 ? Math.max(0.2, zB - p.gw) : zB, gz = typeof zatGap === 'function' ? zatGap() : 0;
+  const wsp = q => Math.max(0, A(q.floor)) * W.pr.plH - Math.max(0, A(q.groove)) * (W.pr.plH - W.pr.plFloor) + Math.max(0, A(q.pw)) * (zB - zF) + Math.max(0, A(q.rim)) * W.pr.plTK + Math.max(0, A(q.kw)) * Math.max(0, hK + gz);
+  out.plaster = W.plates.reduce((s, q) => s + (q.type === 'W' ? wsp(q) : q.type === 'K' ? Math.max(0, A(q.polys)) * Math.max(0, hK) : Math.max(0, A(q.polys)) * W.pr.plH - Math.max(0, A(q.groove)) * (W.pr.plH - W.pr.plFloor)), 0) * ro / 1000;
   return out;
 }
 function liczFilament() {
