@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <style>
   :root { --dark: #1a202c; --dark2: #2d3748; --line: #e2e8f0; --gray: #718096; --accent: #67b437; --bg: #f4f6f8; }
   * { box-sizing: border-box; }
@@ -155,6 +156,16 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 9px 16px; font-size: .85rem; z-index: 50; }
   /* litery pełne (typ P): bez offsetów klosza/podstawy, za to wysokość i promień zaokrąglenia */
   .p-only { display: none; }
+  .pbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 2px 0 8px; } .pbtns .btn { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 4px; color: #fff; } .pbtns .ti { font-size: 17px; }
+  .pinfo { font-size: .74rem; margin: 0 0 8px; }
+  .pcat { border: 1px solid var(--line); background: #fff; padding: 7px 8px 8px; margin: 0 0 8px; }
+  .pct { display: flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--gray); margin: 0 0 6px; } .pct .ti { font-size: 17px; color: var(--dark2); }
+  .pseg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin: 0 0 6px; } .pseg label { border: 1.5px solid var(--line); text-align: center; padding: 5px 2px 4px; cursor: pointer; font-size: .7rem; font-weight: 600; line-height: 1.15; color: #4a5568; background: #fff; } .pseg label .ti { display: block; font-size: 21px; margin: 0 auto 2px; } .pseg label:has(input:checked) { border-color: var(--accent); background: #f0fbe8; color: #2f6b12; } .pseg input { display: none; }
+  .pchips { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .pchip { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: #f7fafc; padding: 3px 4px; font-size: .74rem; cursor: pointer; min-width: 0; } .pchip .ti { font-size: 15px; color: var(--gray); flex: none; } .pchip > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pchip input[type=text] { width: 44px; padding: 3px 4px; border: 1px solid #cbd5e0; font: inherit; } .pchip .spin { flex: none; } .pchip .spin input { width: 40px; } .pchip .spin .sb button { width: 16px; } .pchip input[type=checkbox] { margin: 0; flex: none; }
+  .phid { display: none; }
+  .pfold { border-top: 1px solid var(--line); padding: 3px 0; } .pfold summary { cursor: pointer; list-style: none; font-size: .76rem; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 6px; padding: 4px 0; } .pfold summary::-webkit-details-marker { display: none; } .pfold summary .ti { font-size: 16px; color: var(--gray); } .pfold summary .ti-chevron-right { transition: transform .15s; } .pfold[open] summary .ti-chevron-right { transform: rotate(90deg); }
+  body.puz-off .puz-p, body.plw .km, body.plw .pl-k { display: none !important; }
   .mg-only { display: none; } .zt-only { display: none; } body.t-ZT .zt-only { display: block; }
   .mtsel { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 6px 0 8px; } .mtsel label { border: 1.5px solid var(--line); text-align: center; padding: 7px 2px; cursor: pointer; font-size: .78rem; font-weight: 700; background: #fff; line-height: 1.15; } .mtsel label:has(input:checked) { border-color: var(--accent); background: #f0fbe8; } .mtsel input { display: none; } .mtsel small { display: block; font-weight: 500; font-size: .62rem; color: var(--gray); }
   body:not(.t-MGs) .mg-s { display: none !important; } body.t-MGs .mg-m { display: none !important; }
@@ -358,31 +369,61 @@
         </div>
       </section>
       <section class="pan" data-pan="podzial" data-t="Podział na stół">
-        <button type="button" class="btn wide" id="b-cut-add" title="Potem kliknij w literę: w tym miejscu powstaje pionowa linia cięcia. Strzałki ← → obracają zaznaczoną linię, ↑ ↓ ją przesuwają.">✂ Wstaw cięcie</button>
-        <div class="row"><label><input type="checkbox" id="p-podz" checked> dziel litery większe niż stół</label></div>
-        <div class="fld"><span>Stół X [mm]</span><input type="text" inputmode="decimal" id="p-stx" value="320"></div>
-        <div class="fld"><span>Stół Y [mm]</span><input type="text" inputmode="decimal" id="p-sty" value="315"></div>
-        <div class="row" title="Wyłączone: klosz cięty w tym samym miejscu co podstawa (bez przesunięcia linii klosza)"><label><input type="checkbox" id="p-cutkon" checked> klosz: podział obok podstawy</label></div>
-        <div class="fld cutk-f" title="Linia klosza idzie obok linii podstawy, żeby łączenia nie wypadały w jednym miejscu. 0 = w tym samym miejscu."><span>Klosz: podział obok podstawy o [mm]</span><input type="text" inputmode="decimal" id="p-cutk" value="30"></div>
-        <div class="fld" title="Klosz jest przecinany w ściankach pod skosem (patrząc od góry): płaszczyzna cięcia tworzy ten kąt z normalną do ścianki, więc światło nie ucieka prosto przez szczelinę. 0 = cięcie prosto w poprzek ścianki. Przy mostkach w kloszu zawsze prosto."><span>Klosz: skos cięcia ścianek [°]</span><input type="text" inputmode="decimal" id="p-cutka" value="45"></div>
-        <div class="vals" id="podz-info"></div>
-        <div class="row"><label><input type="checkbox" id="b3-cut" checked> tnij po liniach podziału</label></div>
-        <div class="row" title="Podstawa nie jest cięta prostą linią: jedna część ma wypustkę w kształcie puzzla (łebek na szyjce) w każdym grubszym miejscu litery, druga odpowiadające wcięcie. Części składa się z góry. Klosz zostaje ciętym prosto."><label><input type="checkbox" id="b3-puz" checked> podstawa: łączenie jak puzzle (zamiast prostego cięcia)</label></div>
-        <div class="fld" title="Okrąg: prosta linia z okrągłym łebkiem bez szyjki. Jaskółczy ogon: trapezowa wypustka, rozszerzająca się od linii."><span>Kształt łączenia</span><select id="b3-puzk"><option value="o" selected>okrąg</option><option value="j">jaskółczy ogon</option></select></div>
-        <div class="fld" title="Szczelina między częściami puzzla w poziomie (na tolerancję druku)"><span>Luz puzzli [mm]</span><input type="text" inputmode="decimal" id="b3-puzl" value="0,05"></div>
-        <div class="fld puz-o" title="Średnica okrągłego łebka — stała, niezależna od miejsca i kąta linii. Gdzie się nie mieści (2,5 mm od krawędzi litery), tam cięcie bez łebka."><span>Łebek puzzla: średnica [mm]</span><input type="text" inputmode="decimal" id="b3-puzdm" value="14"></div>
-        <div class="fld puz-j" title="Szerokość ząbka na jego szerokim końcu (przy linii ząbek ma 0,48 tej szerokości) — stała. Gdzie się nie mieści, tam cięcie bez ząbka."><span>Ząbek: szerokość [mm]</span><input type="text" inputmode="decimal" id="b3-puzwm" value="15"></div>
-        <div class="fld puz-j" title="Wysokość ząbka (jak daleko wchodzi w drugą część) — stała"><span>Ząbek: wysokość [mm]</span><input type="text" inputmode="decimal" id="b3-puzhm" value="10"></div>
-        <div class="row" title="Frontlit: w kloszu, na linii jego cięcia, żebro w poprzek wnętrza łączące wolne końce ścianek. Każda część ma swoją połówkę (3 × dysza), klosze skleja się na mostku — wtedy bez plasterków klosza. Od dołu odsunięte na LED, od góry na pleksę, góra łukiem i fazowana 45° od wnętrza."><label><input type="checkbox" id="b3-kmo" checked> klosz: mostki na łączeniach (zamiast plasterków klosza)</label></div>
-        <div class="fld km" title="Wolne miejsce pod mostkiem, od wierzchu podstawy (na LED i przewody)"><span>Mostek: odstęp od dołu [mm]</span><input type="text" inputmode="decimal" id="b3-kmd" value="6"></div>
-        <div class="fld km" title="Odstęp końców mostka od pleksy (Sidelit: od frontu); w środku łuk schodzi niżej"><span>Mostek: odstęp od pleksy [mm]</span><input type="text" inputmode="decimal" id="b3-kmg" value="8"></div>
-        <div class="fld km" title="Jak mocno góra mostka opada w środku: 0 = prosta góra na wysokości końców, 100 = najgłębszy łuk (w środku zostają 3 mm mostka, najwyżej półkole). Przy ściankach mostek zawsze ma pełną wysokość."><span>Mostek: krzywizna łuku u góry [%]</span><input type="text" inputmode="decimal" id="b3-kmk" value="60"></div>
-        <h3>Plasterki łączące</h3>
-        <div class="row"><label><input type="checkbox" id="p-plon" checked> dodaj plasterki na łączeniach</label></div>
-        <div class="row" title="Frontlit: zamiast osobnych plasterków podstawy i klosza jeden element w kształcie U: dno w kieszeni podstawy (z rowkiem na LED), ścianka przy ściance kieszeni, przejście po rancie podstawy i ścianki przy ściankach klosza. Skleja naraz części podstawy i klosza; gdy linia klosza jest przesunięta, plasterek jest szerszy i obejmuje obie linie. Zastępuje też mostki."><label><input type="checkbox" id="p-plw"> jeden wspólny plasterek: podstawa + klosz</label></div>
-        <div class="fld"><span>Długość: podstawa</span><input type="text" inputmode="decimal" id="p-pll" value="40"></div>
-        <div class="fld pl-k"><span>Długość: klosz</span><input type="text" inputmode="decimal" id="p-plk" value="40"></div>
-        <details><summary>Wymiary plasterków</summary>
+        <div class="pbtns">
+          <button type="button" class="btn" id="b-cut-add" title="Potem kliknij w literę: w tym miejscu powstaje pionowa linia cięcia. Strzałki ← → obracają zaznaczoną linię, ↑ ↓ ją przesuwają."><i class="ti ti-scissors"></i>Wstaw cięcie</button>
+          <button type="button" class="btn" id="b-cut-auto" title="Linie podziału od nowa, automatycznie (pojedyncze cięcia, jak najmniej). Otwory i profile zostają."><i class="ti ti-wand"></i>Ułóż auto</button>
+        </div>
+        <div class="vals pinfo" id="podz-info"></div>
+        <div class="pcat"><div class="pct"><i class="ti ti-printer"></i>Stół</div>
+          <div class="pchips">
+            <label class="pchip" title="Dziel litery większe niż stół"><span>dziel litery</span><input type="checkbox" id="p-podz" checked></label>
+            <label class="pchip" title="Tnij bryły 3D po liniach podziału"><span>tnij bryły</span><input type="checkbox" id="b3-cut" checked></label>
+            <label class="pchip" title="Stół X [mm] (części i tak mieszczą się w obszarze płyty z panelu Płyta)"><i class="ti ti-arrows-horizontal"></i><span>X</span><input type="text" inputmode="decimal" id="p-stx" value="320"></label>
+            <label class="pchip" title="Stół Y [mm]"><i class="ti ti-arrows-vertical"></i><span>Y</span><input type="text" inputmode="decimal" id="p-sty" value="315"></label>
+          </div>
+        </div>
+        <div class="pcat"><div class="pct"><i class="ti ti-box"></i>Łączenie podstawy</div>
+          <div class="pseg">
+            <label title="Podstawa cięta prostą linią (bez wypustek)"><input type="radio" name="puzseg" value="0"><i class="ti ti-line-dashed"></i>proste</label>
+            <label title="Podstawa nie jest cięta prostą linią: jedna część ma wypustkę w kształcie puzzla (łebek na szyjce) w każdym grubszym miejscu litery, druga odpowiadające wcięcie. Części składa się z góry. Klosz zostaje ciętym prosto. Okrąg: prosta linia z okrągłym łebkiem bez szyjki."><input type="radio" name="puzseg" value="o"><i class="ti ti-puzzle"></i>puzzle</label>
+            <label title="Podstawa nie jest cięta prostą linią: jedna część ma wypustkę w kształcie puzzla (łebek na szyjce) w każdym grubszym miejscu litery, druga odpowiadające wcięcie. Części składa się z góry. Klosz zostaje ciętym prosto. Jaskółczy ogon: trapezowa wypustka, rozszerzająca się od linii."><input type="radio" name="puzseg" value="j"><i class="ti ti-chevrons-down"></i>jaskółczy ogon</label>
+          </div>
+          <div class="pchips puz-p">
+            <label class="pchip puz-o" title="Średnica okrągłego łebka — stała, niezależna od miejsca i kąta linii. Gdzie się nie mieści (2,5 mm od krawędzi litery), tam cięcie bez łebka."><i class="ti ti-circle"></i><span>Ø</span><input type="text" inputmode="decimal" id="b3-puzdm" value="14"></label>
+            <label class="pchip puz-j" title="Szerokość ząbka na jego szerokim końcu (przy linii ząbek ma 0,48 tej szerokości) — stała. Gdzie się nie mieści, tam cięcie bez ząbka."><i class="ti ti-arrows-horizontal"></i><span>szer.</span><input type="text" inputmode="decimal" id="b3-puzwm" value="15"></label>
+            <label class="pchip puz-j" title="Wysokość ząbka (jak daleko wchodzi w drugą część) — stała"><i class="ti ti-arrows-vertical"></i><span>wys.</span><input type="text" inputmode="decimal" id="b3-puzhm" value="10"></label>
+            <label class="pchip" title="Szczelina między częściami puzzla w poziomie (na tolerancję druku)"><i class="ti ti-arrows-diff"></i><span>luz</span><input type="text" inputmode="decimal" id="b3-puzl" value="0,05"></label>
+          </div>
+          <div class="phid"><input type="checkbox" id="b3-puz" checked><select id="b3-puzk"><option value="o" selected>okrąg</option><option value="j">jaskółczy ogon</option></select></div>
+        </div>
+        <div class="pcat"><div class="pct"><i class="ti ti-bulb"></i>Łączenie klosza</div>
+          <div class="pseg">
+            <label title="Frontlit: w kloszu, na linii jego cięcia, żebro w poprzek wnętrza łączące wolne końce ścianek. Każda część ma swoją połówkę (3 × dysza), klosze skleja się na mostku — wtedy bez plasterków klosza. Od dołu odsunięte na LED, od góry na pleksę, góra łukiem i fazowana 45° od wnętrza."><input type="radio" name="kseg" value="m"><i class="ti ti-building-bridge-2"></i>mostki</label>
+            <label title="Osobne plasterki przy wewnętrznych ściankach klosza (plasterki podstawy osobno)"><input type="radio" name="kseg" value="k"><i class="ti ti-rectangle-vertical"></i>plasterki</label>
+            <label title="Frontlit: zamiast osobnych plasterków podstawy i klosza jeden element w kształcie U: dno w kieszeni podstawy (z rowkiem na LED), ścianka przy ściance kieszeni, przejście po rancie podstawy i ścianki przy ściankach klosza. Skleja naraz części podstawy i klosza; gdy linia klosza jest przesunięta, plasterek jest szerszy i obejmuje obie linie. Zastępuje też mostki."><input type="radio" name="kseg" value="w"><i class="ti ti-letter-u"></i>wspólny U</label>
+          </div>
+          <div class="pchips">
+            <label class="pchip km" title="Wolne miejsce pod mostkiem, od wierzchu podstawy (na LED i przewody)"><i class="ti ti-arrow-bar-to-up"></i><span>od dołu</span><input type="text" inputmode="decimal" id="b3-kmd" value="6"></label>
+            <label class="pchip km" title="Odstęp końców mostka od pleksy (Sidelit: od frontu); w środku łuk schodzi niżej"><i class="ti ti-arrow-bar-to-down"></i><span>do pleksy</span><input type="text" inputmode="decimal" id="b3-kmg" value="8"></label>
+            <label class="pchip km" title="Jak mocno góra mostka opada w środku: 0 = prosta góra na wysokości końców, 100 = najgłębszy łuk (w środku zostają 3 mm mostka, najwyżej półkole). Przy ściankach mostek zawsze ma pełną wysokość."><i class="ti ti-ease-in-out"></i><span>łuk %</span><input type="text" inputmode="decimal" id="b3-kmk" value="60"></label>
+            <label class="pchip pl-k" title="Długość plasterka klosza (w poprzek linii) [mm]"><i class="ti ti-ruler-measure"></i><span>długość</span><input type="text" inputmode="decimal" id="p-plk" value="40"></label>
+          </div>
+          <div class="phid"><input type="checkbox" id="b3-kmo" checked><input type="checkbox" id="p-plw"></div>
+        </div>
+        <div class="pcat"><div class="pct"><i class="ti ti-separator-vertical"></i>Linia klosza</div>
+          <div class="pchips">
+            <label class="pchip" title="Wyłączone: klosz cięty w tym samym miejscu co podstawa (bez przesunięcia linii klosza)"><span>obok podstawy</span><input type="checkbox" id="p-cutkon" checked></label>
+            <label class="pchip cutk-f" title="Linia klosza idzie obok linii podstawy, żeby łączenia nie wypadały w jednym miejscu. 0 = w tym samym miejscu."><i class="ti ti-arrows-left-right"></i><span>o [mm]</span><input type="text" inputmode="decimal" id="p-cutk" value="30"></label>
+            <label class="pchip" title="Klosz jest przecinany w ściankach pod skosem (patrząc od góry): płaszczyzna cięcia tworzy ten kąt z normalną do ścianki, więc światło nie ucieka prosto przez szczelinę. 0 = cięcie prosto w poprzek ścianki. Przy mostkach w kloszu zawsze prosto."><i class="ti ti-angle"></i><span>skos [°]</span><input type="text" inputmode="decimal" id="p-cutka" value="45"></label>
+          </div>
+        </div>
+        <div class="pcat"><div class="pct"><i class="ti ti-rectangle"></i>Plasterki podstawy</div>
+          <div class="pchips">
+            <label class="pchip" title="Plasterki klejone na łączeniach podstawy (plasterki klosza: w Łączeniu klosza)"><span>dodaj</span><input type="checkbox" id="p-plon" checked></label>
+            <label class="pchip" title="Długość plasterka podstawy (w poprzek linii) [mm]"><i class="ti ti-ruler-measure"></i><span>długość</span><input type="text" inputmode="decimal" id="p-pll" value="40"></label>
+          </div>
+        </div>
+        <details class="pfold"><summary><i class="ti ti-chevron-right"></i><i class="ti ti-adjustments"></i>Wymiary plasterków</summary>
           <div class="fld"><span>Podstawa: odsunięcie od ścianki</span><input type="text" inputmode="decimal" id="p-ploff" value="0,5"></div>
           <div class="fld"><span>Podstawa: grubość</span><input type="text" inputmode="decimal" id="p-plh" value="1,2"></div>
           <div class="fld"><span>Podstawa: szerokość rowka LED</span><input type="text" inputmode="decimal" id="p-plgr" value="8"></div>
@@ -391,10 +432,13 @@
           <div class="fld"><span>Klosz: grubość</span><input type="text" inputmode="decimal" id="p-pkt" value="1,2"></div>
           <div class="fld"><span>Klosz: niższy o</span><input type="text" inputmode="decimal" id="p-pkd" value="15"></div>
         </details>
-        <h3>Długość każdego plasterka [mm]</h3>
-        <div id="plate-list"></div>
-        <div class="hint">Klik w plasterek na rysunku też go wybiera. Długość 0 = bez tego plasterka. Są w DXF i w bryłach 3D, nie ma ich na szablonie.</div>
-        <div class="hint">Pomarańczowa linia tnie podstawę, niebieska przerywana klosz; niebieską można przeciągnąć osobno. Chwyć linię, aby ją przesunąć; chwyć kółko na końcu, aby ją obrócić (Shift = co 15°). Alt + dwuklik = nowa pionowa, Alt + Shift + dwuklik = pozioma, Delete = usuń. Każda część dostaje własny prostokąt stołu pod najlepszym kątem (widać go po włączeniu warstwy „stół drukarki”).</div>
+        <details class="pfold"><summary><i class="ti ti-chevron-right"></i><i class="ti ti-list-numbers"></i>Długość każdego plasterka</summary>
+          <div id="plate-list"></div>
+          <div class="hint">Klik w plasterek na rysunku też go wybiera. Długość 0 = bez tego plasterka. Są w DXF i w bryłach 3D, nie ma ich na szablonie.</div>
+        </details>
+        <details class="pfold"><summary><i class="ti ti-chevron-right"></i><i class="ti ti-keyboard"></i>Myszka i klawisze</summary>
+          <div class="hint">Pomarańczowa linia tnie podstawę, niebieska przerywana klosz (niebieską można przeciągnąć osobno). Chwyć linię = przesuń, chwyć kółko na końcu = obróć (Shift = co 15°).<br>Zaznaczona linia: ← → obrót wokół środka, ↑ ↓ przesunięcie (Shift = większy krok), Delete = usuń. Shift + klik w linię = tnij / nie tnij w tym miejscu.<br>Prawy klawisz na części podzielonej litery = nazwa części. Alt + dwuklik = nowa linia przez całą literę (pionowa), Alt + Shift + dwuklik = pozioma.<br>Każda część dostaje własny prostokąt stołu pod najlepszym kątem (wyraźnie po kliknięciu linii).</div>
+        </details>
       </section>
       <section class="pan" data-pan="warstwy" data-t="Warstwy"><div id="lays"></div></section>
       <section class="pan" data-pan="bryla" data-t="Bryła 3D">
@@ -1341,7 +1385,17 @@ const mostkiH = () => { try { const p = params3D(); return p.ws - p.pl - Math.ma
 const mostkiWl = () => mostkiChce() && typeof params3D === 'function' && mostkiH() >= 3;
 const mostekT = () => 3 * ((W.pr && W.pr.dysza) || 4) / 10;
 function mostekPoly(mk) { const t = mostekT(), a = mk.ln.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), P = (u, v) => [mk.ln.x + dx * u - dy * v, mk.ln.y + dy * u + dx * v]; return [P(mk.u0, -t), P(mk.u1, -t), P(mk.u1, t), P(mk.u0, t)]; }
-function puzSync() { document.body.classList.toggle('puz-j', $('b3-puzk').value === 'j'); document.body.classList.toggle('kmo', $('b3-kmo').checked); }
+function puzSync() { document.body.classList.toggle('puz-j', $('b3-puzk').value === 'j'); document.body.classList.toggle('kmo', $('b3-kmo').checked); podzSync(); }
+// panel Podział: przyciski wyboru (łączenie podstawy / klosza) odzwierciedlają ukryte pola, z których czyta reszta programu
+function podzSync() {
+  const puz = $('b3-puz').checked, ks = $('p-plw').checked ? 'w' : $('b3-kmo').checked ? 'm' : 'k';
+  document.querySelectorAll('input[name=puzseg]').forEach(r => { r.checked = r.value === (puz ? $('b3-puzk').value : '0'); });
+  document.querySelectorAll('input[name=kseg]').forEach(r => { r.checked = r.value === ks; });
+  document.body.classList.toggle('puz-off', !puz); document.body.classList.toggle('plw', $('p-plw').checked);
+}
+document.querySelectorAll('input[name=puzseg]').forEach(r => { r.onchange = () => { const cb = $('b3-puz'), sel = $('b3-puzk'); cb.checked = r.value !== '0'; if (r.value !== '0') sel.value = r.value; [cb, sel].forEach(x => x.dispatchEvent(new Event('change', { bubbles: true }))); }; });
+document.querySelectorAll('input[name=kseg]').forEach(r => { r.onchange = () => { const km = $('b3-kmo'), pw = $('p-plw'), po = $('p-plon'); km.checked = r.value === 'm'; pw.checked = r.value === 'w'; if (r.value !== 'm') po.checked = true; [km, pw, po].forEach(x => x.dispatchEvent(new Event('change', { bubbles: true }))); }; });
+$('b-cut-auto').onclick = () => { if (!W.base) return; pushUndo(); W.cuts = []; W.cutManual = false; W.sel = null; recompute(); toast('Linie podziału ułożone od nowa'); };
 // kształt łączenia podstawy na linii podziału (puzzle / jaskółczy ogon) do widoku 2D: wynik puzzleObszar pamiętany, dopóki nie zmieni się litera, linia albo parametry
 function puzKnoby(c) {
   if (typeof puzzleObszar !== 'function' || !$('b3-puz').checked || !W.pr || (W.pr.typ === 'P' && !pbOn(W.pr))) return null;
@@ -2378,6 +2432,8 @@ restore(); hlSync(); mtSync(); puzSync(); cutKSync(); $('p-cutkon').addEventList
 STEPS['p-hl'] = 1;
 Object.entries(STEPS).forEach(([id, st]) => addSpin($(id), st, () => { if (id === 'p-hl') hlPush(); else if (id.startsWith('b3-')) { b3Change(id); if (id === 'b3-h' || id === 'b3-sh') hlSync(); } else if (!id.startsWith('tx-')) recompute(); }));
 document.querySelectorAll('aside input, aside select').forEach(i => i.addEventListener(i.type === 'text' ? 'input' : 'change', () => {
+  if (i.name === 'puzseg' || i.name === 'kseg') return;     // przyciski wyboru panelu Podział ustawiają ukryte pola (te mają własne zdarzenia)
+  if (i.id === 'p-plw' || i.id === 'p-plon') puzSync();
   if (i.id.startsWith('tx-') || i.id.startsWith('pl-') || i.type === 'file' || i.type === 'range') return;
   if (i.id === 'p-name') return save();
   if (i.name === 'mtyp') return setMontaz(i.value);
