@@ -2407,7 +2407,8 @@ async function autoDoorThumbs() {
 // =====================================================================
 //  PLIK DRZWI W PHOTOSHOPIE: przy ścianie z drzwiami ścieżka pliku grafiki ściany (el.psPath) i przycisk,
 //  który pobiera skrypt Photoshopa (szablon ps/drzwi.jsx + dane): wymiar i spad ściany, położenie, wymiar i spady drzwi.
-//  Skrypt sam rozpoznaje, czy plik ściany jest ze spadem czy netto i ile ma pikseli na mm, wycina drzwi i zapisuje obok jako TIFF.
+//  Skrypt sam rozpoznaje, czy plik ściany jest ze spadem czy netto i ile ma pikseli na mm, wycina drzwi i zapisuje obok jako TIFF,
+//  a miniaturkę pliku drzwi od razu wysyła do elementu „Drzwi — A…” w INDEX (Cloudinary + baza, przez curl z Windows).
 // =====================================================================
 async function psDrzwi(cur, el) {
   if (!hasDoor(cur)) return toast('Najpierw zaznacz drzwi w ścianie');
@@ -2415,10 +2416,10 @@ async function psDrzwi(cur, el) {
   const nm = markOf({ ...el, ...cur }), b0 = bleedOf(cur), sp = cur.bleedBox || { l: b0, r: b0, t: b0, b: b0 }, ds = doorList(cur);
   const drzwi = ds.map((d, i) => {
     const mv = doorView(cur, d), p = doorPos(mv), de = el.id && S.elements.find(e => e.doorFor === el.id && (e.doorIdx || 0) === i), k = (de && de.bleedBox) || doorBleed(mv) || { l: 0, r: 0, t: 0, b: 0 };
-    return { znak: ds.length > 1 ? doorMarkI(nm, i) : nm, x: p.x, w: p.w, h: p.h, l: +k.l || 0, r: +k.r || 0, t: +k.t || 0, b: +k.b || 0 };
+    return { znak: ds.length > 1 ? doorMarkI(nm, i) : nm, eid: (de && de.id) || '', x: p.x, w: p.w, h: p.h, l: +k.l || 0, r: +k.r || 0, t: +k.t || 0, b: +k.b || 0 };
   });
   if (drzwi.some(d => d.x < 0 || d.x + d.w > Number(cur.w))) return toast('Drzwi wychodzą poza ścianę — popraw odległość od krawędzi');
-  const P = { stoisko: (S.project && S.project.name) || '', sciana: nm, plik: String(el.psPath || '').trim().replace(/^"|"$/g, '').replace(/\\/g, '/'), W: Number(cur.w), H: Number(cur.h), spadSciany: { l: +sp.l || 0, r: +sp.r || 0, t: +sp.t || 0, b: +sp.b || 0 }, drzwi };
+  const P = { stoisko: (S.project && S.project.name) || '', sciana: nm, plik: String(el.psPath || '').trim().replace(/^"|"$/g, '').replace(/\\/g, '/'), W: Number(cur.w), H: Number(cur.h), indeks: !DEMO && S.project && S.project.id && S.me ? { projekt: FIREBASE_CONFIG.projectId, klucz: FIREBASE_CONFIG.apiKey, elementy: pElements(S.project.id), log: pLog(S.project.id), kto: S.me.id, chmura: CLOUDINARY_CLOUD, preset: CLOUDINARY_PRESET } : null, spadSciany: { l: +sp.l || 0, r: +sp.r || 0, t: +sp.t || 0, b: +sp.b || 0 }, drzwi };
   let t;
   try { t = await fetch('ps/drzwi.jsx', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }); }
   catch (e) { return toast('Nie udało się pobrać szablonu skryptu: ' + e.message); }

@@ -72,9 +72,59 @@ app.bringToFront();
     var out = new File(f.parent.fsName + '/' + bazaNazwy(f) + '_drzwi_' + d.znak + '_' + (d.w + d.l + d.r) + 'x' + (d.h + d.t + d.b) + 'mm.tif');
     var o = new TiffSaveOptions(); o.imageCompression = TIFFEncoding.TIFFLZW; o.layers = false; o.embedColorProfile = true;
     doc.saveAs(out, o, false, Extension.LOWERCASE);
+    var mini = miniatura(doc, d, out);
     if (cicho) doc.close(SaveOptions.DONOTSAVECHANGES);
-    return 'Drzwi ' + d.znak + ': ' + (d.w + d.l + d.r) + ' × ' + (d.h + d.t + d.b) + ' mm (drzwi ' + d.w + ' × ' + d.h + ', spad L ' + d.l + ' P ' + d.r + ' G ' + d.t + ' D ' + d.b + '), ' + Math.round(Dw) + ' × ' + Math.round(Dh) + ' px\n→ ' + out.fsName + (uzup.length ? '\nspad poza plikiem ściany, uzupełniony odbiciem: ' + uzup.join(', ') : '');
+    return 'Drzwi ' + d.znak + ': ' + (d.w + d.l + d.r) + ' × ' + (d.h + d.t + d.b) + ' mm (drzwi ' + d.w + ' × ' + d.h + ', spad L ' + d.l + ' P ' + d.r + ' G ' + d.t + ' D ' + d.b + '), ' + Math.round(Dw) + ' × ' + Math.round(Dh) + ' px\n→ ' + out.fsName + (uzup.length ? '\nspad poza plikiem ściany, uzupełniony odbiciem: ' + uzup.join(', ') : '') + mini;
   }
+
+  // miniaturka pliku drzwi do INDEX: JPG (sRGB, dłuższy bok 2000 px) → Cloudinary → pole thumb elementu „Drzwi — …” + wpis w historii.
+  // Wysyłka przez curl z Windows (app.system); starszy Photoshop bez app.system — miniaturka zostaje obok pliku do wgrania ręcznie.
+  function miniatura(doc, d, out) {
+    if (!P.indeks || !d.eid) return '';
+    var m = doc.duplicate('miniatura', true), jpg;
+    try {
+      try { m.flatten(); } catch (e) { }
+      if (m.bitsPerChannel != BitsPerChannelType.EIGHT) m.bitsPerChannel = BitsPerChannelType.EIGHT;
+      try { m.convertProfile('sRGB IEC61966-2.1', Intent.RELATIVECOLORIMETRIC, true, false); } catch (e) { m.changeMode(ChangeMode.RGB); }
+      var w = m.width.as('px'), h = m.height.as('px'), k = 2000 / Math.max(w, h);
+      if (k < 1) m.resizeImage(px(Math.round(w * k)), px(Math.round(h * k)), m.resolution, ResampleMethod.BICUBIC);
+      jpg = new File(out.parent.fsName + '/' + decodeURI(out.name).replace(/\.[^.]+$/, '') + '_miniatura.jpg');
+      var o = new JPEGSaveOptions(); o.quality = 9; o.embedColorProfile = true;
+      m.saveAs(jpg, o, true, Extension.LOWERCASE);
+    } finally { m.close(SaveOptions.DONOTSAVECHANGES); }
+    if (typeof app.system !== 'function') return '\nminiaturka: ten Photoshop nie umie jej wysłać — wgraj ręcznie do drzwi w INDEX: ' + jpg.fsName;
+    var I = P.indeks, tmp = Folder.temp.fsName, odp = new File(tmp + '/index_drzwi_odp.json');
+    // 1) Cloudinary (to samo konto i preset co INDEX)
+    try { odp.remove(); } catch (e) { }
+    app.system('curl -s -F "upload_preset=' + I.preset + '" -F "file=@' + jpg.fsName + '" https://api.cloudinary.com/v1_1/' + I.chmura + '/image/upload -o "' + odp.fsName + '"');
+    var t = czytaj(odp), u = t.match(/"secure_url"\s*:\s*"([^"]+)"/);
+    if (!u) return '\nminiaturka: nie udało się wysłać (Cloudinary) — wgraj ręcznie: ' + jpg.fsName;
+    var url = u[1].replace(/\\\//g, '/'), teraz = iso(), baza = 'https://firestore.googleapis.com/v1/projects/' + I.projekt + '/databases/(default)/documents/';
+    // 2) pole thumb elementu drzwi (thumbVec czyszczone: podglądem jest teraz ten obraz)
+    var pola = { thumb: url, thumbVec: '', updatedAt: teraz, updatedBy: I.kto, src: 'photoshop' }, maska = '', f;
+    for (f in pola) maska += '&updateMask.fieldPaths=' + f;
+    var odp2 = curlJson('PATCH', baza + I.elementy + '/' + d.eid + '?key=' + I.klucz + maska, pola, tmp);
+    if (odp2.indexOf('"fields"') < 0) return '\nminiaturka wysłana, ale nie zapisała się w INDEX — wgraj ręcznie: ' + jpg.fsName;
+    // 3) historia zmian stoiska
+    curlJson('POST', baza + I.log + '?key=' + I.klucz, { at: teraz, user: I.kto, text: 'Photoshop: grafika drzwi ' + d.znak + ' (miniatura z pliku ' + decodeURI(out.name) + ')', eid: d.eid }, tmp);
+    return '\nminiaturka wysłana do INDEX (element „Drzwi — ' + d.znak + '”)';
+  }
+  function curlJson(metoda, url, pola, tmp) {
+    var body = new File(tmp + '/index_drzwi_body.json'), odp = new File(tmp + '/index_drzwi_odp2.json'), s = '{"fields":{', pierwsze = true, f;
+    for (f in pola) { s += (pierwsze ? '' : ',') + '"' + f + '":{"stringValue":' + jsonStr(pola[f]) + '}'; pierwsze = false; }
+    s += '}}';
+    body.encoding = 'UTF-8'; body.open('w'); body.write(s); body.close();
+    try { odp.remove(); } catch (e) { }
+    app.system('curl -s -X ' + metoda + ' -H "Content-Type: application/json" --data-binary "@' + body.fsName + '" "' + url + '" -o "' + odp.fsName + '"');
+    return czytaj(odp);
+  }
+  function jsonStr(v) { // ASCII + \uXXXX (polskie znaki bez kłopotów z kodowaniem pliku)
+    var s = String(v), w = '"', i, c;
+    for (i = 0; i < s.length; i++) { c = s.charCodeAt(i); w += c === 34 ? '\\"' : c === 92 ? '\\\\' : c < 32 || c > 126 ? '\\u' + ('0000' + c.toString(16)).slice(-4) : s.charAt(i); }
+    return w + '"';
+  }
+  function czytaj(f) { if (!f.exists) return ''; f.encoding = 'UTF-8'; f.open('r'); var t = f.read(); f.close(); return t; }
+  function iso() { var d = new Date(), z = function (n, k) { n = String(n); while (n.length < (k || 2)) n = '0' + n; return n; }; return d.getUTCFullYear() + '-' + z(d.getUTCMonth() + 1) + '-' + z(d.getUTCDate()) + 'T' + z(d.getUTCHours()) + ':' + z(d.getUTCMinutes()) + ':' + z(d.getUTCSeconds()) + '.' + z(d.getUTCMilliseconds(), 3) + 'Z'; }
 
   function lustro(doc, r, fh, fv, tx, ty) {
     doc.selection.select([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]);
