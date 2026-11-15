@@ -55,9 +55,12 @@ app.bringToFront();
     app.activeDocument = src;
     var doc = src.duplicate('Drzwi ' + d.znak, true);
     try { doc.flatten(); } catch (e) { }
-    if (mR || mB) doc.resizeCanvas(px(Wpx + mR), px(Hpx + mB), AnchorPosition.TOPLEFT);
-    if (mL || mT) doc.resizeCanvas(px(doc.width.as('px') + mL), px(doc.height.as('px') + mT), AnchorPosition.BOTTOMRIGHT);
-    doc.crop([px(X0 + mL), px(Y0 + mT), px(X1 + mL), px(Y1 + mT)]);
+    // kadrowanie samymi zmianami rozmiaru płótna (jak ręcznie: Obraz → Rozmiar płótna), 4 kroki widoczne w Historii;
+    // gdy drzwi ze spadem wychodzą poza plik ściany, ten sam krok dokłada płótno
+    doc.resizeCanvas(px(X1), px(Hpx), AnchorPosition.TOPLEFT);                  // 1. prawa krawędź: zostaje od lewej do X1
+    doc.resizeCanvas(px(X1 - X0), px(Hpx), AnchorPosition.TOPRIGHT);           // 2. lewa krawędź: zostaje szerokość drzwi ze spadami (od prawej)
+    doc.resizeCanvas(px(X1 - X0), px(Y1), AnchorPosition.TOPLEFT);             // 3. dół: zostaje od góry do Y1
+    doc.resizeCanvas(px(X1 - X0), px(Y1 - Y0), AnchorPosition.BOTTOMLEFT);     // 4. góra: zostaje wysokość drzwi ze spadami (od dołu)
     var Dw = doc.width.as('px'), Dh = doc.height.as('px'), uzup = [], s;
     // brakujące pasy (poza plikiem ściany): odbicie lustrzane pasa obok
     if (mB) { s = Math.min(mB, Dh - mB); lustro(doc, [0, Dh - mB - s, Dw, Dh - mB], false, true, 0, Dh - mB); uzup.push('dół ' + mm(mB, sy)); }
