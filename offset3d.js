@@ -487,10 +487,11 @@ function magReg(p, Rbaza, Rkl, o) {
 }
 // łączenie jak puzzle: obszar A = półpłaszczyzna po stronie normalnej linii podziału + wypustki (łebek na szyjce) w każdym miejscu, gdzie litera jest dość gruba;
 // druga część dostaje wcięcie z luzem. Zwraca wielokąty A (Clipper) i A powiększone o luz.
-// parametry łączenia z panelu: kształt, luz, jaskółczy ogon (szerokość i wysokość ząbka), puzzle (średnica łebka) — jako ułamek szerokości litery w miejscu cięcia
+// parametry łączenia z panelu: kształt, luz, jaskółczy ogon (szerokość i wysokość ząbka), puzzle (średnica łebka) — stałe wymiary w mm
 function puzPrm() {
   const n = id => $(id) ? num($(id).value) : NaN, pc = (id, d) => { const v = n(id); return (v > 0 ? v : d) / 100; };
-  return { kind: $('b3-puzk') ? $('b3-puzk').value : 'o', luz: Math.max(0, n('b3-puzl') || 0), fw: pc('b3-puzw', 100 / 3), fh: pc('b3-puzh', 25), fd: pc('b3-puzd', 50) };
+  const mm = (id, d) => { const v = n(id); return v > 0 ? v : d; };
+  return { kind: $('b3-puzk') ? $('b3-puzk').value : 'o', luz: Math.max(0, n('b3-puzl') || 0), fwm: mm('b3-puzwm', 15), fhm: mm('b3-puzhm', 10), fdm: mm('b3-puzdm', 14) };
 }
 function puzzleObszar(c, q = puzPrm()) {
   const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, O = [c.c.x, c.c.y], BIG = 3000, luz = q.luz, knobs = [];
@@ -501,14 +502,14 @@ function puzzleObszar(c, q = puzPrm()) {
   spans.forEach(([u0, u1]) => {
     const uc = (u0 + u1) / 2, s = u1 - u0;
     // największy łebek / ząbek (do zadanego % szerokości), który mieści się w literze (pasek pod kątem do linii bywa węższy niż odcinek linii)
-    for (let k = 1; k > 0.04; k -= 0.05) {
+    for (const k of [1]) {     // stały wymiar z ustawień; gdy się nie mieści — w tym miejscu bez łebka
       let head, path;
       if (q.kind === 'j') {     // jaskółczy ogon: trapez, szeroki (szerokość ząbka) na końcu, przy linii 0,48 tej szerokości, wysoki na wysokość ząbka
-        const Wd = q.fw * s * k, h = q.fh * s * k, nk = 0.48 * Wd; if (Wd < 4 || h < 1.5) break;
+        const Wd = q.fwm * k, h = q.fhm * k, nk = 0.48 * Wd; if (Wd < 4 || h < 1.5) break;
         head = [W2(uc - Wd / 2, -h), W2(uc + Wd / 2, -h), W2(uc + nk / 2, 0), W2(uc + nk / 2, 0.5), W2(uc - nk / 2, 0.5), W2(uc - nk / 2, 0)];
         path = [[uc - nk / 2, 0], [uc - Wd / 2, -h], [uc + Wd / 2, -h], [uc + nk / 2, 0]];
       } else {     // okrąg o środku 0,6 r za linią: łebek bez szyjki, szyjka = cięciwa 1,6 r
-        const D = q.fd * s * k, r = D / 2, al = Math.asin(0.6); if (D < 5) break;
+        const D = q.fdm * k, r = D / 2, al = Math.asin(0.6); if (D < 5) break;
         head = Array.from({ length: n }, (_, i) => W2(uc + r * Math.cos(i / n * 2 * Math.PI), -0.6 * r + r * Math.sin(i / n * 2 * Math.PI)));
         path = Array.from({ length: 33 }, (_, i) => { const t = Math.PI - al + (Math.PI + 2 * al) * i / 32; return [uc + r * Math.cos(t), -0.6 * r + r * Math.sin(t)]; });
       }
