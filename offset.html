@@ -1377,7 +1377,15 @@ function refreshPlates() {
         const key = 'W' + (i + 1), L = c.plL && c.plL[key] != null ? c.plL[key] : pr.plLW, plate = { c, key, type: 'W', li: c.li, L, polys: [], groove: [], floor: [], pw: [], rim: [], kw: [] };
         W.plates.push(plate); if (!(L > 0)) return;
         const u0 = i ? (spans[i - 1][1] + sp[0]) / 2 : sp[0] - 2000, u1 = i < spans.length - 1 ? (sp[1] + spans[i + 1][0]) / 2 : sp[1] + 2000, po = puzSrodek(c, sp[0], sp[1]), v0 = Math.min(po, s) - L / 2, v1 = Math.max(po, s) + L / 2;
-        let rect = toCl([W2(u0, v0), W2(u1, v0), W2(u1, v1), W2(u0, v1)]); if (C.Clipper.Area(rect) < 0) rect = rect.reverse();
+        let rect = toCl([W2(u0, v0), W2(u1, v0), W2(u1, v1), W2(u0, v1)]);
+        if (c.kA) {     // linia klosza obrócona (skos): w poprzek plasterek obejmuje linię podstawy i skośną linię klosza (v = s + u·tg kA), reszta obwiedni wg obu pasów
+          const t = Math.tan(c.kA * Math.PI / 180), hb = L / 2 / Math.cos(c.kA * Math.PI / 180), aLo = po - L / 2, aHi = po + L / 2;
+          const ua = Math.max(u0, sp[0] - 25), ub = Math.min(u1, sp[1] + 25), lo = u => Math.min(aLo, s + u * t - hb), hi = u => Math.max(aHi, s + u * t + hb);
+          const lw = [[ua, lo(ua)]], up = [[ua, hi(ua)]], ul = Math.abs(t) > 1e-9 ? (aLo - s + hb) / t : NaN, uu = Math.abs(t) > 1e-9 ? (aHi - s - hb) / t : NaN;
+          if (ul > ua && ul < ub) lw.push([ul, lo(ul)]); if (uu > ua && uu < ub) up.push([uu, hi(uu)]); lw.push([ub, lo(ub)]); up.push([ub, hi(ub)]);
+          rect = toCl(lw.concat(up.reverse()).map(([u, v]) => W2(u, v)));
+        }
+        if (C.Clipper.Area(rect) < 0) rect = rect.reverse();
         // części: dno (w kieszeni; bez kieszeni na wierzchu podstawy), ścianka przy ściance kieszeni, przejście po rancie, ścianki przy ściankach klosza
         const floor = regs.pocket ? regs.P : regs.Kout, pw = regs.pocket ? diff(regs.P, regs.Pin) : [], rim = regs.pocket ? diff(regs.Kout, regs.Pin) : [];
         const all = inter(clip('ctUnion', floor.concat(rim, regs.K)), [rect]), [mx, my] = W2((sp[0] + sp[1]) / 2, 0), mid = { X: Math.round(mx * S), Y: Math.round(my * S) };
@@ -1389,7 +1397,7 @@ function refreshPlates() {
       return;
     }
     [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].filter(([type]) => type === 'P' ? pr.plOn && c.tn !== 'k' : !most && c.tn !== 'p').forEach(([type, reg, defL]) => {
-      const ln = type === 'K' ? cutK(c) : c, W2 = (u, s) => [ln.x + dx * u + nx * s, ln.y + dy * u + ny * s];
+      const ln = type === 'K' ? cutK(c) : c, la2 = ln.ang * Math.PI / 180, ldx = Math.cos(la2), ldy = Math.sin(la2), W2 = (u, s) => [ln.x + ldx * u - ldy * s, ln.y + ldy * u + ldx * s];     // układ wzdłuż własnej linii (klosz może mieć obrót kA)
       const near = reg.filter(inBB), spans = lineSpans(near, ln).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return wLiterze(l, x, y) && (!ln.ray || s[0] + s[1] > 0) && naCieciu(ln, (s[0] + s[1]) / 2); });
       spans.forEach((sp, i) => {
         const key = type + (i + 1), L = c.plL && c.plL[key] != null ? c.plL[key] : defL, plate = { c, key, type, li: c.li, L, polys: [], groove: [] };
