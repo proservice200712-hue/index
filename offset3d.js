@@ -597,9 +597,9 @@ function mostkiBryla(zK0, zKmax, ndel, uw) {
 }
 // cięcia promieniowe jednej litery: obszary między promieniami (prostokąt wokół litery minus szczeliny), każdy powiększony o pół szczeliny;
 // podstawa z puzzlami: łebki dochodzą do obszaru po stronie normalnej promienia, z obszaru po drugiej stronie znikają (z luzem)
-function sektory(L, rs, puz) {
+function sektory(L, rs, puz, skos = 0) {
   // obszary = obrys litery (+1 mm) pocięty szczelinami (promienie, aktywne miejsca cięcia); każda szczelina przechodzi przez całą kreskę, więc ją rozdziela
-  const e = 0.01, parts = letters(diff(offsetPolys([L.p].concat(L.holes), 1), clip('ctUnion', rs.flatMap(c => szczelinyCiecia(c.c, e, L))))).map(q => offsetPolys([q.p].concat(q.holes), e));
+  const e = 0.01, parts = letters(diff(offsetPolys([L.p].concat(L.holes), 1), clip('ctUnion', rs.flatMap(c => skos > 0 ? szczelinyKlosza(c, skos, e, L) : szczelinyCiecia(c.c, e, L))))).map(q => offsetPolys([q.p].concat(q.holes), e));
   if (puz) rs.forEach(c => {
     const pz = puzzleObszar(c); if (!pz.n || !pz.H.length) return;
     const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), uc = pz.knobs[0].uc, P = v => ({ X: Math.round((c.c.x + dx * uc - dy * v) * S), Y: Math.round((c.c.y + dy * uc + dx * v) * S) });
@@ -611,7 +611,7 @@ function sektory(L, rs, puz) {
 }
 // klosz: ścianki przecinane pod skosem (patrząc od góry). Linia cięcia zostaje prosta, ale w otoczeniu każdego przecięcia ze ścianką (promień 3,5 mm)
 // granica obszaru A jest obrócona tak, że płaszczyzna cięcia tworzy z normalną do ścianki kąt skos; światło nie ucieka prosto przez szczelinę.
-function kloszObszar(c, skos) {
+function kloszObszar(c, skos, filtr) {
   const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), O = [c.c.x, c.c.y], BIG = 3000, R = 3.5, sg = skos * Math.PI / 180;
   const frame = (px, py, an) => (u, v) => ({ X: Math.round((px + Math.cos(an) * u - Math.sin(an) * v) * S), Y: Math.round((py + Math.sin(an) * u + Math.cos(an) * v) * S) });
   const F0 = frame(O[0], O[1], a), A0 = [[F0(-BIG, 0), F0(BIG, 0), F0(BIG, BIG), F0(-BIG, BIG)]];
@@ -619,7 +619,7 @@ function kloszObszar(c, skos) {
   wall.forEach(ring => { for (let i = 0; i < ring.length; i++) {
     const p = ring[i], q = ring[(i + 1) % ring.length], px = p.X / S, py = p.Y / S, ex = q.X / S - px, ey = q.Y / S - py, den = cross(ex, ey, dx, dy); if (Math.abs(den) < 1e-9) continue;
     const s = cross(O[0] - px, O[1] - py, dx, dy) / den; if (s < 0 || s >= 1) continue;
-    const X = px + s * ex, Y = py + s * ey; if (pts.some(t => Math.hypot(t.x - X, t.y - Y) < 0.4)) continue;
+    const X = px + s * ex, Y = py + s * ey; if (pts.some(t => Math.hypot(t.x - X, t.y - Y) < 0.4) || (filtr && !filtr(X, Y))) continue;
     const l = Math.hypot(ex, ey); let nx = -ey / l, ny = ex / l; if (nx * dx + ny * dy < 0) { nx = -nx; ny = -ny; }
     const th = Math.atan2(cross(nx, ny, dx, dy), nx * dx + ny * dy); if (Math.abs(th) >= sg - 0.035) continue;      // już dość skośnie
     const t2 = (th >= 0 ? 1 : -1) * sg, d2 = [Math.cos(t2) * nx - Math.sin(t2) * ny, Math.sin(t2) * nx + Math.cos(t2) * ny];
@@ -628,7 +628,20 @@ function kloszObszar(c, skos) {
   if (!pts.length) return { A: A0, G: A0, n: 0 };
   const circ = pts.map(t => circlePoly(t.x, t.y, 2 * R)), wedges = pts.map((t, i) => { const F = frame(t.x, t.y, t.an); return inter([[F(-BIG, 0), F(BIG, 0), F(BIG, BIG), F(-BIG, BIG)]], [circ[i]]); }).flat();
   const A = clip('ctUnion', diff(A0, clip('ctUnion', circ)).concat(wedges));
-  return { A, G: A, n: pts.length };
+  return { A, G: A, n: pts.length, okna: clip('ctUnion', pts.map(t => circlePoly(t.x, t.y, 2 * R + 1))) };
+}
+// szczeliny cięcia klosza w układzie „sektorów” (cięcia pojedyncze / w wybranych miejscach): linia prosta, a przy ściankach (aktywne miejsca) skos jak w kloszObszar
+function szczelinyKlosza(c, skos, e, L) {
+  const base = szczelinyCiecia(c.c, e, L); if (!(skos > 0) || c.c.ray) return base;
+  const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), all = cutSpansL(c.c, L), akt = cutAkt(c.c, L);
+  const ok = (X, Y) => {     // ścianka należy do aktywnego odcinka: najbliższy koniec odcinka jest w aktywnym i jest blisko
+    const u = (X - c.c.x) * dx + (Y - c.c.y) * dy; let best = null, d = Infinity;
+    all.forEach(q => q.forEach(v => { if (Math.abs(v - u) < d) { d = Math.abs(v - u); best = q; } }));
+    return best && d < 10 && akt.some(q => q[0] === best[0] && q[1] === best[1]);
+  };
+  const k = kloszObszar(c, skos, ok); if (!k.n) return base;
+  const bnd = diff(offsetPolys(k.A, e), offsetPolys(k.A, -e));
+  return diff(clip('ctUnion', base), k.okna).concat(inter(bnd, k.okna));
 }
 // każda część: lista warstw {z0, z1, reg}
 function warstwyFrontlit(p, m) {
@@ -817,7 +830,7 @@ async function build3D() {
       rays.forEach(c => { (byLi[c.li] = byLi[c.li] || []).push(c); });
       Object.keys(byLi).forEach(li => {
         const L = ls[li]; if (!L) return;
-        const { Manifold } = V3.wasm, prism = P => ndel(ndel(Manifold.extrude(toPolys(P), 2000)).translate([0, 0, -50])), sk = sektory(L, byLi[li], k === 'podstawa' && p.puz).map(prism), next = [];
+        const { Manifold } = V3.wasm, prism = P => ndel(ndel(Manifold.extrude(toPolys(P), 2000)).translate([0, 0, -50])), sk = sektory(L, byLi[li], k === 'podstawa' && p.puz, k === 'klosz' && !mostkiWl() ? kSkos() : 0).map(prism), next = [];
         list.forEach(b => {
           const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2;
           if (cx < L.bb.x0 - 3 || cx > L.bb.x1 + 3 || cy < L.bb.y0 - 3 || cy > L.bb.y1 + 3) { next.push(b); return; }
