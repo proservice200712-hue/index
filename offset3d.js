@@ -524,11 +524,15 @@ function puzPrm() {
 function puzzleObszar(c, q = puzPrm()) {
   const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx, O = [c.c.x, c.c.y], BIG = 3000, luz = q.luz, knobs = [];
   const W2 = (u, v) => ({ X: Math.round((O[0] + dx * u + nx * v) * S), Y: Math.round((O[1] + dy * u + ny * v) * S) });
-  const L = bedLetters()[c.li], spans = lineSpans(offsetPolys(W.base, W.m.p2), c.c).filter(sp => sp[1] - sp[0] >= 10 && wLiterze(L, O[0] + dx * (sp[0] + sp[1]) / 2, O[1] + dy * (sp[0] + sp[1]) / 2) && (!c.c.ray || sp[0] + sp[1] > 0) && naCieciu(c.c, (sp[0] + sp[1]) / 2));     // tylko w swojej literze (promień: po swojej stronie; tylko w miejscach, gdzie linia tnie)
+  const bp2 = offsetPolys(W.base, W.m.p2), L = bedLetters()[c.li], spans = lineSpans(bp2, c.c).filter(sp => sp[1] - sp[0] >= 10 && wLiterze(L, O[0] + dx * (sp[0] + sp[1]) / 2, O[1] + dy * (sp[0] + sp[1]) / 2) && (!c.c.ray || sp[0] + sp[1] > 0) && naCieciu(c.c, (sp[0] + sp[1]) / 2));     // tylko w swojej literze (promień: po swojej stronie; tylko w miejscach, gdzie linia tnie)
   const parts = [[W2(-BIG, 0), W2(BIG, 0), W2(BIG, BIG), W2(-BIG, BIG)]], wn_ = offsetPolys(W.base, W.m.p2 - 2.5), n = 40;     // wnętrze litery bez 2,5 mm przy krawędzi: tu łebek musi się zmieścić w całości
   let ile = 0;
   spans.forEach(([u0, u1]) => {
-    const uc = (u0 + u1) / 2, s = u1 - u0;
+    let uc = (u0 + u1) / 2; const s = u1 - u0;
+    // linia pod kątem do paska: środek odcinka linii nie leży na osi paska w miejscu, gdzie siedzi łebek (głębiej w drugą część). Środek łebka ustawiamy na osi paska:
+    // szukamy odcinka na linii przesuniętej o v środka łebka i bierzemy jego środek (dwa przybliżenia)
+    const vc = q.kind === 'j' ? -q.fhm / 2 : -0.3 * q.fdm;
+    for (let it = 0; it < 2; it++) { const sp = lineSpans(bp2, c.c, vc).filter(x => x[1] - x[0] > 1).sort((p, r) => Math.abs((p[0] + p[1]) / 2 - uc) - Math.abs((r[0] + r[1]) / 2 - uc))[0]; if (sp) uc = (sp[0] + sp[1]) / 2; }
     // największy łebek / ząbek (do zadanego % szerokości), który mieści się w literze (pasek pod kątem do linii bywa węższy niż odcinek linii)
     for (const k of [1]) {     // stały wymiar z ustawień; gdy się nie mieści — w tym miejscu bez łebka
       let head, path;

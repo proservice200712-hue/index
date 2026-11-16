@@ -1355,7 +1355,7 @@ function lineSpans(polys, c, s = 0) {
 // przesunięcie (w poprzek linii, mm) środka łebka puzzla / ząbka, który leży w odcinku [u0, u1] linii c; 0, gdy w tym miejscu nie ma łebka
 function puzSrodek(c, u0, u1) {
   const sg = cutSegs([c])[0], kn = sg && puzKnoby(sg); if (!kn || !kn.length) return 0;
-  const mid = (u0 + u1) / 2, k = kn.filter(q => q.uc >= u0 - 1 && q.uc <= u1 + 1).sort((p, q) => Math.abs(p.uc - mid) - Math.abs(q.uc - mid))[0]; if (!k || !k.head) return 0;
+  const mid = (u0 + u1) / 2, k = kn.filter(q => q.uc >= u0 - 8 && q.uc <= u1 + 8).sort((p, q) => Math.abs(p.uc - mid) - Math.abs(q.uc - mid))[0]; if (!k || !k.head) return 0;
   const a = c.ang * Math.PI / 180, nx = -Math.sin(a), ny = Math.cos(a); let lo = Infinity, hi = -Infinity;
   k.head.forEach(p => { const v = (p.X / S - c.x) * nx + (p.Y / S - c.y) * ny; if (v < lo) lo = v; if (v > hi) hi = v; });
   return Number.isFinite(lo) ? (lo + hi) / 2 : 0;
