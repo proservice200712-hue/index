@@ -576,6 +576,7 @@
   <div class="hint" id="ex-note"></div>
   <h4>Pliki</h4>
   <div id="ex-files"></div>
+  <div class="row" title="Plik DXF z konturami, otworami, podziałem, magnesami i wszystkimi ustawieniami. Przeciągnij go później na Wizard (Plik), a litera wróci do edycji."><label><input type="checkbox" id="ex-edit" checked> zapisz też plik do dalszej edycji (komplet DXF — otwórz go później w Wizardzie)</label></div>
   <div class="ex-foot"><button class="btn" id="ex-no">Anuluj</button><button class="btn go" id="ex-go" disabled>⬇ Eksportuj</button></div>
 </div></div>
 <script>
@@ -1612,7 +1613,7 @@ async function loadFile(f) {
       computeLayers(); const rows = rowsOf(letters(bedSrc())); W.rails.forEach(r => { let bi = 0, bd = Infinity; rows.forEach((row, i) => { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)), d = r.yc < y0 ? y0 - r.yc : r.yc > y1 ? r.yc - y1 : 0; if (d < bd) { bd = d; bi = i; } }); r.row = bi; });
     }
     recompute(false);
-    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; if ((source.meta.one || [])[i]) c.one = true; const of = (source.meta.off || [])[i]; if (of && of.length) c.off = of; const L = kitLines[i]; if ((source.meta.ray || [])[i] && L) { c.ray = true; c.x = L[0][0]; c.y = L[0][1]; c.ang = Math.round((Math.atan2(L[1][1] - L[0][1], L[1][0] - L[0][0]) * 180 / Math.PI + 360) % 360 * 100) / 100; } }); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.mags) { const L = bedLetters(); W.mags = source.meta.mags.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, manual: true })); } if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
+    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; c.kA = (source.meta.kA || [])[i] || 0; if ((source.meta.one || [])[i]) c.one = true; const of = (source.meta.off || [])[i]; if (of && of.length) c.off = of; const L = kitLines[i]; if ((source.meta.ray || [])[i] && L) { c.ray = true; c.x = L[0][0]; c.y = L[0][1]; c.ang = Math.round((Math.atan2(L[1][1] - L[0][1], L[1][0] - L[0][0]) * 180 / Math.PI + 360) % 360 * 100) / 100; } }); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.mags) { const L = bedLetters(); W.mags = source.meta.mags.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, manual: true })); } if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
     if (W.panel === 'plik' || !W.panel) showPanel('litery', true);
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
@@ -1706,7 +1707,7 @@ function buildKit() {
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
   const { typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = (typ === 'S' || pbOn(W.pr)) && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), ray: W.cuts.map(c => c.ray ? 1 : 0), off: W.cuts.map(c => c.off && c.off.length ? c.off : 0), one: W.cuts.map(c => c.one ? 1 : 0), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), kA: W.cuts.map(c => c.kA || 0), ray: W.cuts.map(c => c.ray ? 1 : 0), off: W.cuts.map(c => c.off && c.off.length ? c.off : 0), one: W.cuts.map(c => c.one ? 1 : 0), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1813,7 +1814,7 @@ function exKind() { const r = document.querySelector('input[name=ex-kind]:checke
 function exSync() {
   const k = exKind(), b = fileBase();
   $('ex-go').disabled = !k;
-  $('ex-files').innerHTML = k ? `Na dysk: <b>${esc(b)}_Szablon_${k === 'cnc' ? 'CNC' : 'papier'}.pdf</b>${k === 'cnc' ? `, <b>${esc(b)}_Szablon_CNC.dxf</b>` : ''}<br><span class="hint">Komplet do ponownej edycji (kontury, otwory, podział, cyfry) zapisuje się tylko w INDEX, przy wybranym elemencie.</span>` : 'Wybierz rodzaj szablonu.';
+  $('ex-files').innerHTML = k ? `Na dysk: <b>${esc(b)}_Szablon_${k === 'cnc' ? 'CNC' : 'papier'}.pdf</b>${k === 'cnc' ? `, <b>${esc(b)}_Szablon_CNC.dxf</b>` : ''}<br><span class="hint">Komplet do ponownej edycji (kontury, otwory, podział, cyfry, magnesy, ustawienia 3D) zapisuje się też w INDEX przy wybranym elemencie; na dysk trafia jako <b>${esc(b)}_DO_EDYCJI.dxf</b>, jeśli pole poniżej jest zaznaczone.</span>` : 'Wybierz rodzaj szablonu.';
 }
 async function openExport() {
   if (!W.base) return;
@@ -1834,8 +1835,9 @@ async function doExport() {
     const base = fileBase(), kit = buildKit(), dxfTxt = dxfText(kit.ents, kit.cx, kit.cy, kit.meta), dxfBlob = new Blob([dxfTxt], { type: 'application/dxf' }), kindTag = kind === 'cnc' ? 'CNC' : 'papier';
     const pdfBlob = szablonPdf(kind, base), szDxf = kind === 'cnc' ? new Blob([szablonDxf(kit.cx, kit.cy)], { type: 'application/dxf' }) : null;
     const names = { dxfName: base + '.dxf', szablonName: `${base}_Szablon_${kindTag}.pdf`, szablonDxfName: szDxf ? `${base}_Szablon_CNC.dxf` : '' };
-    saveBlob(names.szablonName, pdfBlob);                                       // na dysk tylko szablony (bez Fusion nie ma po co pobierać kompletu DXF)
+    saveBlob(names.szablonName, pdfBlob);                                       // na dysk szablony; komplet DXF do ponownej edycji tylko na życzenie (pole w oknie eksportu)
     if (szDxf) setTimeout(() => saveBlob(names.szablonDxfName, szDxf), 400);
+    if ($('ex-edit').checked) setTimeout(() => saveBlob(`${base}_DO_EDYCJI.dxf`, dxfBlob), szDxf ? 800 : 400);
     const me = await whoAmI(), pid = me && !$('ex-target').classList.contains('hidden') ? $('ex-p').value : '';
     if (pid) await saveToIndex(pid, $('ex-e').value, kind, names, dxfBlob, pdfBlob, szDxf, me);
     else toast(`Zapisano szablon na dysk: ${names.szablonName}${szDxf ? ' + DXF' : ''}`, 6000);
