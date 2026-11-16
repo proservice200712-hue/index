@@ -609,13 +609,14 @@ function sektory(L, rs, puz, skos = 0) {
   });
   return parts;
 }
-// klosz: ścianki przecinane pod skosem (patrząc od góry). Linia cięcia zostaje prosta, ale w otoczeniu każdego przecięcia ze ścianką (promień 3,5 mm)
-// granica obszaru A jest obrócona tak, że płaszczyzna cięcia tworzy z normalną do ścianki kąt skos; światło nie ucieka prosto przez szczelinę.
+// klosz: ścianki przecinane pod skosem (patrząc od góry). Linia cięcia we wnętrzu klosza (także mostki) zostaje prosta; od wewnętrznej powierzchni ścianki
+// na zewnątrz granica obszaru A jest obrócona tak, że płaszczyzna cięcia tworzy z normalną do ścianki kąt skos; światło nie ucieka prosto przez szczelinę.
 function kloszObszar(c, skos, filtr) {
-  const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), O = [c.c.x, c.c.y], BIG = 3000, R = 3.5, sg = skos * Math.PI / 180;
+  const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), O = [c.c.x, c.c.y], BIG = 3000, sg = skos * Math.PI / 180, RC = Math.max(7, Math.abs(W.m.k2 - W.m.k3) + 4);     // RC: promień okna wokół przecięcia ze ścianką
   const frame = (px, py, an) => (u, v) => ({ X: Math.round((px + Math.cos(an) * u - Math.sin(an) * v) * S), Y: Math.round((py + Math.sin(an) * u + Math.cos(an) * v) * S) });
   const F0 = frame(O[0], O[1], a), A0 = [[F0(-BIG, 0), F0(BIG, 0), F0(BIG, BIG), F0(-BIG, BIG)]];
-  const wall = offsetPolys(W.base, (W.m.k1 + W.m.k2) / 2), cross = (ax, ay, bx, by) => ax * by - ay * bx, pts = [];
+  const wall = offsetPolys(W.base, W.m.k3), cross = (ax, ay, bx, by) => ax * by - ay * bx, pts = [];     // oś obrotu: przecięcie linii z wewnętrzną powierzchnią ścianki (k3)
+  const wewn = (x, y) => wall.reduce((n, r) => n + (C.Clipper.PointInPolygon({ X: Math.round(x * S), Y: Math.round(y * S) }, r) !== 0 ? 1 : 0), 0) % 2 === 1;
   wall.forEach(ring => { for (let i = 0; i < ring.length; i++) {
     const p = ring[i], q = ring[(i + 1) % ring.length], px = p.X / S, py = p.Y / S, ex = q.X / S - px, ey = q.Y / S - py, den = cross(ex, ey, dx, dy); if (Math.abs(den) < 1e-9) continue;
     const s = cross(O[0] - px, O[1] - py, dx, dy) / den; if (s < 0 || s >= 1) continue;
@@ -623,12 +624,17 @@ function kloszObszar(c, skos, filtr) {
     const l = Math.hypot(ex, ey); let nx = -ey / l, ny = ex / l; if (nx * dx + ny * dy < 0) { nx = -nx; ny = -ny; }
     const th = Math.atan2(cross(nx, ny, dx, dy), nx * dx + ny * dy); if (Math.abs(th) >= sg - 0.035) continue;      // już dość skośnie
     const t2 = (th >= 0 ? 1 : -1) * sg, d2 = [Math.cos(t2) * nx - Math.sin(t2) * ny, Math.sin(t2) * nx + Math.cos(t2) * ny];
-    pts.push({ x: X, y: Y, an: Math.atan2(d2[1], d2[0]) });
+    pts.push({ x: X, y: Y, an: Math.atan2(d2[1], d2[0]), sOut: wewn(X + dx * 1.2, Y + dy * 1.2) ? -1 : 1 });     // sOut: w którą stronę wzdłuż linii jest na zewnątrz klosza
   } });
   if (!pts.length) return { A: A0, G: A0, n: 0 };
-  const circ = pts.map(t => circlePoly(t.x, t.y, 2 * R)), wedges = pts.map((t, i) => { const F = frame(t.x, t.y, t.an); return inter([[F(-BIG, 0), F(BIG, 0), F(BIG, BIG), F(-BIG, BIG)]], [circ[i]]); }).flat();
+  const circ = pts.map(t => circlePoly(t.x, t.y, RC)), wedges = pts.map((t, i) => {
+    // na zewnątrz (poza wewnętrzną powierzchnią ścianki): półpłaszczyzna obrócona; do środka klosza: prosta jak linia cięcia
+    const F = frame(t.x, t.y, t.an), Fa = frame(t.x, t.y, a), H = [[F(-BIG, 0), F(BIG, 0), F(BIG, BIG), F(-BIG, BIG)]], H0 = [[Fa(-BIG, 0), Fa(BIG, 0), Fa(BIG, BIG), Fa(-BIG, BIG)]];
+    const half = so => so > 0 ? [[Fa(0, -BIG), Fa(BIG, -BIG), Fa(BIG, BIG), Fa(0, BIG)]] : [[Fa(0, -BIG), Fa(0, BIG), Fa(-BIG, BIG), Fa(-BIG, -BIG)]];
+    return inter(clip('ctUnion', inter(H, half(t.sOut)).concat(inter(H0, half(-t.sOut)))), [circ[i]]);
+  }).flat();
   const A = clip('ctUnion', diff(A0, clip('ctUnion', circ)).concat(wedges));
-  return { A, G: A, n: pts.length, okna: clip('ctUnion', pts.map(t => circlePoly(t.x, t.y, 2 * R + 1))) };
+  return { A, G: A, n: pts.length, okna: clip('ctUnion', pts.map(t => circlePoly(t.x, t.y, RC + 1))) };
 }
 // szczeliny cięcia klosza w układzie „sektorów” (cięcia pojedyncze / w wybranych miejscach): linia prosta, a przy ściankach (aktywne miejsca) skos jak w kloszObszar
 function szczelinyKlosza(c, skos, e, L) {
