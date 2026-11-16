@@ -1763,9 +1763,13 @@ const CLOUD = 'dahvxm9me', CLOUD_PRESET = 'ProService';
 let fdbCache = null, meCache;
 function fdb() { if (DEMO || !window.firebase) return null; if (!fdbCache) { if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); fdbCache = firebase.firestore(); } return fdbCache; }
 // zalogowany administrator INDEX (sesja zapamiętana przez stronę główną)
+const SEED_HASH = { kg: 'a7f92b0888667e855055b8f88e2b1b63ea5aac30d5cabac6ed1711926a100575', dm: '569a11f08559908735f8b8a9ab0fb04e9eeafde4dc1307af1813de954888f146' };     // jak SEED_USERS w index.html
 async function whoAmI() {
   if (meCache !== undefined) return meCache; meCache = null; const db = fdb(); if (!db) return null;
-  try { const s = JSON.parse(localStorage.getItem('INDEX_SESSION') || 'null'); if (!s) return null; const d = await db.collection(PFX + 'users').doc(s.id).get(), u = d.exists ? d.data() : null; if (u && u.passHash === s.h && (u.admin || s.id === 'kg' || s.id === 'dm')) meCache = { id: s.id, login: u.login || s.id.toUpperCase() }; } catch (e) { console.warn(e); }
+  try { const s = JSON.parse(localStorage.getItem('INDEX_SESSION') || 'null'); if (!s) return null; const d = await db.collection(PFX + 'users').doc(s.id).get(), u = d.exists ? d.data() : null;
+    // konta KG i DM mają hasz w kodzie INDEX (SEED_USERS); w bazie bywa pusty, dopóki hasło nie zostało zmienione — wtedy liczy się hasz z kodu (jak w INDEX)
+    const seedOk = SEED_HASH[s.id] && s.h === SEED_HASH[s.id] && !(u && u.passHash && u.passHash !== s.h);
+    if ((u && u.passHash && u.passHash === s.h && (u.admin || s.id === 'kg' || s.id === 'dm')) || seedOk) meCache = { id: s.id, login: (u && u.login) || s.id.toUpperCase() }; } catch (e) { console.warn(e); }
   return meCache;
 }
 // pliki na Cloudinary jako .dat (PDF ma tam zablokowane pobieranie); prawdziwa nazwa zostaje w bazie
