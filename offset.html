@@ -128,6 +128,10 @@
   .sch-v .vl.au { fill: #718096; font-style: italic; }
   .sch-v .ed { position: absolute; width: 46px; padding: 1px 3px; font-size: 12px; text-align: center; border: 2px solid #2f9e44; border-radius: 4px; transform: translate(-50%, -50%); z-index: 3; }
   body.t-PB .sch-v { display: none; }
+  .cutmode { display: flex; gap: 6px; margin: 4px 0 8px; }
+  .cutmode button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; font: 600 .68rem 'Segoe UI', sans-serif; color: var(--dark2); background: #fff; border: 1.5px solid var(--line); border-radius: 6px; cursor: pointer; }
+  .cutmode button:hover { border-color: #a0aec0; }
+  .cutmode button.on { border-color: var(--accent); background: #f0fff4; color: #22543d; }
   #rail-warn { position: relative; }
   #warn-n { position: absolute; top: 3px; right: 10px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: #e53e3e; color: #fff; font: 700 .66rem/17px Arial, sans-serif; text-align: center; }
   #warn-list div { color: #c05621; padding: 7px 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
@@ -373,6 +377,7 @@
           <button type="button" class="btn" id="b-cut-add" title="Potem kliknij w literę: w tym miejscu powstaje pionowa linia cięcia. Strzałki ← → obracają zaznaczoną linię, ↑ ↓ ją przesuwają."><i class="ti ti-scissors"></i>Wstaw cięcie</button>
           <button type="button" class="btn" id="b-cut-auto" title="Linie podziału od nowa, automatycznie (pojedyncze cięcia, jak najmniej). Otwory i profile zostają."><i class="ti ti-wand"></i>Ułóż auto</button>
         </div>
+        <div class="cutmode" id="cut-mode" title="Co tnie cięcie: wstawiane od teraz albo zaznaczone"><button type="button" data-m="b" title="Tnie podstawę i klosz"><svg viewBox="0 0 32 28" width="34" height="30" aria-hidden="true"><rect x="4" y="3" width="24" height="9" rx="2" fill="#f6e8b0" stroke="#b49b4a" stroke-width="1.4" opacity="1"/><rect x="4" y="16" width="24" height="9" rx="2" fill="#b2b8c0" stroke="#5a6270" stroke-width="1.4" opacity="1"/><line x1="16" y1="1" x2="16" y2="27" stroke="#dd6b20" stroke-width="2.2" stroke-dasharray="3 2"/></svg><span>obie części</span></button><button type="button" data-m="p" title="Tnie tylko podstawę (klosz zostaje w całości)"><svg viewBox="0 0 32 28" width="34" height="30" aria-hidden="true"><rect x="4" y="3" width="24" height="9" rx="2" fill="#f6e8b0" stroke="#b49b4a" stroke-width="1.4" opacity=".28"/><rect x="4" y="16" width="24" height="9" rx="2" fill="#b2b8c0" stroke="#5a6270" stroke-width="1.4" opacity="1"/><line x1="16" y1="14" x2="16" y2="27" stroke="#dd6b20" stroke-width="2.2" stroke-dasharray="3 2"/></svg><span>tylko podstawa</span></button><button type="button" data-m="k" title="Tnie tylko klosz (podstawa zostaje w całości)"><svg viewBox="0 0 32 28" width="34" height="30" aria-hidden="true"><rect x="4" y="3" width="24" height="9" rx="2" fill="#f6e8b0" stroke="#b49b4a" stroke-width="1.4" opacity="1"/><rect x="4" y="16" width="24" height="9" rx="2" fill="#b2b8c0" stroke="#5a6270" stroke-width="1.4" opacity=".28"/><line x1="16" y1="1" x2="16" y2="13" stroke="#dd6b20" stroke-width="2.2" stroke-dasharray="3 2"/></svg><span>tylko klosz</span></button></div>
         <div class="vals pinfo" id="podz-info"></div>
         <div class="pcat"><div class="pct"><i class="ti ti-printer"></i>Stół</div>
           <div class="pchips">
@@ -1286,7 +1291,9 @@ const kSkos = () => { const v = $('p-cutka') ? num($('p-cutka').value) : 0; retu
 const kOn = () => !$('p-cutkon') || $('p-cutkon').checked;
 function cutKSync() { document.body.classList.toggle('cutk-off', !kOn()); }
 const cutK = c => { const a = c.ang * Math.PI / 180, s = kOn() ? c.sK || 0 : 0; return { ...c, x: c.x - Math.sin(a) * s, y: c.y + Math.cos(a) * s, ang: c.ang + (c.kA || 0) }; };
-const kSzew = () => W.cuts.filter(c => (kOn() && c.sK) || c.kA);     // cięcia, które mają własną linię klosza (przesunięcie i / lub obrót)
+// co tnie cięcie: c.tn = 'b' (domyślnie: podstawa i klosz), 'p' (tylko podstawa), 'k' (tylko klosz)
+const cutsFor = (kind, list = W.cuts) => list.filter(c => kind === 'p' ? c.tn !== 'k' : c.tn !== 'p');     // kind: 'p' = cięcia podstawy, 'k' = cięcia klosza
+const kSzew = () => W.cuts.filter(c => c.tn === 'k' || (c.tn !== 'p' && ((kOn() && c.sK) || c.kA)));     // cięcia, które mają własną linię klosza (przesunięcie i / lub obrót)
 // strona i wielkość przesunięcia: pełne, jeśli części klosza mieszczą się na stole, jest ich tyle samo co w podstawie i żadna nie wychodzi skrawkiem; inaczej krócej
 function autoShifts(l, cs, pr) {
   const n0 = cutPieces(l, cs).length;
@@ -1317,7 +1324,10 @@ function refreshBeds() {
   };
   ls.forEach((l, li) => {
     const cs = W.cuts.filter(c => c.li === li), fits = l.bb.x1 - l.bb.x0 <= pr.stX && l.bb.y1 - l.bb.y0 <= pr.stY; if (!cs.length && fits) return;
-    if (cs.length) { const pcs = cutPieces(l, cs); cutL++; parts += pcs.length; pcs.forEach(q => bedOf(fromCl(q.p), false, li)); if (cs.some(c => c.sK || c.kA)) cutPieces(l, cs.map(cutK)).forEach(q => bedOf(fromCl(q.p), true, li)); } else bedOf(fromCl(l.p), false, li);
+    if (cs.length) {
+      const cp = cutsFor('p', cs), ck = cutsFor('k', cs), pcs = cp.length ? cutPieces(l, cp) : [{ p: l.p }]; cutL++; parts += pcs.length; pcs.forEach(q => bedOf(fromCl(q.p), false, li));
+      if (cp.length !== ck.length || ck.some(c => c.sK || c.kA)) (ck.length ? cutPieces(l, ck.map(cutK)) : [{ p: l.p }]).forEach(q => bedOf(fromCl(q.p), true, li));     // klosz ma inne części niż podstawa
+    } else bedOf(fromCl(l.p), false, li);
   });
   if (!W.beds.length && ls.length) { const l = ls.slice().sort((a, b) => Math.max(b.bb.x1 - b.bb.x0, b.bb.y1 - b.bb.y0) - Math.max(a.bb.x1 - a.bb.x0, a.bb.y1 - a.bb.y0))[0]; bedOf(fromCl(l.p)); }
   // (ostrzeżenia dla wtyczki Fusion usunięte: bryły i podział robi już sam Wizard)
@@ -1358,8 +1368,8 @@ function refreshPlates() {
     const a = c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
     const inBB = p => { const b = bboxOf([p]); return b.x1 > l.bb.x0 - 3 && b.x0 < l.bb.x1 + 3 && b.y1 > l.bb.y0 - 3 && b.y0 < l.bb.y1 + 3; };
     // mostki klosza: odcinki linii klosza we wnętrzu klosza tej litery
-    if (most) { const ln = cutK(c), la = ln.ang * Math.PI / 180; lineSpans(regs.I.filter(inBB), ln).forEach(sp => { const um = (sp[0] + sp[1]) / 2, x = ln.x + Math.cos(la) * um, y = ln.y + Math.sin(la) * um; if (sp[1] - sp[0] >= 2 && wLiterze(l, x, y) && (!ln.ray || um > 0) && naCieciu(ln, um)) W.mostki.push({ c, ln, li: c.li, u0: sp[0], u1: sp[1] }); }); }
-    if (plWsp()) {
+    if (most && c.tn !== 'p') { const ln = cutK(c), la = ln.ang * Math.PI / 180; lineSpans(regs.I.filter(inBB), ln).forEach(sp => { const um = (sp[0] + sp[1]) / 2, x = ln.x + Math.cos(la) * um, y = ln.y + Math.sin(la) * um; if (sp[1] - sp[0] >= 2 && wLiterze(l, x, y) && (!ln.ray || um > 0) && naCieciu(ln, um)) W.mostki.push({ c, ln, li: c.li, u0: sp[0], u1: sp[1] }); }); }
+    if (plWsp() && !c.tn) {     // cięcie podstawy i klosza naraz; cięcia tylko podstawy / tylko klosza dostają zwykłe plasterki
       // wspólny plasterek: po jednym na każde przejście linii przez wnętrze klosza; w poprzek obejmuje linię podstawy i przesuniętą linię klosza
       const s = kOn() ? (c.sK || 0) : 0, W2 = (u, v) => [c.x + dx * u + nx * v, c.y + dy * u + ny * v];
       const spans = lineSpans(regs.I.filter(inBB), c).filter(sp => { const [x, y] = W2((sp[0] + sp[1]) / 2, 0); return sp[1] - sp[0] >= 2 && wLiterze(l, x, y) && (!c.ray || sp[0] + sp[1] > 0) && naCieciu(c, (sp[0] + sp[1]) / 2); });
@@ -1378,7 +1388,7 @@ function refreshPlates() {
       });
       return;
     }
-    [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].filter(([type]) => type === 'P' ? pr.plOn : !most).forEach(([type, reg, defL]) => {
+    [['P', regs.P, pr.plLP], ['K', regs.K, pr.plLK]].filter(([type]) => type === 'P' ? pr.plOn && c.tn !== 'k' : !most && c.tn !== 'p').forEach(([type, reg, defL]) => {
       const ln = type === 'K' ? cutK(c) : c, W2 = (u, s) => [ln.x + dx * u + nx * s, ln.y + dy * u + ny * s];
       const near = reg.filter(inBB), spans = lineSpans(near, ln).filter(s => { const [x, y] = W2((s[0] + s[1]) / 2, 0); return wLiterze(l, x, y) && (!ln.ray || s[0] + s[1] > 0) && naCieciu(ln, (s[0] + s[1]) / 2); });
       spans.forEach((sp, i) => {
@@ -1622,7 +1632,7 @@ async function loadFile(f) {
       computeLayers(); const rows = rowsOf(letters(bedSrc())); W.rails.forEach(r => { let bi = 0, bd = Infinity; rows.forEach((row, i) => { const y0 = Math.min(...row.map(l => l.bb.y0)), y1 = Math.max(...row.map(l => l.bb.y1)), d = r.yc < y0 ? y0 - r.yc : r.yc > y1 ? r.yc - y1 : 0; if (d < bd) { bd = d; bi = i; } }); r.row = bi; });
     }
     recompute(false);
-    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; c.kA = (source.meta.kA || [])[i] || 0; if ((source.meta.one || [])[i]) c.one = true; const of = (source.meta.off || [])[i]; if (of && of.length) c.off = of; const L = kitLines[i]; if ((source.meta.ray || [])[i] && L) { c.ray = true; c.x = L[0][0]; c.y = L[0][1]; c.ang = Math.round((Math.atan2(L[1][1] - L[0][1], L[1][0] - L[0][0]) * 180 / Math.PI + 360) % 360 * 100) / 100; } }); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.mags) { const L = bedLetters(); W.mags = source.meta.mags.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, manual: true })); } if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
+    if (kitLines) { const ad = adoptKitHoles(); cutsFromLines(kitLines); ((source.meta && source.meta.plL) || []).forEach((o, i) => { if (o && W.cuts[i]) W.cuts[i].plL = o; }); if (source.meta) W.cuts.forEach((c, i) => { const q = (source.meta.sK || [])[i]; c.sK = q ? q[0] : 0; c.sKm = q ? !!q[1] : true; c.kA = (source.meta.kA || [])[i] || 0; if ((source.meta.tn || [])[i] === 'p') c.tn = 'p'; if ((source.meta.one || [])[i]) c.one = true; const of = (source.meta.off || [])[i]; if (of && of.length) c.off = of; const L = kitLines[i]; if ((source.meta.ray || [])[i] && L) { c.ray = true; c.x = L[0][0]; c.y = L[0][1]; c.ang = Math.round((Math.atan2(L[1][1] - L[0][1], L[1][0] - L[0][0]) * 180 / Math.PI + 360) % 360 * 100) / 100; } }); ((source.meta && source.meta.kOnly) || []).forEach(o => W.cuts.push({ id: uid++, li: o.li, x: o.x, y: o.y, ang: o.ang, sK: o.sK, sKm: !!o.sKm, kA: o.kA, one: !!o.one, ray: !!o.ray, tn: 'k' })); W.marks = (source.meta && source.meta.marks) || []; if (source.meta && source.meta.mags) { const L = bedLetters(); W.mags = source.meta.mags.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, manual: true })); } if (source.meta && source.meta.latches) { const L = bedLetters(); W.latches = source.meta.latches.filter(q => L[q.li]).map(q => ({ id: uid++, li: q.li, x: L[q.li].bb.x0 + q.ux, y: L[q.li].bb.y0 + q.uy, ang: q.ang, manual: true })); } refreshBeds(); renderSide(); draw(); if (window.mark3D) mark3D(); toast(`Wczytano komplet do edycji: ${W.rails.length} profili, ${kitLines.length} linii podziału, ${ad.kept} otworów ręcznych.${ad.redone ? ' Otwory ułożone od nowa (inny układ niż w pliku).' : ''}`, 7000); }
     if (W.panel === 'plik' || !W.panel) showPanel('litery', true);
   } catch (e) { console.error(e); toast('Nie udało się wczytać: ' + e.message, 6000); }
 }
@@ -1709,14 +1719,15 @@ function buildKit() {
   W.rails.forEach(r => ents.push(['Profil', 'poly', [[r.x0, r.yc - r.h / 2], [r.x1, r.yc - r.h / 2], [r.x1, r.yc + r.h / 2], [r.x0, r.yc + r.h / 2]]]));
   // środek kompletu w (0,0) — jak EksportujDXF w makrze; linie podziału (wystają poza litery) go nie przesuwają
   const bb = bboxEnts(ents), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
-  cutSegs().forEach(c => ents.push(['Podzial', 'line', [c.a, c.b]]));
+  cutSegs(cutsFor('p')).forEach(c => ents.push(['Podzial', 'line', [c.a, c.b]]));     // cięcia tylko klosza nie mają linii podstawy
   cutSegs(kSzew().map(cutK)).forEach(c => ents.push(['Szew_K', 'line', [c.a, c.b]]));     // nazwa bez „Podzial”: wtyczka Fusion tnie po tej warstwie całe bryły
   // plasterki: w DXF, ale nie na szablonie
   W.plates.forEach(q => { const lay = q.type === 'P' ? 'Plaster_P' : q.type === 'W' ? 'Plaster_W' : 'Plaster_K'; q.polys.forEach(p => ents.push([lay, 'poly', fitArcs(simplifyRing(fromCl(p)))])); q.groove.forEach(p => ents.push(['Plaster_R', 'poly', fitArcs(simplifyRing(fromCl(p)))])); });
   if (W.marks.length) cyfryMiejsca().forEach(q => { q.front.forEach(p => ents.push(['Cyfra', 'poly', simplifyRing(fromCl(p))])); q.back.forEach(p => ents.push(['Cyfra_tyl', 'poly', simplifyRing(fromCl(p))])); });
   const { typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK } = W.pr;
   const n0 = (typ === 'S' || pbOn(W.pr)) && W.lay.Klosz && W.lay.Klosz[0] ? W.lay.Klosz[0].polys.length : 0;
-  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: W.cuts.map(c => c.plL || null), sK: W.cuts.map(c => [c.sK || 0, c.sKm ? 1 : 0]), kA: W.cuts.map(c => c.kA || 0), ray: W.cuts.map(c => c.ray ? 1 : 0), off: W.cuts.map(c => c.off && c.off.length ? c.off : 0), one: W.cuts.map(c => c.one ? 1 : 0), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
+  const cb = cutsFor('p');     // tablice w ustawieniach idą w kolejności linii Podzial; cięcia tylko klosza osobno (kOnly)
+  return { ents, cx, cy, meta: { v: 1, typ, dysza, P, B, gdzie, odl, wielk, przesun, przesunFix, luz, luzF, profG, profL, fix, fixN, name, dOtw, dFix, dLeb, pin, podz, stX, stY, cutK: cutKmm, n0, p3, plOn, plLP, plLK, plOffP, plH, plGr, plFloor, plOffK, plTK, plDownK, plL: cb.map(c => c.plL || null), sK: cb.map(c => [c.sK || 0, c.sKm ? 1 : 0]), kA: cb.map(c => c.kA || 0), ray: cb.map(c => c.ray ? 1 : 0), off: cb.map(c => c.off && c.off.length ? c.off : 0), one: cb.map(c => c.one ? 1 : 0), tn: cb.map(c => c.tn || 'b'), kOnly: W.cuts.filter(c => c.tn === 'k').map(c => ({ li: c.li, x: c.x, y: c.y, ang: c.ang, sK: c.sK || 0, sKm: c.sKm ? 1 : 0, kA: c.kA || 0, one: c.one ? 1 : 0, ray: c.ray ? 1 : 0 })), marks: W.marks, mags: W.mags.map(m => { const L = bedLetters()[m.li]; return L ? { li: m.li, ux: m.x - L.bb.x0, uy: m.y - L.bb.y0 } : null; }).filter(Boolean), zat: W.pr.zat, latches: W.latches.map(l => { const L = bedLetters()[l.li]; return L ? { li: l.li, ux: l.x - L.bb.x0, uy: l.y - L.bb.y0, ang: l.ang || 0 } : null; }).filter(Boolean) } };
 }
 // SZABLON (jak BudujSzablon w makrze): tylko obrys najszerszego klosza bez brzuszków +0,5 mm i ramka 50 mm, a na nich otwory, łby śrub i profile
 const SZ_OFF = 0.5, SZ_RAMKA = 50, SZ_NAZWA = 20;
@@ -1983,7 +1994,8 @@ function draw() {
   if (!W.show.Stol && W.cuts.length && W.pr && W.pr.podz) W.beds.forEach(b => { const on = b.li === selLi; g.beginPath(); b.pts.forEach((q, i) => i ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1]))); g.closePath(); if (on) { g.fillStyle = b.ok ? 'rgba(56,161,105,.07)' : 'rgba(229,62,62,.1)'; g.fill(); } g.strokeStyle = b.ok ? (on ? 'rgba(47,133,90,.95)' : 'rgba(56,161,105,.22)') : (on ? '#e53e3e' : 'rgba(229,62,62,.3)'); g.lineWidth = on ? 1.6 : 1; g.setLineDash([8, 5]); g.stroke(); g.setLineDash([]); });
   if (W.show.Stol) W.beds.forEach(b => { g.beginPath(); b.pts.forEach((q, i) => i ? g.lineTo(X(q[0]), Y(q[1])) : g.moveTo(X(q[0]), Y(q[1]))); g.closePath(); g.fillStyle = b.ok ? 'rgba(56,161,105,.05)' : 'rgba(229,62,62,.1)'; g.fill(); g.strokeStyle = b.ok ? '#38a169' : '#e53e3e'; g.lineWidth = 1; g.setLineDash([8, 5]); g.stroke(); g.setLineDash([]); });
   if (W.show.Podzial) cutSegs().forEach(c => {
-    const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id, kn = puzKnoby(c);
+    const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id, tk = c.c.tn === 'k', kn = tk ? null : puzKnoby(c);
+    if (tk) g.globalAlpha = 0.35;
     if (kn && kn.length) {     // podstawa łączona na puzzle / jaskółczy ogon: linia z wypustkami, pod nią blada prosta (cięcie klosza, gdy idzie tą samą linią)
       const a = c.c.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), P = (u, v) => [c.c.x + dx * u - dy * v, c.c.y + dy * u + dx * v], uA = (c.a[0] - c.c.x) * dx + (c.a[1] - c.c.y) * dy, uB = (c.b[0] - c.c.x) * dx + (c.b[1] - c.c.y) * dy;
       g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial + '55'; g.lineWidth = 1; g.stroke();
@@ -1992,6 +2004,7 @@ function draw() {
     } else { g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = LCOL.Podzial; g.lineWidth = sel ? 3 : 1.8; g.stroke(); }
     [c.a, c.b].forEach(p => { g.beginPath(); g.arc(X(p[0]), Y(p[1]), sel ? 6 : 4.5, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 1.8; g.strokeStyle = LCOL.Podzial; g.stroke(); });
     if (sel) { g.fillStyle = LCOL.Podzial; g.font = '700 12px Segoe UI, Arial'; g.fillText(`${fmt(c.c.ang, 1)}°`, X(c.b[0]) + 9, Y(c.b[1]) - 7); }
+    g.globalAlpha = 1;     // cięcie tylko klosza: linia podstawy wyblakła (podstawa nie jest cięta)
   });
   if (W.show.Podzial) cutSegs(kSzew().map(cutK)).forEach(c => { const sel = W.sel && W.sel.t === 'cut' && W.sel.id === c.id; g.beginPath(); g.moveTo(X(c.a[0]), Y(c.a[1])); g.lineTo(X(c.b[0]), Y(c.b[1])); g.strokeStyle = '#3182ce'; g.lineWidth = sel ? 3 : 1.8; g.setLineDash([9, 5]); g.stroke(); g.setLineDash([]); });
   if (W.show.Podzial) cutSegs().forEach(sg => {
@@ -2513,11 +2526,22 @@ $('b-open').onclick = () => $('file').click();
 $('file').onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; };
 $('b-mg-add').onclick = () => { if (!W.base) return; if (!magWlHtml()) return toast($('b3-mon').checked ? 'Litera pełna bez podstawy nie ma klosza: włącz „z podstawą” (zakładka Litery)' : 'Najpierw zaznacz „mocowanie klosza na magnesy”'); W.addMag = !W.addMag; $('b-mg-add').classList.toggle('on', W.addMag); if (W.addMag) toast('Kliknij w literę, przy rancie'); };
 $('b-mg-auto').onclick = () => { if (!W.base || !magWlHtml()) return; pushUndo(); W.mags = []; autoMagnets(); renderSide(); draw(); if (window.mark3D) mark3D(); };
+// rodzaj cięcia (ikonki w panelu Podział): obie części / tylko podstawa / tylko klosz — dotyczy zaznaczonej linii i nowo wstawianych
+function cutModeUI() {
+  const c = W.sel && W.sel.t === 'cut' ? W.cuts.find(q => q.id === W.sel.id) : null, cur = c ? (c.tn || 'b') : (W.cutMode || 'b');
+  document.querySelectorAll('#cut-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === cur));
+}
+document.querySelectorAll('#cut-mode button').forEach(b => b.onclick = () => {
+  const m = b.dataset.m, c = W.sel && W.sel.t === 'cut' ? W.cuts.find(q => q.id === W.sel.id) : null; W.cutMode = m;
+  if (c && (c.tn || 'b') !== m) { pushUndo(); if (m === 'b') delete c.tn; else c.tn = m; W.cutManual = true; W.plReg = null; refreshBeds(); refreshPlates(); renderSide(); draw(); save(); if (window.mark3D) mark3D(); }
+  cutModeUI();
+});
+{ const rs = renderSel; renderSel = function () { const r = rs.apply(this, arguments); cutModeUI(); return r; }; }
 $('b-cut-add').onclick = () => { if (!W.base) return; W.addCut = !W.addCut; $('b-cut-add').classList.toggle('on', W.addCut); if (W.addCut) toast('Kliknij w literę, w miejscu cięcia'); };
 // nowa linia cięcia w klikniętym miejscu litery (pionowa); od razu zaznaczona — ← → obracają, ↑ ↓ przesuwają
 function cutDodaj(x, y) {
   const li = letterAt(x, y); if (li < 0) return toast('Kliknij w literę');
-  pushUndo(); const c = { id: uid++, li, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, ang: 90, one: true }; W.cuts.push(c); W.sel = { t: 'cut', id: c.id };
+  pushUndo(); const c = { id: uid++, li, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, ang: 90, one: true }; if (W.cutMode && W.cutMode !== 'b') c.tn = W.cutMode; W.cuts.push(c); W.sel = { t: 'cut', id: c.id };
   W.addCut = false; $('b-cut-add').classList.remove('on'); W.cutManual = true; refreshBeds(); renderSel(); renderSide(); draw(); save(); if (window.mark3D) mark3D();
 }
 $('b-zt-add').onclick = () => { if (!W.base) return; if (!zatWlHtml()) { $('p-zt-on').checked = true; recompute(); } W.addZat = !W.addZat; $('b-zt-add').classList.toggle('on', W.addZat); if (W.addZat) toast('Kliknij w literę, w miejscu zatrzasku'); };

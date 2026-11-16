@@ -558,7 +558,7 @@ function puzzleObszar(c, q = puzPrm()) {
 function nazwaCzesci(k, li, mesh, cache) {
   const pm = W.marks.filter(m => m.pu != null && m.li === li); if (!pm.length || k === 'pleksa') return null;
   const L = bedLetters()[li]; if (!L) return null;
-  const kk = (k === 'klosz' ? 'k' : 'p') + li; if (!cache[kk]) { const cs = W.cuts.filter(c => c.li === li); cache[kk] = cs.length ? cutPieces(L, k === 'klosz' ? cs.map(cutK) : cs) : []; }
+  const kk = (k === 'klosz' ? 'k' : 'p') + li; if (!cache[kk]) { const cs = cutsFor(k === 'klosz' ? 'k' : 'p', W.cuts.filter(c => c.li === li)); cache[kk] = cs.length ? cutPieces(L, k === 'klosz' ? cs.map(cutK) : cs) : []; }
   const pcs = cache[kk], st = mesh.numProp, V = mesh.vertProperties, n = V.length / st, krok = Math.max(1, Math.floor(n / 80)), pts = [];
   for (let v = 0; v < n; v += krok) pts.push({ X: Math.round(V[v * st] * S), Y: Math.round(V[v * st + 1] * S) });
   for (const m of pm) {
@@ -791,7 +791,7 @@ async function build3D() {
     const tops = W.pr.typ === 'S' ? { zP: p.sd, hK: p.kCalk - W.pr.plDownK, zK0: p.pCalk + p.sw + zatGap(), zKmax: p.sh - p.sf + zatGap() } : { zP: p.wgl && p.gw > 0 ? Math.max(0.2, p.st + p.pl - p.gw) : -W.pr.plH, hK: p.wk - W.pr.plDownK, zK0: p.st + p.pl + zatGap(), zKmax: p.st + p.ws + zatGap() };
     if (mostkiChce() && W.cuts.length && !mostkiWl()) uwagi.push(`mostki w kloszu się nie mieszczą (między odstępem od dołu a od pleksy zostaje ${fmt(Math.max(0, mostkiH()), 1)} mm, potrzeba 3 mm) — zamiast nich plasterki klosza`);
     if (parts.klosz && mostkiWl() && (W.mostki || []).length) { const mb = mostkiBryla(tops.zK0, tops.zKmax, ndel, uwagi); if (mb) parts.klosz = ndel(V3.wasm.Manifold.union(parts.klosz, mb)); }
-    const segs = p.cut ? cutSegs() : [], segsK = p.cut ? cutSegs(W.cuts.map(cutK)) : [], pcC = {}, uzyte = new Set();     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
+    const segs = p.cut ? cutSegs(cutsFor('p')) : [], segsK = p.cut ? cutSegs(cutsFor('k').map(cutK)) : [], pcC = {}, uzyte = new Set();     // klosz po swojej, przesuniętej linii; pleksa w całości: nie jest drukowana, tylko cięta laserem
     Object.keys(CZESCI).forEach(k => {
       if (!parts[k]) return;
       let list = parts[k].decompose().map(ndel);
