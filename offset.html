@@ -1764,12 +1764,18 @@ let fdbCache = null, meCache;
 function fdb() { if (DEMO || !window.firebase) return null; if (!fdbCache) { if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG); fdbCache = firebase.firestore(); } return fdbCache; }
 // zalogowany administrator INDEX (sesja zapamiętana przez stronę główną)
 const SEED_HASH = { kg: 'a7f92b0888667e855055b8f88e2b1b63ea5aac30d5cabac6ed1711926a100575', dm: '569a11f08559908735f8b8a9ab0fb04e9eeafde4dc1307af1813de954888f146' };     // jak SEED_USERS w index.html
+let meWhy = '';     // dlaczego whoAmI nie rozpoznało logowania (pokazywane w oknie eksportu)
 async function whoAmI() {
-  if (meCache !== undefined) return meCache; meCache = null; const db = fdb(); if (!db) return null;
-  try { const s = JSON.parse(localStorage.getItem('INDEX_SESSION') || 'null'); if (!s) return null; const d = await db.collection(PFX + 'users').doc(s.id).get(), u = d.exists ? d.data() : null;
+  if (meCache !== undefined) return meCache; meCache = null; const db = fdb(); if (!db) { meWhy = 'brak połączenia z bazą (Firebase się nie załadował)'; return null; }
+  try {
+    const raw = localStorage.getItem('INDEX_SESSION'), s = JSON.parse(raw || 'null');
+    if (!s) { meWhy = 'ta przeglądarka nie ma zapisanej sesji INDEX; Wizard i INDEX muszą być pod tym samym adresem (teraz: ' + location.origin + ')'; return null; }
+    const d = await db.collection(PFX + 'users').doc(s.id).get(), u = d.exists ? d.data() : null;
     // konta KG i DM mają hasz w kodzie INDEX (SEED_USERS); w bazie bywa pusty, dopóki hasło nie zostało zmienione — wtedy liczy się hasz z kodu (jak w INDEX)
     const seedOk = SEED_HASH[s.id] && s.h === SEED_HASH[s.id] && !(u && u.passHash && u.passHash !== s.h);
-    if ((u && u.passHash && u.passHash === s.h && (u.admin || s.id === 'kg' || s.id === 'dm')) || seedOk) meCache = { id: s.id, login: (u && u.login) || s.id.toUpperCase() }; } catch (e) { console.warn(e); }
+    if ((u && u.passHash && u.passHash === s.h && (u.admin || s.id === 'kg' || s.id === 'dm')) || seedOk) meCache = { id: s.id, login: (u && u.login) || s.id.toUpperCase() };
+    else meWhy = !d.exists && !SEED_HASH[s.id] ? `w bazie (${PFX}users) nie ma konta „${s.id}”` : (SEED_HASH[s.id] || (u && u.passHash)) ? `konto „${s.id}”: hasz sesji nie pasuje do bazy — wyloguj się i zaloguj ponownie w INDEX` : `konto „${s.id}” nie jest administratorem`;
+  } catch (e) { console.warn(e); meWhy = 'błąd odczytu konta: ' + (e && e.message || e); }
   return meCache;
 }
 // pliki na Cloudinary jako .dat (PDF ma tam zablokowane pobieranie); prawdziwa nazwa zostaje w bazie
@@ -1827,7 +1833,7 @@ async function openExport() {
   $('ex-overlap').classList.toggle('hidden', !W.overlaps.length);
   const me = await whoAmI(), box = $('ex-target'), note = $('ex-note');
   box.classList.toggle('hidden', !me);
-  note.textContent = me ? '' : DEMO ? 'Tryb demo: pliki tylko na dysk.' : 'Nie jesteś zalogowany w INDEX jako administrator — pliki tylko na dysk. Zaloguj się w INDEX w tej przeglądarce, aby zapisywać przy elemencie.';
+  note.textContent = me ? '' : DEMO ? 'Tryb demo: pliki tylko na dysk.' : 'Nie jesteś zalogowany w INDEX jako administrator' + (meWhy ? ' (' + meWhy + ')' : '') + ' — pliki tylko na dysk. Zaloguj się w INDEX w tej przeglądarce, aby zapisywać przy elemencie.';
   if (!me) return;
   try { await exLoadProjects(); exFillStands(''); await exFillElements(); } catch (e) { note.textContent = 'Nie udało się wczytać listy stoisk: ' + e.message; }
 }
