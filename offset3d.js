@@ -815,7 +815,7 @@ async function build3D() {
       // podział: linia tnie tylko bryły swojej litery (Fusion tnie wszystko, co dotyka prostokąta linii)
       if (k !== 'pleksa') (k === 'klosz' ? segsK : segs).forEach(c => {
         const L = ls[c.li]; if (!L || czesciowe(c.c)) return;     // promienie i cięcia tylko w wybranych miejscach osobno, niżej
-        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c) : k === 'klosz' && kSkos() > 0 && !mostkiWl() ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
+        const pz = k === 'podstawa' && p.puz ? puzzleObszar(c) : k === 'klosz' && kSkos() > 0 ? kloszObszar(c, kSkos()) : null, Zh = 2000, zOd = -50;      // puzzle tylko w podstawie, i tylko gdy jest gdzie położyć łebek
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
         list.forEach(b => {
@@ -830,7 +830,7 @@ async function build3D() {
       rays.forEach(c => { (byLi[c.li] = byLi[c.li] || []).push(c); });
       Object.keys(byLi).forEach(li => {
         const L = ls[li]; if (!L) return;
-        const { Manifold } = V3.wasm, prism = P => ndel(ndel(Manifold.extrude(toPolys(P), 2000)).translate([0, 0, -50])), sk = sektory(L, byLi[li], k === 'podstawa' && p.puz, k === 'klosz' && !mostkiWl() ? kSkos() : 0).map(prism), next = [];
+        const { Manifold } = V3.wasm, prism = P => ndel(ndel(Manifold.extrude(toPolys(P), 2000)).translate([0, 0, -50])), sk = sektory(L, byLi[li], k === 'podstawa' && p.puz, k === 'klosz' ? kSkos() : 0).map(prism), next = [];
         list.forEach(b => {
           const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2;
           if (cx < L.bb.x0 - 3 || cx > L.bb.x1 + 3 || cy < L.bb.y0 - 3 || cy > L.bb.y1 + 3) { next.push(b); return; }
