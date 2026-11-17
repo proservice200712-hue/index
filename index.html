@@ -583,6 +583,31 @@
   .fld .bleed-row input { width: 80px; padding: 6px 8px; border: 1.5px solid var(--line); }
   .door-fld { border-left: 3px solid #3182ce; padding-left: 10px; margin-bottom: 12px; }
   .door-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .rp-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; font: inherit; cursor: pointer; text-align: left; }
+  .rp-btn:hover { border-color: #a0aec0; }
+  .rp-btn .rp-ph { color: var(--gray); }
+  .rp-btn i { font-style: normal; color: var(--gray); }
+  .rp-btn b { margin-left: auto; font-weight: 600; color: var(--gray); font-size: .8rem; }
+  .rp-pop { border: 1.5px solid var(--line); border-radius: 10px; background: #fff; padding: 10px 12px; margin-top: 6px; user-select: none; }
+  .rp-pop[hidden] { display: none; }
+  .rp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .rp-nav button { border: 0; background: #edf2f7; border-radius: 6px; width: 30px; height: 28px; cursor: pointer; font-size: 1rem; }
+  .rp-nav button:hover { background: #e2e8f0; }
+  .rp-cals { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 640px) { .rp-cals { grid-template-columns: 1fr; } }
+  .rp-ct { text-align: center; font-weight: 700; margin-bottom: 4px; text-transform: capitalize; }
+  .rp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px 0; text-align: center; font-size: .85rem; }
+  .rp-wd { color: var(--gray); font-size: .72rem; padding: 2px 0; }
+  .rp-day { border: 0; background: none; padding: 7px 0; cursor: pointer; font: inherit; border-radius: 0; }
+  .rp-day:hover { background: #e2e8f0; }
+  .rp-day.today { font-weight: 800; color: #2b6cb0; }
+  .rp-day.in { background: #bee3f8; }
+  .rp-day.sel { background: #2b6cb0; color: #fff; }
+  .rp-day.ds { border-radius: 8px 0 0 8px; } .rp-day.de { border-radius: 0 8px 8px 0; } .rp-day.ds.de { border-radius: 8px; }
+  .rp-foot { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; font-size: .8rem; }
+  .rp-foot input[type=time] { padding: 4px 6px; border: 1.5px solid var(--line); border-radius: 6px; font: inherit; }
+  .rp-foot .btn { margin-left: auto; }
+  .rp-foot .btn + .btn { margin-left: 0; }
   .door-drop { border: 2px dashed #90cdf4; border-radius: 10px; background: #ebf8ff; padding: 12px 14px; text-align: center; font-size: .85rem; color: #2b6cb0; cursor: pointer; }
   .door-drop.over { background: #bee3f8; border-color: #3182ce; }
   .door-drop b { display: block; font-size: .95rem; }
@@ -2904,6 +2929,73 @@ function wireAutoDeadline(startId, dlId, auto = autoDeadline) {
   return { setManual: v => { manual = v; } };
 }
 
+// =====================================================================
+//  TERMIN TARGÓW na jednym kalendarzu (jak przy rezerwacji hotelu): pierwsze kliknięcie = start, drugie = koniec.
+//  Pod spodem zostają dwa ukryte pola (id start / id koniec) w formacie RRRR-MM-DDTGG:MM, więc reszta formularza działa bez zmian.
+// =====================================================================
+function rangeFieldHtml(idS, idE, vS, vE, label) {
+  return `<div class="fld rp" id="${idS}-rp"><label>${label}</label>
+    <input type="hidden" id="${idS}" value="${esc(vS || '')}"><input type="hidden" id="${idE}" value="${esc(vE || '')}">
+    <button type="button" class="rp-btn" data-rp="btn"><span data-rp="ls"></span><i>→</i><span data-rp="le"></span><b data-rp="n"></b></button>
+    <div class="rp-pop" hidden>
+      <div class="rp-nav"><button type="button" data-rp="prev" title="Poprzedni miesiąc">‹</button><button type="button" data-rp="next" title="Następny miesiąc">›</button></div>
+      <div class="rp-cals"><div data-rp="c0"></div><div data-rp="c1"></div></div>
+      <div class="rp-foot"><span>Godz. startu <input type="time" data-rp="ts" value="09:00"></span><span>końca <input type="time" data-rp="te" value="17:00"></span>
+        <button type="button" class="btn btn-sm" data-rp="clear">Wyczyść</button><button type="button" class="btn btn-sm" data-rp="today">Dzisiaj</button></div>
+    </div></div>`;
+}
+function wireRangePicker(idS, idE) {
+  const root = $(idS + '-rp'), hs = $(idS), he = $(idE), pop = root.querySelector('.rp-pop'), q = k => root.querySelector(`[data-rp="${k}"]`);
+  const MON = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień'], WD = ['pon', 'wto', 'śro', 'czw', 'pią', 'sob', 'nie'], pad = n => String(n).padStart(2, '0');
+  const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`, parse = v => /^\d{4}-\d\d-\d\d/.test(v || '') ? [v.slice(0, 10), v.slice(11, 16)] : ['', ''];
+  const show = ds => { const [y, m, d] = ds.split('-').map(Number), w = new Date(y, m - 1, d).getDay(); return `${['ndz', 'pon', 'wto', 'śro', 'czw', 'pią', 'sob'][w]} ${pad(d)}.${pad(m)}.${y}`; };
+  let s = '', e = '', ts = '09:00', te = '17:00', hover = '', vy = new Date().getFullYear(), vm = new Date().getMonth();
+  const todayS = (() => { const t = new Date(); return iso(t.getFullYear(), t.getMonth(), t.getDate()); })();
+  const load = () => { const [a, at] = parse(hs.value), [b, bt] = parse(he.value); s = a; e = b; if (at) ts = at; if (bt) te = bt; q('ts').value = ts; q('te').value = te; };
+  const paint = () => {
+    const hi = !e && s && hover && hover > s ? hover : '';
+    root.querySelectorAll('.rp-day').forEach(b => {
+      const dd = b.dataset.d, end = e || hi, inR = s && end && dd > s && dd < end;
+      b.classList.toggle('sel', dd === s || dd === e); b.classList.toggle('in', !!inR);
+      b.classList.toggle('ds', dd === s && !!end && end !== s); b.classList.toggle('de', dd === end && !!s && end !== s);
+    });
+  };
+  const month = (box, y, m) => {
+    const first = (new Date(y, m, 1).getDay() + 6) % 7, n = new Date(y, m + 1, 0).getDate();
+    box.innerHTML = `<div class="rp-ct">${MON[m]} ${y}</div><div class="rp-grid">${WD.map(w => `<div class="rp-wd">${w}</div>`).join('')}${'<div></div>'.repeat(first)}${Array.from({ length: n }, (_, i) => { const dd = iso(y, m, i + 1); return `<button type="button" class="rp-day ${dd === todayS ? 'today' : ''}" data-d="${dd}">${i + 1}</button>`; }).join('')}</div>`;
+  };
+  const draw = () => {
+    q('ls').innerHTML = s ? show(s) : '<span class="rp-ph">Start targów</span>';
+    q('le').innerHTML = e ? show(e) : '<span class="rp-ph">Koniec (opcjonalnie)</span>';
+    q('n').textContent = s && e ? (Math.round((new Date(e) - new Date(s)) / 864e5) + 1) + ' dni' : '';
+    if (!pop.hidden) { month(q('c0'), vy, vm); month(q('c1'), vm === 11 ? vy + 1 : vy, (vm + 1) % 12); paint(); }
+  };
+  const out = () => {
+    hs.value = s ? s + 'T' + ts : ''; he.value = e ? e + 'T' + te : '';
+    hs.dispatchEvent(new Event('input', { bubbles: true })); he.dispatchEvent(new Event('input', { bubbles: true })); draw();
+  };
+  const open = on => { pop.hidden = !on; if (on) { const [y, m] = (s || todayS).split('-').map(Number); vy = y; vm = m - 1; } draw(); };
+  q('btn').onclick = () => open(pop.hidden);
+  q('prev').onclick = () => { vm--; if (vm < 0) { vm = 11; vy--; } draw(); };
+  q('next').onclick = () => { vm++; if (vm > 11) { vm = 0; vy++; } draw(); };
+  q('clear').onclick = () => { s = ''; e = ''; hover = ''; out(); };
+  q('today').onclick = () => { const [y, m] = todayS.split('-').map(Number); vy = y; vm = m - 1; draw(); };
+  q('ts').onchange = () => { ts = q('ts').value || '09:00'; if (s) out(); };
+  q('te').onchange = () => { te = q('te').value || '17:00'; if (e) out(); };
+  pop.addEventListener('click', ev => {
+    const b = ev.target.closest('.rp-day'); if (!b) return; const dd = b.dataset.d;
+    if (!s || e) { s = dd; e = ''; out(); }                 // pierwsze kliknięcie (albo nowy wybór): start
+    else if (dd < s) { s = dd; out(); }                       // wcześniejszy dzień: przesuwa start
+    else { e = dd; hover = ''; out(); open(false); }          // drugie kliknięcie: koniec — kalendarz się zamyka
+  });
+  pop.addEventListener('mouseover', ev => { const b = ev.target.closest('.rp-day'); if (b && s && !e) { hover = b.dataset.d; paint(); } });
+  pop.addEventListener('mouseleave', () => { hover = ''; paint(); });
+  root.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !pop.hidden) { ev.stopPropagation(); ev.preventDefault(); open(false); } }, true);
+  const away = ev => { if (!root.isConnected) return document.removeEventListener('mousedown', away, true); if (!pop.hidden && !root.contains(ev.target)) open(false); };
+  document.addEventListener('mousedown', away, true);
+  hs.addEventListener('change', () => { load(); draw(); }); he.addEventListener('change', () => { load(); draw(); });   // zmiana z zewnątrz (np. wybór targów w formularzu stoiska)
+  load(); draw();
+}
 function openFairForm(fid) { if (isViewer()) return;
   const f = fid ? fairById(fid) : {};
   if (fid && !f) return;
@@ -2912,14 +3004,12 @@ function openFairForm(fid) { if (isViewer()) return;
     body: `
       <div class="fld"><label>Nazwa targów *</label><input type="text" id="ff-name" value="${esc(f.name || '')}" placeholder="np. ISPO Amsterdam 2026"></div>
       <div class="fld"><label>Miasto</label><input type="text" id="ff-city" value="${esc(f.city || '')}"></div>
-      <div class="row2">
-        <div class="fld"><label>Start targów</label><input type="datetime-local" id="ff-ev" value="${esc(f.eventStart || '')}"></div>
-        <div class="fld"><label>Koniec targów</label><input type="datetime-local" id="ff-evend" value="${esc(f.eventEnd || '')}"></div>
-      </div>
+      ${rangeFieldHtml('ff-ev', 'ff-evend', f.eventStart, f.eventEnd, 'Termin targów — kliknij start, potem koniec')}
       <div class="row2">${deadlineField('ff-dl', f.deadlineGfx)}${packField('ff-pk', f.deadlinePack)}</div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ff-ok">${fid ? 'Zapisz' : 'Utwórz'}</button>`,
   });
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  wireRangePicker('ff-ev', 'ff-evend');
   wireAutoDeadline('ff-ev', 'ff-dl');
   wireAutoDeadline('ff-ev', 'ff-pk', autoPack);
   $('ff-ok').onclick = async () => {
@@ -3241,10 +3331,7 @@ function openProjectForm(pid, fairId) { if (isViewer()) return;
       <div class="fld"><label>Klient / nazwa stoiska *</label><input type="text" id="pf-name" value="${esc(p.name || '')}" placeholder="np. DAICEL"></div>
       <div class="fld"><label>Targi</label><select id="pf-fairid"><option value="">— bez targów${p.fair && !p.fairId ? ' (było: ' + esc(p.fair) + ')' : ''} —</option>${fairOpts}</select>
         <div class="hint">Nowe targi dodasz w panelu bocznym przyciskiem „+ New fairs".</div></div>
-      <div class="row2">
-        <div class="fld"><label>Start targów</label><input type="datetime-local" id="pf-ev" value="${esc(p.eventStart || '')}"></div>
-        <div class="fld"><label>Koniec targów (opcjonalnie)</label><input type="datetime-local" id="pf-evend" value="${esc(p.eventEnd || '')}"></div>
-      </div>
+      ${rangeFieldHtml('pf-ev', 'pf-evend', p.eventStart, p.eventEnd, 'Termin targów — kliknij start, potem koniec (koniec opcjonalnie)')}
       <div class="row2">${deadlineField('pf-dl', p.deadlineGfx, false)}${packField('pf-pk', p.deadlinePack || (pid ? autoPack(p.eventStart) : ''), false)}</div>
       <div class="fld"><label>Zespół — kto zajmuje się projektem</label>
         <div class="team-pick" id="pf-team"></div>
@@ -3283,12 +3370,13 @@ function openProjectForm(pid, fairId) { if (isViewer()) return;
   $('pf-team-btn').onclick = addExt;
   $('pf-team-new').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); addExt(); } });
   renderTeam();
+  wireRangePicker('pf-ev', 'pf-evend');
   const autoDl = wireAutoDeadline('pf-ev', 'pf-dl');
   const autoPk = wireAutoDeadline('pf-ev', 'pf-pk', autoPack);
   // wybór targów podpowiada ich terminy (deadline też z targów — mógł go tam przesunąć administrator)
   $('pf-fairid').onchange = () => {
     const f = fairById($('pf-fairid').value); if (!f) return;
-    [['pf-ev', 'eventStart'], ['pf-evend', 'eventEnd']].forEach(([i, k]) => { if (f[k]) $(i).value = f[k]; });
+    [['pf-ev', 'eventStart'], ['pf-evend', 'eventEnd']].forEach(([i, k]) => { if (f[k]) { $(i).value = f[k]; $(i).dispatchEvent(new Event('change')); } });
     $('pf-dl').value = f.deadlineGfx || autoDeadline($('pf-ev').value);
     autoDl.setManual($('pf-dl').value !== autoDeadline($('pf-ev').value));
     $('pf-pk').value = f.deadlinePack || autoPack($('pf-ev').value);
