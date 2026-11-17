@@ -56,6 +56,20 @@
   .uf-open > span { margin-right: 4px; }
   .uf-info .uf-no { color: var(--gray); }
   .uf-sp { flex: 1 1 auto; }
+  /* „!?” — notatki do zrobienia / sprawdzenia; z nieodhaczonymi świeci na czerwono z białą poświatą */
+  #btn-todo { font-weight: 900; font-size: .95rem; letter-spacing: 1px; }
+  #btn-todo small { font-size: .65rem; font-weight: 800; margin-left: -2px; }
+  #btn-todo.todo-on { background: #e53e3e !important; color: #fff !important; position: relative; z-index: 2; animation: todoGlow 1.6s ease-in-out infinite; }
+  @keyframes todoGlow { 0%, 100% { box-shadow: 0 0 5px 1px rgba(255,255,255,.75), 0 0 12px 3px rgba(229,62,62,.8); } 50% { box-shadow: 0 0 10px 3px rgba(255,255,255,.95), 0 0 24px 8px rgba(255,70,70,.95); } }
+  @media (prefers-reduced-motion: reduce) { #btn-todo.todo-on { animation: none; box-shadow: 0 0 9px 3px rgba(255,255,255,.9), 0 0 18px 6px rgba(229,62,62,.9); } }
+  .todo-add { display: flex; gap: 8px; margin-bottom: 12px; }
+  .todo-add input { flex: 1; }
+  .todo-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .todo-row input { margin-top: 3px; width: 17px; height: 17px; accent-color: #38a169; flex: none; }
+  .todo-row .t { flex: 1; overflow-wrap: anywhere; }
+  .todo-row small { color: var(--gray); font-size: .7rem; white-space: nowrap; }
+  .todo-row.done .t { text-decoration: line-through; color: var(--gray); }
+  .todo-h { margin: 12px 0 2px; font-size: .72rem; font-weight: 700; letter-spacing: .5px; color: var(--gray); text-transform: uppercase; }
   #uf-pane:not(.uf-k) .uk, #uf-pane.uf-k .ue { display: none !important; }   /* przyciski tylko dla K-Frame / tylko dla EasyFrame */
   .uf-sys { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 560px) { .uf-sys { grid-template-columns: 1fr; } }
@@ -982,6 +996,8 @@
         <button onclick="alignMarkers()" id="btn-align" title="Ustaw znaczniki w równych rzędach przy krawędziach wizki — kreski do miejsc bez krzyżowania">⊞ <span class="lbl">Wyrównaj</span></button>
         <div class="sep"></div>
         <button onclick="openUltraFrame()" id="btn-uf" title="Ultra Frame: narysuj ścianki ramy z modułów (widok z góry) i jednym kliknięciem zrób z nich widok 3D z elementami">▦ <span class="lbl">Ultra Frame</span></button>
+        <div class="sep"></div>
+        <button onclick="openTodos()" id="btn-todo" title="Notatki: rzeczy do zrobienia lub sprawdzenia">!?</button>
       </div>
       <div id="viewer-empty">
         <div class="big">Przeciągnij tu wizki stoiska</div>
@@ -3551,7 +3567,7 @@ function renderProjectHeader() {
   $('hdr-pname').onclick = () => openProjectForm(p.id);
   $('hdr-pfair').textContent = [p.fair, p.city].filter(Boolean).join(' · ');
   $('hdr-cd').innerHTML = ''; // w projekcie odlicza zegar-butla obok tabeli
-  updateClock();
+  updateClock(); renderTodoBtn();
   $('hdr-actions').innerHTML = `
     ${isAdmin() ? `<button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>` : ''}
     ${isAdmin() ? `<button class="btn" onclick="openFilesDialog()" title="Pliki pomocnicze stoiska: offsety, informacje dla produkcji…">📎 Pliki${standFileCount(p) ? ' (' + standFileCount(p) + ')' : ''}</button>` : ''}
@@ -8225,6 +8241,56 @@ async function closeUltraFrame() {
   }, true);
 })();
 
+// =====================================================================
+//  „!?” — krótkie notatki projektu (do zrobienia / sprawdzenia): można odhaczać, nie można usuwać.
+//  Z nieodhaczonymi ikonka świeci na czerwono, a eksport ostrzega.  Zapis: project.todos = [{ id, text, done, at, by, doneAt, doneBy }]
+// =====================================================================
+const todosOf = p => ((p && p.todos) || []).filter(t => t && t.text);
+const todosOpen = p => todosOf(p).filter(t => !t.done);
+function renderTodoBtn() {
+  const b = $('btn-todo'); if (!b) return;
+  const n = todosOpen(S.project).length;
+  b.classList.toggle('todo-on', n > 0);
+  b.innerHTML = '!?' + (n ? ` <small>${n}</small>` : '');
+  b.title = n ? `Do zrobienia lub sprawdzenia: ${n} — kliknij, aby zobaczyć` : 'Notatki: rzeczy do zrobienia lub sprawdzenia';
+  if ($('todo-list')) renderTodoList();
+}
+async function saveTodos(list, logText) {
+  if (!S.project) return;
+  S.project.todos = list; renderTodoBtn();
+  try { await DB.update(C_PROJECTS, S.project.id, { todos: list }); if (logText) addLog(S.project.id, logText); } catch (e) { toast('Nie udało się zapisać notatki: ' + e.message, 'error'); }
+}
+function renderTodoList() {
+  const box = $('todo-list'); if (!box) return;
+  const all = todosOf(S.project), ro = isViewer(), when = iso => { try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'numeric' }); } catch (e) { return ''; } };
+  const row = t => `<label class="todo-row ${t.done ? 'done' : ''}"><input type="checkbox" data-tid="${esc(t.id)}" ${t.done ? 'checked' : ''} ${ro ? 'disabled' : ''}><span class="t">${esc(t.text)}</span><small>${esc(userLabel(t.by) || '')} ${t.at ? when(t.at) : ''}${t.done && t.doneAt ? ' · ✓ ' + esc(userLabel(t.doneBy) || '') + ' ' + when(t.doneAt) : ''}</small></label>`;
+  const open = all.filter(t => !t.done), done = all.filter(t => t.done);
+  box.innerHTML = (open.length ? open.map(row).join('') : '<div class="hint" style="padding:8px 0">Brak rzeczy do zrobienia.</div>')
+    + (done.length ? `<div class="todo-h">Zrobione (${done.length})</div>` + done.map(row).join('') : '');
+  box.querySelectorAll('input[data-tid]').forEach(cb => cb.onchange = () => {
+    const list = todosOf(S.project).map(t => t.id === cb.dataset.tid ? { ...t, done: cb.checked, doneAt: cb.checked ? nowIso() : '', doneBy: cb.checked ? S.me.id : '' } : t);
+    const it = list.find(t => t.id === cb.dataset.tid);
+    saveTodos(list, `Notatka „${(it.text || '').slice(0, 60)}” — ${cb.checked ? 'odhaczona' : 'znów do zrobienia'}`);
+  });
+}
+function openTodos() {
+  if (!S.project) return;
+  const ro = isViewer();
+  const m = openModal({ title: '!? Do zrobienia / sprawdzenia', body: `${ro ? '' : '<div class="todo-add"><input type="text" id="todo-in" maxlength="200" placeholder="Krótka notatka — co trzeba zrobić albo sprawdzić"><button class="btn btn-solid" id="todo-add">Dodaj</button></div>'}<div id="todo-list"></div>
+    <div class="hint" style="margin-top:10px">Notatek nie da się usunąć — tylko odhaczyć. Dopóki coś jest nieodhaczone, ikonka <b>!?</b> świeci na czerwono, a przy eksporcie pojawi się przypomnienie.</div>`,
+    footer: '<button class="btn" data-c>Zamknij</button>', onClose: () => renderTodoBtn() });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  renderTodoList();
+  if (ro) return;
+  const add = () => {
+    const inp = $('todo-in'), text = inp.value.trim(); if (!text) return;
+    inp.value = '';
+    saveTodos(todosOf(S.project).concat([{ id: Math.random().toString(36).slice(2, 9), text, done: false, at: nowIso(), by: S.me.id }]), `Dodano notatkę: ${text.slice(0, 80)}`);
+    inp.focus();
+  };
+  $('todo-add').onclick = add;
+  $('todo-in').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); add(); } });
+}
 function openExportDialog() {
   if (!S.project) return;
   const p = S.project, nextV = (Number(p.indexVersion) || 0) + 1;
@@ -8313,6 +8379,8 @@ function openExportDialog() {
   m.el.querySelector('[data-c]').onclick = () => m.close();
   $('exp-go').onclick = async () => {
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
+    const pend = todosOpen(S.project);      // nieodhaczone notatki „!?” — przypomnienie przed eksportem
+    if (pend.length && !await confirmBox(`<b>Są rzeczy do zrobienia lub sprawdzenia (${pend.length}):</b><ul style="margin:8px 0 8px 20px">${pend.slice(0, 8).map(t => `<li>${esc(t.text)}</li>`).join('')}${pend.length > 8 ? `<li>… i ${pend.length - 8} więcej</li>` : ''}</ul>Eksportować mimo to?`, 'Eksportuj mimo to', false)) return;
     $('exp-go').disabled = true;
     m.close();
     if (w === 'csv') return exportCsv(fileBase(v) + '.csv');
