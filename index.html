@@ -6872,6 +6872,11 @@ function ufAnchors(parts, skip) {
 // przyciąganie do krawędzi obrysu stoiska: zewnętrzna ściana klocka równo z krawędzią, koniec ścianki w narożniku
 function ufEdgeSnap(p, thr) {
   const st = UF.d.stand, r = ufRect(p), near = (v, t) => Math.abs(v - t) < thr, post = p.t === 'post', hor = (p.dir & 1) === 0;
+  if (ufK()) {   // K-Frame: lico albo koniec modułu przyciąga się do granicy stoiska z obu stron (od wewnątrz i od zewnątrz), osobno w poziomie i w pionie
+    const best = c => c.reduce((m, v) => Math.abs(v) < Math.abs(m) ? v : m, Infinity);
+    const sx = best([-r.x0, -r.x1, st.L - r.x0, st.L - r.x1]), sy = best([-r.y0, -r.y1, st.D - r.y0, st.D - r.y1]);
+    return { ...p, x: p.x + (Math.abs(sx) < thr ? sx : 0), y: p.y + (Math.abs(sy) < thr ? sy : 0) };
+  }
   let dx = 0, dy = 0;
   if (post || hor) { if (near(r.y0, 0)) dy = -r.y0; else if (near(r.y1, st.D)) dy = st.D - r.y1; }
   if (post || !hor) { if (near(r.x0, 0)) dx = -r.x0; else if (near(r.x1, st.L)) dx = st.L - r.x1; }
