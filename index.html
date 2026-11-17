@@ -6571,8 +6571,8 @@ const ufHs = () => ufK() ? [UF_KH] : UF_HS;
 const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretch', 'tkanina naciągnięta na płytę', 'blackback', false], ['film', 'folia na płycie', 'folia-laminat', false], ['pcw', 'płyta PCW z drukiem', 'pcw', false]];
 const ufMount = k => UF_MOUNTS.find(m => m[0] === k) || UF_MOUNTS[0];
 const ufKNote = run => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${ufMount(run.mount)[1]}`;
-const UF_KKEYS = 'przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie strzałki przy zaznaczonej ściance ją przesuwają (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wystające · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
-const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : ufK() ? UF_KT : UF_T;          // grubość klocka: ELTEX — własna, reszta ramy E80
+const UF_KKEYS = 'ścianka dwustronna (wysłona ręcznie) ma 6,6 cm: kratownica 6 cm + płyta 3 mm z każdej strony · ścianki nie mogą na siebie nachodzić (czerwony obrys) · przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie strzałki przy zaznaczonej ściance ją przesuwają (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wystające · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
+const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : ufK() ? (p.back ? UF_KT + 3 : UF_KT) : UF_T;   // K-Frame: kratownica 60 + płyta 3 mm = 63; ścianka dwustronna (wysłona) ma drugą płytę: 66          // grubość klocka: ELTEX — własna, reszta ramy E80
 const ufCorners = r => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];   // narożniki prostokąta klocka (świat, mm)
 const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
 // moduł z palety: drzwi w wysokości wybranej prawym klawiszem na ikonie (zapamiętanej w układzie)
@@ -6904,7 +6904,10 @@ const UF_POST_MSG = 'Dwa słupki nie stoją obok siebie — w narożniku jeden s
 function ufKMove(dx, dy, wall, big) {
   const p = ufFind(UF.sel); if (!p || UF.busy) return;
   const st = (Number(UF.step) || 50) * (big ? 10 : 1), r = wall ? ufSelRun() : null, ids = r ? r.ops.map(o => o.id) : [p.id];
-  ufPush(); ids.forEach(id => { const q = ufFind(id); if (q) { q.x += dx * st; q.y += dy * st; ufFit(q); } }); ufChanged();
+  ufPush(); const sv = ids.map(id => { const q = ufFind(id); return q && [q, q.x, q.y, q.len, q.len0]; }).filter(Boolean), grp = new Set(ids);
+  ids.forEach(id => { const q = ufFind(id); if (q) { q.x += dx * st; q.y += dy * st; ufFit(q); } });
+  if (ids.some(id => { const q = ufFind(id); return q && ufOverlaps(q, grp); })) { sv.forEach(([q, x, y, l, l0]) => { q.x = x; q.y = y; q.len = l; if (l0) q.len0 = l0; else delete q.len0; }); UF.undo.pop(); return toast(UF_OVL_MSG, 'error', 2500); }
+  ufChanged();
 }
 // styk prostopadły zaznaczonego modułu z licem innej ścianki: odległości od jej końców
 function ufKInfo() {
@@ -6919,6 +6922,13 @@ function ufKInfo() {
     });
   });
   return out.length ? `<b class="uf-bk">dolega do ścianki: ${out.join(' ; ')} ${UNIT()}</b>` : '';
+}
+// K-Frame: ścianki nie mogą na siebie nachodzić (styk lica o lico jest w porządku)
+const UF_OVL_MSG = 'Ścianki nie mogą na siebie nachodzić';
+function ufOverlaps(p, skip) {
+  if (!ufK()) return false;
+  const r = ufRect(p), tol = 3;
+  return UF.d.pieces.some(q => q.id !== p.id && !(skip && skip.has(q.id)) && (() => { const o = ufRect(q); return Math.min(r.x1, o.x1) - Math.max(r.x0, o.x0) > tol && Math.min(r.y1, o.y1) - Math.max(r.y0, o.y0) > tol; })());
 }
 function ufNewPiece(op, x, y, dir, from) {
   const n = { id: ufUid(), ...op, x, y, dir };
@@ -6938,7 +6948,8 @@ function ufAddNext(op) {
     piece = ufNewPiece(op, an.x, an.y, an.dir, last);
   }
   if (ufPostClash(geo.parts, piece)) return toast(UF_POST_MSG, 'error', 4500);
-  ufFit(piece); ufPush(); UF.d.pieces.push(piece); UF.sel = piece.id; UF.rot = false; ufChanged();
+  ufFit(piece); if (ufOverlaps(piece)) return toast(UF_OVL_MSG, 'error', 4000);
+  ufPush(); UF.d.pieces.push(piece); UF.sel = piece.id; UF.rot = false; ufChanged();
   if (piece.t === 'eltex') ufEltexDialog(piece, true);                // nowa rama ELTEX: od razu okno wymiarów
 }
 function ufDelete() {
@@ -6951,7 +6962,8 @@ function ufRotate(cw = true) {
   const p = ufFind(UF.sel); if (!p || UF.busy) return;
   ufPush();
   if (p.t === 'post') { const c = [p.x + UF_DIR[p.dir][0] * 40, p.y + UF_DIR[p.dir][1] * 40]; p.dir = (p.dir + (cw ? 1 : 3)) % 4; p.x = c[0] - UF_DIR[p.dir][0] * 40; p.y = c[1] - UF_DIR[p.dir][1] * 40; }
-  else { p.dir = (p.dir + (cw ? 1 : 3)) % 4; ufFit(p); }
+  else { const od = p.dir, ol = p.len, ol0 = p.len0; p.dir = (p.dir + (cw ? 1 : 3)) % 4; ufFit(p);
+    if (ufOverlaps(p)) { p.dir = od; p.len = ol; if (ol0) p.len0 = ol0; else delete p.len0; UF.undo.pop(); return toast(UF_OVL_MSG, 'error', 3000); } }
   ufChanged();
 }
 function ufSetMount(v) { const r = ufSelRun(); if (!r) { ufPush(); UF.d.mount = v; ufChanged(); return; } ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.mount = v; }); ufChanged(); }
@@ -7050,6 +7062,7 @@ function ufDraw() {
     const o = p.op, bk = p.runs.some(rn => rn.backKind), x = X(p.x0), y = Y(p.y0), w = (p.x1 - p.x0) * s, h = (p.y1 - p.y0) * s;
     g.fillStyle = ufK() ? (o.t === 'door' ? '#e8f1fa' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#f0e4cc') : o.t === 'eltex' ? '#90cdf4' : o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#e9ecef';
     g.fillRect(x, y, w, h); g.strokeStyle = o.t === 'eltex' ? UF_ELTEX_COL : '#4a5568'; g.lineWidth = o.t === 'eltex' ? 1.6 : 1; g.strokeRect(x, y, w, h);
+    if (ufK() && ufOverlaps(o)) { g.strokeStyle = '#e53e3e'; g.lineWidth = 2.5; g.strokeRect(x, y, w, h); }
     if (o.t === 'door') {
       const dg = ufDoorGeom(o, d, geo.pub), len = (ufK() ? UF_KDW : o.len) * s;
       g.strokeStyle = '#2b6cb0'; g.lineWidth = 1.3; g.beginPath();
@@ -7188,7 +7201,7 @@ function ufDraw() {
     if (dr.kind === 'new' && dr.ghost) {
       const gp = dr.ghost, rc = ufRect(gp);
       g.globalAlpha = .6; g.fillStyle = gp.t === 'post' ? '#d62d20' : gp.t === 'door' ? '#cfe3f6' : '#e9ecef'; g.fillRect(X(rc.x0), Y(rc.y0), (rc.x1 - rc.x0) * s, (rc.y1 - rc.y0) * s);
-      g.globalAlpha = 1; g.strokeStyle = '#38a169'; g.lineWidth = 2; g.strokeRect(X(rc.x0), Y(rc.y0), (rc.x1 - rc.x0) * s, (rc.y1 - rc.y0) * s);
+      g.globalAlpha = 1; g.strokeStyle = ufOverlaps(gp) ? '#e53e3e' : '#38a169'; g.lineWidth = 2; g.strokeRect(X(rc.x0), Y(rc.y0), (rc.x1 - rc.x0) * s, (rc.y1 - rc.y0) * s);
     }
   }
   // ikona obrotu przy zaznaczonym klocku (po drugim kliknięciu)
@@ -7340,14 +7353,15 @@ function ufDragEnd(e) {
     if (dr.moved && dr.ghost) {
       const geo = ufGeom(UF.d);
       if (ufPostClash(geo.parts, dr.ghost)) toast(UF_POST_MSG, 'error', 4500);
+      else if (ufOverlaps(dr.ghost)) toast(UF_OVL_MSG, 'error', 4000);
       else { const n = { ...dr.ghost, id: ufUid() }; if (n.len0) toast(`Ścianka wystawała poza stoisko — ucięta do ${lenPL(n.len)} ${UNIT()} (z ${lenPL(n.len0)})`, '', 5000); if (dr.an && dr.an.owner) { const f = dr.an.owner; if (n.t !== 'post' && f.t !== 'post') { n.back = !!f.back; if (f.h) n.h = f.h; } } ufPush(); UF.d.pieces.push(n); UF.sel = n.id; UF.rot = false; if (n.t === 'eltex') setTimeout(() => ufEltexDialog(n, true), 0); }
     } else if (!dr.moved) ufAddNext(dr.op);
     ufChanged(); return;
   }
   if (dr.copy) { // kopia: zostaje tam, gdzie ją puszczono (jeśli się ruszyła i nie koliduje słupkiem)
     const geo = ufGeom(UF.d), mine = UF.d.pieces.filter(p => dr.grp.has(p.id));
-    const moved = mine.some(p => { const o = dr.orig.get(p.id); return p.x !== o.x || p.y !== o.y || p.dir !== o.dir; }), clash = mine.some(p => ufPostClash(geo.parts, p));
-    if (!moved || clash) { UF.d.pieces = UF.d.pieces.filter(p => !dr.grp.has(p.id)); UF.sel = null; if (clash) toast(UF_POST_MSG, 'error', 4500); }
+    const moved = mine.some(p => { const o = dr.orig.get(p.id); return p.x !== o.x || p.y !== o.y || p.dir !== o.dir; }), clash = mine.some(p => ufPostClash(geo.parts, p)), ovl = mine.some(p => ufOverlaps(p, dr.grp));
+    if (!moved || clash || ovl) { UF.d.pieces = UF.d.pieces.filter(p => !dr.grp.has(p.id)); UF.sel = null; if (clash) toast(UF_POST_MSG, 'error', 4500); else if (ovl && moved) toast(UF_OVL_MSG, 'error', 4000); }
     else toast(`Skopiowano: ${mine.length} ${mine.length === 1 ? 'klocek' : 'klocków'}`, 'success', 2500);
     ufChanged(); return;
   }
@@ -7356,6 +7370,10 @@ function ufDragEnd(e) {
   }
   const geo = ufGeom(UF.d), p = ufFind(dr.id);
   if (p && ufPostClash(geo.parts, p)) { const o = dr.orig.get(dr.id); p.x = o.x; p.y = o.y; p.dir = o.dir; toast(UF_POST_MSG, 'error', 4500); }
+  else if (UF.d.pieces.some(q => dr.grp.has(q.id) && ufOverlaps(q, dr.grp))) {   // K-Frame: nachodzenie — moduł(y) wracają na poprzednie miejsce
+    UF.d.pieces.forEach(q => { const o = dr.orig.get(q.id); if (o) { q.x = o.x; q.y = o.y; q.dir = o.dir; q.len = o.len; if (o.len0) q.len0 = o.len0; else delete q.len0; } });
+    toast(UF_OVL_MSG, 'error', 4000);
+  }
   ufChanged();
 }
 function ufPan(e) {
