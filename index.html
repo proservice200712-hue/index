@@ -56,6 +56,13 @@
   .uf-open > span { margin-right: 4px; }
   .uf-info .uf-no { color: var(--gray); }
   .uf-sp { flex: 1 1 auto; }
+  #uf-pane:not(.uf-k) .uk, #uf-pane.uf-k .ue { display: none !important; }   /* przyciski tylko dla K-Frame / tylko dla EasyFrame */
+  .uf-sys { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .uf-sys { grid-template-columns: 1fr; } }
+  .uf-sys button { padding: 16px; text-align: left; border: 2px solid var(--line); background: #fff; cursor: pointer; font: inherit; }
+  .uf-sys button:hover { border-color: var(--accent); background: #fffbe6; }
+  .uf-sys b { display: block; font-size: 1.05rem; margin-bottom: 6px; }
+  .uf-sys small { display: block; color: var(--gray); line-height: 1.45; }
   .uf-main { position: relative; flex: 1 1 auto; min-height: 0; }
   #uf-cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cg stroke='%23fff' stroke-width='4.2' stroke-linecap='round'%3E%3Cpath d='M13 2v8M13 16v8M2 13h8M16 13h8'/%3E%3C/g%3E%3Cg stroke='%2338a169' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M13 2v8M13 16v8M2 13h8M16 13h8'/%3E%3C/g%3E%3Ccircle cx='13' cy='13' r='1.6' fill='%2338a169' stroke='%23fff' stroke-width='1'/%3E%3C/svg%3E") 13 13, crosshair; touch-action: none; } /* zielony krzyżyk z białą obwódką (systemowy jest biały) */
   #uf-pvw { position: absolute; right: 8px; top: 8px; width: 220px; }
@@ -991,6 +998,7 @@
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
+          <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
           <span class="uf-grp" id="uf-pal"></span>
           <span class="uf-grp"><input type="number" id="uf-cus" min="1" step="0.1" placeholder="własna" title="Ścianka o własnej szerokości (np. regulowana)"><button type="button" id="uf-cus-b" title="Dodaj ściankę o podanej szerokości za zaznaczonym klockiem">＋</button></span>
           <span class="uf-grp"><button type="button" id="uf-rl" title="Obróć zaznaczony klocek w lewo (Shift+R)">↶</button><button type="button" id="uf-rr" title="Obróć zaznaczony klocek w prawo (R) — albo kliknij klocek drugi raz">↷ R</button></span>
@@ -1002,14 +1010,15 @@
         </div>
         <div class="uf-bar uf-bar2">
           <span class="uf-grp"><label>Ścianka: <select id="uf-h" title="Wysokość zaznaczonej ścianki"></select></label><label class="uf-chk" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><input type="checkbox" id="uf-back"> wysłona ręcznie</label></span>
+          <span class="uf-grp uk"><label title="Sposób mocowania grafiki na ściance K-Frame (zaznaczona ścianka albo domyślnie dla nowych)">Montaż: <select id="uf-mount"></select></label><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl+klik = 10×, Shift+klik albo Shift+strzałka = cała ścianka)">Krok strzałek <input type="number" id="uf-step" value="50" min="1" step="1"> mm</label></span>
           <span class="uf-div"></span>
           <b>Stoisko</b>
           <span class="uf-grp"><input type="text" inputmode="decimal" id="uf-sl" title="Długość stoiska (oś pozioma)"> × <input type="text" inputmode="decimal" id="uf-sd" title="Głębokość stoiska (oś pionowa)"> <span id="uf-sa" class="uf-area"></span></span>
           <label>Wysokość <select id="uf-sh" title="Domyślna wysokość ścianek"></select></label>
-          <label class="uf-chk" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> wysłony zewn.</label>
+          <label class="uf-chk ue" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> wysłony zewn.</label>
           <label class="uf-chk" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><input type="checkbox" id="uf-zap"> wysłona zaplecza</label>
-          <label class="uf-chk" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW</label>
-          <label class="uf-chk" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><input type="checkbox" id="uf-capsx"> zaślepki ELTEX</label>
+          <label class="uf-chk ue" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW</label>
+          <label class="uf-chk ue" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><input type="checkbox" id="uf-capsx"> zaślepki ELTEX</label>
         </div>
         <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo">◀</button><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo">▶</button></div></div>
         <div class="uf-info" id="uf-info"></div>
@@ -2376,7 +2385,7 @@ const doorView = (el, d) => !d || d === el.door ? el : { ...el, door: d };
 const doorOfEl = (main, de) => doorList(main)[(de && de.doorIdx) || 0] || main.door;
 function doorPos(el) {
   const d = el.door || {}, W = Number(el.w) || 0, H = Number(el.h) || 0;
-  const std = !(el.seg || el.wyslona);
+  const std = !(el.seg || el.wyslona) || !!d.std;
   const dw = std ? DOOR_STD.w : 992, dh = std ? DOOR_STD.h : (d.size === 'h1984' ? 1984 : 2480);
   const dist = Number(d.dist) || 0;
   const x = d.from === 'right' ? W - dist - dw : dist;
@@ -6541,7 +6550,7 @@ const UF_T = 80;                                              // grubość ścia
 const UF_DIR = [[1, 0], [0, 1], [-1, 0], [0, -1]];            // wschód, południe, zachód, północ (y rośnie w dół)
 const UF_EXT_FROM = 2480;                                     // wysłona zewnętrzna zaczyna się od 248 cm w górę
 const UF_CAP_W = 80, UF_CAP_COL = '#6b46c1';                  // zaślepka gołego końca ramy: PCW 3 mm, szer. 8 cm × wysokość systemu
-const UF_PAL = [
+const UF_PAL_E = [
   { id: 'w99', key: '1', op: { t: 'w', len: 992 } },
   { id: 'w49', key: '2', op: { t: 'w', len: 496 } },
   { id: 'door', key: '3', op: { t: 'door', len: 992, size: 'h2480' } },   // jedna ikona drzwi — wysokość (248 / 198,4) pod prawym klawiszem
@@ -6549,19 +6558,33 @@ const UF_PAL = [
   { id: 'eltex', key: '5', op: { t: 'eltex', len: 1000, h: 2480, th: 50 } },  // rama ELTEX: indywidualne wymiary (długość, wysokość, grubość) — okno po upuszczeniu
 ];
 const UF_ELTEX_COL = '#3182ce';
-const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : UF_T;          // grubość klocka: ELTEX — własna, reszta ramy E80
+// ---- K-Frame: kratownica z kantówek + płyta od frontu. Moduł 99,5 × 279,5 × gr. 6,3 cm, bez słupków; ścianki dolegają do siebie prostopadle w dowolnym miejscu ----
+const UF_KT = 63, UF_KW = 995, UF_KH = 2795, UF_KDW = 800;              // grubość, szerokość i wysokość modułu, szerokość skrzydła drzwi w module [mm]
+const ufK = () => !!(UF.d && UF.d.sys === 'k');
+const UF_PAL_K = [
+  { id: 'k99', key: '1', op: { t: 'w', len: UF_KW } },
+  { id: 'kdoor', key: '2', op: { t: 'door', len: UF_KW, mode: 'flush' } },   // drzwi w jednym module: zlicowane z płytą albo wystające
+];
+const ufPal = () => ufK() ? UF_PAL_K : UF_PAL_E;
+const ufHs = () => ufK() ? [UF_KH] : UF_HS;
+// montaż grafiki na K-Frame: [id, nazwa, typ elementu, SEG?]
+const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretch', 'tkanina naciągnięta na płytę', 'blackback', false], ['film', 'folia na płycie', 'folia-laminat', false], ['pcw', 'płyta PCW z drukiem', 'pcw', false]];
+const ufMount = k => UF_MOUNTS.find(m => m[0] === k) || UF_MOUNTS[0];
+const ufKNote = run => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${ufMount(run.mount)[1]}`;
+const UF_KKEYS = 'przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie strzałki przy zaznaczonej ściance ją przesuwają (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wystające · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
+const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : ufK() ? UF_KT : UF_T;          // grubość klocka: ELTEX — własna, reszta ramy E80
 const ufCorners = r => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];   // narożniki prostokąta klocka (świat, mm)
 const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
 // moduł z palety: drzwi w wysokości wybranej prawym klawiszem na ikonie (zapamiętanej w układzie)
-const ufPalOp = p => p.op.t === 'door' ? { ...p.op, size: (UF.d && UF.d.doorSize) || 'h2480' } : p.op;
+const ufPalOp = p => p.op.t === 'door' ? (ufK() ? { ...p.op, mode: (UF.d && UF.d.doorMode) || 'flush' } : { ...p.op, size: (UF.d && UF.d.doorSize) || 'h2480' }) : p.op;
 const UF_HS = [1984, 2480, 2976, 3472, 3968, 4464, 4960];      // wysokości od 198,4 w górę (co 49,6)
 // ramy mają najwyżej 248 cm — wyższa ścianka to rama 248 + niższa rama na niej (np. 347,2 = 248 + 99,2); od dołu do góry
-const ufStack = h => { const out = []; let r = Math.round(h); while (r > 2480 + 1) { out.push(2480); r -= 2480; } if (r > 1) out.push(r); return out; };
+const ufStack = h => { if (ufK()) return [Math.round(h)]; const out = []; let r = Math.round(h); while (r > 2480 + 1) { out.push(2480); r -= 2480; } if (r > 1) out.push(r); return out; };
 const ufStackTxt = h => ufStack(h).length > 1 ? ufStack(h).map(v => lenPL(v)).join(' + ') : '';
 const UF = { open: false, pid: '', d: null, sel: null, rot: false, undo: [], tr: null, tmr: 0, busy: false, ro: null, drag: null, pd: null, geo: null };
 const ufUid = () => Math.random().toString(36).slice(2, 8);
-const ufPalLabel = p => p.op.t === 'eltex' ? 'rama ELTEX (własna długość, wysokość i grubość)' : p.op.t === 'post' ? `słupek ${lenPL(80)}` : p.op.t === 'door' ? `drzwi ${lenPL(992)} ▸ ${lenPL(p.op.size === 'h2480' ? 2480 : 1984)}` : `ścianka ${lenPL(p.op.len)}`;
-const ufStandDefault = () => ({ L: 6000, D: 3000, open: { n: false, e: false, s: true, w: false }, ext: true });
+const ufPalLabel = p => ufK() && p.op.t === 'door' ? `drzwi w module ${lenPL(UF_KW)} — ${p.op.mode === 'proud' ? 'wystające' : 'zlicowane'}` : ufK() ? `moduł K-Frame ${lenPL(p.op.len)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}` : p.op.t === 'eltex' ? 'rama ELTEX (własna długość, wysokość i grubość)' : p.op.t === 'post' ? `słupek ${lenPL(80)}` : p.op.t === 'door' ? `drzwi ${lenPL(992)} ▸ ${lenPL(p.op.size === 'h2480' ? 2480 : 1984)}` : `ścianka ${lenPL(p.op.len)}`;
+const ufStandDefault = k => ({ L: 6000, D: 3000, open: { n: false, e: false, s: true, w: false }, ext: !k });
 const ufEnd = p => [p.x + UF_DIR[p.dir][0] * p.len, p.y + UF_DIR[p.dir][1] * p.len];
 function ufRect(p) {
   const hx = ufTh(p) / 2, L = p.len, x = p.x, y = p.y;
@@ -6612,7 +6635,7 @@ function ufGeom(d) {
   runs.forEach(r => {
     const walls = r.ops.filter(o => o.t !== 'post'), f = walls[0];
     r.dir = r.ori === 0 ? 0 : 1;
-    r.key = 'uf:' + f.id; r.h = f.h || d.H; r.manual = !!f.back;
+    r.key = 'uf:' + f.id; r.h = f.h || d.H; r.manual = !!f.back; r.mount = f.mount || d.mount || 'seg';
     r.backW = walls.reduce((s, o) => s + o.len, 0); r.mods = walls.length;
     // ścianka na zamkniętym boku stoiska (za nią sąsiad): wysłona zewnętrzna od 248 w górę
     r.closed = '';
@@ -6643,7 +6666,7 @@ function ufGeom(d) {
   if (st) { x0 = Math.min(x0, 0); y0 = Math.min(y0, 0); x1 = Math.max(x1, st.L); y1 = Math.max(y1, st.D); }
   // wysłona zewnętrzna: jeden pas na CAŁY zamknięty bok stoiska (długość boku × wysokość ponad 248), gdy ścianki na tym boku są wyższe niż 248
   const ext = [];
-  if (st && st.ext) ['n', 'e', 's', 'w'].forEach(k => {
+  if (st && st.ext && !ufK()) ['n', 'e', 's', 'w'].forEach(k => {
     const rs = runs.filter(r => r.closed === k); if (!rs.length) return;
     const H = Math.max(...rs.map(r => r.h)); if (H <= UF_EXT_FROM) return;
     ext.push({ side: k, key: 'uf:ext:' + k, w: k === 'n' || k === 's' ? st.L : st.D, h: H - UF_EXT_FROM, H });
@@ -6651,6 +6674,7 @@ function ufGeom(d) {
   // gołe końce ścianek (aluminium z otworami): koniec ścianki, do którego nic nie przylega → zaślepka PCW 8 cm × wysokość ścianki
   const ends = [];
   runs.forEach(r => {
+    if (ufK()) return;                                            // K-Frame: bez zaślepek końców
     const ps = r.parts, ax = r.ori === 0 ? 'x' : 'y';
     [[ps[0], -1], [ps[ps.length - 1], 1]].forEach(([q, sg]) => {
       if (q.op.t === 'post') return;
@@ -6752,20 +6776,25 @@ function ufPublic(st, parts) {
   f.region = (x, y) => { const i = Math.floor(x / c), j = Math.floor(y / c); return i < 0 || j < 0 || i >= nx || j >= ny ? 0 : reg[j * nx + i]; };
   return f;
 }
+// drzwi do elementu: EasyFrame — drzwi to cały moduł (SEG 99,2 × 248 / 198,4); K-Frame — skrzydło 80 × 200 na środku modułu (zlicowane albo wystające)
+function ufDoorSpec(o, off, h) {
+  if (ufK()) return { on: true, from: 'left', dist: Math.round((off + Math.max(0, (o.len - UF_KDW) / 2)) * 10) / 10, std: true, hinge: o.hinge || 'l', swing: o.swing || 'in', mode: o.mode === 'proud' ? 'proud' : 'flush' };
+  return { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' };
+}
 // dane elementu dla lica (grafika SEG z przodu): szerokość odcinka; składniki = moduły i słupki w tym odcinku,
 // po kolei od lewej patrząc na grafikę z wnętrza stoiska (np. ścianka pionowa oglądana od prawej: od dołu planu w górę)
 function ufFaceSpec(fc) {
   const h = fc.h, rev = (fc.ori === 0) === (fc.inn < 0), items = rev ? fc.items.slice().reverse() : fc.items, doors = []; let off = 0;
   for (const it of items) {   // wszystkie drzwi w licu, od lewej patrząc na grafikę (np. do zaplecza i do pokoju rozmów)
     const o = it.op;
-    if (o.t === 'door') doors.push({ on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' });
+    if (o.t === 'door' && (!ufK() || it.len >= o.len - 1)) doors.push(ufDoorSpec(o, off, h));
     off += it.len;
   }
   const door = doors[0] || null, doorsMore = doors.slice(1);
   const terms = items.map(it => numIn(fromMM(it.len)));
   const elx = items.find(it => it.op.t === 'eltex');
   return { w: fc.b - fc.a, h, door, doorsMore, doorOps: items.filter(it => it.op.t === 'door').map(it => it.op), wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: doors.length,
-    notes: elx ? `rama ELTEX, grubość ${lenPL(ufTh(elx.op))} ${UNIT()}` : '' };
+    notes: ufK() ? ufKNote(fc.run) : elx ? `rama ELTEX, grubość ${lenPL(ufTh(elx.op))} ${UNIT()}` : '', mount: fc.run.mount };
 }
 // wysłona zaplecza (Blackback od wewnątrz pomieszczenia): same moduły lica, po kolei od lewej patrząc na wysłonę z pomieszczenia; z drzwiami, gdy w licu są drzwi
 function ufZapSpec(zf) {
@@ -6773,7 +6802,7 @@ function ufZapSpec(zf) {
   const doors = []; let off = 0;
   for (const it of items) {   // wszystkie drzwi w licu zaplecza
     const o = it.op;
-    if (o.t === 'door') doors.push({ on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' });
+    if (o.t === 'door' && (!ufK() || it.len >= o.len - 1)) doors.push(ufDoorSpec(o, off, h));
     off += it.len;
   }
   const terms = items.map(it => numIn(fromMM(it.len))), door = doors[0] || null, doorsMore = doors.slice(1);
@@ -6787,12 +6816,12 @@ function ufSpec(run, role) {
   const w = items.reduce((s, o) => s + o.len, 0), h = back ? run.backH : run.h;
   let door = null, off = 0;
   if (!back || run.backKind === 'manual') for (const o of items) {
-    if (o.t === 'door') { door = { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in' }; break; }
+    if (o.t === 'door') { door = ufDoorSpec(o, off, h); break; }
     off += o.len;
   }
   const terms = items.map(o => numIn(fromMM(o.len)));
   return { w, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(o => o.t === 'door').length,
-    notes: '' };
+    notes: ufK() ? ufKNote(run) : '', mount: run.mount };
 }
 const UF_SIDE = { n: 'górny', e: 'prawy', s: 'dolny', w: 'lewy' };
 const ufExtSpec = e => ({ w: e.w, h: e.h, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0, notes: `wysłona zewnętrzna od ${lenPL(UF_EXT_FROM)} ${UNIT()} w górę — cały ${UF_SIDE[e.side]} bok stoiska (za nim sąsiad)` });
@@ -6866,10 +6895,30 @@ function ufFit(p) {
 const ufPostClash = (parts, piece, skipId) => piece.t === 'post' && parts.some(q => q.op.t === 'post' && q.op.id !== skipId && q.op.id !== piece.id && (() => { const r = ufRect(piece); return r.x0 <= q.x1 + 3 && q.x0 <= r.x1 + 3 && r.y0 <= q.y1 + 3 && q.y0 <= r.y1 + 3; })());
 const UF_POST_MSG = 'Dwa słupki nie stoją obok siebie — w narożniku jeden słupek obsługuje ściankę wzdłużną i poprzeczną';
 
+// K-Frame: strzałki przy zaznaczonej ściance — przesuwają ją o krok (Ctrl = 10×; wall = cała ścianka, czyli wszystkie moduły w linii)
+function ufKMove(dx, dy, wall, big) {
+  const p = ufFind(UF.sel); if (!p || UF.busy) return;
+  const st = (Number(UF.step) || 50) * (big ? 10 : 1), r = wall ? ufSelRun() : null, ids = r ? r.ops.map(o => o.id) : [p.id];
+  ufPush(); ids.forEach(id => { const q = ufFind(id); if (q) { q.x += dx * st; q.y += dy * st; ufFit(q); } }); ufChanged();
+}
+// styk prostopadły zaznaczonego modułu z licem innej ścianki: odległości od jej końców
+function ufKInfo() {
+  const p = ufFind(UF.sel); if (!p) return '';
+  const geo = UF.geo || ufGeom(UF.d), hp = (p.dir & 1) === 0, th = ufTh(p), out = [], ends = [[p.x, p.y], ufEnd(p)];
+  geo.parts.forEach(q => {
+    if (q.op.id === p.id || ((q.dir & 1) === 0) === hp) return;
+    ends.forEach(e => {
+      if (hp) { // moduł poziomy dotyka pionowej ścianki q: odległości po jej wysokości na planie
+        if ((Math.abs(e[0] - q.x0) < 2 || Math.abs(e[0] - q.x1) < 2) && e[1] >= q.y0 - 1 && e[1] <= q.y1 + 1) out.push(`od górnego końca ${lenPL(Math.round(e[1] - th / 2 - q.y0))} · od dolnego ${lenPL(Math.round(q.y1 - e[1] - th / 2))}`);
+      } else if ((Math.abs(e[1] - q.y0) < 2 || Math.abs(e[1] - q.y1) < 2) && e[0] >= q.x0 - 1 && e[0] <= q.x1 + 1) out.push(`od lewego końca ${lenPL(Math.round(e[0] - th / 2 - q.x0))} · od prawego ${lenPL(Math.round(q.x1 - e[0] - th / 2))}`);
+    });
+  });
+  return out.length ? `<b class="uf-bk">dolega do ścianki: ${out.join(' ; ')} ${UNIT()}</b>` : '';
+}
 function ufNewPiece(op, x, y, dir, from) {
   const n = { id: ufUid(), ...op, x, y, dir };
   if (n.t === 'door') { n.hinge = 'l'; n.swing = 'in'; }
-  if (from && from.t !== 'post') { n.back = !!from.back; if (from.h) n.h = from.h; }
+  if (from && from.t !== 'post') { n.back = !!from.back; if (from.h) n.h = from.h; if (from.mount) n.mount = from.mount; }
   return n;
 }
 // klik w paletę: klocek dokłada się na końcu zaznaczonego (albo ostatniego) klocka
@@ -6900,6 +6949,7 @@ function ufRotate(cw = true) {
   else { p.dir = (p.dir + (cw ? 1 : 3)) % 4; ufFit(p); }
   ufChanged();
 }
+function ufSetMount(v) { const r = ufSelRun(); if (!r) { ufPush(); UF.d.mount = v; ufChanged(); return; } ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.mount = v; }); ufChanged(); }
 function ufSetBack(v) { const r = ufSelRun(); if (!r) { toast('Zaznacz ściankę (kliknij jej klocek)', 'error'); ufSyncBar(); return; } ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.back = v; }); ufChanged(); }
 function ufSetH(v) { const r = ufSelRun(); if (!r) return; ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.h = v; }); ufChanged(); }
 function ufSyncBar() {
@@ -6911,7 +6961,8 @@ function ufSyncBar() {
   if (act !== $('uf-sl')) $('uf-sl').value = numIn(fromMM(st.L)); if (act !== $('uf-sd')) $('uf-sd').value = numIn(fromMM(st.D));
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
   $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
-  $('uf-look').textContent = d.look === 'bare' ? '▦ 3D: gołe ramy' : '▮ 3D: pełne ściany';
+  $('uf-look').textContent = d.look === 'bare' ? (ufK() ? '▦ 3D: kratownica' : '▦ 3D: gołe ramy') : '▮ 3D: pełne ściany';
+  $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mount) || d.mount || 'seg'; if (document.activeElement !== $('uf-step')) $('uf-step').value = UF.step || 50;
   const all = ufRuns(), n = all.length;
   let t;
   if (r) {
@@ -6919,7 +6970,7 @@ function ufSyncBar() {
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(UF_EXT_FROM)} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= UF_EXT_FROM ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(UF_EXT_FROM) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? 'ramy ' + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + `<span class="uf-keys">zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij</span>`;
+  $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '') + `<span class="uf-keys">${ufK() ? UF_KKEYS : `zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij`}</span>`;
 }
 
 // ---------- rysowanie widoku z góry ----------
@@ -6930,11 +6981,12 @@ function ufDoorGeom(p, d, pub) {
   let nIn = horiz ? [0, (st.D / 2 - cy) >= 0 ? 1 : -1] : [(st.L / 2 - cx) >= 0 ? 1 : -1, 0];
   if (pub && pub(cx + nIn[0] * 150, cy + nIn[1] * 150) && !pub(cx - nIn[0] * 150, cy - nIn[1] * 150)) nIn = [-nIn[0], -nIn[1]];
   const f = [-nIn[0], -nIn[1]], lv = [f[1], -f[0]];                 // f = kierunek patrzenia (od wnętrza na ścianę), lv = lewa strona
-  const ends = horiz ? [[r.x0, cy], [r.x1, cy]] : [[cx, r.y0], [cx, r.y1]];
+  const ins = ufK() ? Math.max(0, (p.len - UF_KDW) / 2) : 0;           // K-Frame: skrzydło 80 cm na środku modułu
+  const ends = horiz ? [[r.x0 + ins, cy], [r.x1 - ins, cy]] : [[cx, r.y0 + ins], [cx, r.y1 - ins]];
   const dotL = e => (e[0] - cx) * lv[0] + (e[1] - cy) * lv[1];
   const hingeEnd = (p.hinge || 'l') === 'l' ? (dotL(ends[0]) > dotL(ends[1]) ? ends[0] : ends[1]) : (dotL(ends[0]) > dotL(ends[1]) ? ends[1] : ends[0]);
   const free = hingeEnd === ends[0] ? ends[1] : ends[0], side = (p.swing || 'in') === 'in' ? nIn : [-nIn[0], -nIn[1]];
-  return { hinge: hingeEnd, free, side };
+  return { hinge: hingeEnd, free, side, front: f };
 }
 function ufDraw() {
   const cv = $('uf-cv'); if (!cv || !UF.open) return;
@@ -6991,10 +7043,10 @@ function ufDraw() {
   const sel = UF.sel;
   geo.parts.forEach(p => {
     const o = p.op, bk = p.runs.some(rn => rn.backKind), x = X(p.x0), y = Y(p.y0), w = (p.x1 - p.x0) * s, h = (p.y1 - p.y0) * s;
-    g.fillStyle = o.t === 'eltex' ? '#90cdf4' : o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#e9ecef';
+    g.fillStyle = ufK() ? (o.t === 'door' ? '#e8f1fa' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#f0e4cc') : o.t === 'eltex' ? '#90cdf4' : o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#e9ecef';
     g.fillRect(x, y, w, h); g.strokeStyle = o.t === 'eltex' ? UF_ELTEX_COL : '#4a5568'; g.lineWidth = o.t === 'eltex' ? 1.6 : 1; g.strokeRect(x, y, w, h);
     if (o.t === 'door') {
-      const dg = ufDoorGeom(o, d, geo.pub), len = o.len * s;
+      const dg = ufDoorGeom(o, d, geo.pub), len = (ufK() ? UF_KDW : o.len) * s;
       g.strokeStyle = '#2b6cb0'; g.lineWidth = 1.3; g.beginPath();
       const hx = X(dg.hinge[0]), hy = Y(dg.hinge[1]), fx = X(dg.free[0]), fy = Y(dg.free[1]);
       g.moveTo(hx, hy); g.lineTo(hx + dg.side[0] * len, hy + dg.side[1] * len);
@@ -7002,6 +7054,13 @@ function ufDraw() {
       let df = a2 - a1; while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
       g.arc(hx, hy, len, a1, a2, df < 0); g.stroke();
       g.fillStyle = '#2b6cb0'; g.beginPath(); g.arc(hx, hy, 3, 0, Math.PI * 2); g.fill();
+      if (ufK()) { // skrzydło: zlicowane (w grubości ścianki, lico z płytą) albo wystające (przed płytą); front = strona płyty / grafiki
+        const lt = 40, off = o.mode === 'proud' ? ufTh(o) / 2 + lt / 2 : ufTh(o) / 2 - lt / 2, fr = dg.front, ux = dg.free[0] - dg.hinge[0], uy = dg.free[1] - dg.hinge[1], ul = Math.hypot(ux, uy) || 1;
+        const c = (u, v) => [X(dg.hinge[0] + ux / ul * u + fr[0] * v), Y(dg.hinge[1] + uy / ul * u + fr[1] * v)];
+        g.beginPath(); [c(0, off - lt / 2), c(ul, off - lt / 2), c(ul, off + lt / 2), c(0, off + lt / 2)].forEach(([qa, qb], qi) => qi ? g.lineTo(qa, qb) : g.moveTo(qa, qb)); g.closePath();
+        g.fillStyle = o.mode === 'proud' ? '#ed8936' : '#2b6cb0'; g.fill(); g.strokeStyle = '#1a365d'; g.lineWidth = 1; g.stroke();
+        if (o.len * s > 60) { const m1 = c(ul / 2, off), tx = m1[0] + fr[0] * 15, ty = m1[1] + fr[1] * 15; g.fillStyle = o.mode === 'proud' ? '#9c4221' : '#1a4f86'; g.font = `700 10px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.mode === 'proud' ? 'wystające' : 'zlicowane', tx, ty); }
+      }
     }
     if (o.t !== 'post' && o.len * s > 26) {
       const lab = lenPL(o.len), vert = (p.dir & 1) === 1;
@@ -7013,6 +7072,16 @@ function ufDraw() {
     }
     if (o.id === sel) { g.strokeStyle = '#2b6cb0'; g.lineWidth = 3; g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
   });
+  // K-Frame: płyta od frontu (brązowy pasek przy licu z grafiką) — i z tyłu, gdy ścianka ma wysłonę
+  if (ufK()) {
+    const band = (ori, f, inn, a, b, col) => { const t = 22; g.fillStyle = col; if (ori === 0) g.fillRect(X(a), Y(Math.min(f, f - inn * t)), (b - a) * s, t * s); else g.fillRect(X(Math.min(f, f - inn * t)), Y(a), t * s, (b - a) * s); };
+    geo.faces.forEach(fc => band(fc.ori, fc.f, fc.inn, fc.a, fc.b, '#a8743c'));
+    geo.runs.forEach(rn => {
+      if (rn.backKind !== 'manual') return;
+      const inn0 = rn.line >= (rn.ori === 0 ? st.D : st.L) / 2 ? -1 : 1, k0 = rn.ori === 0 ? 'x' : 'y';
+      band(rn.ori, rn.line - inn0 * (rn.th || UF_KT) / 2, -inn0, Math.min(...rn.parts.map(q => q[k0 + '0'])), Math.max(...rn.parts.map(q => q[k0 + '1'])), '#c98f4f');
+    });
+  }
   // ELTEX: kropki w narożnikach — chwyć narożnik i przyłóż go do narożnika słupka / ramy (przyciąga się)
   geo.parts.forEach(q => {
     if (q.op.t !== 'eltex') return;
@@ -7110,6 +7179,7 @@ function ufDraw() {
   if (dr && dr.moved) {
     const skip = dr.kind === 'move' ? dr.grp : null;
     ufAnchors(geo.parts, skip).forEach(a => { g.beginPath(); g.arc(X(a.x), Y(a.y), a === dr.an ? 8 : 4, 0, Math.PI * 2); g.fillStyle = a === dr.an ? '#38a169' : 'rgba(56,161,105,.45)'; g.fill(); });
+    if (dr.face) { const f = dr.face; g.strokeStyle = '#38a169'; g.lineWidth = 3; g.beginPath(); if (f.hz) { g.moveTo(X(f.a), Y(f.fc)); g.lineTo(X(f.b), Y(f.fc)); } else { g.moveTo(X(f.fc), Y(f.a)); g.lineTo(X(f.fc), Y(f.b)); } g.stroke(); }
     if (dr.kind === 'new' && dr.ghost) {
       const gp = dr.ghost, rc = ufRect(gp);
       g.globalAlpha = .6; g.fillStyle = gp.t === 'post' ? '#d62d20' : gp.t === 'door' ? '#cfe3f6' : '#e9ecef'; g.fillRect(X(rc.x0), Y(rc.y0), (rc.x1 - rc.x0) * s, (rc.y1 - rc.y0) * s);
@@ -7123,6 +7193,19 @@ function ufDraw() {
     if (q) { const hx = X((q.x0 + q.x1) / 2), hy = Y(q.y0) - 28; UF.hit = { x: hx, y: hy };
       g.beginPath(); g.arc(hx, hy, 14, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = 2; g.stroke();
       g.fillStyle = '#2b6cb0'; g.font = `700 17px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('↻', hx, hy + 1); }
+  }
+  // K-Frame: niebieskie strzałki przy zaznaczonej ściance — przesuwanie względem innych ścianek
+  UF.kar = [];
+  if (ufK() && sel && !(UF.drag && UF.drag.moved)) {
+    const q = geo.parts.find(p => p.op.id === sel);
+    if (q) {
+      const cx0 = X((q.x0 + q.x1) / 2), cy0 = Y((q.y0 + q.y1) / 2), hw = (q.x1 - q.x0) * s / 2, hh = (q.y1 - q.y0) * s / 2;
+      [[-1, 0, '◀', cx0 - hw - 20, cy0], [1, 0, '▶', cx0 + hw + 20, cy0], [0, -1, '▲', cx0 + 30, cy0 - hh - 20], [0, 1, '▼', cx0 + 30, cy0 + hh + 20]].forEach(([dx, dy, gl, ax, ay]) => {
+        UF.kar.push({ dx, dy, x: ax, y: ay });
+        g.beginPath(); g.arc(ax, ay, 12, 0, Math.PI * 2); g.fillStyle = '#2b6cb0'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+        g.fillStyle = '#fff'; g.font = `700 12px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(gl, ax, ay + 1);
+      });
+    }
   }
   if (!d.pieces.length) {
     g.fillStyle = '#718096'; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -7154,11 +7237,29 @@ function ufFlush(p, an) {
   const st = UF.d.stand, hor = (p.dir & 1) === 0, inn = hor ? (st.D / 2 - an.y >= 0 ? 1 : -1) : (st.L / 2 - an.x >= 0 ? 1 : -1);
   return hor ? { ...p, y: p.y + inn * d0 / 2 } : { ...p, x: p.x + inn * d0 / 2 };
 }
+// K-Frame: koniec modułu przyciąga się do lica innej ścianki w dowolnym miejscu (styk prostopadły, T); wzdłuż lica co 5 cm, przy końcu ścianki równo z jej narożnikiem
+function ufFaceSnap(piece, wx, wy, skip, geo) {
+  const thr = 45 / UF.tr.s, th = ufTh(piece); let best = null, bd = thr;
+  geo.parts.forEach(q => {
+    if ((skip && skip.has(q.op.id)) || (piece.id && q.op.id === piece.id) || q.op.t === 'post') return;
+    const hz = (q.dir & 1) === 0, a = hz ? q.x0 : q.y0, b = hz ? q.x1 : q.y1, al = hz ? wx : wy, cr = hz ? wy : wx;
+    if (al < a - thr || al > b + thr) return;
+    [[hz ? q.y0 : q.x0, -1], [hz ? q.y1 : q.x1, 1]].forEach(([fc, sg]) => { const dd = Math.abs(cr - fc); if (dd < bd) { bd = dd; best = { hz, fc, sg, a, b, al }; } });
+  });
+  if (!best) return null;
+  const { hz, fc, sg, a, b, al } = best, lo = a + th / 2, hi = b - th / 2, ct = 60 / UF.tr.s;
+  let t = a + Math.round((al - a) / 50) * 50;
+  if (Math.abs(al - lo) < ct) t = lo; else if (Math.abs(al - hi) < ct) t = hi;
+  t = Math.max(Math.min(lo, hi), Math.min(Math.max(lo, hi), t));
+  const dir = hz ? (sg < 0 ? 3 : 1) : (sg < 0 ? 2 : 0);
+  return { piece: { ...piece, len: piece.len0 || piece.len, dir, x: hz ? t : fc, y: hz ? fc : t }, face: { hz, fc, a, b } };
+}
 function ufSnap(piece, wx, wy, skip, grab) {
   const geo = ufGeom(UF.d), anchors = ufAnchors(geo.parts, skip), thr = 60 / UF.tr.s;
   let an = null, best = thr;
   anchors.forEach(a => { const dd = Math.hypot(a.x - wx, a.y - wy); if (dd < best) { best = dd; an = a; } });
   if (an) { const n = ufFlush({ ...piece, x: an.x, y: an.y, dir: an.dir }, an); return { piece: n, an }; }
+  if (ufK()) { const fs = ufFaceSnap(piece, wx, wy, skip, geo); if (fs) return { piece: fs.piece, an: null, face: fs.face }; }
   piece = { ...piece, len: piece.len0 || piece.len };
   const sn = v => Math.round(v / 50) * 50, et = 30 / UF.tr.s;
   let cand;
@@ -7209,13 +7310,13 @@ function ufDragMove(e) {
   if (dr.kind === 'new') {
     const over = px >= 0 && py >= 0 && px <= $('uf-cv').clientWidth && py <= $('uf-cv').clientHeight;
     dr.over = over;
-    if (over) { const r = ufSnap(dr.op, wx, wy, null, null); ufFit(r.piece); dr.ghost = r.piece; dr.an = r.an; } else { dr.ghost = null; dr.an = null; }
+    if (over) { const r = ufSnap(dr.op, wx, wy, null, null); ufFit(r.piece); dr.ghost = r.piece; dr.an = r.an; dr.face = r.face || null; } else { dr.ghost = null; dr.an = null; dr.face = null; }
   } else if (dr.grp.size > 1) { // cała ścianka: przesunięcie bez zaczepów
     const sn = v => Math.round(v / 50) * 50, dx = sn(wx - dr.wx0), dy = sn(wy - dr.wy0);
     UF.d.pieces.forEach(p => { if (dr.grp.has(p.id)) { const o = dr.orig.get(p.id); p.x = o.x + dx; p.y = o.y + dy; ufFit(p); } });
   } else {
     const p = ufFind(dr.id), o = dr.orig.get(dr.id), r = ufSnap({ ...p, x: o.x, y: o.y, dir: o.dir }, wx, wy, dr.grp, { x: o.x, y: o.y, px: dr.wx0, py: dr.wy0 });
-    p.x = r.piece.x; p.y = r.piece.y; p.dir = r.piece.dir; ufFit(p); dr.an = r.an;
+    p.x = r.piece.x; p.y = r.piece.y; p.dir = r.piece.dir; ufFit(p); dr.an = r.an; dr.face = r.face || null;
     if (r.an && !(p.t === 'post') && r.an.owner && r.an.owner.t !== 'post') { p.back = !!r.an.owner.back; p.h = r.an.owner.h; }
   }
   ufDraw();
@@ -7268,6 +7369,8 @@ function ufPointer(e) {
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py);
   const ar = (UF.arrows || []).find(q => Math.hypot(q.x - px, q.y - py) < 16);
   if (ar) { ufPush(); UF.d.stand.open[ar.k] = !UF.d.stand.open[ar.k]; ufChanged(); return; }
+  const ka = (UF.kar || []).find(a => Math.hypot(a.x - px, a.y - py) < 14);
+  if (ka) { ufKMove(ka.dx, ka.dy, e.shiftKey, e.ctrlKey); return; }
   if (UF.hit && Math.hypot(UF.hit.x - px, UF.hit.y - py) < 16) { ufRotate(true); return; }
   // kropka w narożniku ramy ELTEX: przeciąganie za ten narożnik
   const ec = (UF.geo || ufGeom(UF.d)).parts.filter(q => q.op.t === 'eltex').flatMap(q => ufCorners(q).map((c, ci) => ({ q, ci, c })))
@@ -7378,8 +7481,8 @@ function ufContext(e) {
   UF.sel = q.op.id; UF.rot = false; ufDraw(); ufSyncBar();
   const o = q.op, m = document.createElement('div'); m.className = 'menu mark-menu';
   const row = (k, v, lab, cur) => `<button type="button" data-uk="${k}" data-uv="${v}">${cur === v ? '● ' : '○ '}${lab}</button>`;
-  m.innerHTML = `<div class="mm-h">Drzwi · ${lenPL(o.len)} ▸ ${lenPL(o.size === 'h2480' ? 2480 : 1984)}</div>
-    ${UF_DOOR_HS.map(([k, v]) => row('size', k, 'wysokość ' + lenPL(v), o.size || 'h2480')).join('')}<div class="mm-sep"></div>
+  m.innerHTML = `<div class="mm-h">Drzwi · ${ufK() ? lenPL(o.len) + ' w module' : lenPL(o.len) + ' ▸ ' + lenPL(o.size === 'h2480' ? 2480 : 1984)}</div>
+    ${ufK() ? row('mode', 'flush', 'drzwi zlicowane z płytą', o.mode || 'flush') + row('mode', 'proud', 'drzwi wystające przed płytę', o.mode || 'flush') : UF_DOOR_HS.map(([k, v]) => row('size', k, 'wysokość ' + lenPL(v), o.size || 'h2480')).join('')}<div class="mm-sep"></div>
     ${row('hinge', 'l', 'zawiasy po lewej', o.hinge || 'l')}${row('hinge', 'r', 'zawiasy po prawej', o.hinge || 'l')}<div class="mm-sep"></div>
     ${row('swing', 'in', 'otwierane do środka', o.swing || 'in')}${row('swing', 'out', 'otwierane na zewnątrz', o.swing || 'in')}`;
   document.body.appendChild(m);
@@ -7391,6 +7494,15 @@ function ufContext(e) {
 // prawy klawisz na ikonie drzwi w palecie: wysokość kolejnych drzwi
 function ufPalDoorMenu(e) {
   e.preventDefault(); closeMarkMenu();
+  if (ufK()) {
+    const mc = UF.d.doorMode || 'flush', mk = document.createElement('div'); mk.className = 'menu mark-menu';
+    mk.innerHTML = `<div class="mm-h">Drzwi w module ${lenPL(UF_KW)}</div>` + [['flush', 'zlicowane z płytą'], ['proud', 'wystające przed płytę']].map(([k, v]) => `<button type="button" data-dm="${k}">${mc === k ? '● ' : '○ '}${v}</button>`).join('');
+    document.body.appendChild(mk); const rc0 = mk.getBoundingClientRect();
+    mk.style.left = clamp(e.clientX, 6, innerWidth - rc0.width - 6) + 'px'; mk.style.top = clamp(e.clientY, 6, innerHeight - rc0.height - 6) + 'px';
+    setTimeout(() => document.addEventListener('pointerdown', ev => { if (!mk.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
+    mk.querySelectorAll('[data-dm]').forEach(b => b.onclick = () => { UF.d.doorMode = b.dataset.dm; closeMarkMenu(); ufPalRender(); ufChanged(); });
+    return;
+  }
   const cur = UF.d.doorSize || 'h2480', m = document.createElement('div'); m.className = 'menu mark-menu';
   m.innerHTML = `<div class="mm-h">Drzwi ${lenPL(992)} — wysokość</div>` + UF_DOOR_HS.map(([k, v]) => `<button type="button" data-ds="${k}">${cur === k ? '● ' : '○ '}${lenPL(v)} ${UNIT()}</button>`).join('');
   document.body.appendChild(m);
@@ -7442,7 +7554,7 @@ function ufRender3D(o) {
     if (pick < 0) for (let i = 0; i < n; i++) if (!done.has(i) && (pick < 0 || key(boxes[i]) < key(boxes[pick]))) pick = i;
     done.add(pick); order.push(pick);
   }
-  const LW = pv ? .6 : 1.1, bare = (o.look || d.look) === 'bare';
+  const LW = pv ? .6 : 1.1, bare = (o.look || d.look) === 'bare', KF = d.sys === 'k';
   const poly = (pts, fill) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = '#1a202c'; g.lineWidth = LW; g.stroke(); };
   // ściana pełna: wypełnienie bez szwów między modułami (krawędź rysowana tylko tam, gdzie nie styka się sąsiedni moduł)
   const face = (pts, fill, hide) => {
@@ -7450,8 +7562,20 @@ function ufRender3D(o) {
     g.strokeStyle = '#1a202c'; g.lineWidth = LW; g.beginPath();
     pts.forEach((a, k) => { if (hide[k]) return; const b = pts[(k + 1) % pts.length]; g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }); g.stroke();
   };
+  // K-Frame: kratownica z kantówek — obrzeże i przegrody (kantówka 45 mm), w oczkach pusto
+  const lattice = (o, du, dv, U, V, fill) => {
+    const q = (u, v) => [o[0] + du[0] * u + dv[0] * v, o[1] + du[1] * u + dv[1] * v], k = Math.min(45, U / 4, V / 4), nu = Math.max(1, Math.round(U / 330)), nv = Math.max(1, Math.round(V / 470));
+    g.beginPath(); [q(0, 0), q(U, 0), q(U, V), q(0, V)].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+    for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+      const u0 = i === 0 ? k : i * U / nu + k / 2, u1 = i === nu - 1 ? U - k : (i + 1) * U / nu - k / 2, v0 = j === 0 ? k : j * V / nv + k / 2, v1 = j === nv - 1 ? V - k : (j + 1) * V / nv - k / 2;
+      if (u1 - u0 < 2 || v1 - v0 < 2) continue;
+      [q(u0, v0), q(u1, v0), q(u1, v1), q(u0, v1)].forEach(([x, y], n) => n ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+    }
+    g.fillStyle = fill; g.fill('evenodd'); g.strokeStyle = '#1a202c'; g.lineWidth = LW; g.stroke();
+  };
   // goła rama: sam profil aluminiowy dookoła, w środku pusto (widać, co jest za ramą)
   const frame = (o, du, dv, U, V, fill) => {
+    if (KF) return lattice(o, du, dv, U, V, fill);
     const q = (u, v) => [o[0] + du[0] * u + dv[0] * v, o[1] + du[1] * u + dv[1] * v], k = Math.min(45, U / 3, V / 3);
     g.beginPath(); [q(0, 0), q(U, 0), q(U, V), q(0, V)].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
     if (U > 3 * k && V > 3 * k) { [q(k, k), q(k, V - k), q(U - k, V - k), q(U - k, k)].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); }
@@ -7511,7 +7635,7 @@ function ufRender3D(o) {
       else {
         // ramy piętrowo: 248 na dole, niższa rama na niej
         // ELTEX: jedna rama na całą wysokość, niebieska
-        const elx = bx.p.op.t === 'eltex', C = elx ? ['#90cdf4', '#63b3ed', '#4299e1', '#3182ce'] : ['#a3acb8', '#8f99a7', '#aeb6c1', '#949eab'];
+        const elx = bx.p.op.t === 'eltex', C = elx ? ['#90cdf4', '#63b3ed', '#4299e1', '#3182ce'] : KF ? ['#cfae75', '#bb9a62', '#d8b980', '#c3a36b'] : ['#a3acb8', '#8f99a7', '#aeb6c1', '#949eab'];
         let z0 = 0; const zs = (elx ? [h] : ufStack(h)).map(hh => { const r = [z0, hh]; z0 += hh; return r; }), at = (x, y, z) => T(x, y, z);
         zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0]); frame(at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1]); });                     // tył: północ, zachód
         zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, C[2]); frame(at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[3]); }); // przód: południe, wschód
@@ -7534,16 +7658,21 @@ function ufRender3D(o) {
         const top = cv2.length ? Math.max(0, Math.min(...cv2.map(c => c.z0))) : h, U = sd === 's' ? bx.x1 - bx.x0 : bx.y1 - bx.y0, du = sd === 's' ? ux : uy;
         const at = z => sd === 's' ? T(bx.x0, bx.y1, z) : T(bx.x1, bx.y0, z), q = (z, u) => { const p0 = at(z); return [p0[0] + du[0] * u, p0[1] + du[1] * u]; };
         if (post) poly([q(0, 0), q(0, U), q(top, U), q(top, 0)], '#aeb6c1');
-        else { let z = 0; ufStack(h).forEach(hh => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#4a5568'); frame(at(z), du, vZ, U, z1 - z, '#aeb6c1'); } z += hh; }); }
+        else { let z = 0; ufStack(h).forEach(hh => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#4a5568'); frame(at(z), du, vZ, U, z1 - z, KF ? '#d2b27a' : '#aeb6c1'); } z += hh; }); }
         if (top < h - 1) poly([q(top, 0), q(top, U), q(h, U), q(h, 0)], col);
       };
       side(fS, 's', cp.s ? '#e4dcf5' : bk ? '#eceff3' : '#f3f5f8', [false, !!corner, false, !!(Wn && Math.abs(Wn.y1 - bx.y1) < 2)]);
       side(fE, 'e', cp.e ? '#cfc2ea' : '#dde2e9', [false, !!corner, false, !!(N && Math.abs(N.x1 - bx.x1) < 2)]);
     }
     if (bx.p.op.t === 'door') {
-      const dh = Math.min(h, bx.p.op.size === 'h2480' ? 2480 : 1984), alongX = (bx.x1 - bx.x0) >= (bx.y1 - bx.y0), ins = 70;
+      const alongX = (bx.x1 - bx.x0) >= (bx.y1 - bx.y0), dh = KF ? Math.min(h, DOOR_STD.h) : Math.min(h, bx.p.op.size === 'h2480' ? 2480 : 1984), ins = KF ? Math.max(0, ((alongX ? bx.x1 - bx.x0 : bx.y1 - bx.y0) - UF_KDW) / 2) : 70;
       if (alongX) poly([T(bx.x0 + ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, dh), T(bx.x0 + ins, bx.y1, dh)], '#bcd9f0');
       else poly([T(bx.x1, bx.y0 + ins, 0), T(bx.x1, bx.y1 - ins, 0), T(bx.x1, bx.y1 - ins, dh), T(bx.x1, bx.y0 + ins, dh)], '#9dc3e3');
+      if (KF && bx.p.op.mode === 'proud') { // skrzydło wystające 40 mm przed płytę — rysowane na ścianie, na której jest front drzwi
+        const fr = ufDoorGeom(bx.p.op, d, geo.pub).front, fv = rv(fr[0], fr[1]), e = 40;
+        if (alongX && fv[1] > 0.5) { poly([T(bx.x1 - ins, bx.y1, 0), T(bx.x1 - ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x1 - ins, bx.y1, dh)], '#dd6b20'); poly([T(bx.x0 + ins, bx.y1, dh), T(bx.x1 - ins, bx.y1, dh), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x0 + ins, bx.y1 + e, dh)], '#ed8936'); poly([T(bx.x0 + ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x0 + ins, bx.y1 + e, dh)], '#f6ad55'); }
+        else if (!alongX && fv[0] > 0.5) { poly([T(bx.x1, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1, bx.y1 - ins, dh)], '#dd6b20'); poly([T(bx.x1, bx.y0 + ins, dh), T(bx.x1, bx.y1 - ins, dh), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1 + e, bx.y0 + ins, dh)], '#ed8936'); poly([T(bx.x1 + e, bx.y0 + ins, 0), T(bx.x1 + e, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1 + e, bx.y0 + ins, dh)], '#f6ad55'); }
+      }
     }
   });
   const pos = new Map();
@@ -7641,9 +7770,9 @@ function ufRender3D(o) {
       });
     }
     g.fillStyle = '#1a202c'; g.font = `700 22px ${F}`; g.textAlign = 'left'; g.textBaseline = 'top';
-    g.fillText(`Ultra Frame — ${o.dims ? 'gołe ramy z wymiarami' : o.vis ? 'wizualizacja z grafikami' : 'widok 3D'}${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
+    g.fillText(`${KF ? 'K-Frame' : 'Ultra Frame'} — ${o.dims ? (KF ? 'kratownica z wymiarami' : 'gołe ramy z wymiarami') : o.vis ? 'wizualizacja z grafikami' : 'widok 3D'}${S.project ? ' · ' + S.project.name : ''}`, 24, 22);
     g.fillStyle = '#718096'; g.font = `400 15px ${F}`;
-    g.fillText(o.vis ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · grafiki elementów nałożone na ścianki` : o.dims ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · wymiary stoiska i wysokość ścianek w ${UNIT()}: rama 248 + nadstawka`
+    g.fillText(o.vis ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · grafiki elementów nałożone na ścianki` : o.dims ? `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · wymiary stoiska i wysokość ścianek w ${UNIT()}${KF ? '' : ': rama 248 + nadstawka'}`
       : `stoisko ${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} (${numPL(st.L * st.D / 1e6)} m²) · ${bare ? 'gołe ramy — podział na moduły' : 'pełne ściany'} · wymiary grafik w ${UNIT()} (szerokość × wysokość) · tabliczki: tkanina SEG z przodu, wysłona z tyłu`, 24, 54);
     geo.caps.forEach(c => { // zaślepki PCW: znacznik przy każdym gołym końcu (pierwszy = miejsce elementu, kolejne = dalsze miejsca)
       if (!(o.marks && o.marks.get(c.key + '|end'))) return;
@@ -7693,13 +7822,13 @@ async function ufGenerate() {
       let rec = null, mark;
       if (ex) mark = markOf(ex);
       else {
-        const wys = role === 'back';
-        rec = { num: wys ? 0 : take(usedNum), typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, doorsMore: spec.doorsMore || [], thick: '',
-          ...togValues({ wyslona: wys }, 'blackback'), frontlit: false, sidelit: false, seg: !wys, wyslona: wys, wnum: wys ? take(usedW) : null, name: '', w: spec.w, h: spec.h, d: '', qty: 1, notes: spec.notes,
+        const mt = ufK() ? ufMount(spec.mount) : null, tid = mt ? mt[2] : 'blackback', wys = role === 'back' && tid === 'blackback';
+        rec = { num: wys ? 0 : take(usedNum), typeId: tid, combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: DOOR_TYPES.includes(tid) ? spec.door : null, doorsMore: DOOR_TYPES.includes(tid) ? spec.doorsMore || [] : [], thick: '',
+          ...togValues({ wyslona: wys }, tid), frontlit: false, sidelit: false, seg: mt ? (role === 'front' && mt[3]) : !wys, wyslona: wys, wnum: wys ? take(usedW) : null, name: '', w: spec.w, h: spec.h, d: '', qty: 1, notes: spec.notes,
           wExpr: spec.wExpr, wExprUnit: spec.wExpr ? spec.wExprUnit : '', ufKey: run.key, ufRole: role, photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
         mark = markOf(rec);
       }
-      marks.set(run.key + '|' + role, { mark, color: tcol, wTxt: `${lenPL(spec.w)} × ${lenPL(spec.h)}` });
+      marks.set(run.key + '|' + role, { mark, color: ex ? typeById(ex.typeId).color : rec ? typeById(rec.typeId).color : tcol, wTxt: `${lenPL(spec.w)} × ${lenPL(spec.h)}` });
       jobs.push({ run, role, spec, ex, rec, mark });
     });
     ufGeom(UF.d).ext.forEach(e => {
@@ -7749,7 +7878,7 @@ async function ufGenerate() {
     if (photoId) await DB.update(pPhotos(pid), photoId, { url: up.url, w: up.w, h: up.h });
     else {
       const order = ++ordMax;
-      photoId = await DB.add(pPhotos(pid), { url: up.url, w: up.w, h: up.h, name: 'Ultra Frame — widok 3D', order, createdAt: nowIso(), createdBy: S.me.id });
+      photoId = await DB.add(pPhotos(pid), { url: up.url, w: up.w, h: up.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — widok 3D', order, createdAt: nowIso(), createdBy: S.me.id });
       addLog(pid, `Ultra Frame: dodano wizkę #${order} (widok 3D)`);
     }
     // druga wizka: przezroczysty podgląd (gołe ramy) z wymiarami stoiska i ścianek — bez znaczników
@@ -7761,7 +7890,7 @@ async function ufGenerate() {
       if (pB) await DB.update(pPhotos(pid), pB, { url: upB.url, w: upB.w, h: upB.h });
       else {
         const order = ++ordMax;
-        pB = await DB.add(pPhotos(pid), { url: upB.url, w: upB.w, h: upB.h, name: 'Ultra Frame — gołe ramy z wymiarami', order, createdAt: nowIso(), createdBy: S.me.id });
+        pB = await DB.add(pPhotos(pid), { url: upB.url, w: upB.w, h: upB.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — ' + (ufK() ? 'kratownica z wymiarami' : 'gołe ramy z wymiarami'), order, createdAt: nowIso(), createdBy: S.me.id });
         addLog(pid, `Ultra Frame: dodano wizkę #${order} (gołe ramy z wymiarami)`);
       }
       UF.d.photoId2 = pB;
@@ -7791,7 +7920,7 @@ async function ufGenerate() {
         if (pC) await DB.update(pPhotos(pid), pC, { url: upC.url, w: upC.w, h: upC.h });
         else {
           const order = ++ordMax;
-          pC = await DB.add(pPhotos(pid), { url: upC.url, w: upC.w, h: upC.h, name: 'Ultra Frame — wizualizacja z grafikami', order, createdAt: nowIso(), createdBy: S.me.id });
+          pC = await DB.add(pPhotos(pid), { url: upC.url, w: upC.w, h: upC.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — wizualizacja z grafikami', order, createdAt: nowIso(), createdBy: S.me.id });
           addLog(pid, `Ultra Frame: dodano wizkę #${order} (wizualizacja z grafikami)`);
         }
         UF.d.photoId3 = pC;
@@ -7817,8 +7946,8 @@ async function ufGenerate() {
 // ---------- okno edytora ----------
 // paleta modułów: krótkie napisy (ikona + wymiar), pełna nazwa w dymku; drzwi — jedna ikona, wysokość pod prawym klawiszem
 function ufPalRender() {
-  const palShort = p => p.op.t === 'eltex' ? 'ELTEX' : p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) : lenPL(p.op.len);
-  $('uf-pal').innerHTML = UF_PAL.map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? ' · prawy klawisz = wysokość drzwi' : p.op.t === 'eltex' ? ' · po upuszczeniu okno wymiarów, prawy klawisz na ramie = zmiana wymiarów' : ''}"${p.op.t === 'eltex' ? ' style="color:#90cdf4;font-weight:800"' : ''}>${p.op.t === 'door' ? '🚪 ' : p.op.t === 'post' ? '■ ' : p.op.t === 'eltex' ? '' : '▭ '}${palShort(p)}</button>`).join('');
+  const palShort = p => p.op.t === 'eltex' ? 'ELTEX' : p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? (ufK() ? lenPL(UF_KW) + (ufPalOp(p).mode === 'proud' ? ' wyst.' : ' zlic.') : lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480)) : lenPL(p.op.len);
+  $('uf-pal').innerHTML = ufPal().map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? (ufK() ? ' · prawy klawisz = drzwi zlicowane / wystające' : ' · prawy klawisz = wysokość drzwi') : p.op.t === 'eltex' ? ' · po upuszczeniu okno wymiarów, prawy klawisz na ramie = zmiana wymiarów' : ''}"${p.op.t === 'eltex' ? ' style="color:#90cdf4;font-weight:800"' : ''}>${p.op.t === 'door' ? '🚪 ' : p.op.t === 'post' ? '■ ' : p.op.t === 'eltex' ? '' : '▭ '}${palShort(p)}</button>`).join('');
   // znacznik pokoju rozmów MT — przeciągany na środek zamkniętego pomieszczenia (bez znacznika pomieszczenie to zaplecze)
   $('uf-pal').insertAdjacentHTML('beforeend', Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-room="${k}" title="${v.txt}: ${v.name} — przeciągnij na środek zamkniętego pomieszczenia; na planie: przeciągnij, prawy klawisz = zmiana / usunięcie" style="color:#90cdf4;font-weight:800">${v.txt}</button>`).join(''));
   $('uf-pal').querySelectorAll('[data-room]').forEach(b => b.onpointerdown = e => {
@@ -7828,23 +7957,57 @@ function ufPalRender() {
   });
   $('uf-pal').querySelectorAll('[data-pal]').forEach(b => b.onpointerdown = e => {
     if (e.button !== 0 || UF.busy) return; e.preventDefault();
-    const op = ufPalOp(UF_PAL.find(p => p.id === b.dataset.pal));
+    const op = ufPalOp(ufPal().find(p => p.id === b.dataset.pal));
     UF.drag = { kind: 'new', op, cx: e.clientX, cy: e.clientY, moved: false, over: false, ghost: null, an: null };
     document.addEventListener('pointermove', ufDragMove, true); document.addEventListener('pointerup', ufDragEnd, true);
   });
 }
-function openUltraFrame() { if (isViewer()) return;
-  if (!S.project) return;
-  UF.open = true; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null;
-  const saved = S.project.ultraFrame;
-  UF.d = saved ? ufMigrate(JSON.parse(JSON.stringify(saved))) : { v: 2, H: 2480, stand: ufStandDefault(), pieces: [], view: 0, photoId: '' };
-  if (!UF.d.H) UF.d.H = 2480;
+// wybór systemu ram przy otwieraniu Ultra Frame: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek + płyta od frontu)
+function ufAskSystem() {
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    const m = openModal({ title: 'Ultra Frame — jaki system ram?', body: `<div class="uf-sys">
+      <button type="button" data-sys="e"><b>EasyFrame</b><small>rama aluminiowa E80 · moduły ${lenPL(992)} / ${lenPL(496)} · słupki 8 × 8 · tkanina SEG · wysokość do ${lenPL(2480)} + nadstawki</small></button>
+      <button type="button" data-sys="k"><b>K-Frame</b><small>kratownica z kantówek i płyta od frontu · moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)} · bez słupków · ścianki prostopadle w dowolnym miejscu · różny montaż grafiki</small></button></div>`,
+      footer: `<button class="btn" data-c>Anuluj</button>`, onClose: () => fin(null) });
+    m.el.querySelectorAll('[data-sys]').forEach(b => b.onclick = () => { fin(b.dataset.sys); m.close(); });
+    m.el.querySelector('[data-c]').onclick = () => m.close();
+  });
+}
+function ufFreshLayout(sys, keep) {
+  const k = sys === 'k';
+  return { ...(keep || {}), v: 2, sys, H: k ? UF_KH : 2480, stand: ufStandDefault(k), pieces: [], rooms: [], view: 0, mount: 'seg', doorMode: 'flush', photoId: keep ? keep.photoId || '' : '' };
+}
+// kontrolki edytora zależne od systemu: paleta, wysokości, montaż
+function ufInitUi() {
   ufPalRender();
-  const hs = UF_HS.map(v => `<option value="${v}">${lenPL(v)} ${UNIT()}${ufStackTxt(v) ? ' (' + ufStackTxt(v) + ')' : ''}</option>`).join('');
+  const hs = ufHs().map(v => `<option value="${v}">${lenPL(v)} ${UNIT()}${ufStackTxt(v) ? ' (' + ufStackTxt(v) + ')' : ''}</option>`).join('');
   $('uf-h').innerHTML = hs; $('uf-sh').innerHTML = hs;
+  $('uf-mount').innerHTML = UF_MOUNTS.map(m => `<option value="${m[0]}">${esc(m[1])}</option>`).join('');
+  $('uf-pane').classList.toggle('uf-k', ufK());
+}
+async function openUltraFrame() { if (isViewer()) return;
+  if (!S.project || UF.open) return;
+  const saved = S.project.ultraFrame, has = !!(saved && ((saved.pieces && saved.pieces.length) || (saved.chains && saved.chains.length)));
+  let sys = has ? (saved.sys || 'e') : await ufAskSystem();       // układ już narysowany — otwiera się w swoim systemie; pusty — pytamy
+  if (!sys) return;
+  if (!S.project) return;
+  UF.open = true; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null; UF.step = UF.step || 50;
+  UF.d = has ? ufMigrate(JSON.parse(JSON.stringify(saved))) : ufFreshLayout(sys, saved ? JSON.parse(JSON.stringify(saved)) : null);
+  if (!UF.d.sys) UF.d.sys = 'e';
+  if (!UF.d.H) UF.d.H = UF.d.sys === 'k' ? UF_KH : 2480;
+  ufInitUi();
   $('uf-pane').classList.remove('hidden'); $('viewer').classList.add('uf-on');
   if (!UF.ro) { UF.ro = new ResizeObserver(() => { if (UF.open) ufDraw(); }); UF.ro.observe($('uf-pane')); }
   ufDraw(); ufSyncBar();
+}
+// zmiana systemu w otwartym edytorze (czyści ułożone ścianki)
+async function ufSwitchSystem() {
+  if (UF.busy || !UF.d) return;
+  const to = ufK() ? 'e' : 'k', nm = to === 'k' ? 'K-Frame' : 'EasyFrame';
+  if (UF.d.pieces.length && !await confirmBox(`Przełączyć na <b>${nm}</b>? Ułożone ścianki zostaną usunięte (moduły obu systemów różnią się wymiarami).`, 'Przełącz')) return;
+  ufPush(); const old = UF.d; UF.d = ufFreshLayout(to, { photoId: old.photoId, photoId2: old.photoId2, photoId3: old.photoId3 });
+  UF.sel = null; UF.rot = false; UF.vw = null; ufInitUi(); ufChanged();
 }
 async function closeUltraFrame() {
   if (!UF.open) return;
@@ -7856,7 +8019,7 @@ async function closeUltraFrame() {
 (function ufInit() {
   const pane = $('uf-pane'); if (!pane) return;
   ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick', 'click'].forEach(t => pane.addEventListener(t, e => e.stopPropagation(), { passive: t !== 'wheel' }));
-  pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (UF.noCtx) { e.preventDefault(); UF.noCtx = false; return; } if (e.target === $('uf-cv')) ufContext(e); else if (e.target.closest && e.target.closest('[data-pal="door"]')) ufPalDoorMenu(e); else e.preventDefault(); });
+  pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (UF.noCtx) { e.preventDefault(); UF.noCtx = false; return; } if (e.target === $('uf-cv')) ufContext(e); else if (e.target.closest && e.target.closest('[data-pal="door"], [data-pal="kdoor"]')) ufPalDoorMenu(e); else e.preventDefault(); });
   $('uf-cv').addEventListener('pointerdown', ufPointer);
   $('uf-cv').addEventListener('wheel', e => { e.preventDefault(); const [px, py] = ufCanvasPos(e), dl = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY; ufZoomAt(px, py, Math.pow(1.0018, -dl)); }, { passive: false });
   const mid = () => [$('uf-cv').clientWidth / 2, $('uf-cv').clientHeight / 2];
@@ -7873,6 +8036,9 @@ async function closeUltraFrame() {
   $('uf-caps').onchange = e => { ufPush(); UF.d.stand.caps = e.target.checked; ufChanged(); };
   $('uf-capsx').onchange = e => { ufPush(); UF.d.stand.capsX = e.target.checked; ufChanged(); };
   $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
+  $('uf-mount').onchange = e => ufSetMount(e.target.value);
+  $('uf-step').onchange = e => { const v = parseFloat(e.target.value); UF.step = v >= 1 ? v : 50; e.target.value = UF.step; };
+  $('uf-sysb').onclick = ufSwitchSystem;
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
   // obrót widoku 3D strzałkami na podglądzie (o 90° w lewo / w prawo)
   $('uf-vl').onclick = () => { UF.d.view = ((UF.d.view || 0) + 3) & 3; ufChanged(); };
@@ -7889,8 +8055,9 @@ async function closeUltraFrame() {
     if (document.querySelector('.modal-back')) return;
     const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (e.key === 'Escape') t.blur(); return; }
     const k = e.key; let h = true;
-    const pal = UF_PAL.find(p => p.key === k);
+    const pal = ufPal().find(p => p.key === k);
     if (pal) ufAddNext(ufPalOp(pal));
+    else if (ufK() && UF.sel && /^Arrow(Left|Right|Up|Down)$/.test(k)) ufKMove(k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0, k === 'ArrowUp' ? -1 : k === 'ArrowDown' ? 1 : 0, e.shiftKey, false);
     else if (k === 'r' || k === 'R') ufRotate(!e.shiftKey);
     else if (k === 'b' || k === 'B') { const r = ufSelRun(); ufSetBack(r ? !r.manual : true); }
     else if (k === 'Backspace' || k === 'Delete') ufDelete();
