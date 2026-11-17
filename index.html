@@ -6954,7 +6954,7 @@ function ufSetGap(c, which, g) {
 function ufDimEdit(h) {
   const wrap = $('uf-cv').parentElement, inp = document.createElement('input'); let fin = false;
   inp.type = 'text'; inp.inputMode = 'decimal'; inp.value = numIn(fromMM(h.val)); inp.title = 'Nowy wymiar, Enter = zatwierdź, Esc = anuluj';
-  inp.style.cssText = `position:absolute;z-index:6;left:${Math.round(h.x + h.w / 2 - 42)}px;top:${Math.round(h.y + h.h / 2 - 14)}px;width:84px;padding:4px 6px;font:700 13px Segoe UI,Arial,sans-serif;text-align:center;border:2px solid #2b6cb0;background:#fff;color:#1a365d`;
+  inp.style.cssText = `position:absolute;z-index:6;left:${Math.round(h.x + h.w / 2 - 42)}px;top:${Math.round(h.y + h.h / 2 - 14)}px;width:84px;padding:4px 6px;font:700 13px Segoe UI,Arial,sans-serif;text-align:center;border:2px solid #38a169;background:#fff;color:#22543d`;
   wrap.appendChild(inp);
   const done = ok => { if (fin) return; fin = true; const v = toMM(inp.value); inp.remove(); if (ok && Number.isFinite(v)) ufSetGap(h.c, h.which, v); };
   inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); done(false); } });
@@ -7144,7 +7144,13 @@ function ufDraw() {
       const elxT = `ELTEX · gr. ${lenPL(ufTh(o))}`, elxL = g.measureText(elxT).width < o.len * s - 8 ? elxT : 'ELTEX';   // wymiary ramy są na liniach wymiarowych
       g.fillText(o.t === 'eltex' ? elxL : o.t === 'door' ? '🚪 ' + lab : o.len0 ? '✂ ' + lab : lab, 0, 0); g.restore();
     }
-    if (o.id === sel) { g.strokeStyle = '#2b6cb0'; g.lineWidth = 3; g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
+    // dotknięta ścianka (najechana, zaznaczona, przeciągana) emanuje zieloną poświatą
+    if (o.id === sel || o.id === UF.hov || (UF.drag && UF.drag.moved && UF.drag.grp && UF.drag.grp.has(o.id))) {
+      const on = o.id === sel || (UF.drag && UF.drag.id === o.id);
+      g.save(); g.shadowColor = 'rgba(40,255,125,.95)'; g.shadowBlur = on ? 24 : 16; g.strokeStyle = on ? '#2fd673' : '#5be39a'; g.lineWidth = on ? 3 : 2;
+      g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); g.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3);
+      g.shadowBlur = 0; g.fillStyle = 'rgba(46,214,115,.10)'; g.fillRect(x, y, w, h); g.restore();
+    }
   });
   // K-Frame: płyta od frontu (brązowy pasek przy licu z grafiką) — i z tyłu, gdy ścianka ma wysłonę
   if (ufK()) {
@@ -7163,7 +7169,7 @@ function ufDraw() {
     if (ufK() ? q.op.id !== sel : q.op.t !== 'eltex') return;      // K-Frame: kropki w narożnikach zaznaczonego modułu
     ufCorners(q).forEach(([cx, cy], ci) => {
       const act = UF.drag && UF.drag.kind === 'ecorner' && UF.drag.id === q.op.id && UF.drag.ci === ci;
-      g.beginPath(); g.arc(X(cx), Y(cy), act ? 7 : 5, 0, Math.PI * 2); g.fillStyle = act ? UF_ELTEX_COL : '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = UF_ELTEX_COL; g.stroke();
+      const dc = ufK() ? '#2f855a' : UF_ELTEX_COL; g.beginPath(); g.arc(X(cx), Y(cy), act ? 7 : 5, 0, Math.PI * 2); g.fillStyle = act ? dc : '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = dc; g.stroke();
     });
   });
   if (UF.drag && UF.drag.kind === 'ecorner' && UF.drag.snap) { const [sx2, sy2] = UF.drag.snap; g.beginPath(); g.arc(X(sx2), Y(sy2), 10, 0, Math.PI * 2); g.strokeStyle = '#38a169'; g.lineWidth = 2.5; g.stroke(); }
@@ -7267,8 +7273,8 @@ function ufDraw() {
   if (UF.rot && sel) {
     const q = geo.parts.find(p => p.op.id === sel);
     if (q) { const hx = X((q.x0 + q.x1) / 2), hy = Y(q.y0) - 28; UF.hit = { x: hx, y: hy };
-      g.beginPath(); g.arc(hx, hy, 14, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.strokeStyle = '#2b6cb0'; g.lineWidth = 2; g.stroke();
-      g.fillStyle = '#2b6cb0'; g.font = `700 17px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('↻', hx, hy + 1); }
+      g.beginPath(); g.arc(hx, hy, 14, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.strokeStyle = '#2f855a'; g.lineWidth = 2; g.stroke();
+      g.fillStyle = '#2f855a'; g.font = `700 17px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('↻', hx, hy + 1); }
   }
   // K-Frame: niebieskie strzałki przy zaznaczonej ściance — przesuwanie względem innych ścianek
   UF.dimHits = [];
@@ -7276,12 +7282,12 @@ function ufDraw() {
     const pc = ufFind(sel);
     if (pc) ufKContacts(pc).forEach(c => [[1, c.qa, c.pa], [2, c.pb, c.qb]].forEach(([which, a, b]) => {
       const val = Math.round(Math.abs(b - a) * 10) / 10, vert = c.ax === 'y', o = c.out * 42, p0 = vert ? [X(c.fc) + o, Y(a)] : [X(a), Y(c.fc) + o], p1 = vert ? [X(c.fc) + o, Y(b)] : [X(b), Y(c.fc) + o];
-      g.strokeStyle = '#90b4de'; g.lineWidth = 1; g.beginPath();
+      g.strokeStyle = '#9ae6b4'; g.lineWidth = 1; g.beginPath();
       [[a, p0], [b, p1]].forEach(([v, pt]) => { if (vert) { g.moveTo(X(c.fc), Y(v)); g.lineTo(pt[0] + c.out * 6, pt[1]); } else { g.moveTo(X(v), Y(c.fc)); g.lineTo(pt[0], pt[1] + c.out * 6); } }); g.stroke();
-      if (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) > 3) drawArrowLine(g, p0[0], p0[1], p1[0], p1[1], 6, '#2b6cb0', 1.4);
+      if (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) > 3) drawArrowLine(g, p0[0], p0[1], p1[0], p1[1], 6, '#38a169', 1.4);
       g.font = `700 11px ${F}`; const txt = lenPL(val), tw = g.measureText(txt).width + 12, bw = Math.max(34, tw), bh = 18, cx2 = (p0[0] + p1[0]) / 2, cy2 = (p0[1] + p1[1]) / 2;
-      g.font = `700 11px ${F}`; g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(cx2 - bw / 2, cy2 - bh / 2, bw, bh); g.strokeStyle = '#2b6cb0'; g.lineWidth = 1; g.strokeRect(cx2 - bw / 2, cy2 - bh / 2, bw, bh);
-      g.fillStyle = '#1a365d'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, cx2, cy2 + 0.5);
+      g.font = `700 11px ${F}`; g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(cx2 - bw / 2, cy2 - bh / 2, bw, bh); g.strokeStyle = '#38a169'; g.lineWidth = 1; g.strokeRect(cx2 - bw / 2, cy2 - bh / 2, bw, bh);
+      g.fillStyle = '#22543d'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, cx2, cy2 + 0.5);
       UF.dimHits.push({ x: cx2 - bw / 2, y: cy2 - bh / 2, w: bw, h: bh, c, which, val });
     }));
   }
@@ -7292,7 +7298,7 @@ function ufDraw() {
       const cx0 = X((q.x0 + q.x1) / 2), cy0 = Y((q.y0 + q.y1) / 2), hw = (q.x1 - q.x0) * s / 2, hh = (q.y1 - q.y0) * s / 2;
       [[-1, 0, '◀', cx0 - hw - 20, cy0], [1, 0, '▶', cx0 + hw + 20, cy0], [0, -1, '▲', cx0 + 30, cy0 - hh - 20], [0, 1, '▼', cx0 + 30, cy0 + hh + 20]].forEach(([dx, dy, gl, ax, ay]) => {
         UF.kar.push({ dx, dy, x: ax, y: ay });
-        g.beginPath(); g.arc(ax, ay, 12, 0, Math.PI * 2); g.fillStyle = '#2b6cb0'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
+        g.beginPath(); g.arc(ax, ay, 12, 0, Math.PI * 2); g.fillStyle = '#38a169'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
         g.fillStyle = '#fff'; g.font = `700 12px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(gl, ax, ay + 1);
       });
     }
@@ -8161,6 +8167,13 @@ async function closeUltraFrame() {
   ['pointerdown', 'pointerup', 'pointermove', 'wheel', 'dblclick', 'click'].forEach(t => pane.addEventListener(t, e => e.stopPropagation(), { passive: t !== 'wheel' }));
   pane.addEventListener('contextmenu', e => { e.stopPropagation(); if (UF.noCtx) { e.preventDefault(); UF.noCtx = false; return; } if (e.target === $('uf-cv')) ufContext(e); else if (e.target.closest && e.target.closest('[data-pal="door"], [data-pal="kdoor"]')) ufPalDoorMenu(e); else e.preventDefault(); });
   $('uf-cv').addEventListener('pointerdown', ufPointer);
+  $('uf-cv').addEventListener('pointermove', e => {          // najechana ścianka też świeci
+    if (UF.drag || !UF.tr || !UF.geo) return;
+    const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 4 / UF.tr.s;
+    const q = UF.geo.parts.filter(q => wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0))[0], id = q ? q.op.id : null;
+    if (id !== UF.hov) { UF.hov = id; ufDraw(); }
+  });
+  $('uf-cv').addEventListener('pointerleave', () => { if (UF.hov) { UF.hov = null; if (UF.open) ufDraw(); } });
   $('uf-cv').addEventListener('wheel', e => { e.preventDefault(); const [px, py] = ufCanvasPos(e), dl = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY; ufZoomAt(px, py, Math.pow(1.0018, -dl)); }, { passive: false });
   const mid = () => [$('uf-cv').clientWidth / 2, $('uf-cv').clientHeight / 2];
   $('uf-zi').onclick = () => ufZoomAt(...mid(), 1.25); $('uf-zo').onclick = () => ufZoomAt(...mid(), 1 / 1.25);
