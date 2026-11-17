@@ -2324,6 +2324,8 @@ function doorPos(el) {
 function doorBleed(el) {
   const p = doorPos(el);
   if (!p.std) return null;
+  const cb = el.door && el.door.bleed;     // własne spady (ustawione w oknie ściany): lewy / prawy / góra / dół
+  if (cb) return { l: Math.max(0, +cb.l || 0), r: Math.max(0, +cb.r || 0), t: Math.max(0, +cb.t || 0), b: Math.max(0, +cb.b || 0) };
   const all = 2 * DOOR_STD.side, wb = bleedOf(el), roomL = Math.max(0, p.left) + wb, roomR = Math.max(0, p.right) + wb;
   let l = Math.min(DOOR_STD.side, roomL), r = all - l;
   if (r > roomR) { r = roomR; l = Math.min(roomL, all - r); }
@@ -2415,7 +2417,7 @@ async function psDrzwi(cur, el) {
   if (!hasDims(cur)) return toast('Najpierw wpisz wymiar ściany');
   const nm = markOf({ ...el, ...cur }), b0 = bleedOf(cur), sp = cur.bleedBox || { l: b0, r: b0, t: b0, b: b0 }, ds = doorList(cur);
   const drzwi = ds.map((d, i) => {
-    const mv = doorView(cur, d), p = doorPos(mv), de = el.id && S.elements.find(e => e.doorFor === el.id && (e.doorIdx || 0) === i), k = (de && de.bleedBox) || doorBleed(mv) || { l: 0, r: 0, t: 0, b: 0 };
+    const mv = doorView(cur, d), p = doorPos(mv), de = el.id && S.elements.find(e => e.doorFor === el.id && (e.doorIdx || 0) === i), k = (d.bleed && doorBleed(mv)) || (de && de.bleedBox) || doorBleed(mv) || { l: 0, r: 0, t: 0, b: 0 };
     return { znak: ds.length > 1 ? doorMarkI(nm, i) : nm, eid: (de && de.id) || '', x: p.x, w: p.w, h: p.h, l: +k.l || 0, r: +k.r || 0, t: +k.t || 0, b: +k.b || 0 };
   });
   if (drzwi.some(d => d.x < 0 || d.x + d.w > Number(cur.w))) return toast('Drzwi wychodzą poza ścianę — popraw odległość od krawędzi');
@@ -2438,7 +2440,7 @@ async function syncDoorElement(mainId, main) {
     const p = doorPos(mv), bb = doorBleed(mv), side = d.from === 'right' ? 'od prawej' : 'od lewej', nm = ds.length > 1 ? doorMarkI(markOf(main), i) : markOf(main);
     const fields = { typeId: main.typeId, variant: '', ...togValues(main, main.typeId), seg: !!main.seg, wyslona: !!main.wyslona, w: p.w, h: p.h, qty: 1,
       bleedBox: bb, doorFor: mainId, doorIdx: i, name: 'Drzwi — ' + nm,
-      notes: `drzwi${ds.length > 1 ? ' ' + (i + 1) + ' z ' + ds.length : ''} w ścianie ${markOf(main)}, ${side} ${lenPL(d.dist || 0)} ${UNIT()}` + (bb && (bb.l !== DOOR_STD.side || bb.r !== DOOR_STD.side) ? ` · spad boczny ${lenPL(bb.l)} / ${lenPL(bb.r)} (za blisko krawędzi)` : ''),
+      notes: `drzwi${ds.length > 1 ? ' ' + (i + 1) + ' z ' + ds.length : ''} w ścianie ${markOf(main)}, ${side} ${lenPL(d.dist || 0)} ${UNIT()}` + (bb && d.bleed ? ` · spady (własne): lewy ${lenPL(bb.l)}, prawy ${lenPL(bb.r)}, góra ${lenPL(bb.t)}, dół ${lenPL(bb.b)}` : bb && (bb.l !== DOOR_STD.side || bb.r !== DOOR_STD.side) ? ` · spad boczny ${lenPL(bb.l)} / ${lenPL(bb.r)} (za blisko krawędzi)` : ''),
       updatedAt: nowIso(), updatedBy: S.me.id };
     if (ex) { await DB.update(pElements(pid), ex.id, fields); continue; }
     const rec = { ...fields, num: Math.max(nextNum(), (Number(main.num) || 0) + 1), createdAt: nowIso(), createdBy: S.me.id, photoId: main.photoId || '', shape: null };
@@ -3943,6 +3945,13 @@ viewer.addEventListener('wheel', e => {
   zoomAt(e.clientX, e.clientY, Math.pow(1.0018, -d));
 }, { passive: false });
 
+// dwa szybkie kliknięcia środkowym przyciskiem myszy = „Dopasuj” (w oknie wizualizacji i w pokazie graficznym elementów)
+let midLast = { t: 0, x: 0, y: 0 };
+function midDbl(e) {
+  const n = performance.now(), dbl = n - midLast.t < 450 && Math.hypot(e.clientX - midLast.x, e.clientY - midLast.y) < 12;
+  midLast = dbl ? { t: 0, x: 0, y: 0 } : { t: n, x: e.clientX, y: e.clientY };
+  return dbl;
+}
 viewer.addEventListener('pointerdown', e => {
   if (!hasPhotos() || e.button === 2) return;
   viewer.setPointerCapture(e.pointerId);
@@ -3953,6 +3962,7 @@ viewer.addEventListener('pointerdown', e => {
     return;
   }
   const pan = () => { act = { mode: 'pan', x: e.clientX, y: e.clientY, tx: V.tx, ty: V.ty }; viewer.classList.add('panning'); };
+  if (e.button === 1 && midDbl(e)) { e.preventDefault(); act = null; viewer.classList.remove('panning'); fitView(); return; }
   if (e.button === 1 || spaceDown) { e.preventDefault(); return pan(); }
 
   if (isViewer()) { // podglad: tylko przesuwanie widoku i zaznaczanie znacznika (dwuklik otwiera opis do odczytu)
@@ -5041,6 +5051,12 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
             : `<div class="hint">Drzwi ${lenPL(800)} × ${lenPL(2000)} ${UNIT()} · grafika na drzwi ${lenPL(1400)} × ${lenPL(2300)} (spad: dół ${lenPL(100)}, góra ${lenPL(200)}, boki po ${lenPL(300)}).</div>`}
           <div class="door-pos">Odległość od <div class="seg" id="ed-door-from"><button type="button" data-dfrom="left" class="${dr.from !== 'right' ? 'on' : ''}">lewej</button><button type="button" data-dfrom="right" class="${dr.from === 'right' ? 'on' : ''}">prawej</button></div>
             krawędzi ściany do drzwi <input type="number" id="ed-door-dist" min="0" step="${unitStep()}" value="${esc(fromMM(dr.dist))}"> ${UNIT()}</div>
+          ${sys ? '' : (() => {
+            let a; try { a = doorBleed({ ...read(), door: { ...dr, bleed: null } }); } catch (e) { a = null; } a = a || { l: DOOR_STD.side, r: DOOR_STD.side, t: DOOR_STD.top, b: DOOR_STD.bottom };
+            return `<div class="door-bl" style="margin-top:8px"><label class="chk seg-chk"><input type="checkbox" id="ed-door-bl" ${dr.bleed ? 'checked' : ''}> <span>Własne spady grafiki na drzwi</span></label>
+              ${dr.bleed ? `<div class="bleed-row">${BLEED_SIDES.map(([k, n]) => `<span class="bl-i">${n} <input type="number" data-dbl="${k}" min="0" step="${unitStep()}" value="${esc(fromMM(dr.bleed[k]))}"></span>`).join('')} <span>${UNIT()}</span></div>`
+                : `<div class="hint">Automatycznie: lewy ${lenPL(a.l)}, prawy ${lenPL(a.r)}, góra ${lenPL(a.t)}, dół ${lenPL(a.b)} ${UNIT()} (boki razem zawsze 2 × ${lenPL(DOOR_STD.side)}, brakujące po jednej stronie idzie na drugą).</div>`}</div>`;
+          })()}
           <div id="ed-door-prev"></div>
           <div class="door-ps" style="margin-top:10px"><div class="hint" style="margin-bottom:4px">Plik grafiki ściany na dysku — z niego Photoshop wytnie plik na drzwi (ze spadami z INDEX)</div>
             <div style="display:flex;gap:6px;align-items:center"><input type="text" id="ed-ps-path" placeholder="np. D:\\Targi\\Gushen\\A4.tif" value="${esc(el.psPath || '')}" style="flex:1;min-width:0">
@@ -5094,6 +5110,11 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     $('ed-doorslot').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
     const psp = $('ed-ps-path'); if (psp) psp.addEventListener('input', () => { el.psPath = psp.value; });
     const psg = $('ed-ps-go'); if (psg) psg.onclick = () => psDrzwi(read(), el);
+    const dbl = $('ed-door-bl'); if (dbl) dbl.addEventListener('change', () => {
+      if (dbl.checked) { let a; try { a = doorBleed({ ...read(), door: { ...el.door, bleed: null } }); } catch (e) { a = null; } el.door.bleed = a || { l: DOOR_STD.side, r: DOOR_STD.side, t: DOOR_STD.top, b: DOOR_STD.bottom }; } else delete el.door.bleed;
+      renderOpts(); refresh();
+    });
+    $('ed-doorslot').querySelectorAll('input[data-dbl]').forEach(i => i.addEventListener('input', () => { el.door.bleed[i.dataset.dbl] = toMM(i.value); refresh(); }));
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
@@ -5899,6 +5920,7 @@ function graphFit() {
     const middle = e.button === 1;
     if (!middle && (e.button !== 0 || e.target.closest('.gc-ed, button, input'))) return;
     if (middle) e.preventDefault(); // bez autoprzewijania przeglądarki
+    if (middle && midDbl(e)) { graphFit(); return; }
     const x0 = e.clientX, y0 = e.clientY, tx0 = G.tx, ty0 = G.ty;
     let pan = false;
     const mv = ev => {
