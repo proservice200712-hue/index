@@ -583,6 +583,11 @@
   .fld .bleed-row input { width: 80px; padding: 6px 8px; border: 1.5px solid var(--line); }
   .door-fld { border-left: 3px solid #3182ce; padding-left: 10px; margin-bottom: 12px; }
   .door-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .door-drop { border: 2px dashed #90cdf4; border-radius: 10px; background: #ebf8ff; padding: 12px 14px; text-align: center; font-size: .85rem; color: #2b6cb0; cursor: pointer; }
+  .door-drop.over { background: #bee3f8; border-color: #3182ce; }
+  .door-drop b { display: block; font-size: .95rem; }
+  .door-drop .dd-st { display: block; margin-top: 6px; color: var(--gray); white-space: pre-line; text-align: left; }
+  .door-drop .dd-st.err { color: #c53030; font-weight: 600; }
   .door-pos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; }
   .door-pos input { width: 110px; padding: 6px 8px; border: 1.5px solid var(--line); }
   .door-svg { display: block; }
@@ -2412,6 +2417,56 @@ async function autoDoorThumbs() {
 //  Skrypt sam rozpoznaje, czy plik ściany jest ze spadem czy netto i ile ma pikseli na mm, wycina drzwi i zapisuje obok jako TIFF,
 //  a miniaturkę pliku drzwi od razu wysyła do elementu „Drzwi — A…” w INDEX (Cloudinary + baza, przez curl z Windows).
 // =====================================================================
+// =====================================================================
+//  PLIK DRZWI W PRZEGLĄDARCE: zrzucasz plik TIFF ściany, drzwi (ze spadami) wycina tiffdoor.js i plik sam pobiera się do „Pobrane”.
+//  Nazwa: A4_310x320cm_Blackback.tif → A4a_140x230cm_Blackback_Doors.tif (znak drzwi, wymiar drzwi ze spadami w tej samej jednostce, + „_Doors”).
+// =====================================================================
+let tiffLoad = null;
+function loadTiffDoor() {
+  if (window.TiffDoor) return Promise.resolve();
+  return tiffLoad || (tiffLoad = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'tiffdoor.js?v=1'; sc.onload = res; sc.onerror = () => { tiffLoad = null; rej(new Error('nie udało się wczytać modułu TIFF')); }; document.head.appendChild(sc); }));
+}
+function doorFileName(srcName, mark, dmark, d) {
+  const base = String(srcName || 'sciana').replace(/\.[^.]+$/, ''), suf = dmark.startsWith(mark) ? dmark.slice(mark.length) : '';
+  const m = base.match(/^(.*?)([_ -])(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)\s*(cm|mm)(.*)$/i), wmm = d.w + d.l + d.r, hmm = d.h + d.t + d.b;
+  const comma = m && /,/.test(m[3] + m[4]), unit = m ? m[5] : 'cm';
+  const fmt = v => { const x = unit.toLowerCase() === 'cm' ? Math.round(v) / 10 : Math.round(v); let t = String(Math.round(x * 10) / 10); if (comma) t = t.replace('.', ','); return t; };
+  const nm = m ? m[1] + suf + m[2] + fmt(wmm) + 'x' + fmt(hmm) + unit + m[6] + '_Doors' : dmark + '_' + fmt(wmm) + 'x' + fmt(hmm) + 'cm_Doors';
+  return nm.replace(/[\\/:*?"<>|]+/g, '_') + '.tif';
+}
+function downloadBig(name, blob) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 120000);
+}
+async function tiffDrzwi(file, cur, el, say) {
+  if (!hasDoor(cur)) throw new Error('najpierw zaznacz drzwi w ścianie');
+  if (!hasDims(cur)) throw new Error('najpierw wpisz wymiar ściany');
+  if (!/\.tiff?$/i.test(file.name)) throw new Error('to nie jest plik TIFF (.tif / .tiff)');
+  const nm = markOf({ ...el, ...cur }), b0 = bleedOf(cur), sp = cur.bleedBox || { l: b0, r: b0, t: b0, b: b0 }, ds = doorList(cur);
+  const P = { W: Number(cur.w), H: Number(cur.h), spadSciany: { l: +sp.l || 0, r: +sp.r || 0, t: +sp.t || 0, b: +sp.b || 0 } };
+  say('Czytam plik ' + file.name + '…'); await loadTiffDoor();
+  const im = await TiffDoor.open(file), lines = []; let info = '';
+  for (const [i, dd] of ds.entries()) {
+    const mv = doorView(cur, dd), p = doorPos(mv), de = el.id && S.elements.find(e => e.doorFor === el.id && (e.doorIdx || 0) === i);
+    const k = (dd.bleed && doorBleed(mv)) || (de && de.bleedBox) || doorBleed(mv) || { l: 0, r: 0, t: 0, b: 0 };
+    if (p.x < 0 || p.x + p.w > P.W) throw new Error('drzwi wychodzą poza ścianę — popraw odległość od krawędzi');
+    const dr = { x: p.x, w: p.w, h: p.h, l: +k.l || 0, r: +k.r || 0, t: +k.t || 0, b: +k.b || 0 };
+    say(`Drzwi ${i + 1} z ${ds.length}: wycinam…`);
+    const r = await TiffDoor.door(im, P, dr), name = doorFileName(file.name, nm, doorMarkI(nm, i), dr);
+    downloadBig(name, r.blob); if (!info) info = `Plik ściany: ${im.w} × ${im.h} px, ${r.zSpadem ? 'ze spadem' : 'bez spadu (netto)'} — ${r.jak}.`;
+    let th = '';
+    if (de && S.project && S.me && !isViewer()) {      // miniatura do elementu „Drzwi — …” w INDEX (kolory CMYK przybliżone, bez profilu)
+      try {
+        const jb = await TiffDoor.preview(im, r.wPx, r.hPx, r.pix, 2000), url = DEMO ? await blobToDataUrl(jb) : await uploadToCloudinary(jb, 'drzwi.jpg');
+        await DB.update(pElements(S.project.id), de.id, { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
+        addLog(S.project.id, `Grafika drzwi ${markOf(de)} — miniatura z pliku ${name}`, de.id); th = ' · miniatura wysłana do INDEX';
+      } catch (e) { th = ' · miniatura: ' + e.message; }
+    }
+    lines.push(`✓ ${name} — ${lenPL(dr.w + dr.l + dr.r)} × ${lenPL(dr.h + dr.t + dr.b)} ${UNIT()}, ${r.wPx} × ${r.hPx} px${r.uzup.length ? ', spad poza plikiem uzupełniony odbiciem: ' + r.uzup.join(', ') : ''}${th}`);
+  }
+  lines.push(info + ' Pobrane pliki są w folderze „Pobrane”.');
+  return lines.join('\n');
+}
 async function psDrzwi(cur, el) {
   if (!hasDoor(cur)) return toast('Najpierw zaznacz drzwi w ścianie');
   if (!hasDims(cur)) return toast('Najpierw wpisz wymiar ściany');
@@ -5058,6 +5113,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
                 : `<div class="hint">Automatycznie: lewy ${lenPL(a.l)}, prawy ${lenPL(a.r)}, góra ${lenPL(a.t)}, dół ${lenPL(a.b)} ${UNIT()} (boki razem zawsze 2 × ${lenPL(DOOR_STD.side)}, brakujące po jednej stronie idzie na drugą).</div>`}</div>`;
           })()}
           <div id="ed-door-prev"></div>
+          <div class="door-drop" id="ed-door-drop" title="Plik drzwi powstaje w przeglądarce (bez Photoshopa) i sam pobiera się do folderu Pobrane"><b>⬇ Zrzuć tu plik TIFF ściany z drzwiami</b>np. ${esc(lab)}_310x320cm_Blackback.tif — dostaniesz ${esc(lab)}a_140x230cm_Blackback_Doors.tif (wymiar drzwi ze spadami)<input type="file" id="ed-door-file" accept=".tif,.tiff,image/tiff" hidden><span class="dd-st" id="ed-door-st"></span></div>
           <div class="door-ps" style="margin-top:10px"><div class="hint" style="margin-bottom:4px">Plik grafiki ściany na dysku — z niego Photoshop wytnie plik na drzwi (ze spadami z INDEX)</div>
             <div style="display:flex;gap:6px;align-items:center"><input type="text" id="ed-ps-path" placeholder="np. D:\\Targi\\Gushen\\A4.tif" value="${esc(el.psPath || '')}" style="flex:1;min-width:0">
             <button type="button" class="btn" id="ed-ps-go" title="Pobiera skrypt Photoshopa z wymiarami ściany, położeniem drzwi i spadami. Dwuklik w pobrany plik (albo w Photoshopie: Plik → Skrypty → Przeglądaj…) — Photoshop otworzy plik ściany, wytnie drzwi i zapisze obok jako TIFF.">Plik drzwi (Photoshop)</button></div></div>
@@ -5108,6 +5164,16 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const dch = $('ed-door'); if (dch) dch.addEventListener('change', () => { el.door.on = dch.checked; renderOpts(); refresh(); });
     $('ed-doorslot').querySelectorAll('[data-dsize]').forEach(b => b.onclick = () => { el.door.size = b.dataset.dsize; renderOpts(); refresh(); });
     $('ed-doorslot').querySelectorAll('[data-dfrom]').forEach(b => b.onclick = () => { el.door.from = b.dataset.dfrom; renderOpts(); refresh(); });
+    const ddz = $('ed-door-drop');
+    if (ddz) {
+      const fi = $('ed-door-file'), say = (t, err) => { const st = $('ed-door-st'); if (st) { st.textContent = t; st.classList.toggle('err', !!err); } };
+      const go = async f => { try { say('Pracuję…'); say(await tiffDrzwi(f, read(), el, say)); } catch (e) { console.warn(e); say('Nie udało się: ' + (e && e.message || e), true); } };
+      ddz.onclick = ev => { if (!ev.target.closest('input')) fi.click(); };
+      fi.onchange = () => { const f = fi.files[0]; fi.value = ''; if (f) go(f); };
+      ddz.ondragover = ev => { ev.preventDefault(); ddz.classList.add('over'); };
+      ddz.ondragleave = () => ddz.classList.remove('over');
+      ddz.ondrop = ev => { ev.preventDefault(); ddz.classList.remove('over'); const f = ev.dataTransfer.files[0]; if (f) go(f); };
+    }
     const psp = $('ed-ps-path'); if (psp) psp.addEventListener('input', () => { el.psPath = psp.value; });
     const psg = $('ed-ps-go'); if (psg) psg.onclick = () => psDrzwi(read(), el);
     const dbl = $('ed-door-bl'); if (dbl) dbl.addEventListener('change', () => {
