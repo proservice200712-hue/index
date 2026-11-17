@@ -1020,7 +1020,7 @@
           <label class="uf-chk ue" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW</label>
           <label class="uf-chk ue" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><input type="checkbox" id="uf-capsx"> zaślepki ELTEX</label>
         </div>
-        <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 45°: narożnik ↔ ściana)">◀</button><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 45°: narożnik ↔ ściana)">▶</button></div></div>
+        <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
         <div class="uf-info" id="uf-info"></div>
       </div>
     </div>
@@ -7639,13 +7639,13 @@ function ufPalDoorMenu(e) {
 // ---------- widok 3D (rzut izometryczny): plansza do wizki albo podgląd w rogu edytora ----------
 // o: { W szerokość [px], preview, marks: Map(klucz|rola → { mark, color, wTxt }) } → { cv, pos: Map(klucz|rola → [nx, ny]) }
 function ufRender3D(o) {
-  const d = UF.d, geo = ufGeom(d), vi = (d.v8 != null ? d.v8 : (d.view || 0) * 2) & 7, front = (vi & 1) === 1, view = front ? ((vi >> 1) + 1) & 3 : vi >> 1, pv = !!o.preview, W = o.W, st = d.stand;
+  const d = UF.d, geo = ufGeom(d), vi12 = (d.v12 != null ? d.v12 : d.v8 != null ? (d.v8 >> 1) * 3 + (d.v8 & 1) : (d.view || 0) * 3) % 12, yaw = (45 + 30 * vi12) % 360, view = Math.floor(yaw / 90) & 3, ang = (yaw % 90) * Math.PI / 180, pv = !!o.preview, W = o.W, st = d.stand;
   if (!geo.parts.length) return null;
   const bb = geo.bounds, cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
   const rot = (x, y) => { const dx = x - cx, dy = y - cy, [a, c] = view === 0 ? [dx, dy] : view === 1 ? [-dy, dx] : view === 2 ? [-dx, -dy] : [dy, -dx]; return [cx + a, cy + c]; };
   const hOf = p => p.run ? p.run.h : d.H;
   const boxes = geo.parts.map(p => { const [ax, ay] = rot(p.x0, p.y0), [bx, by] = rot(p.x1, p.y1); return { p, x0: Math.min(ax, bx), x1: Math.max(ax, bx), y0: Math.min(ay, by), y1: Math.max(ay, by), h: hOf(p) }; });
-  const P = front ? (x, y, z) => [x, y * 0.6 - z] : (x, y, z) => [(x - y) * 0.8660254, (x + y) * 0.5 - z];   // widok „na ścianę” (pośredni co 45°) albo izometria z narożnika
+  const ca = Math.cos(ang), sa = Math.sin(ang), P = (x, y, z) => [1.2247449 * (x * ca - y * sa), 0.7071068 * (x * sa + y * ca) - z];   // rzut z kąta: 45° = klasyczna izometria z narożnika; 15° / 75° = pośrednie widoki pod kątem
   const fl = [[0, 0], [st.L, 0], [st.L, st.D], [0, st.D]].map(([x, y]) => rot(x, y));
   let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
   const grow = (x, y, z) => { const [X, Y] = P(x, y, z); mnX = Math.min(mnX, X); mxX = Math.max(mxX, X); mnY = Math.min(mnY, Y); mxY = Math.max(mxY, Y); };
@@ -8165,9 +8165,9 @@ async function closeUltraFrame() {
   $('uf-sysb').onclick = ufSwitchSystem;
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
   // obrót widoku 3D strzałkami na podglądzie (o 90° w lewo / w prawo)
-  const v8 = () => UF.d.v8 != null ? UF.d.v8 : (UF.d.view || 0) * 2;      // 0..7: co 45° (narożnik, ściana, narożnik…)
-  $('uf-vl').onclick = () => { UF.d.v8 = (v8() + 7) & 7; ufChanged(); };
-  $('uf-vr').onclick = () => { UF.d.v8 = (v8() + 1) & 7; ufChanged(); };
+  const v12 = () => UF.d.v12 != null ? UF.d.v12 : UF.d.v8 != null ? (UF.d.v8 >> 1) * 3 + (UF.d.v8 & 1) : (UF.d.view || 0) * 3;      // 0..11: co 30° — narożnik, dwa pośrednie widoki pod kątem, następny narożnik…
+  $('uf-vl').onclick = () => { UF.d.v12 = (v12() + 11) % 12; ufChanged(); };
+  $('uf-vr').onclick = () => { UF.d.v12 = (v12() + 1) % 12; ufChanged(); };
   $('uf-go').onclick = ufGenerate; $('uf-x').onclick = closeUltraFrame;
   $('uf-cus-b').onclick = () => {
     const v = toMM($('uf-cus').value);
