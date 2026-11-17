@@ -7131,6 +7131,10 @@ function ufDraw() {
         g.fillStyle = o.mode === 'proud' ? '#ed8936' : '#2b6cb0'; g.fill(); g.strokeStyle = '#1a365d'; g.lineWidth = 1; g.stroke();
         if (o.len * s > 60) { const m1 = c(ul / 2, off), tx = m1[0] + fr[0] * 15, ty = m1[1] + fr[1] * 15; g.fillStyle = o.mode === 'proud' ? '#9c4221' : '#1a4f86'; g.font = `700 10px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.mode === 'proud' ? 'wystające' : 'zlicowane', tx, ty); }
       }
+      { // klamka: przy wolnym brzegu skrzydła (strona przeciwna do zawiasów)
+        const ux = dg.free[0] - dg.hinge[0], uy = dg.free[1] - dg.hinge[1], ul = Math.hypot(ux, uy) || 1, kx = dg.free[0] - ux / ul * 70, ky = dg.free[1] - uy / ul * 70;
+        g.beginPath(); g.arc(X(kx), Y(ky), Math.max(3.2, 34 * s), 0, Math.PI * 2); g.fillStyle = '#1a202c'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.2; g.stroke();
+      }
     }
     if (o.t !== 'post' && o.len * s > 26) {
       const lab = lenPL(o.len), vert = (p.dir & 1) === 1;
@@ -7796,6 +7800,18 @@ function ufRender3D(o) {
         const fr = ufDoorGeom(bx.p.op, d, geo.pub).front, fv = rv(fr[0], fr[1]), e = 40;
         if (alongX && fv[1] > 0.5) { poly([T(bx.x1 - ins, bx.y1, 0), T(bx.x1 - ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x1 - ins, bx.y1, dh)], '#dd6b20'); poly([T(bx.x0 + ins, bx.y1, dh), T(bx.x1 - ins, bx.y1, dh), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x0 + ins, bx.y1 + e, dh)], '#ed8936'); poly([T(bx.x0 + ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x0 + ins, bx.y1 + e, dh)], '#f6ad55'); }
         else if (!alongX && fv[0] > 0.5) { poly([T(bx.x1, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1, bx.y1 - ins, dh)], '#dd6b20'); poly([T(bx.x1, bx.y0 + ins, dh), T(bx.x1, bx.y1 - ins, dh), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1 + e, bx.y0 + ins, dh)], '#ed8936'); poly([T(bx.x1 + e, bx.y0 + ins, 0), T(bx.x1 + e, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1 + e, bx.y0 + ins, dh)], '#f6ad55'); }
+      }
+      { // klamka: przy wolnym brzegu skrzydła (po stronie przeciwnej do zawiasów), na wysokości ok. 100 cm, na widocznej stronie drzwi
+        const dg2 = ufDoorGeom(bx.p.op, d, geo.pub), [frx, fry] = rot(dg2.free[0], dg2.free[1]), pr = KF && bx.p.op.mode === 'proud' ? 41 : 1;
+        if (alongX) {
+          const mid = (bx.x0 + bx.x1) / 2, edge = frx > mid ? bx.x1 - ins : bx.x0 + ins, sg = edge > mid ? -1 : 1, xa = edge + sg * 110, xb = xa + sg * 210, yy = bx.y1 + pr;
+          poly([T(xa - 30, yy, 940), T(xa + 30, yy, 940), T(xa + 30, yy, 1080), T(xa - 30, yy, 1080)], '#a0aec0');
+          poly([T(xa, yy, 975), T(xb, yy, 975), T(xb, yy, 1045), T(xa, yy, 1045)], '#1a202c');
+        } else {
+          const mid = (bx.y0 + bx.y1) / 2, edge = fry > mid ? bx.y1 - ins : bx.y0 + ins, sg = edge > mid ? -1 : 1, ya = edge + sg * 110, yb = ya + sg * 210, xx = bx.x1 + pr;
+          poly([T(xx, ya - 30, 940), T(xx, ya + 30, 940), T(xx, ya + 30, 1080), T(xx, ya - 30, 1080)], '#a0aec0');
+          poly([T(xx, ya, 975), T(xx, yb, 975), T(xx, yb, 1045), T(xx, ya, 1045)], '#1a202c');
+        }
       }
     }
   });
