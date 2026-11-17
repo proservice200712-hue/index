@@ -367,7 +367,7 @@
       g.lineJoin = 'round'; g.lineWidth = Math.max(1, fs2 * 0.16); g.strokeStyle = '#fff'; g.strokeText(opt.watermark, x, y); g.fillStyle = '#f00'; g.fillText(opt.watermark, x, y);
     }
     const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', opt.quality || 0.85));
-    return { blob, w: ow, h: oh, div: f, icc: conv.icc, srcW: im.w, srcH: im.h, canvas: c };
+    return { blob, w: ow, h: oh, div: f, icc: conv.icc, srcW: im.w, srcH: im.h, dpi: im.dpi || 0, canvas: c };
   }
 
   const api = { open, door, preview, thumb, colorConv, lzwEncode, lzwDecode, region };

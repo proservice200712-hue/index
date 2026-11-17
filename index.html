@@ -3649,9 +3649,19 @@ async function tiffToJpegFile(file) {
   try {
     await loadTiffDoor();
     const r = await TiffDoor.thumb(file, { div: 10, maxSide: 2400, watermark: 'PREVIEW', quality: 0.85, onProgress: p => { try { t.textContent = 'Miniatura z TIFF: ' + Math.round(p * 100) + '%'; } catch (e) { /* bez licznika */ } } });
-    return new File([r.blob], String(file.name || 'grafika').replace(/\.[^.]+$/, '') + '_miniatura.jpg', { type: 'image/jpeg' });
+    const out = new File([r.blob], String(file.name || 'grafika').replace(/\.[^.]+$/, '') + '_miniatura.jpg', { type: 'image/jpeg' });
+    out.tiffInfo = { name: String(file.name || ''), w: r.srcW, h: r.srcH, dpi: r.dpi || 0 };   // do automatycznego wymiaru elementu
+    return out;
   } catch (e) { throw new Error('TIFF: ' + (e && e.message || e)); }
   finally { t.remove(); }
+}
+// Wymiar pliku TIFF w mm: najpierw z nazwy (np. A4_310x320cm_Blackback), inaczej z rozdzielczości zapisanej w pliku (piksele / dpi)
+function tiffSizeMm(info) {
+  if (!info) return null;
+  const m = String(info.name || '').replace(/\.[^.]+$/, '').match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm)(?![a-z])/i);
+  if (m) { const k = m[3].toLowerCase() === 'cm' ? 10 : 1; return { w: Math.round(parseFloat(m[1].replace(',', '.')) * k), h: Math.round(parseFloat(m[2].replace(',', '.')) * k), from: 'nazwy pliku' }; }
+  if (info.dpi > 0 && info.w > 0 && info.h > 0) return { w: Math.round(info.w / info.dpi * 25.4), h: Math.round(info.h / info.dpi * 25.4), from: 'rozdzielczości pliku (' + Math.round(info.dpi) + ' dpi)' };
+  return null;
 }
 const storeThumb = async file => { file = await tiffToJpegFile(file); return storeImage(file, 2400, { q: 0.94, png: file.type === 'image/png' }); };
 let uploading = 0;
@@ -5948,9 +5958,19 @@ async function setThumb(eid, file, which = '') {
   const el = S.elements.find(x => x.id === eid); if (!el || !S.project) return;
   const t = toast('Wgrywanie miniatury…', '', 60000);
   try {
+    file = await tiffToJpegFile(file);
     const { url } = await storeThumb(file);
-    await DB.update(pElements(S.project.id), eid, which === 'in' ? { thumbIn: url, updatedAt: nowIso(), updatedBy: S.me.id } : { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
-    addLog(S.project.id, `Dodano grafikę (miniaturę)${which === 'in' ? ' zadruku wewnętrznego' : ''} do elementu ${markOf(el)}`, eid);
+    const upd = which === 'in' ? { thumbIn: url, updatedAt: nowIso(), updatedBy: S.me.id } : { thumb: url, thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id };
+    // element bez wymiaru + TIFF: wymiar (netto = plik minus spad z każdej strony) wpisuje się sam
+    let dimNote = '';
+    const sz = which === 'in' || isHang(el) || hasDims(el) ? null : tiffSizeMm(file.tiffInfo);
+    if (sz && sz.w > 0 && sz.h > 0) {
+      const b = bleedOf(el), w = sz.w - 2 * b, h = sz.h - 2 * b;
+      if (w > 0 && h > 0) { upd.w = w; upd.h = h; dimNote = `wymiar ${lenPL(w)} × ${lenPL(h)} ${UNIT()} (plik ${lenPL(sz.w)} × ${lenPL(sz.h)}${b ? ' minus spad ' + lenPL(b) + ' z każdej strony' : ''}, z ${sz.from})`; }
+    }
+    await DB.update(pElements(S.project.id), eid, upd);
+    addLog(S.project.id, `Dodano grafikę (miniaturę)${which === 'in' ? ' zadruku wewnętrznego' : ''} do elementu ${markOf(el)}${dimNote ? ' — ' + dimNote : ''}`, eid);
+    if (dimNote) toast('Wpisano ' + dimNote + '. Jeśli plik nie ma spadu, popraw w oknie elementu.', '', 9000);
   } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
   t.remove();
 }
