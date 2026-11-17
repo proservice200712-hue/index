@@ -178,13 +178,10 @@
   // miniatura JPEG (RGB, dłuższy bok max `maxPx`) z pikseli drzwi; CMYK → RGB prostym przeliczeniem (bez profilu)
   async function preview(src, w, h, pix, maxPx) {
     const k = Math.min(1, maxPx / Math.max(w, h)), tw = Math.max(1, Math.round(w * k)), th = Math.max(1, Math.round(h * k)), c = document.createElement('canvas'); c.width = tw; c.height = th;
-    const g = c.getContext('2d'), im = g.createImageData(tw, th), spp = src.spp, B = src.bps / 8, hi = src.bps === 16 ? (src.le ? 1 : 0) : 0, rb = w * src.bpp;
+    const g = c.getContext('2d'), im = g.createImageData(tw, th), B = src.bps / 8, hi = src.bps === 16 ? (src.le ? 1 : 0) : 0, rb = w * src.bpp, cv = colorConv(src), nC = cv.nC;
     for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
-      const sx = Math.min(w - 1, Math.floor(x / k)), sy = Math.min(h - 1, Math.floor(y / k)), o = sy * rb + sx * src.bpp, v = i => pix[o + i * B + hi], p = (y * tw + x) * 4;
-      let r, gg, b;
-      if (src.photo === 5 && spp >= 4) { const kk = 1 - v(3) / 255; r = 255 * (1 - v(0) / 255) * kk; gg = 255 * (1 - v(1) / 255) * kk; b = 255 * (1 - v(2) / 255) * kk; }
-      else if (spp >= 3) { r = v(0); gg = v(1); b = v(2); } else { r = gg = b = src.photo === 0 ? 255 - v(0) : v(0); }
-      im.data[p] = r; im.data[p + 1] = gg; im.data[p + 2] = b; im.data[p + 3] = 255;
+      const sx = Math.min(w - 1, Math.floor(x / k)), sy = Math.min(h - 1, Math.floor(y / k)), o = sy * rb + sx * src.bpp, p = (y * tw + x) * 4, v = i => i < nC ? pix[o + i * B + hi] / 255 : 0;
+      const rgb = cv.f(v(0), v(1), v(2), v(3)); im.data[p] = (rgb >> 16) & 255; im.data[p + 1] = (rgb >> 8) & 255; im.data[p + 2] = rgb & 255; im.data[p + 3] = 255;
     }
     g.putImageData(im, 0, 0);
     return new Promise(res => c.toBlob(res, 'image/jpeg', 0.92));
@@ -221,7 +218,159 @@
     return { blob, wPx: w, hPx: h, pxMm: sx, zSpadem: zS, jak, uzup, pix: out, src: im };
   }
 
-  const api = { open, door, preview, lzwEncode, lzwDecode, region };
+  // ---------- kolory: profil ICC osadzony w pliku → sRGB ----------
+  // Obsługa: CMYK / RGB / szary z tablicami LUT (mft1, mft2, mAB), RGB z macierzą i krzywymi (rXYZ…, rTRC…), szary z kTRC. Bez profilu: CMYK przybliżony, RGB bez zmian.
+  const D50 = [0.9642, 1, 0.8249];
+  const sGamma = (() => { const t = new Float32Array(4097); for (let i = 0; i <= 4096; i++) { const v = i / 4096; t[i] = (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055); } return t; })();
+  const toS = v => { v = v <= 0 ? 0 : v >= 1 ? 1 : v; const p = v * 4096, i = p | 0, a = sGamma[i], b = sGamma[Math.min(4096, i + 1)]; return Math.round((a + (b - a) * (p - i)) * 255); };
+  function xyzToRgb(X, Y, Z) {
+    const r = 3.1338561 * X - 1.6168667 * Y - 0.4906146 * Z, g = -0.9787684 * X + 1.9161415 * Y + 0.0334540 * Z, b = 0.0719453 * X - 0.2289914 * Y + 1.4052427 * Z;
+    return (toS(r) << 16) | (toS(g) << 8) | toS(b);
+  }
+  function labToXyz(L, a, b) {
+    const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200, f = t => t > 6 / 29 ? t * t * t : 3 * (6 / 29) * (6 / 29) * (t - 4 / 29);
+    return [D50[0] * f(fx), D50[1] * f(fy), D50[2] * f(fz)];
+  }
+  const sig4 = (b, o) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+  function curve1(dv, b, o, end) {      // krzywa 'curv' / 'para' → { f(x), size (bajty z dopełnieniem) }
+    const t = sig4(b, o);
+    if (t === 'curv') {
+      const n = dv.getUint32(o + 8), size = 12 + n * 2;
+      if (n === 0) return { f: x => x, size: (size + 3) & ~3 };
+      if (n === 1) { const g = dv.getUint16(o + 12) / 256; return { f: x => Math.pow(Math.max(0, x), g), size: (size + 3) & ~3 }; }
+      const tb = new Float32Array(n); for (let i = 0; i < n; i++) tb[i] = dv.getUint16(o + 12 + i * 2) / 65535;
+      return { f: x => { x = Math.max(0, Math.min(1, x)) * (n - 1); const i = Math.min(n - 2, Math.floor(x)); return tb[i] + (tb[i + 1] - tb[i]) * (x - i); }, size: (size + 3) & ~3 };
+    }
+    if (t === 'para') {
+      const ty = dv.getUint16(o + 8), np = [1, 3, 4, 5, 7][ty], p = []; for (let i = 0; i < np; i++) p.push(dv.getInt32(o + 12 + i * 4) / 65536);
+      const [g, a, bb, c, d, e, ff] = p, size = 12 + np * 4;
+      const fn = ty === 0 ? x => Math.pow(Math.max(0, x), g) : ty === 1 ? x => x >= -bb / a ? Math.pow(Math.max(0, a * x + bb), g) : 0 : ty === 2 ? x => x >= -bb / a ? Math.pow(Math.max(0, a * x + bb), g) + c : c : ty === 3 ? x => x >= d ? Math.pow(Math.max(0, a * x + bb), g) : c * x : x => x >= d ? Math.pow(Math.max(0, a * x + bb), g) + e : c * x + ff;
+      return { f: fn, size: (size + 3) & ~3 };
+    }
+    throw new Error('krzywa ICC ' + t);
+  }
+  function tableFn(arr, n) { return x => { x = Math.max(0, Math.min(1, x)) * (n - 1); const i = Math.min(n - 2, Math.max(0, Math.floor(x))); return n < 2 ? arr[0] : arr[i] + (arr[i + 1] - arr[i]) * (x - i); }; }
+  function clutFn(grid, nIn, nOut, data) {     // wielolinioweinterpolacja n-wymiarowa
+    const strides = new Array(nIn); let s = nOut; for (let i = nIn - 1; i >= 0; i--) { strides[i] = s; s *= grid[i]; }
+    return (inp, out) => {
+      const idx = new Array(nIn), fr = new Array(nIn);
+      for (let i = 0; i < nIn; i++) { let x = Math.max(0, Math.min(1, inp[i])) * (grid[i] - 1), k = Math.min(grid[i] - 2, Math.floor(x)); if (grid[i] < 2) k = 0; idx[i] = k; fr[i] = grid[i] < 2 ? 0 : x - k; }
+      for (let c = 0; c < nOut; c++) out[c] = 0;
+      for (let m = 0; m < (1 << nIn); m++) {
+        let w = 1, off = 0; for (let i = 0; i < nIn; i++) { const hi = (m >> i) & 1; w *= hi ? fr[i] : 1 - fr[i]; off += (idx[i] + hi) * strides[i]; }
+        if (w === 0) continue; for (let c = 0; c < nOut; c++) out[c] += w * data[off + c];
+      }
+    };
+  }
+  function lutPipeline(b, dv, o) {      // zwraca { nIn, run(inp[], out[3]) → wartości 0..1 w kodowaniu PCS tablicy, enc }
+    const t = sig4(b, o);
+    if (t === 'mft1' || t === 'mft2') {
+      const nIn = b[o + 8], nOut = b[o + 9], g = b[o + 10], is16 = t === 'mft2', nE = is16 ? dv.getUint16(o + 48) : 256, nO = is16 ? dv.getUint16(o + 50) : 256;
+      let p = o + (is16 ? 52 : 48); const rd = n => { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = is16 ? dv.getUint16(p + i * 2) / 65535 : b[p + i] / 255; p += n * (is16 ? 2 : 1); return a; };
+      const ins = []; for (let i = 0; i < nIn; i++) ins.push(tableFn(rd(nE), nE));
+      const cl = rd(Math.pow(g, nIn) * nOut), outs = []; for (let i = 0; i < nOut; i++) outs.push(tableFn(rd(nO), nO));
+      const cf = clutFn(new Array(nIn).fill(g), nIn, nOut, cl), tmp = new Array(nIn), mid = new Array(nOut);
+      return { nIn, enc: is16 ? 'legacy16' : 'v8', run(inp, out) { for (let i = 0; i < nIn; i++) tmp[i] = ins[i](inp[i]); cf(tmp, mid); for (let i = 0; i < 3; i++) out[i] = outs[i](mid[i]); } };
+    }
+    if (t === 'mAB ') {
+      const nIn = b[o + 8], nOut = b[o + 9], oB = dv.getUint32(o + 12), oMat = dv.getUint32(o + 16), oM = dv.getUint32(o + 20), oC = dv.getUint32(o + 24), oA = dv.getUint32(o + 28);
+      const curves = (off, n) => { const a = []; let q = o + off; for (let i = 0; i < n; i++) { const c = curve1(dv, b, q); a.push(c.f); q += c.size; } return a; };
+      const A = oA ? curves(oA, nIn) : null, B = oB ? curves(oB, nOut) : null, M = oM ? curves(oM, nOut) : null;
+      let cf = null; if (oC) {
+        const q = o + oC, grid = []; for (let i = 0; i < nIn; i++) grid.push(b[q + i]); const prec = b[q + 16], n = grid.reduce((a, x) => a * x, 1) * nOut, d = new Float32Array(n);
+        for (let i = 0; i < n; i++) d[i] = prec === 2 ? dv.getUint16(q + 20 + i * 2) / 65535 : b[q + 20 + i] / 255; cf = clutFn(grid, nIn, nOut, d);
+      }
+      let mat = null; if (oMat) { mat = []; for (let i = 0; i < 12; i++) mat.push(dv.getInt32(o + oMat + i * 4) / 65536); }
+      const tmp = new Array(nIn), mid = new Array(nOut);
+      return { nIn, enc: 'v4', run(inp, out) {
+        for (let i = 0; i < nIn; i++) tmp[i] = A ? A[i](inp[i]) : inp[i];
+        if (cf) cf(tmp, mid); else for (let i = 0; i < nOut; i++) mid[i] = tmp[i];
+        if (M) for (let i = 0; i < nOut; i++) mid[i] = M[i](mid[i]);
+        if (mat) { const x = [0, 0, 0]; for (let r = 0; r < 3; r++) x[r] = mat[r * 3] * mid[0] + mat[r * 3 + 1] * mid[1] + mat[r * 3 + 2] * mid[2] + mat[9 + r]; for (let i = 0; i < 3; i++) mid[i] = x[i]; }
+        for (let i = 0; i < 3; i++) out[i] = B ? B[i](mid[i]) : mid[i];
+      } };
+    }
+    throw new Error('tablica ICC ' + t);
+  }
+  // przelicznik: (v0, v1, v2, v3 w zakresie 0..1) → 0xRRGGBB; null, gdy brak użytecznego profilu
+  function iccConverter(icc, nColor) {
+    const b = icc, dv = new DataView(b.buffer, b.byteOffset, b.byteLength), space = sig4(b, 16), pcs = sig4(b, 20), n = dv.getUint32(128), tg = {};
+    for (let i = 0; i < n; i++) tg[sig4(b, 132 + i * 12)] = dv.getUint32(136 + i * 12);
+    const want = nColor === 4 ? 'CMYK' : nColor === 3 ? 'RGB ' : 'GRAY'; if (space !== want) return null;
+    if (nColor === 3 && tg.rXYZ !== undefined && tg.rTRC !== undefined && tg.A2B0 === undefined) {
+      const xyz = k => [dv.getInt32(tg[k] + 8) / 65536, dv.getInt32(tg[k] + 12) / 65536, dv.getInt32(tg[k] + 16) / 65536], r = xyz('rXYZ'), g = xyz('gXYZ'), bl = xyz('bXYZ');
+      const tr = [curve1(dv, b, tg.rTRC).f, curve1(dv, b, tg.gTRC).f, curve1(dv, b, tg.bTRC).f];
+      return (v0, v1, v2) => { const R = tr[0](v0), G = tr[1](v1), B = tr[2](v2); return xyzToRgb(r[0] * R + g[0] * G + bl[0] * B, r[1] * R + g[1] * G + bl[1] * B, r[2] * R + g[2] * G + bl[2] * B); };
+    }
+    if (nColor === 1 && tg.kTRC !== undefined) { const f = curve1(dv, b, tg.kTRC).f; return v0 => { const y = f(v0), c = toS(y); return (c << 16) | (c << 8) | c; }; }
+    const lo = tg.A2B1 !== undefined ? tg.A2B1 : tg.A2B0; if (lo === undefined) return null;
+    const lut = lutPipeline(b, dv, lo); if (lut.nIn !== nColor) return null;
+    const lab = pcs === 'Lab ', tmp = [0, 0, 0], out = [0, 0, 0], inp = [0, 0, 0, 0];
+    const toXyz = o3 => {
+      if (lab) {
+        const e = lut.enc; let L, a, bb;
+        if (e === 'legacy16') { L = o3[0] * 65535 / 65280 * 100; a = o3[1] * 65535 / 256 - 128; bb = o3[2] * 65535 / 256 - 128; } else { L = o3[0] * 100; a = o3[1] * 255 - 128; bb = o3[2] * 255 - 128; }
+        return labToXyz(L, a, bb);
+      }
+      const k = 65535 / 32768; return [o3[0] * k, o3[1] * k, o3[2] * k];
+    };
+    // kompensacja punktu czerni (jak w Photoshopie): najciemniejszy kolor profilu → czerń sRGB
+    let bp = [0, 0, 0];
+    if (nColor === 4) { [[0, 0, 0, 1], [1, 1, 1, 1], [0.6, 0.5, 0.5, 1]].forEach(c => { lut.run(c, tmp); const x = toXyz(tmp); if (x[1] < (bp[1] || 9) || !bp[1]) bp = x; }); if (bp[1] > 0.25) bp = [0, 0, 0]; }
+    const sc = [D50[0] / (D50[0] - bp[0]), D50[1] / (D50[1] - bp[1]), D50[2] / (D50[2] - bp[2])];
+    return (v0, v1, v2, v3) => { inp[0] = v0; inp[1] = v1; inp[2] = v2; inp[3] = v3; lut.run(inp, out); const x = toXyz(out); return xyzToRgb((x[0] - bp[0]) * sc[0], (x[1] - bp[1]) * sc[1], (x[2] - bp[2]) * sc[2]); };
+  }
+  function colorConv(im) {
+    const nC = im.photo === 5 ? 4 : im.photo === 2 ? 3 : 1, icc = im.tags[34675] && im.tags[34675].raw;
+    let f = null; if (icc) { try { f = iccConverter(icc, nC); } catch (e) { console.warn('profil ICC:', e); } }
+    if (f) return { nC, f, icc: true };
+    if (nC === 4) return { nC, icc: false, f: (c, m, y, k) => { const kk = 1 - k; return ((Math.round(255 * (1 - c) * kk) << 16) | (Math.round(255 * (1 - m) * kk) << 8) | Math.round(255 * (1 - y) * kk)); } };
+    if (nC === 3) return { nC, icc: false, f: (r, g, b) => (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255) };
+    return { nC, icc: false, f: v => { const c = Math.round((im.photo === 0 ? 1 - v : v) * 255); return (c << 16) | (c << 8) | c; } };
+  }
+
+  // ---------- miniatura całego pliku: skala 1:div (domyślnie 1:10, jak miniaturki.bat), uśrednianie bloków, kolory z profilu ICC, napis PREVIEW ----------
+  async function thumb(file, opt) {
+    opt = opt || {}; const im = await open(file), spp = im.spp, nC = im.photo === 5 ? 4 : im.photo === 2 ? 3 : 1, B = im.bps / 8, hi = im.bps === 16 ? (im.le ? 1 : 0) : 0;
+    let f = Math.max(opt.div || 10, Math.ceil(Math.max(im.w, im.h) / (opt.maxSide || 2400))); f = Math.max(1, Math.min(f, im.w, im.h));
+    const ow = Math.floor(im.w / f), oh = Math.floor(im.h / f), res = new Uint8Array(ow * oh * nC), acc = new Uint32Array(ow * nC), norm = f * f; let cur = -1;
+    const flush = () => { if (cur < 0) return; for (let i = 0; i < ow * nC; i++) res[cur * ow * nC + i] = Math.min(255, Math.round(acc[i] / norm)); acc.fill(0); };
+    const addRow = (raw, off, y) => {
+      const oy = (y / f) | 0; if (oy >= oh) return; if (oy !== cur) { flush(); cur = oy; }
+      for (let x = 0, lim = ow * f; x < lim; x++) { const o = off + x * im.bpp, a = ((x / f) | 0) * nC; for (let c = 0; c < nC; c++) acc[a + c] += raw[o + c * B + hi]; }
+    };
+    if (!im.tiled) {
+      for (let s = 0; s * im.rps < im.h; s++) {
+        const rows = Math.min(im.rps, im.h - s * im.rps); if (s * im.rps >= oh * f) break;
+        const raw = await block(im, s, rows * im.rowBytes, im.rowBytes); for (let r = 0; r < rows; r++) addRow(raw, r * im.rowBytes, s * im.rps + r);
+        if (opt.onProgress) opt.onProgress((s * im.rps + rows) / im.h);
+      }
+    } else {
+      for (let ty = 0; ty * im.th < im.h; ty++) {
+        const rows = Math.min(im.th, im.h - ty * im.th); if (ty * im.th >= oh * f) break;
+        const raw = await region(im, 0, ty * im.th, im.w, rows); for (let r = 0; r < rows; r++) addRow(raw, r * im.rowBytes, ty * im.th + r);
+        if (opt.onProgress) opt.onProgress((ty * im.th + rows) / im.h);
+      }
+    }
+    flush();
+    const conv = colorConv(im), c = document.createElement('canvas'); c.width = ow; c.height = oh;
+    const g = c.getContext('2d'), id = g.createImageData(ow, oh), d = id.data, v = [0, 0, 0, 0];
+    for (let i = 0, n = ow * oh; i < n; i++) {
+      for (let k = 0; k < nC; k++) v[k] = res[i * nC + k] / 255;
+      const rgb = conv.f(v[0], v[1], v[2], v[3]); d[i * 4] = (rgb >> 16) & 255; d[i * 4 + 1] = (rgb >> 8) & 255; d[i * 4 + 2] = rgb & 255; d[i * 4 + 3] = 255;
+    }
+    g.putImageData(id, 0, 0);
+    if (opt.watermark) {      // czerwony napis z białym halo w prawym dolnym rogu (jak w miniaturki.bat)
+      const fs = Math.max(6, Math.min(ow, oh) * 0.028); g.font = '700 ' + fs + 'px Arial, Helvetica, sans-serif'; g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+      let fs2 = fs; const tw = g.measureText(opt.watermark).width; if (tw > ow * 0.9) { fs2 = Math.max(7, fs * ow * 0.9 / tw); g.font = '700 ' + fs2 + 'px Arial, Helvetica, sans-serif'; }
+      const margin = Math.max(3, ow * 0.02), x = ow - margin, y = oh - margin - fs2 * 0.2;
+      g.lineJoin = 'round'; g.lineWidth = Math.max(1, fs2 * 0.16); g.strokeStyle = '#fff'; g.strokeText(opt.watermark, x, y); g.fillStyle = '#f00'; g.fillText(opt.watermark, x, y);
+    }
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', opt.quality || 0.85));
+    return { blob, w: ow, h: oh, div: f, icc: conv.icc, srcW: im.w, srcH: im.h, canvas: c };
+  }
+
+  const api = { open, door, preview, thumb, colorConv, lzwEncode, lzwDecode, region };
   root.TiffDoor = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

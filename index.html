@@ -1175,7 +1175,7 @@
     <circle class="blush" cx="87" cy="21" r="2.6" fill="#f4a3a3"/>
   </svg>
 </div>
-<input type="file" id="file-generic" accept="image/*" class="hidden">
+<input type="file" id="file-generic" accept="image/*,.tif,.tiff" class="hidden">
 
 <script>
 'use strict';
@@ -2412,12 +2412,6 @@ async function autoDoorThumbs() {
 }
 // powiązany element „Drzwi — A”: tworzony / zmieniany / usuwany razem ze ścianą
 // =====================================================================
-//  PLIK DRZWI W PHOTOSHOPIE: przy ścianie z drzwiami ścieżka pliku grafiki ściany (el.psPath) i przycisk,
-//  który pobiera skrypt Photoshopa (szablon ps/drzwi.jsx + dane): wymiar i spad ściany, położenie, wymiar i spady drzwi.
-//  Skrypt sam rozpoznaje, czy plik ściany jest ze spadem czy netto i ile ma pikseli na mm, wycina drzwi i zapisuje obok jako TIFF,
-//  a miniaturkę pliku drzwi od razu wysyła do elementu „Drzwi — A…” w INDEX (Cloudinary + baza, przez curl z Windows).
-// =====================================================================
-// =====================================================================
 //  PLIK DRZWI W PRZEGLĄDARCE: zrzucasz plik TIFF ściany, drzwi (ze spadami) wycina tiffdoor.js i plik sam pobiera się do „Pobrane”.
 //  Nazwa: A4_310x320cm_Blackback.tif → A4a_140x230cm_Blackback_Doors.tif (znak drzwi, wymiar drzwi ze spadami w tej samej jednostce, + „_Doors”).
 // =====================================================================
@@ -2466,24 +2460,6 @@ async function tiffDrzwi(file, cur, el, say) {
   }
   lines.push(info + ' Pobrane pliki są w folderze „Pobrane”.');
   return lines.join('\n');
-}
-async function psDrzwi(cur, el) {
-  if (!hasDoor(cur)) return toast('Najpierw zaznacz drzwi w ścianie');
-  if (!hasDims(cur)) return toast('Najpierw wpisz wymiar ściany');
-  const nm = markOf({ ...el, ...cur }), b0 = bleedOf(cur), sp = cur.bleedBox || { l: b0, r: b0, t: b0, b: b0 }, ds = doorList(cur);
-  const drzwi = ds.map((d, i) => {
-    const mv = doorView(cur, d), p = doorPos(mv), de = el.id && S.elements.find(e => e.doorFor === el.id && (e.doorIdx || 0) === i), k = (d.bleed && doorBleed(mv)) || (de && de.bleedBox) || doorBleed(mv) || { l: 0, r: 0, t: 0, b: 0 };
-    return { znak: ds.length > 1 ? doorMarkI(nm, i) : nm, eid: (de && de.id) || '', x: p.x, w: p.w, h: p.h, l: +k.l || 0, r: +k.r || 0, t: +k.t || 0, b: +k.b || 0 };
-  });
-  if (drzwi.some(d => d.x < 0 || d.x + d.w > Number(cur.w))) return toast('Drzwi wychodzą poza ścianę — popraw odległość od krawędzi');
-  const P = { stoisko: (S.project && S.project.name) || '', sciana: nm, plik: String(el.psPath || '').trim().replace(/^"|"$/g, '').replace(/\\/g, '/'), W: Number(cur.w), H: Number(cur.h), indeks: !DEMO && S.project && S.project.id && S.me ? { projekt: FIREBASE_CONFIG.projectId, klucz: FIREBASE_CONFIG.apiKey, elementy: pElements(S.project.id), log: pLog(S.project.id), kto: S.me.id, chmura: CLOUDINARY_CLOUD, preset: CLOUDINARY_PRESET } : null, spadSciany: { l: +sp.l || 0, r: +sp.r || 0, t: +sp.t || 0, b: +sp.b || 0 }, drzwi };
-  let t;
-  try { t = await fetch('ps/drzwi.jsx', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }); }
-  catch (e) { return toast('Nie udało się pobrać szablonu skryptu: ' + e.message); }
-  if (!t.includes('/*__DANE__*/null')) return toast('Szablon skryptu jest niepoprawny');
-  const js = '\uFEFF' + t.replace('/*__DANE__*/null', JSON.stringify(P)), nazwa = ('INDEX_drzwi_' + P.stoisko + '_' + nm).replace(/[^\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ-]+/g, '_');
-  download(nazwa + '.jsx', new Blob([js], { type: 'application/javascript' }));
-  toast(P.plik ? 'Pobrano skrypt Photoshopa — kliknij go dwukrotnie (albo w Photoshopie: Plik → Skrypty → Przeglądaj…)' : 'Pobrano skrypt Photoshopa — bez ścieżki zapyta o plik ściany. Uruchom: dwuklik albo Plik → Skrypty → Przeglądaj…', 8000);
 }
 async function syncDoorElement(mainId, main) {
   const pid = S.project.id, ds = doorList(main);
@@ -3577,7 +3553,19 @@ async function storeImage(file, maxSide, opts = {}) {
   return { url, w, h };
 }
 // miniatury grafik (element, płaszczyzna): zachowujemy jakość wklejonego obrazka
-const storeThumb = file => storeImage(file, 2400, { q: 0.94, png: file.type === 'image/png' });
+// TIFF (np. plik ściany do druku) wrzucony na kafelek: miniatura 1:10 z profilem ICC i napisem PREVIEW, robiona w przeglądarce (jak miniaturki.bat)
+const isTiff = f => !!f && (/\.tiff?$/i.test(f.name || '') || f.type === 'image/tiff');
+async function tiffToJpegFile(file) {
+  if (!isTiff(file)) return file;
+  const t = toast('Miniatura z TIFF: czytam plik…', '', 300000);
+  try {
+    await loadTiffDoor();
+    const r = await TiffDoor.thumb(file, { div: 10, maxSide: 2400, watermark: 'PREVIEW', quality: 0.85, onProgress: p => { try { t.textContent = 'Miniatura z TIFF: ' + Math.round(p * 100) + '%'; } catch (e) { /* bez licznika */ } } });
+    return new File([r.blob], String(file.name || 'grafika').replace(/\.[^.]+$/, '') + '_miniatura.jpg', { type: 'image/jpeg' });
+  } catch (e) { throw new Error('TIFF: ' + (e && e.message || e)); }
+  finally { t.remove(); }
+}
+const storeThumb = async file => { file = await tiffToJpegFile(file); return storeImage(file, 2400, { q: 0.94, png: file.type === 'image/png' }); };
 let uploading = 0;
 async function addPhotoFiles(files) { if (isViewer()) return;
   const pid = S.project && S.project.id; if (!pid) return;
@@ -5114,9 +5102,6 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
           })()}
           <div id="ed-door-prev"></div>
           <div class="door-drop" id="ed-door-drop" title="Plik drzwi powstaje w przeglądarce (bez Photoshopa) i sam pobiera się do folderu Pobrane"><b>⬇ Zrzuć tu plik TIFF ściany z drzwiami</b>np. ${esc(lab)}_310x320cm_Blackback.tif — dostaniesz ${esc(lab)}a_140x230cm_Blackback_Doors.tif (wymiar drzwi ze spadami)<input type="file" id="ed-door-file" accept=".tif,.tiff,image/tiff" hidden><span class="dd-st" id="ed-door-st"></span></div>
-          <div class="door-ps" style="margin-top:10px"><div class="hint" style="margin-bottom:4px">Plik grafiki ściany na dysku — z niego Photoshop wytnie plik na drzwi (ze spadami z INDEX)</div>
-            <div style="display:flex;gap:6px;align-items:center"><input type="text" id="ed-ps-path" placeholder="np. D:\\Targi\\Gushen\\A4.tif" value="${esc(el.psPath || '')}" style="flex:1;min-width:0">
-            <button type="button" class="btn" id="ed-ps-go" title="Pobiera skrypt Photoshopa z wymiarami ściany, położeniem drzwi i spadami. Dwuklik w pobrany plik (albo w Photoshopie: Plik → Skrypty → Przeglądaj…) — Photoshop otworzy plik ściany, wytnie drzwi i zapisze obok jako TIFF.">Plik drzwi (Photoshop)</button></div></div>
           <div class="hint">Drzwi dostaną osobny element „Drzwi — ${esc(lab)}” (grafika na drzwi) obok ściany.</div></div>` : ''}</div>`;
     }
     // spady (Blackback standard, Folia, Płyta PCW) — pod wymiarem, nad uwagami
@@ -5174,8 +5159,6 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       ddz.ondragleave = () => ddz.classList.remove('over');
       ddz.ondrop = ev => { ev.preventDefault(); ddz.classList.remove('over'); const f = ev.dataTransfer.files[0]; if (f) go(f); };
     }
-    const psp = $('ed-ps-path'); if (psp) psp.addEventListener('input', () => { el.psPath = psp.value; });
-    const psg = $('ed-ps-go'); if (psg) psg.onclick = () => psDrzwi(read(), el);
     const dbl = $('ed-door-bl'); if (dbl) dbl.addEventListener('change', () => {
       if (dbl.checked) { let a; try { a = doorBleed({ ...read(), door: { ...el.door, bleed: null } }); } catch (e) { a = null; } el.door.bleed = a || { l: DOOR_STD.side, r: DOOR_STD.side, t: DOOR_STD.top, b: DOOR_STD.bottom }; } else delete el.door.bleed;
       renderOpts(); refresh();
@@ -5438,7 +5421,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, psPath: hasDoor(d) ? String(el.psPath || '').trim() : '', thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
@@ -5450,7 +5433,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         m.close();
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
-        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, psPath: hasDoor(d) ? String(el.psPath || '').trim() : '', thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
           photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
@@ -5835,7 +5818,7 @@ function renderGraph() {
       if (!hasFiles(e)) return;
       e.preventDefault(); e.stopPropagation();
       if (f.classList.contains('has-thumb')) { toast('Najpierw usuń obecną grafikę (✕)', '', 3500); return; }
-      const file = [...e.dataTransfer.files].find(x => x.type.startsWith('image/'));
+      const file = [...e.dataTransfer.files].find(x => x.type.startsWith('image/') || isTiff(x));
       if (file) setThumb(eid, file, which);
     });
   });
