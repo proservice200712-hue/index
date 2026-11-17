@@ -6571,7 +6571,7 @@ const ufHs = () => ufK() ? [UF_KH] : UF_HS;
 const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretch', 'tkanina naciągnięta na płytę', 'blackback', false], ['film', 'folia na płycie', 'folia-laminat', false], ['pcw', 'płyta PCW z drukiem', 'pcw', false]];
 const ufMount = k => UF_MOUNTS.find(m => m[0] === k) || UF_MOUNTS[0];
 const ufKNote = run => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${ufMount(run.mount)[1]}`;
-const UF_KKEYS = 'ścianka dwustronna (wysłona ręcznie) ma 6,6 cm: kratownica 6 cm + płyta 3 mm z każdej strony · ścianki nie mogą na siebie nachodzić (czerwony obrys) · przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie wymiary przy zaznaczonej ściance (odległość od końców ścianki, do której dolega) — kliknij liczbę i wpisz nowy wymiar · niebieskie strzałki ją przesuwają (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wystające · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
+const UF_KKEYS = 'ścianka dwustronna (wysłona ręcznie) ma 6,6 cm: kratownica 6 cm + płyta 3 mm z każdej strony · ścianki nie mogą na siebie nachodzić (czerwony obrys) · przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie wymiary przy zaznaczonej ściance (odległość od końców ścianki, do której dolega) — kliknij liczbę i wpisz nowy wymiar · niebieskie strzałki ją przesuwają · kropka w narożniku zaznaczonego modułu: chwyć i przyciągnij do narożnika innej ścianki, granicy stoiska albo lica innego modułu (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wystające · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
 const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : ufK() ? (p.back ? UF_KT + 3 : UF_KT) : UF_T;   // K-Frame: kratownica 60 + płyta 3 mm = 63; ścianka dwustronna (wysłona) ma drugą płytę: 66          // grubość klocka: ELTEX — własna, reszta ramy E80
 const ufCorners = r => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];   // narożniki prostokąta klocka (świat, mm)
 const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
@@ -7135,7 +7135,7 @@ function ufDraw() {
   }
   // ELTEX: kropki w narożnikach — chwyć narożnik i przyłóż go do narożnika słupka / ramy (przyciąga się)
   geo.parts.forEach(q => {
-    if (q.op.t !== 'eltex') return;
+    if (ufK() ? q.op.id !== sel : q.op.t !== 'eltex') return;      // K-Frame: kropki w narożnikach zaznaczonego modułu
     ufCorners(q).forEach(([cx, cy], ci) => {
       const act = UF.drag && UF.drag.kind === 'ecorner' && UF.drag.id === q.op.id && UF.drag.ci === ci;
       g.beginPath(); g.arc(X(cx), Y(cy), act ? 7 : 5, 0, Math.PI * 2); g.fillStyle = act ? UF_ELTEX_COL : '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = UF_ELTEX_COL; g.stroke();
@@ -7354,11 +7354,16 @@ function ufDragMove(e) {
   const [wx, wy] = ufWorld(px, py);
   if (dr.kind === 'ecorner') { // ELTEX za narożnik: narożnik przyciąga się do narożników innych klocków i stoiska
     const p = ufFind(dr.id); if (!p) return;
-    if (!dr.moved) { dr.moved = true; ufPush(); }
+    if (!dr.moved) { dr.moved = true; ufPush(); dr.o0 = { x: p.x, y: p.y, dir: p.dir, len: p.len, len0: p.len0 }; }
     const geo = ufGeom(UF.d), thr = 40 / UF.tr.s;
     const cands = geo.parts.filter(q => q.op.id !== dr.id).flatMap(ufCorners).concat([[0, 0], [UF.d.stand.L, 0], [UF.d.stand.L, UF.d.stand.D], [0, UF.d.stand.D]]);
     let best = null, bd = thr; cands.forEach(c => { const dd = Math.hypot(c[0] - wx, c[1] - wy); if (dd < bd) { bd = dd; best = c; } });
-    const tx = best ? best[0] : Math.round(wx / 10) * 10, ty = best ? best[1] : Math.round(wy / 10) * 10;
+    let tx = best ? best[0] : Math.round(wx / 10) * 10, ty = best ? best[1] : Math.round(wy / 10) * 10;
+    if (!best && ufK()) {   // K-Frame: bez narożnika w zasięgu — narożnik przyciąga się do linii granic stoiska i do lic innych modułów (osobno w poziomie i w pionie)
+      const st = UF.d.stand, oth = geo.parts.filter(q => q.op.id !== dr.id), near = (arr, v) => arr.reduce((m, a) => Math.abs(a - v) < Math.abs(m - v) ? a : m, Infinity);
+      const nx = near([0, st.L].concat(oth.flatMap(q => [q.x0, q.x1])), wx), ny = near([0, st.D].concat(oth.flatMap(q => [q.y0, q.y1])), wy);
+      if (Math.abs(nx - wx) < thr) tx = nx; if (Math.abs(ny - wy) < thr) ty = ny;
+    }
     p.len = p.len0 || p.len; delete p.len0;
     const off = ufCorners({ ...ufRect(p) })[dr.ci]; p.x += tx - off[0]; p.y += ty - off[1]; ufFit(p);
     dr.snap = best; ufDraw(); return;
@@ -7390,7 +7395,11 @@ function ufDragEnd(e) {
   document.removeEventListener('pointermove', ufDragMove, true); document.removeEventListener('pointerup', ufDragEnd, true);
   const dr = UF.drag; UF.drag = null; if (!dr) return;
   if (dr.kind === 'pan') { if (!dr.moved) { UF.sel = null; UF.rot = false; } ufDraw(); ufSyncBar(); return; }
-  if (dr.kind === 'ecorner') { UF.sel = dr.id; ufChanged(); return; }
+  if (dr.kind === 'ecorner') {
+    const p = ufFind(dr.id);
+    if (p && dr.o0 && ufOverlaps(p)) { Object.assign(p, { x: dr.o0.x, y: dr.o0.y, dir: dr.o0.dir, len: dr.o0.len }); if (dr.o0.len0) p.len0 = dr.o0.len0; else delete p.len0; UF.undo.pop(); toast(UF_OVL_MSG, 'error', 4000); }   // K-Frame: nachodzenie — wraca na miejsce
+    UF.sel = dr.id; ufChanged(); return;
+  }
   if (dr.kind === 'room') {
     if (!dr.rid && dr.moved && dr.over) { ufPush(); (UF.d.rooms = UF.d.rooms || []).push({ id: ufUid(), t: dr.t, x: Math.round(dr.wx), y: Math.round(dr.wy) }); }
     else if (!dr.rid && !dr.moved) toast(`Przeciągnij ikonę ${UF_ROOM[dr.t].txt} na środek pomieszczenia (${UF_ROOM[dr.t].name})`, '', 4000);
@@ -7445,7 +7454,7 @@ function ufPointer(e) {
   if (ka) { ufKMove(ka.dx, ka.dy, e.shiftKey, e.ctrlKey); return; }
   if (UF.hit && Math.hypot(UF.hit.x - px, UF.hit.y - py) < 16) { ufRotate(true); return; }
   // kropka w narożniku ramy ELTEX: przeciąganie za ten narożnik
-  const ec = (UF.geo || ufGeom(UF.d)).parts.filter(q => q.op.t === 'eltex').flatMap(q => ufCorners(q).map((c, ci) => ({ q, ci, c })))
+  const ec = (UF.geo || ufGeom(UF.d)).parts.filter(q => q.op.t === 'eltex' || (ufK() && q.op.id === UF.sel)).flatMap(q => ufCorners(q).map((c, ci) => ({ q, ci, c })))
     .find(o => Math.hypot(UF.tr.ox + o.c[0] * UF.tr.s - px, UF.tr.oy + o.c[1] * UF.tr.s - py) < 9);
   if (ec) {
     if (!UF.vw) UF.vw = { s: UF.tr.s, ox: UF.tr.ox, oy: UF.tr.oy };   // widok stoi w miejscu podczas przeciągania (bez dopasowania do okna)
