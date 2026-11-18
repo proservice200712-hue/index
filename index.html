@@ -588,6 +588,10 @@
   .type-btn:hover { border-color: var(--gray); }
   .type-btn.on { border-color: var(--dark); background: #f1f8ec; box-shadow: inset 4px 0 0 var(--accent); }
   .type-btn .sw { width: 14px; height: 14px; flex: 0 0 auto; }
+  .ex-thumb.ex-svg { position: relative; cursor: pointer; overflow: hidden; background: #fff; }
+  .ex-thumb.ex-svg svg { width: 100%; height: 100%; opacity: .45; }
+  .ex-thumb.ex-svg span { position: absolute; inset: auto 0 2px 0; text-align: center; font-size: .65rem; font-weight: 700; color: var(--dark); }
+  tr.tp-var td { background: #f7fafc; }
   .type-prev { border: 1.5px solid var(--line); background: var(--bg); display: flex; flex-direction: column; }
   .type-prev .pimg { height: 190px; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden; }
   .type-prev .pimg img, .type-prev .pimg svg { max-width: 100%; max-height: 100%; display: block; }
@@ -729,7 +733,7 @@
   table.adm-t td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   table.adm-t input[type=text], table.adm-t input[type=number] { width: 100%; padding: 5px 7px; border: 1.5px solid var(--line); }
   table.adm-t input[type=color] { width: 36px; height: 30px; border: none; padding: 0; background: none; cursor: pointer; }
-  .ex-thumb { width: 64px; height: 44px; background: var(--bg) center/cover no-repeat; border: 1px solid var(--line); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: var(--gray); text-align: center; }
+  .ex-thumb { width: 88px; height: 60px; background: var(--bg) center/cover no-repeat; border: 1px solid var(--line); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; color: var(--gray); text-align: center; }
   .users-chk { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px 12px; max-height: 180px; overflow-y: auto; border: 1.5px solid var(--line); padding: 6px 10px; }
 
   /* ikonka „?" z dymkiem po najechaniu */
@@ -9337,18 +9341,45 @@ function openTypesPanel() {
     footer: '<button class="btn" id="tp-add" style="margin-right:auto">+ Nowy typ</button><button class="btn" data-c>Zamknij</button>' });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   const render = () => {
+    const exThumb = (ex, svg, attr) => `<div class="ex-thumb ${ex ? '' : 'ex-svg'}" ${attr} title="${ex ? 'Zmień zdjęcie' : 'Wgraj zdjęcie (do tej pory pokazuje się rysunek poglądowy)'}" style="${ex ? `background-image:url('${esc(thumbUrl(ex, 130, 90))}')` : ''}">${ex ? '' : svg + '<span>+ wgraj zdjęcie</span>'}</div>`;
     $('tp-body').innerHTML = `<div class="hint" style="font-size:.78rem;color:var(--gray);margin-bottom:10px">Kolor = kolor obwódki na wizce i w PDF. Spad dodawany automatycznie z każdej strony.
-      Przykładowe zdjęcie zobaczy agencja przy wyborze typu — kliknij miniaturę, aby je wgrać.</div>
+      <b>Zdjęcie przykładowe</b> widzi agencja po prawej stronie okna elementu — kliknij miniaturę, aby wgrać albo zmienić; ✕ przywraca rysunek poglądowy. Typy z wykonaniami (np. Logo 3D, Konstrukcja podwieszana) mają zdjęcie także dla każdego wykonania (wiersze ↳).</div>
       <table class="adm-t"><thead><tr><th>Kol.</th><th>Nazwa</th><th>Opis dla agencji</th><th>Spad [mm]</th><th>Przykład</th><th>Kolej.</th><th></th></tr></thead>
       <tbody>${S.types.map(t => `<tr data-id="${t.id}">
         <td><input type="color" data-f="color" value="${esc(t.color)}"></td>
         <td style="min-width:170px"><input type="text" data-f="name" value="${esc(t.name)}"></td>
         <td style="min-width:240px"><input type="text" data-f="desc" value="${esc(t.desc || '')}"></td>
         <td style="width:80px"><input type="number" data-f="bleed" min="0" value="${esc(t.bleed || 0)}"></td>
-        <td><div class="ex-thumb" data-ex style="${t.example ? `background-image:url('${esc(thumbUrl(t.example, 130, 90))}')` : ''}">${t.example ? '' : 'wgraj<br>zdjęcie'}</div></td>
+        <td>${exThumb(t.example, exampleSvg(t), 'data-ex')}${t.example ? '<button class="btn btn-sm" data-exrm title="Usuń zdjęcie — wróci rysunek poglądowy" style="margin-top:3px">✕ zdjęcie</button>' : ''}</td>
         <td style="width:64px"><input type="number" data-f="order" value="${esc(t.order || 0)}"></td>
         <td style="white-space:nowrap"><button class="btn btn-sm btn-green" data-save>Zapisz</button>
-          ${t.id === 'nie-wiem' ? '' : '<button class="btn btn-sm btn-red" data-del>✕</button>'}</td></tr>`).join('')}</tbody></table>`;
+          ${t.id === 'nie-wiem' ? '' : '<button class="btn btn-sm btn-red" data-del>✕</button>'}</td></tr>`
+        + (t.variants || []).map(v => `<tr class="tp-var" data-vt="${t.id}" data-vid="${v.id}"><td></td>
+        <td colspan="2" style="color:var(--gray);font-size:.8rem">↳ <b style="color:var(--dark)">${esc(t.name)} — ${esc(v.name)}</b><br>${esc(v.desc || '')}</td><td></td>
+        <td>${exThumb(v.example, exampleSvg({ ...t, icon: v.icon || t.icon }), 'data-vex')}${v.example ? '<button class="btn btn-sm" data-vrm title="Usuń zdjęcie — wróci rysunek poglądowy" style="margin-top:3px">✕ zdjęcie</button>' : ''}</td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>`;
+    // wgrywanie / zmiana zdjęcia przykładowego (typ albo wykonanie)
+    const pickEx = save => {
+      const fi = $('file-generic');
+      fi.onchange = async () => {
+        const f = fi.files[0]; fi.value = ''; if (!f) return;
+        const tt = toast('Wgrywanie zdjęcia…', '', 60000);
+        try { const { url } = await storeImage(f, 1200); await ensureTypesSeeded(); await save(url); setTimeout(render, 150); toast('Zdjęcie zapisane', 'success'); }
+        catch (e) { toast('Błąd: ' + e.message, 'error'); }
+        tt.remove();
+      };
+      fi.click();
+    };
+    const saveVar = (tid, vid, url) => {
+      const t = S.types.find(x => x.id === tid), vs = clone(t.variants || DEFAULT_TYPES.find(x => x.id === tid).variants);
+      vs.forEach(v => { if (v.id === vid) { if (url) v.example = url; else delete v.example; } });
+      return DB.set(C_TYPES, tid, { variants: vs }, true);
+    };
+    $('tp-body').querySelectorAll('tr[data-vid]').forEach(tr => {
+      const tid = tr.dataset.vt, vid = tr.dataset.vid;
+      tr.querySelector('[data-vex]').onclick = () => pickEx(url => saveVar(tid, vid, url));
+      const rm = tr.querySelector('[data-vrm]');
+      if (rm) rm.onclick = async () => { await ensureTypesSeeded(); await saveVar(tid, vid, ''); setTimeout(render, 150); };
+    });
     $('tp-body').querySelectorAll('tr[data-id]').forEach(tr => {
       const id = tr.dataset.id;
       const val = () => {
@@ -9367,21 +9398,9 @@ function openTypesPanel() {
         if (!await confirmBox('Usunąć ten typ?' + (used ? ` W bieżącym projekcie używa go ${used} el.` : ''), 'Usuń')) return;
         await ensureTypesSeeded(); await DB.del(C_TYPES, id); setTimeout(render, 100);
       };
-      tr.querySelector('[data-ex]').onclick = () => {
-        const fi = $('file-generic');
-        fi.onchange = async () => {
-          const f = fi.files[0]; fi.value = ''; if (!f) return;
-          const tt = toast('Wgrywanie zdjęcia…', '', 60000);
-          try {
-            const { url } = await storeImage(f, 1200);
-            await ensureTypesSeeded();
-            await DB.set(C_TYPES, id, { example: url }, true);
-            setTimeout(render, 150);
-          } catch (e) { toast('Błąd: ' + e.message, 'error'); }
-          tt.remove();
-        };
-        fi.click();
-      };
+      tr.querySelector('[data-ex]').onclick = () => pickEx(url => DB.set(C_TYPES, id, { example: url }, true));
+      const exrm = tr.querySelector('[data-exrm]');
+      if (exrm) exrm.onclick = async () => { await ensureTypesSeeded(); await DB.set(C_TYPES, id, { example: '' }, true); setTimeout(render, 150); };
     });
   };
   $('tp-add').onclick = async () => {
