@@ -8814,6 +8814,7 @@ function ufProduction() {
       if (o.t === 'door') {
         const sub = [(o.hinge === 'r' ? 'prawostronne' : 'lewostronne') + ' (zawiasy po ' + (o.hinge === 'r' ? 'prawej' : 'lewej') + ')', K ? (o.mode === 'proud' ? 'wpuszczone' : 'zlicowane') : (o.size === 'h2480' ? 'wys. 248' : 'wys. 198,4'), o.bul === 'y' ? 'z bulajem Ø 30' : 'bez bulaja'].join(' · ');
         add(std === 0 && baseStd ? 2 : 9, `drzwi ${ufLen(len)} × ${ufLen(base)}`, sub, side);
+        if (!K) add(5, 'konektor drzwiowy', 'po 2 szt. na każde drzwi', 'plain', 2);              // EasyFrame: każde drzwi mają 2 konektory drzwiowe
       } else if (std >= 0 && baseStd) add(std === 0 ? 0 : 1, `${ufLen(len)} × ${ufLen(base)}`, '', side);
       else add(9, `ścianka ${ufLen(len)} × ${ufLen(base)}`, cut ? `ucięta z ${ufLen(o.len0)}` : (std >= 0 ? 'inna wysokość' : 'inna długość'), side);
       adds.forEach(a => {
@@ -8821,7 +8822,9 @@ function ufProduction() {
         if (std >= 0 && aStd) add(3, `dostawka ${ufLen(len)} × ${ufLen(a)}`, K ? `na module ${ufLen(UF_KH)} → ${lenPL(base + a)}` : '', side);
         else add(9, `dostawka ${ufLen(len)} × ${ufLen(a)}`, 'nietypowa', side);
       });
+      if (!K && stk.length > 1) add(5, 'konektor modułów — w pionie', 'po 2 szt. na każde połączenie na wysokość', 'plain', 2 * (stk.length - 1));   // EasyFrame: łączenie na wysokość — zawsze 2 konektory
     });
+    if (!K) for (let i = 0; i < r.ops.length - 1; i++) if (r.ops[i].t === 'w' && r.ops[i + 1].t === 'w') add(5, 'konektor modułów — poziomo', 'po 2 szt. na każde połączenie', 'plain', 2);   // EasyFrame: łączenie modułów w ściance — zawsze 2 konektory (przy drzwiach są konektory drzwiowe)
   });
   // łuki i zadaszenia: po jednym elemencie na moduł wzdłuż ścianki
   ufRoofs(geo).forEach(rf => {
@@ -8837,7 +8840,7 @@ function ufProduction() {
   });
   // lightbox: wspólna ramka na całej szerokości lica
   geo.faces.forEach(fc => { if (fc.run.mounts[ufPlOf(fc.run, fc.inn)] === 'lightbox') add(9, `ramka lightbox 6 cm ${ufLen(fc.b - fc.a)} × ${ufLen(fc.h)}`, 'pasek LED po obwodzie wewnętrznym', 'plain'); });
-  const secs = [[0, 'Formatki standardowe'], [1, 'Połówki'], [2, 'Drzwi'], [4, 'Słupki'], [3, 'Dostawki'], [9, 'Ścianki nietypowe']];
+  const secs = [[0, 'Formatki standardowe'], [1, 'Połówki'], [2, 'Drzwi'], [4, 'Słupki'], [3, 'Dostawki'], [5, 'Konektory'], [9, 'Ścianki nietypowe']];
   const out = secs.map(([sec, title]) => ({ sec, title, list: [...rows.values()].filter(r => r.sec === sec).sort((a, b) => a.label.localeCompare(b.label, 'pl', { numeric: true }) || a.sub.localeCompare(b.sub, 'pl')) }));
   return { out, nRuns: geo.runs.length, nMod };
 }
@@ -8853,7 +8856,7 @@ function ufProductionOpen() {
       return `<tr><td>${esc(r.label)}${r.sub ? `<small style="display:block;color:var(--gray);font-size:.74rem">${esc(r.sub)}</small>` : ''}</td><td>${cell(r.one)}</td><td>${cell(r.two)}</td><td><b>${tot}</b></td></tr>`; }).join('');
   }).join('');
   const m = openModal({ title: `Produkcja — ${ufK() ? 'K-Frame' : 'EasyFrame'}: użyte ścianki`, wide: true,
-    body: `<div class="hint" style="margin-bottom:8px">Ścianek na planie: <b>${nRuns}</b> · modułów razem: <b>${nMod}</b>. „Obite dwustronnie” = płyta po obu stronach (grafika, zaplecze albo wysłona ręczna); „jednostronnie” = płyta tylko od frontu. Wymiary w ${UNIT()}.</div>
+    body: `<div class="hint" style="margin-bottom:8px">Ścianek na planie: <b>${nRuns}</b> · modułów razem: <b>${nMod}</b>. „Obite dwustronnie” = płyta po obu stronach (grafika, zaplecze albo wysłona ręczna); „jednostronnie” = płyta tylko od frontu.${ufK() ? '' : ' Konektory (EasyFrame): zawsze 2 szt. na każde połączenie modułów — poziomo i na wysokość; każde drzwi mają 2 konektory drzwiowe.'} Wymiary w ${UNIT()}.</div>
       <table class="uf-prod-tb"><thead><tr><th>Formatka</th><th>Obite 1-str.</th><th>Obite 2-str.</th><th>Razem</th></tr></thead><tbody>${body}</tbody></table>`,
     footer: `<button class="btn" data-copy>Kopiuj do schowka</button><button class="btn btn-solid" data-c>Zamknij</button>` });
   m.el.querySelector('[data-c]').onclick = () => m.close();
