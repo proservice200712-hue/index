@@ -289,7 +289,8 @@
   .split-v:hover, .split-h:hover { background: var(--accent); }
 
   #pane-bottom { flex: 1 1 auto; min-height: 100px; display: flex; background: #fff; }
-  #screen-project.split-down #pane-bottom { min-height: 0; overflow: hidden; }   /* belka zwinięta dwuklikiem na dół: widok zajmuje cały ekran */
+  #screen-project.split-down #pane-bottom { min-height: 0; overflow: hidden; }   /* belka zwinięta dwuklikiem na dół (była poniżej środka): wizki zajmują cały ekran */
+  #screen-project.split-up #pane-top { min-height: 0; overflow: hidden; }          /* belka zwinięta w górę (była powyżej środka): lista elementów zajmuje cały ekran */
   #el-pane { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
   /* zegar-butla: pierścień jak w Butli, łuk = ile czasu zostało z bieżącego odcinka */
   /* widok graficzny listy elementów — jak index z Corela: litera w kółku + typ, okienko w skali, linie wymiarowe w cm */
@@ -6472,21 +6473,30 @@ function renderLog() {
   };
   drag($('split-h'), e => {
     const r = sp.getBoundingClientRect();
-    sp.classList.remove('split-down');
+    sp.classList.remove('split-down', 'split-up');
     setTop(clamp(e.clientY - r.top, 120, r.height - 110));
-  }, () => { if (!sp.classList.contains('split-down')) try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
-  // dwuklik w belkę: zwija dolną część na dół (widok na cały ekran), drugi dwuklik wraca tam, gdzie belka była
-  let prevTop = '';
+  }, () => { if (!sp.classList.contains('split-down') && !sp.classList.contains('split-up')) try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
+  // dwuklik w belkę: leży poniżej środka ekranu — zwija dolną część w dół (wizki na cały ekran); leży powyżej — zwija górną część z wizkami,
+  // a belka jedzie w górę (lista elementów na cały ekran). Kolejny dwuklik wraca tam, gdzie belka była.
+  let prevTop = '', prevV = null;
   $('split-h').addEventListener('dblclick', e => {
     if (e.target.closest('#cl-chip')) return;
-    const r = sp.getBoundingClientRect();
-    if (!sp.classList.contains('split-down')) {
+    const r = sp.getBoundingClientRect(), bar = $('split-h').getBoundingClientRect();
+    if (!sp.classList.contains('split-down') && !sp.classList.contains('split-up')) {
       prevTop = getComputedStyle(root).getPropertyValue('--top-h').trim() || '58%';
-      sp.classList.add('split-down'); setTop(r.height - 8);
-    } else {
+      if ((bar.top + bar.bottom) / 2 - r.top > r.height / 2) { sp.classList.add('split-down'); setTop(r.height - 8); }
+      else {
+        prevV = hasPhotos() ? { scale: V.scale, fit: V.fit, tx: V.tx, ty: V.ty } : null;     // widok wizek wraca dokładnie taki, jaki był
+        sp.classList.add('split-up'); root.style.setProperty('--top-h', '0px');
+      }
+    } else if (sp.classList.contains('split-down')) {
       sp.classList.remove('split-down');
       const px = /px$/.test(prevTop) ? parseFloat(prevTop) : r.height * (parseFloat(prevTop) || 58) / 100;
       setTop(px); root.style.setProperty('--top-h', prevTop);
+    } else {
+      sp.classList.remove('split-up'); root.style.setProperty('--top-h', prevTop);
+      if (prevV && hasPhotos()) { Object.assign(V, prevV); applyView(); } else if (hasPhotos()) fitView();
+      if (typeof UF !== 'undefined' && UF.open) setTimeout(ufDraw, 0);
     }
   });
   drag($('split-v'), e => {
