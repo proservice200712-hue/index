@@ -775,6 +775,8 @@
   .pl-srow { display: flex; align-items: center; gap: 10px; padding: 4px 0; border-bottom: 1px dotted var(--line); font-size: .85rem; flex-wrap: wrap; }
   .pl-srow > b { min-width: 64px; }
   .pl-srow > span { flex: 1 1 220px; }
+  .pl-srow.drag { background: #f0fbe8; outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .pl-drop-h { font-size: .72rem; color: var(--gray); margin: 2px 0 4px; }
   .pl-th { height: 34px; max-width: 90px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
   .pl-total { display: flex; gap: 10px; padding: 8px 0 2px; font-size: .88rem; border-top: 2px solid var(--dark); margin-top: 4px; flex-wrap: wrap; }
   .pl-total > b { min-width: 64px; }
@@ -5533,21 +5535,39 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const pls = planesOf(cur);
     const sw = pls.reduce((a, q) => a + q.w, 0), mh = Math.max(...pls.map(q => q.h)), gw = pls.reduce((a, q) => a + q.gw, 0), gh = Math.max(...pls.map(q => q.gh));
     const area = pls.reduce((a, q) => a + q.gw * q.gh, 0) / 1e6;
-    box.innerHTML = `<label class="pl-lab" style="margin-top:10px">Wymiary płaszczyzn</label>` + pls.map((q, i) => `
+    box.innerHTML = `<label class="pl-lab" style="margin-top:10px">Wymiary płaszczyzn</label><div class="pl-drop-h">Przeciągnij plik TIFF / JPG / PNG na płaszczyznę — miniatura powstanie sama (TIFF: 1:10 z napisem PREVIEW). Kilka plików naraz wchodzi po kolei, od płaszczyzny, na którą je upuścisz.</div>` + pls.map((q, i) => `
       <div class="pl-srow"><b>${esc(planeName(q))}</b><span>${lenPL(q.w)} × ${lenPL(q.h)} → do druku <b>${lenPL(q.gw)} × ${lenPL(q.gh)}</b> ${UNIT()}${hangBleedAny(q.bb) ? ' · ze spadem' : ''}</span>
         ${q.thumb ? `<img class="pl-th" src="${esc(q.thumb)}" alt=""><button type="button" class="btn btn-sm" data-ptrm="${i}" title="Usuń podgląd">✕</button>`
           : `<button type="button" class="btn btn-sm" data-ptb="${i}" title="Wklej podgląd tej płaszczyzny ze schowka (albo wybierz plik)">🖼 Wklej podgląd</button>`}</div>`).join('') +
       `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
-    box.querySelectorAll('[data-ptb]').forEach(b => b.onclick = async () => {
-      const i = +b.dataset.ptb, file = await clipboardImageFile() || await chooseImageFile();
-      if (!file) return;
-      b.disabled = true;
-      try {
-        const { url } = await storeThumb(file);
-        const th = el.pthumbs || []; while (th.length < i) th.push(''); th[i] = url; el.pthumbs = th;
-      } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
+    // podgląd płaszczyzn: wklejony ze schowka, wybrany albo upuszczony (także kilka plików naraz, po kolei od wskazanej płaszczyzny)
+    const putPlaneFiles = async (start, files) => {
+      const list = files.filter(f => f && ((f.type || '').startsWith('image/') || isTiff(f))).sort((a, b) => String(a.name).localeCompare(String(b.name), 'pl', { numeric: true }));
+      if (!list.length) return toast('Upuść plik graficzny (TIFF, JPG, PNG)', 'error');
+      box.querySelectorAll('button').forEach(b => b.disabled = true);
+      for (let k = 0; k < list.length && start + k < pls.length; k++) {
+        try {
+          const { url } = await storeThumb(list[k]);
+          const th = el.pthumbs || []; while (th.length < start + k) th.push(''); th[start + k] = url; el.pthumbs = th;
+        } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
+      }
+      if (list.length > pls.length - start) toast(`Wgrano ${pls.length - start} z ${list.length} plików — tyle jest płaszczyzn od tej w dół`, '', 4500);
       renderPlaneSum();
+    };
+    box.querySelectorAll('[data-ptb]').forEach(b => b.onclick = async () => {
+      const file = await clipboardImageFile() || await chooseImageFile();
+      if (file) putPlaneFiles(+b.dataset.ptb, [file]);
     });
+    box.querySelectorAll('.pl-srow').forEach((row, i) => {
+      row.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); e.stopPropagation(); row.classList.add('drag'); } });
+      row.addEventListener('dragleave', () => row.classList.remove('drag'));
+      row.addEventListener('drop', e => { row.classList.remove('drag'); if (!hasFiles(e)) return; e.preventDefault(); e.stopPropagation(); putPlaneFiles(i, [...e.dataTransfer.files]); });
+    });
+    box.ondragover = e => { if (hasFiles(e)) e.preventDefault(); };      // przypisanie (nie addEventListener): renderPlaneSum odświeża zawartość tego samego elementu
+    box.ondrop = e => {            // upuszczone obok wierszy: od pierwszej płaszczyzny bez podglądu
+      if (!hasFiles(e)) return; e.preventDefault(); e.stopPropagation();
+      const th = el.pthumbs || [], first = pls.findIndex((q, i) => !th[i]); putPlaneFiles(first < 0 ? 0 : first, [...e.dataTransfer.files]);
+    };
     box.querySelectorAll('[data-ptrm]').forEach(b => b.onclick = () => { const th = el.pthumbs || []; th[+b.dataset.ptrm] = ''; el.pthumbs = th; renderPlaneSum(); });
   }
   // płaszczyzny konstrukcji (inny kształt): wymiary w mm w el.planes, pola w bieżącej jednostce
