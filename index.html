@@ -476,6 +476,8 @@
   .log-item.click { cursor: pointer; }
   .log-item.click:hover { background: #fff; }
   .log-src { display: inline-block; background: #fff; color: #1b5e20; border: 1px solid #67b437; font-size: 0.6rem; font-weight: 800; padding: 0 4px; margin-left: 4px; letter-spacing: .3px; }
+  .log-restore { margin-top: 3px; padding: 2px 8px; font-size: .7rem; font-weight: 700; background: #fff; border: 1px solid #38a169; color: #2f855a; cursor: pointer; }
+  .log-restore:hover { background: #38a169; color: #fff; }
   .log-item .lt { color: var(--gray); font-size: 0.68rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .log-item.fresh { animation: fresh 2.5s ease-out; }
   @keyframes fresh { from { background: #e3f3d6; } to { background: transparent; } }
@@ -3816,8 +3818,8 @@ function openFilesDialog() {
   box.addEventListener('drop', e => { box.classList.remove('drag'); if (!hasFiles(e)) return; e.preventDefault(); e.stopPropagation(); addFiles([...e.dataTransfer.files]); });
   render();
 }
-function addLog(pid, text, eid) {
-  return DB.add(pLog(pid), { at: nowIso(), user: S.me.id, text, eid: eid || '' }).catch(e => console.warn('log', e));
+function addLog(pid, text, eid, extra) {
+  return DB.add(pLog(pid), { at: nowIso(), user: S.me.id, text, eid: eid || '', ...(extra || {}) }).catch(e => console.warn('log', e));
 }
 
 // =====================================================================
@@ -5862,12 +5864,14 @@ async function deleteElement(id) { if (isViewer()) return;
   const extra = linked.map(e => `<div class="hint" style="margin-top:8px;color:#c53030;font-weight:600">⚠ Razem z nim zostanie usunięta ${e.backFor ? 'wysłona' : 'grafika na drzwi'} <b>${esc(markOf(e))}</b>${e.backFor ? ' — ' + esc(backMatName(e)) : ''}.</div>`).join('');
   const ok = await confirmBox(`Usunąć element <b>${markOf(el)}</b> — ${esc(typeLabel(el))}${el.name ? ' (' + esc(el.name) + ')' : ''}?${extra}`, 'Usuń');
   if (!ok) return;
+  const snapOf = e => { const c = clone(e); delete c.id; return JSON.stringify(c); };       // kopia do przywrócenia z historii
+  const dependents = S.elements.filter(e => e.doorFor === id || e.backFor === id);
   await DB.del(pElements(S.project.id), id);
-  addLog(S.project.id, `Usunięto element ${markOf(el)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`);
+  addLog(S.project.id, `Usunięto element ${markOf(el)} — ${typeLabel(el)}${el.name ? ' (' + el.name + ')' : ''}`, '', { snap: snapOf(el), snapId: id });
   // razem ze ścianą znikają jej drzwi
-  for (const d of S.elements.filter(e => e.doorFor === id || e.backFor === id)) {
+  for (const d of dependents) {
     await DB.del(pElements(S.project.id), d.id);
-    addLog(S.project.id, `Usunięto ${d.backFor ? 'wysłonę' : 'drzwi'} ${markOf(d)} razem z elementem ${markOf(el)}`);
+    addLog(S.project.id, `Usunięto ${d.backFor ? 'wysłonę' : 'drzwi'} ${markOf(d)} razem z elementem ${markOf(el)}`, '', { snap: snapOf(d), snapId: d.id, snapFor: id });
   }
   if (S.selId === id) S.selId = null;
 }
@@ -6435,6 +6439,30 @@ async function toggleRowHidden(id) { if (isViewer()) return;
 // =====================================================================
 //  HISTORIA ZMIAN (prawe okienko)
 // =====================================================================
+// przywrócenie usuniętego elementu z historii (razem z jego drzwiami / wysłoną); numer lub litera, które w międzyczasie zajęto, dostają nową wartość
+async function restoreDeleted(logId) {
+  if (isViewer() || !S.project) return;
+  const l0 = S.log.find(x => x.id === logId); if (!l0 || !l0.snap) return;
+  const pid = S.project.id;
+  if (S.elements.some(e => e.id === l0.snapId)) return toast('Ten element już istnieje', 'error');
+  const list = [l0].concat(S.log.filter(x => x.snap && x.snapFor === l0.snapId && !x.restored));
+  let main = null;
+  for (const l of list) {
+    if (S.elements.some(e => e.id === l.snapId)) continue;
+    const d = JSON.parse(l.snap);
+    if (isWys(d) && !d.doorFor) { if (d.wnum && S.elements.some(e => isWys(e) && !e.doorFor && e.wnum === d.wnum)) d.wnum = wysNumFor({ ...d, wnum: null }); }
+    else if (!d.doorFor && !d.backFor && S.elements.some(e => !isWys(e) && !e.doorFor && !e.backFor && Number(e.num) === Number(d.num))) d.num = nextNum();
+    if (d.photoId && !S.photos.some(p => p.id === d.photoId)) { d.shape = null; d.photoId = ''; }     // wizki już nie ma — element wraca bez zaznaczenia
+    if (Array.isArray(d.extra)) d.extra = d.extra.filter(x => S.photos.some(p => p.id === x.photoId));
+    d.updatedAt = nowIso(); d.updatedBy = S.me.id;
+    await DB.set(pElements(pid), l.snapId, d);
+    try { await DB.update(pLog(pid), l.id, { restored: true }); } catch (e) {}
+    if (l === l0) main = d;
+  }
+  if (main) addLog(pid, `Przywrócono element ${markOf(main)} — ${typeLabel(main)} z historii`, l0.snapId);
+  toast('Element przywrócony', 'success');
+  if (main) setTimeout(() => selectElement(l0.snapId), 400);
+}
 function renderLog() {
   const list = $('log-list');
   const prevTop = S.logSeen;
@@ -6442,11 +6470,12 @@ function renderLog() {
   list.innerHTML = S.log.slice(0, 400).map(l => `
     <div class="log-item ${l.eid ? 'click' : ''} ${prevTop && l.at > prevTop ? 'fresh' : ''}" ${l.eid ? `data-eid="${l.eid}"` : ''}>
       ${avatarSm(l.user)}
-      <div><div class="lt">${fmtShort(l.at)}${l.src === 'corel' ? ' <span class="log-src" title="Zmiana wysłana z CorelDRAW (makro INDEX_Wyslij)">Corel</span>' : ''}</div>${esc(l.text.replace(/^Corel: /, ''))}</div>
+      <div><div class="lt">${fmtShort(l.at)}${l.src === 'corel' ? ' <span class="log-src" title="Zmiana wysłana z CorelDRAW (makro INDEX_Wyslij)">Corel</span>' : ''}</div>${esc(l.text.replace(/^Corel: /, ''))}${l.snap && !l.snapFor && !l.restored && !isViewer() && !S.elements.some(e => e.id === l.snapId) ? `<div><button type="button" class="log-restore" data-restore="${l.id}" title="Przywróć ten element z jego danymi (wymiary, typ, grafika, zaznaczenie na wizce)">↶ Przywróć</button></div>` : ''}</div>
     </div>`).join('') || '<div class="empty-state" style="padding:20px;font-size:.8rem">Tu pojawi się każda zmiana w projekcie.</div>';
   S.logSeen = S.log[0] ? S.log[0].at : (prevTop || '0');
   if (!S.logReadAt || logState.open) S.logReadAt = S.log[0] ? S.log[0].at : '0';
   renderLogBadge();
+  list.querySelectorAll('[data-restore]').forEach(b => b.onclick = e => { e.stopPropagation(); b.disabled = true; restoreDeleted(b.dataset.restore); });
   list.querySelectorAll('[data-eid]').forEach(d => d.onclick = () => { if (S.elements.find(e => e.id === d.dataset.eid)) selectElement(d.dataset.eid); });
 }
 
