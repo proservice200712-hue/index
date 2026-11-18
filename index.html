@@ -2176,6 +2176,8 @@ function openChangePassword() { if (isViewer()) return;
 let typesFromDb = false;
 function startTypesSub() {
   DB.sub(C_TYPES, rows => {
+    const set = rows.find(r => r.id === EX_SET_ID); exGlobalSec = Math.max(2, Number(set && set.sec) || EX_SEC);   // jedna wartość czasu zmiany zdjęć dla wszystkich (dokument ustawień, nie typ)
+    rows = rows.filter(r => r.id !== EX_SET_ID);
     typesFromDb = rows.length > 0;
     const merged = clone(DEFAULT_TYPES).map(d => ({ ...d, ...(rows.find(r => r.id === d.id) || {}) }))
       .concat(rows.filter(r => !DEFAULT_TYPES.some(d => d.id === r.id) && !LEGACY_TYPES[r.id]))
@@ -2742,7 +2744,9 @@ function exampleSvg(t) {
 // zdjęcia przykładowe typu / wykonania: do 3, płynnie zmieniają się co N sekund (domyślnie 10; ustawia admin w panelu Typy elementów)
 const EX_MAX = 3, EX_SEC = 10;
 const exList = x => (x && x.examples && x.examples.length ? x.examples : x && x.example ? [x.example] : []).filter(Boolean).slice(0, EX_MAX);
-const exSec = (t, v) => Math.max(2, Number((v && v.slideSec) || (t && t.slideSec)) || EX_SEC);
+const EX_SET_ID = '_ex';
+let exGlobalSec = EX_SEC;
+const exSec = () => exGlobalSec;
 function exampleHtml(t, v) {
   const list = exList(v || t);
   if (!list.length) return exampleSvg(v ? { ...t, icon: v.icon || t.icon } : t);
@@ -9395,27 +9399,28 @@ function openTypesPanel() {
     footer: '<button class="btn" id="tp-add" style="margin-right:auto">+ Nowy typ</button><button class="btn" data-c>Zamknij</button>' });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   const render = () => {
-    const exCell = (x, svg, tid, vid, sec) => {
+    const exCell = (x, svg, tid, vid) => {
       const list = exList(x), fill = i => `<div class="ex-slot"><div class="ex-thumb" data-xs="${i}" title="Zmień to zdjęcie" style="background-image:url('${esc(thumbUrl(list[i], 130, 90))}')"></div><button type="button" class="ex-x" data-xrm="${i}" title="Usuń to zdjęcie">✕</button></div>`;
       const slots = list.map((u, i) => fill(i));
       if (list.length < EX_MAX) slots.push(`<div class="ex-slot"><div class="ex-thumb ex-svg" data-xs="${list.length}" title="${list.length ? 'Dodaj kolejne zdjęcie (max ' + EX_MAX + ')' : 'Wgraj zdjęcie (do tej pory pokazuje się rysunek poglądowy)'}">${list.length ? '<span style="position:static;font-size:1.3rem;line-height:44px">+</span>' : svg + '<span>+ wgraj zdjęcie</span>'}</div></div>`);
-      return `<div class="ex-cell" data-tid="${tid}" data-vid="${vid || ''}">${slots.join('')}<div class="ex-sec" title="Co ile sekund zdjęcia zmieniają się płynnie (gdy jest ich więcej niż jedno)">zmiana co <input type="number" data-xsec min="2" max="120" value="${sec}"> s</div></div>`;
+      return `<div class="ex-cell" data-tid="${tid}" data-vid="${vid || ''}">${slots.join('')}</div>`;
     };
     $('tp-body').innerHTML = `<div class="hint" style="font-size:.78rem;color:var(--gray);margin-bottom:10px">Kolor = kolor obwódki na wizce i w PDF. Spad dodawany automatycznie z każdej strony.
-      <b>Zdjęcia przykładowe</b> widzi agencja po prawej stronie okna elementu: do 3 na typ (i na każde wykonanie — wiersze ↳), zmieniają się płynnie co podaną liczbę sekund. Kliknij miniaturę, aby wgrać albo zmienić; ✕ przy zdjęciu je usuwa (bez zdjęć wraca rysunek poglądowy).</div>
+      <b>Zdjęcia przykładowe</b> widzi agencja po prawej stronie okna elementu: do 3 na typ (i na każde wykonanie — wiersze ↳), zmieniają się płynnie.
+      <label style="display:inline-flex;gap:6px;align-items:center;margin-left:6px;color:var(--dark);font-weight:600">Zmiana co <input type="number" id="tp-sec" min="2" max="120" value="${exGlobalSec}" style="width:60px;padding:2px 4px"> s <span style="font-weight:400;color:var(--gray)">(jedna wartość dla wszystkich)</span></label> Kliknij miniaturę, aby wgrać albo zmienić; ✕ przy zdjęciu je usuwa (bez zdjęć wraca rysunek poglądowy).</div>
       <table class="adm-t"><thead><tr><th>Kol.</th><th>Nazwa</th><th>Opis dla agencji</th><th>Spad [mm]</th><th>Przykład</th><th>Kolej.</th><th></th></tr></thead>
       <tbody>${S.types.map(t => `<tr data-id="${t.id}">
         <td><input type="color" data-f="color" value="${esc(t.color)}"></td>
         <td style="min-width:170px"><input type="text" data-f="name" value="${esc(t.name)}"></td>
         <td style="min-width:240px"><input type="text" data-f="desc" value="${esc(t.desc || '')}"></td>
         <td style="width:80px"><input type="number" data-f="bleed" min="0" value="${esc(t.bleed || 0)}"></td>
-        <td>${exCell(t, exampleSvg(t), t.id, '', exSec(t))}</td>
+        <td>${exCell(t, exampleSvg(t), t.id, '')}</td>
         <td style="width:64px"><input type="number" data-f="order" value="${esc(t.order || 0)}"></td>
         <td style="white-space:nowrap"><button class="btn btn-sm btn-green" data-save>Zapisz</button>
           ${t.id === 'nie-wiem' ? '' : '<button class="btn btn-sm btn-red" data-del>✕</button>'}</td></tr>`
         + (t.variants || []).map(v => `<tr class="tp-var" data-vt="${t.id}" data-vid="${v.id}"><td></td>
         <td colspan="2" style="color:var(--gray);font-size:.8rem">↳ <b style="color:var(--dark)">${esc(t.name)} — ${esc(v.name)}</b><br>${esc(v.desc || '')}</td><td></td>
-        <td>${exCell(v, exampleSvg({ ...t, icon: v.icon || t.icon }), t.id, v.id, exSec(t, v))}</td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>`;
+        <td>${exCell(v, exampleSvg({ ...t, icon: v.icon || t.icon }), t.id, v.id)}</td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>`;
     // wgrywanie / zmiana zdjęcia przykładowego (typ albo wykonanie)
     const pickEx = save => {
       const fi = $('file-generic');
@@ -9428,19 +9433,23 @@ function openTypesPanel() {
       };
       fi.click();
     };
-    // zmiana listy zdjęć / czasu dla typu (vid pusty) albo wykonania
+    $('tp-sec').onchange = async e => {
+      const n = clamp(Math.round(Number(e.target.value)) || EX_SEC, 2, 120); e.target.value = n;
+      await DB.set(C_TYPES, EX_SET_ID, { sec: n }, true); exGlobalSec = n; toast('Zapisano: zdjęcia zmieniają się co ' + n + ' s', 'success', 2000);
+    };
+    // zmiana listy zdjęć dla typu (vid pusty) albo wykonania
     const exUpdate = async (tid, vid, fn) => {
       await ensureTypesSeeded();
       const t = S.types.find(x => x.id === tid);
       if (!vid) {
-        const o = { examples: exList(t).slice(), slideSec: t.slideSec }; fn(o);
+        const o = { examples: exList(t).slice() }; fn(o);
         const ex = o.examples.filter(Boolean).slice(0, EX_MAX);
-        await DB.set(C_TYPES, tid, { examples: ex, example: ex[0] || '', slideSec: o.slideSec || EX_SEC }, true);
+        await DB.set(C_TYPES, tid, { examples: ex, example: ex[0] || '' }, true);
       } else {
         const vs = clone(t.variants || DEFAULT_TYPES.find(x => x.id === tid).variants), v = vs.find(x => x.id === vid);
-        const o = { examples: exList(v).slice(), slideSec: v.slideSec }; fn(o);
+        const o = { examples: exList(v).slice() }; fn(o);
         const ex = o.examples.filter(Boolean).slice(0, EX_MAX);
-        v.examples = ex; if (ex[0]) v.example = ex[0]; else delete v.example; v.slideSec = o.slideSec || EX_SEC;
+        v.examples = ex; if (ex[0]) v.example = ex[0]; else delete v.example;
         await DB.set(C_TYPES, tid, { variants: vs }, true);
       }
     };
@@ -9448,7 +9457,6 @@ function openTypesPanel() {
       const tid = c.dataset.tid, vid = c.dataset.vid;
       c.querySelectorAll('[data-xs]').forEach(el => el.onclick = () => { const i = +el.dataset.xs; pickEx(url => exUpdate(tid, vid, o => { o.examples[i] = url; })); });
       c.querySelectorAll('[data-xrm]').forEach(el => el.onclick = async () => { const i = +el.dataset.xrm; await exUpdate(tid, vid, o => { o.examples.splice(i, 1); }); setTimeout(render, 150); });
-      c.querySelector('[data-xsec]').onchange = async e => { const n = clamp(Math.round(Number(e.target.value)) || EX_SEC, 2, 120); e.target.value = n; await exUpdate(tid, vid, o => { o.slideSec = n; }); toast('Zapisano: zmiana co ' + n + ' s', 'success', 1800); };
     });
     $('tp-body').querySelectorAll('tr[data-id]').forEach(tr => {
       const id = tr.dataset.id;
