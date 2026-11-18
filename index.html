@@ -2409,6 +2409,7 @@ function typeLabel(el) {
   if (t.finish) { const f = FINISHES.find(([k]) => k === el.finish); if (f) s += ' · ' + f[2]; }
   if (t.seg && el.seg) s += ' · SEG';
   if (t.wyslona && el.wyslona) s += ' · wysłona · SEG'; // wysłona jest obszywana płaską gumką (SEG)
+  if (isHang(el) && hangInset(el)) s += ' · profil ' + hangProf(el)[1];
   if (isHang(el) && el.hbMode) s += ' · ' + ({ none: 'bez spadów', sock: 'spad: skarpeta', custom: 'spad indywidualny' }[el.hbMode] || '');
   if (hasCombo(el)) s += ' + ' + typeLabel(comboEl(el));
   return s;
@@ -2453,6 +2454,19 @@ const depthOf = el => Number(el.d) > 0 ? Number(el.d) : Number(el.w); // kwadrat
 //  znaki: A1, A2…; przy zadruku wewnątrz dopisek outside / inside
 const PI_DRUK = 3.14;
 const isHang = el => el.typeId === 'podwieszana';
+// profil konstrukcji: okrągły 32 mm (dotychczasowy — zadruk wewnątrz w tym samym wymiarze), T 50 mm, EF 80 mm;
+// przy T i EF wymiar wewnętrzny jest mniejszy o grubość profilu z każdej strony (np. 100 → 90 dla T, 100 → 84 dla EF); wysokość bez zmian; domyślnie bez spadów
+const HANG_PROFILES = [['r32', 'Okrągły 32 mm', 0], ['t50', 'T 50 mm', 50], ['ef80', 'EF 80 mm', 80]];
+const hangProf = el => HANG_PROFILES.find(p => p[0] === el.prof) || HANG_PROFILES[0];
+const hangInset = el => hangProf(el)[2];
+// płaszczyzny zadruku wewnątrz: z wymiaru zewnętrznego odjęta grubość profilu po obu stronach (szerokość i głębokość / średnica)
+function planeBaseIn(el, base) {
+  const t = hangInset(el); if (!t) return base;
+  const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
+  if (m === 'box') { const iw = Math.max(0, W - 2 * t), id = Math.max(0, depthOf(el) - 2 * t); return [[iw, H], [id, H], [iw, H], [id, H]]; }
+  if (m === 'ring') return [[Math.round(PI_DRUK * Math.max(0, W - 2 * t)), H]];
+  return base;
+}
 function planeBase(el) {
   const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
   if (m === 'box') return W > 0 && H > 0 ? [[W, H], [depthOf(el), H], [W, H], [depthOf(el), H]] : [];
@@ -2485,7 +2499,7 @@ function planesOf(el) {
     const bb = joined ? { l: i === 0 ? k.l : 0, r: i === base.length - 1 ? k.r : 0, t: k.t, b: k.b } : k;
     return { label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb, gw: w + bb.l + bb.r, gh: h + bb.t + bb.b, thumb: th[i] || '' };
   });
-  if (el.inside) base.forEach(([w, h], i) => out.push({ label: mark + (base.length + i + 1), side: 'inside', w, h, b: out[i].b, bb: out[i].bb, gw: out[i].gw, gh: out[i].gh, thumb: th[base.length + i] || '' }));
+  if (el.inside) { const inb = planeBaseIn(el, base); base.forEach(([, h], i) => { const iw = inb[i][0]; out.push({ label: mark + (base.length + i + 1), side: 'inside', w: iw, h, b: out[i].b, bb: out[i].bb, gw: iw + out[i].bb.l + out[i].bb.r, gh: out[i].gh, thumb: th[base.length + i] || '' }); }); }
   return out;
 }
 const planeName = p => p.label + (p.side ? ' ' + p.side : '');
@@ -2493,7 +2507,7 @@ const planeName = p => p.label + (p.side ? ' ' + p.side : '');
 const qtyOf = e => isHang(e) && e.variant === 'inny' ? 1 : Math.max(1, Number(e.qty) || 1);
 // pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
 const hangFields = d => isHang(d)
-  ? { hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
+  ? { prof: hangProf(d)[0], hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
       pthumbs: (d.pthumbs || []).slice(0, (planesOf(d) || []).length) }
   : { hbMode: '', hbSides: null, pthumbs: [] };
 // obrazek ze schowka (null, gdy brak / brak zgody)
@@ -5442,6 +5456,8 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         ${bm === 'all' ? `<div class="bleed-row"><span class="bl-i">spad <input type="number" id="ed-bl-all" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedAll))}"> ${UNIT()} / stronę</span></div>` : ''}
         ${bm === 'sides' ? `<div class="bleed-row">${BLEED_SIDES.map(([k, n]) => `<span class="bl-i">${n} <input type="number" data-bl="${k}" min="0" step="${unitStep()}" value="${esc(fromMM(el.bleedSides[k]))}"></span>`).join('')} <span>${UNIT()}</span></div>` : ''}</div>`;
     }
+    if (t && t.id === 'podwieszana') h += `<div class="fld" style="margin-top:12px"><label>Profil konstrukcji</label><div class="var-list">${HANG_PROFILES.map(([id, n]) => `<button type="button" class="type-btn var-btn ${hangProf(el)[0] === id ? 'on' : ''}" data-prof="${id}">${n}</button>`).join('')}</div>
+        <div class="hint">${hangInset(el) ? `Wymiar wewnętrzny (zadruk wewnątrz) = zewnętrzny − 2 × ${lenPL(hangInset(el))} ${UNIT()} (grubość profilu) w szerokości i głębokości, wysokość bez zmian. Domyślnie bez spadów.` : 'Profil okrągły 32 mm: zadruk wewnątrz w tym samym wymiarze co zewnętrzny.'}</div></div>`;
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, z takim samym spadem)</span></span></label>`;
     if (t && t.id === 'podwieszana') {
       if (!el.hbMode) { const k0 = hangBleed(el); el.hbMode = hangBleedAny(k0) ? 'custom' : 'none'; if (el.hbMode === 'custom') el.hbSides = { ...k0 }; }
@@ -5485,6 +5501,11 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     $('ed-doorslot').querySelectorAll('input[data-dbl]').forEach(i => i.addEventListener('input', () => { el.door.bleed[i.dataset.dbl] = toMM(i.value); refresh(); }));
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
+    $('ed-opts').querySelectorAll('[data-prof]').forEach(b => b.onclick = () => {
+      el.prof = b.dataset.prof;
+      if (hangInset(el)) { el.hbMode = 'none'; el.hbSides = null; }      // T i EF: domyślnie bez spadów (można zmienić niżej)
+      renderOpts(); refresh();
+    });
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
     $('ed-bleedopts').querySelectorAll('[data-hmode]').forEach(b => b.onclick = () => {
       const k = hangBleed(el); el.hbMode = b.dataset.hmode;
