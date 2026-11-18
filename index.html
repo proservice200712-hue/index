@@ -1124,7 +1124,8 @@
               <label class="pchip" title="Głębokość stoiska (oś pionowa)"><i class="ti ti-arrows-vertical"></i><span>gł.</span><input type="text" inputmode="decimal" id="uf-sd"></label>
               <label class="pchip" title="Domyślna wysokość ścianek"><i class="ti ti-ruler-3"></i><span>wys.</span><select id="uf-sh"></select></label>
               <div class="pchip" title="Powierzchnia stoiska"><i class="ti ti-chart-area"></i><span>pole</span><b id="uf-sa" class="uf-area"></b></div>
-              <label class="pchip" id="uf-ext-l" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><i class="ti ti-fence"></i><span id="uf-ext-t">wysłony zewn.</span><input type="checkbox" id="uf-ext"></label>
+              <label class="pchip wide uk" id="uf-extm-l" title="Wysłona tyłu na zamkniętym boku stoiska (za nim sąsiad): od 250 cm w górę albo po całości (cała wysokość ścianki). Na wizualizacji od strony sąsiada jako biała płachta."><i class="ti ti-fence"></i><span>wysłona tyłu</span><select id="uf-extm"><option value="0">brak</option><option value="top">od 250 cm</option><option value="full">po całości</option></select></label>
+              <label class="pchip ue" id="uf-ext-l" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><i class="ti ti-fence"></i><span id="uf-ext-t">wysłony zewn.</span><input type="checkbox" id="uf-ext"></label>
               <label class="pchip" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><i class="ti ti-door"></i><span>wysłona zaplecza</span><input type="checkbox" id="uf-zap"></label>
               <label class="pchip ue" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><i class="ti ti-square-plus"></i><span>zaślepki PCW</span><input type="checkbox" id="uf-caps"></label>
               <label class="pchip ue" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><i class="ti ti-square-plus"></i><span>zaślepki ELTEX</span><input type="checkbox" id="uf-capsx"></label>
@@ -6703,7 +6704,8 @@ const UF_T = 80;                                              // grubość ścia
 const UF_DIR = [[1, 0], [0, 1], [-1, 0], [0, -1]];            // wschód, południe, zachód, północ (y rośnie w dół)
 const UF_EXT_FROM = 2480;                                     // wysłona zewnętrzna zaczyna się od 248 cm w górę
 const UF_KEXT_FROM = 2500;                                    // K-Frame: wysłona tyłu od 250 cm w górę
-const ufExtFrom = () => UF.d && UF.d.sys === 'k' ? UF_KEXT_FROM : UF_EXT_FROM;
+const ufExtFrom = () => UF.d && UF.d.sys === 'k' ? (UF.d.stand && UF.d.stand.extFull ? 0 : UF_KEXT_FROM) : UF_EXT_FROM;     // K-Frame: wysłona tyłu od 250 cm albo po całości (od 0)
+const ufExtTxt = () => ufExtFrom() > 0 ? `od ${lenPL(ufExtFrom())} w górę` : 'na całą wysokość ścianki';
 const UF_CAP_W = 80, UF_CAP_COL = '#6b46c1';                  // zaślepka gołego końca ramy: PCW 3 mm, szer. 8 cm × wysokość systemu
 const UF_PAL_E = [
   { id: 'w99', key: '1', op: { t: 'w', len: 992 } },
@@ -7059,7 +7061,7 @@ function ufSpec(run, role) {
     notes: ufK() ? ufKNote(run, back ? 'b' : 'f') : '', mount: run.mounts[back ? 'b' : 'f'], paint: run.paints[back ? 'b' : 'f'], paintName: ufPaintLabel(run, back ? 'b' : 'f') };
 }
 const UF_SIDE = { n: 'górny', e: 'prawy', s: 'dolny', w: 'lewy' };
-const ufExtSpec = e => ({ w: e.w, h: e.h, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0, notes: `${ufK() ? 'wysłona tyłu (biała płachta, widoczna od strony sąsiada)' : 'wysłona zewnętrzna'} od ${lenPL(ufExtFrom())} ${UNIT()} w górę — cały ${UF_SIDE[e.side]} bok stoiska (za nim sąsiad)` });
+const ufExtSpec = e => ({ w: e.w, h: e.h, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0, notes: `${ufK() ? 'wysłona tyłu (biała płachta, widoczna od strony sąsiada)' : 'wysłona zewnętrzna'} ${ufExtFrom() > 0 ? 'od ' + lenPL(ufExtFrom()) + ' ' + UNIT() + ' w górę' : 'na całą wysokość ścianki'} — cały ${UF_SIDE[e.side]} bok stoiska (za nim sąsiad)` });
 const ufCapSpec = c => ({ w: c.w || UF_CAP_W, h: c.h, qty: c.ends.length, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0,
   notes: c.eltex ? `zaślepki gołych końców ramy ELTEX — PCW 3 mm, ${lenPL(c.w)} (grubość ramy) × wysokość ${lenPL(c.h)} ${UNIT()}, zadrukowane na kolor ścianki`
     : `zaślepki gołych końców ramy (aluminium z otworami) — PCW 3 mm, ${lenPL(UF_CAP_W)} × wysokość systemu ${lenPL(c.h)} ${UNIT()}, zadrukowane na kolor ścianki` });
@@ -7258,7 +7260,7 @@ function ufSyncBar() {
   const act = document.activeElement;
   if (act !== $('uf-sl')) $('uf-sl').value = numIn(fromMM(st.L)); if (act !== $('uf-sd')) $('uf-sd').value = numIn(fromMM(st.D));
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
-  $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
+  $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-extm').value = !st.ext ? '0' : st.extFull ? 'full' : 'top'; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
   $('uf-look').textContent = d.look === 'bare' ? (ufK() ? '▦ 3D: kratownica' : '▦ 3D: gołe ramy') : '▮ 3D: pełne ściany';
   $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mounts[ufPl()]) || d.mount || (ufK() ? 'stretch' : 'seg');
   $('uf-pane').classList.toggle('uf-sel', !!r);
@@ -7272,7 +7274,7 @@ function ufSyncBar() {
   let t;
   if (r) {
     const gs = ufGeom(d), eo = gs.ext.find(x => x.side === r.closed), fs = gs.faces.filter(f => f.run.key === r.key);
-    const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(ufExtFrom())} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= ufExtFrom() ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(ufExtFrom()) + ')</span>' : '';
+    const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (${ufExtTxt()})</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= ufExtFrom() ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(ufExtFrom()) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? 'ramy ' + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
   $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '');
@@ -8452,6 +8454,7 @@ async function closeUltraFrame() {
   $('uf-sh').onchange = e => { ufPush(); UF.d.H = parseInt(e.target.value, 10); ufChanged(); };
   const dimIn = (id, k) => $(id).addEventListener('change', e => { const v = toMM(e.target.value); if (!(v >= 1000 && v <= 60000)) { toast(`Podaj wymiar od ${lenPL(1000)} do ${lenPL(60000)} ${UNIT()}`, 'error'); ufSyncBar(); return; } ufPush(); UF.d.stand[k] = v; UF.d.pieces.forEach(p => ufFit(p)); ufChanged(); });
   dimIn('uf-sl', 'L'); dimIn('uf-sd', 'D');
+  $('uf-extm').onchange = e => { ufPush(); const v = e.target.value; UF.d.stand.ext = v !== '0'; UF.d.stand.extFull = v === 'full'; ufChanged(); };
   $('uf-ext').onchange = e => { ufPush(); UF.d.stand.ext = e.target.checked; ufChanged(); };
   $('uf-caps').onchange = e => { ufPush(); UF.d.stand.caps = e.target.checked; ufChanged(); };
   $('uf-capsx').onchange = e => { ufPush(); UF.d.stand.capsX = e.target.checked; ufChanged(); };
