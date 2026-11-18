@@ -273,7 +273,7 @@
   #viewer.t-poly #overlay .shp { pointer-events: none; }
   #overlay .hdl { cursor: pointer; }
   #overlay .plab { pointer-events: none; }
-  #overlay .pdel, #overlay .pvm { cursor: pointer; }
+  #overlay .pdel, #overlay .pvm, #overlay .pexp { cursor: pointer; }
   #overlay .pvm:hover rect { fill: rgba(56,161,105,.85); }
   #viewer-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--gray); gap: 14px; text-align: center; padding: 20px; pointer-events: none; }
   #viewer-empty .big { font-size: 1.15rem; font-weight: 700; color: var(--dark); }
@@ -811,7 +811,7 @@
   /* konto tylko do podgladu (Gesuto): bez przyciskow edycji */
   body.no-uf #btn-uf, body.no-uf .uf-entry { display: none !important; }
   body.viewer #toolbar [data-tool], body.viewer #toolbar [onclick^="pickPhotos"], body.viewer #toolbar [onclick^="pasteFromClipboard"], body.viewer #btn-align, body.viewer #btn-uf,
-  body.viewer #toolbar .sep, body.viewer #viewer-empty .btn, body.viewer .pdel, body.viewer .pvm, body.viewer #btn-turbo, body.viewer [onclick^="newElementWithoutShape"],
+  body.viewer #toolbar .sep, body.viewer #viewer-empty .btn, body.viewer .pdel, body.viewer .pvm, body.viewer .pexp, body.viewer #btn-turbo, body.viewer [onclick^="newElementWithoutShape"],
   body.viewer #gc-tools button:not([onclick^="graphFit"]), body.viewer .row-act, body.viewer #side-acts, body.viewer .fair-row .add, body.viewer .fair-row .ed, body.viewer .stand-row .ed,
   body.viewer #side-foot, body.viewer #assign-bar, body.viewer #drop-hint { display: none !important; }
   body.viewer #hdr-pname { cursor: default; }
@@ -4278,9 +4278,10 @@ function renderOverlay() {
     const b = L.map[p.id], cur = p.id === S.photoId && S.photos.length > 1;
     if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#67b437" stroke-width="${3 * s}"/>`;
     out += `<g class="plab"><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/>
-      <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text></g>
-      ${(() => { const hel = hangElOfPhoto(p.id); if (!hel) return ''; const cm = hangViewMode(p, hel), bs = [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']]; let bx = b.x + b.w - 24 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
+      <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text>${p.noExp ? `<rect x="${b.x + 44 * s}" y="0" width="${96 * s}" height="${24 * s}" fill="rgba(197,48,48,.92)"/><text x="${b.x + 92 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial">poza eksportem</text>` : ''}</g>
+      ${(() => { const hel = hangElOfPhoto(p.id); if (!hel) return ''; const cm = hangViewMode(p, hel), bs = [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']]; let bx = b.x + b.w - 52 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
         return bs.map(([k, lab, w, tt]) => { const x0 = bx; bx += w * s; return `<g class="pvm" data-pid="${p.id}" data-mode="${k}"><title>${tt}</title><rect x="${x0}" y="0" width="${w * s}" height="${24 * s}" fill="${cm === k ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + w * s / 2}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${lab}</text></g>`; }).join(''); })()}
+      ${(() => { const off = !!p.noExp, x0 = b.x + b.w - 52 * s; return `<g class="pexp" data-pid="${p.id}"><title>${off ? 'Wizka jest poza eksportem — kliknij, aby ją włączyć' : 'Wyłącz tę wizkę z eksportu'}</title><rect x="${x0}" y="0" width="${24 * s}" height="${24 * s}" fill="${off ? 'rgba(197,48,48,.92)' : 'rgba(26,32,44,.8)'}"/>${eyeIcon(!off).replace('<svg ', `<svg x="${x0 + 3 * s}" y="${3 * s}" style="color:#fff;pointer-events:none" `).replace('width="17" height="17"', `width="${18 * s}" height="${18 * s}"`)}</g>`; })()}
       <g class="pdel" data-pid="${p.id}"><title>Usuń wizkę #${i + 1}</title><rect x="${b.x + b.w - 24 * s}" y="0" width="${24 * s}" height="${24 * s}" fill="rgba(229,62,62,.9)"/>
       <text x="${b.x + b.w - 12 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${14 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">✕</text></g>`;
   });
@@ -4401,6 +4402,7 @@ viewer.addEventListener('pointerdown', e => {
     lastMarkTap = { eid: el0.id, t: now0, x: e.clientX, y: e.clientY };
     selectElement(el0.id, false, loc0); setCurrentPhoto(pid0); act = null; return;
   }
+  const pxo = !draft && e.target.closest('.pexp'); if (pxo) { const ph = S.photos.find(x => x.id === pxo.dataset.pid); if (ph && S.project && !isViewer()) DB.update(pPhotos(S.project.id), ph.id, { noExp: !ph.noExp }); return; }     // oczko: wizka poza eksportem
   const vm = !draft && e.target.closest('.pvm'); if (vm) { hangSetView(vm.dataset.pid, vm.dataset.mode); return; }     // przełącznik widoku wizualizacji konstrukcji
   const del = !draft && e.target.closest('.pdel'); // w trakcie rysowania wielokąta ✕ nie przeszkadza
   if (del) { deletePhoto(del.dataset.pid); return; }
@@ -9382,6 +9384,13 @@ function openExportDialog() {
     body: `
       <div class="fld"><label>Co?</label>
         <div class="exp-what">${what.map(([id, ic, n, d], i) => `<button type="button" class="exp-opt ${i === 0 ? 'on' : ''}" data-w="${id}"><span class="ic">${ic}</span><span><b>${n}</b><small>${d}</small></span></button>`).join('')}</div></div>
+      <div class="fld exp-scope"><label>Zakres</label>
+        <div class="exp-mode">
+          <button type="button" class="exp-m on" data-s="all">Wszystko</button>
+          <button type="button" class="exp-m" data-s="nohang" title="Bez konstrukcji podwieszanych i ich wizualizacji">Wszystko oprócz podwieszenia</button>
+          <button type="button" class="exp-m" data-s="hang" title="Tylko konstrukcje podwieszane i ich wizualizacje">Tylko podwieszenie</button>
+        </div>
+        <div class="hint">Wizki z przekreślonym oczkiem (na wizce, obok ✕) nie idą do eksportu w żadnym zakresie.</div></div>
       <div class="fld"><label>Druk czy eksport?</label>
         <div class="exp-mode">
           <button type="button" class="exp-m on" data-m="print">🖨 Druk</button>
@@ -9399,13 +9408,14 @@ function openExportDialog() {
         <div class="hint">100% = wizualizacja możliwie największa na całej kartce A3; elementy układają się obok i pod nią, w wolnym miejscu.</div></div>
       <div class="fld"><label>Podgląd</label><div class="exp-prev" id="exp-prev"></div></div>`,
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="exp-go">Drukuj</button>`,
+    onClose: () => { EXP_SCOPE = 'all'; },
   });
-  let w = 'a3', mode = 'print', lang = LANG, prevFor = '', prevNr = 0, zoom = null, zTimer = 0;
+  let scope = 'all', w = 'a3', mode = 'print', lang = LANG, prevFor = '', prevNr = 0, zoom = null, zTimer = 0;
   A3_ZOOM = null;
   // mały podgląd strony (to samo, co pójdzie do druku / PDF); dla CSV i JSON — kilka pierwszych wierszy
   const preview = async () => {
-    if (prevFor === w + lang + zoom) return;
-    prevFor = w + lang + zoom; const nr = ++prevNr, box = $('exp-prev');
+    if (prevFor === w + lang + zoom + scope + S.photos.map(p => p.noExp ? 'x' : 'o').join('')) return;
+    prevFor = w + lang + zoom + scope + S.photos.map(p => p.noExp ? 'x' : 'o').join(''); const nr = ++prevNr, box = $('exp-prev'); EXP_SCOPE = scope;
     if (w === 'csv' || w === 'json') {
       const rows = exportRows().slice(0, 6);
       box.innerHTML = `<pre class="exp-txt">${esc(w === 'csv' ? rows.map(r => [r.znak, r.typ, r.gross, r.qty].join(';')).join('\n') : JSON.stringify(rows.map(r => ({ znak: r.znak, typ: r.typ, wymiar: r.gross })), null, 1))}${exportRows().length > 6 ? '\n…' : ''}</pre>`;
@@ -9444,6 +9454,8 @@ function openExportDialog() {
     m.el.querySelector('.exp-lang-fld').classList.toggle('hidden', !printable);
     m.el.querySelector('.exp-ver').classList.toggle('hidden', mode !== 'save');
     m.el.querySelector('.exp-zoom').classList.toggle('hidden', w !== 'a3');
+    m.el.querySelector('.exp-scope').classList.toggle('hidden', w === 'json');
+    m.el.querySelectorAll('.exp-m[data-s]').forEach(x => x.classList.toggle('on', x.dataset.s === scope));
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     $('exp-file').innerHTML = `Plik: <b>${esc(fileBase(v) + ext())}</b>`;
     $('exp-go').textContent = mode === 'print' ? '🖨 Drukuj' : '💾 Zapisz';
@@ -9452,24 +9464,32 @@ function openExportDialog() {
   m.el.querySelectorAll('.exp-opt').forEach(x => x.onclick = () => { w = x.dataset.w; sync(); });
   m.el.querySelectorAll('.exp-m[data-m]').forEach(x => x.onclick = () => { if (!x.disabled) { mode = x.dataset.m; sync(); } });
   m.el.querySelectorAll('.exp-m[data-l]').forEach(x => x.onclick = () => { lang = x.dataset.l; sync(); });
+  m.el.querySelectorAll('.exp-m[data-s]').forEach(x => x.onclick = () => { scope = x.dataset.s; sync(); });
   $('exp-v').addEventListener('input', sync);
   m.el.querySelector('[data-c]').onclick = () => m.close();
   $('exp-go').onclick = async () => {
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     const pend = todosOpen(S.project);      // nieodhaczone notatki „!?” — przypomnienie przed eksportem
     if (pend.length && !await confirmBox(`<b>Są rzeczy do zrobienia lub sprawdzenia (${pend.length}):</b><ul style="margin:8px 0 8px 20px">${pend.slice(0, 8).map(t => `<li>${esc(t.text)}</li>`).join('')}${pend.length > 8 ? `<li>… i ${pend.length - 8} więcej</li>` : ''}</ul>Eksportować mimo to?`, 'Eksportuj mimo to', false)) return;
+    if (w !== 'json') { EXP_SCOPE = scope; const empty = exportRows().length === 0 && (w !== 'a3' || expPhotos().length === 0); EXP_SCOPE = 'all'; if (empty) return toast('W tym zakresie nie ma nic do eksportu', 'error'); }
     $('exp-go').disabled = true;
     m.close();
-    if (w === 'csv') return exportCsv(fileBase(v) + '.csv');
     if (w === 'json') return exportJson(fileBase(v) + '.json');
+    EXP_SCOPE = scope;
+    if (w === 'csv') { try { return exportCsv(fileBase(v) + '.csv'); } finally { EXP_SCOPE = 'all'; } }
     A3_ZOOM = w === 'a3' ? zoom : null; A3_NEEDZ = false;
-    try { await exportDoc(w, mode, v, lang); } finally { A3_ZOOM = null; }
+    try { await exportDoc(w, mode, v, lang); } finally { A3_ZOOM = null; EXP_SCOPE = 'all'; }
   };
   sync();
 }
 // element ukryty okiem (tblHidden) nie idzie do eksportu — razem z nim wysłona jego lightboxa i drzwi jego ściany
+let EXP_SCOPE = 'all';                  // zakres eksportu: all | nohang (wszystko oprócz podwieszenia) | hang (tylko podwieszenie)
+// wizki do eksportu: bez wyłączonych oczkiem; w zakresie „bez podwieszenia” — bez wizualizacji konstrukcji, w „tylko podwieszenie” — tylko one
+const expPhotos = () => S.photos.filter(p => !p.noExp && (EXP_SCOPE === 'all' || (EXP_SCOPE === 'hang') === !!hangElOfPhoto(p.id)));
 function hiddenInExport(e) {
   if (e.tblHidden) return true;
+  if (EXP_SCOPE === 'nohang' && isHang(e)) return true;
+  if (EXP_SCOPE === 'hang' && !isHang(e)) return true;
   const main = (e.backFor || e.doorFor) && S.elements.find(x => x.id === (e.backFor || e.doorFor));
   return !!(main && main.tblHidden);
 }
@@ -9683,7 +9703,7 @@ async function renderIndexA3(stamp) {
   const rows = exportRows();
   // --- wizki obok siebie
   const imgs = [];
-  for (const ph of S.photos) { try { imgs.push({ ph, img: await loadImg(ph.url) }); } catch (e) { imgs.push({ ph, img: null }); } }
+  for (const ph of expPhotos()) { try { imgs.push({ ph, img: await loadImg(ph.url) }); } catch (e) { imgs.push({ ph, img: null }); } }
   const top = 110 * sc + 34, GAP = 34, availW = PW - 2 * M;
   const asp = imgs.map(o => o.img ? o.img.width / o.img.height : (Number(o.ph.w) || 4) / (Number(o.ph.h) || 3));
   const sumA = asp.reduce((a, b) => a + b, 0);
@@ -9838,7 +9858,7 @@ async function renderIndexA3(stamp) {
     const here = rows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
     if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, here, Math.max(18, Math.min(30, Hp / 26)));
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
-    if (imgs.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + (i + 1), x + 12, top + 29); }
+    if (imgs.length > 1 || S.photos.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + photoNo(o.ph.id), x + 12, top + 29); }
     x += w + GAP;
   });
   if (hasCards) {
