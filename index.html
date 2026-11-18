@@ -72,8 +72,16 @@
   .todo-h { margin: 12px 0 2px; font-size: .72rem; font-weight: 700; letter-spacing: .5px; color: var(--gray); text-transform: uppercase; }
   /* panel boczny edytora (uporządkowany jak „Podział” w Offset Wizard): karty z ikonami, chipy, przełączniki, zwijane podpowiedzi */
   .uf-body { display: flex; flex: 1 1 auto; min-height: 0; }
-  #uf-side { flex: 0 0 324px; overflow-y: auto; background: #fff; border-right: 1px solid var(--line); padding: 8px 8px 12px; color: var(--dark); font-size: .78rem; }
-  #uf-pane.uf-side-off #uf-side { display: none; }
+  #uf-side { flex: 0 0 324px; overflow-y: auto; overflow-x: hidden; background: #fff; border-right: 1px solid var(--line); padding: 8px 8px 12px; color: var(--dark); font-size: .78rem; transition: flex-basis .28s ease, padding .28s ease, opacity .22s ease; }
+  #uf-side > * { min-width: 306px; }
+  #uf-pane.uf-side-off #uf-side { flex-basis: 0; padding-left: 0; padding-right: 0; opacity: 0; border-right: 0; overflow: hidden; }
+  .uf-sh { flex: 0 0 24px; background: var(--dark2); color: #e2e8f0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; user-select: none; }
+  .uf-sh:hover { background: var(--accent); color: var(--dark); }
+  .uf-sh .vt { writing-mode: vertical-rl; transform: rotate(180deg); font-size: .7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+  .uf-sh .arr { font-size: .8rem; }
+  #uf-side summary.pct { cursor: pointer; list-style: none; } #uf-side summary.pct::-webkit-details-marker { display: none; }
+  #uf-side summary.pct .pcv { margin-left: auto; transition: transform .15s; color: var(--gray); } #uf-side details.pcat:not([open]) summary.pct .pcv { transform: rotate(-90deg); }
+  #uf-side details.pcat:not([open]) > summary.pct { margin-bottom: 0; }
   #uf-side .pcat { border: 1px solid var(--line); background: #fff; padding: 7px 8px 8px; margin: 0 0 8px; }
   #uf-side .pct { display: flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--gray); margin: 0 0 6px; }
   #uf-side .pct .ti { font-size: 17px; color: #2d3748; }
@@ -135,12 +143,6 @@
   #uf-pvg:hover { background: #276749; }
   #uf-pvw .uf-pva.l { left: 30px; } #uf-pvw .uf-pva.r { right: 6px; } /* strzałki na dolnej krawędzi podglądu — nie zasłaniają ścianek */
   .uf-div { width: 1px; align-self: stretch; background: #4a5568; margin: 0 2px; }
-  .uf-help { position: absolute; left: 8px; bottom: 8px; z-index: 6; width: 30px; height: 30px; padding: 0; border-radius: 50% !important; background: #2d3748; color: #fff; border: 2px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.35); font-size: 1rem; font-weight: 800; cursor: pointer; }
-  .uf-help:hover, .uf-help.on { background: #38a169; }
-  #uf-helpm { display: none; position: absolute; left: 8px; bottom: 46px; z-index: 6; width: min(640px, calc(100% - 16px)); max-height: calc(100% - 60px); overflow: auto; background: #fff; border: 1px solid #a0aec0; box-shadow: 0 6px 22px rgba(0,0,0,.3); padding: 10px 14px; font-size: .78rem; color: var(--mid); }
-  #uf-helpm.open { display: block; }
-  #uf-helpm .uf-info { padding: 0 0 8px; border: 0; background: none; display: flex; flex-direction: column; gap: 4px; }
-  #uf-keys { font-size: .72rem; color: var(--gray); line-height: 1.55; border-top: 1px solid var(--line); padding-top: 8px; }
   .uf-info { padding: 5px 10px; font-size: .78rem; color: var(--mid); background: #fff; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
   .uf-info .uf-keys { color: var(--gray); font-size: .7rem; }
   .uf-info .uf-bk { color: #c05621; }
@@ -1091,21 +1093,20 @@
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
           <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl+klik = 10×, Shift+klik albo Shift+strzałka = cała ścianka)">Krok strzałek <input type="number" id="uf-step" value="10" min="1" step="1"> mm</label></span>
           <span class="uf-sp"></span>
-          <button type="button" id="uf-sidet" title="Pokaż / schowaj panel ustawień">☰ Panel</button>
           <button type="button" id="uf-look" title="Widok 3D: pełne ściany (z grafiką, bez podziału) albo gołe ramy z widocznym podziałem na moduły">▮ 3D: pełne ściany</button>
           <button type="button" id="uf-go" class="uf-go" title="Zrób widok 3D jako nową wizkę, ze znacznikami i elementami (SEG + wysłony)">◈ Zrób widok 3D</button>
           <button type="button" id="uf-x" title="Zamknij (Esc)">✕</button>
         </div>
         <div class="uf-body">
         <aside id="uf-side">
-          <div class="pcat"><div class="pct"><i class="ti ti-layout-grid-add"></i>Moduły — przeciągnij na plan</div>
+          <details class="pcat" open data-k="mod"><summary class="pct"><i class="ti ti-layout-grid-add"></i>Moduły — przeciągnij na plan<i class="ti ti-chevron-down pcv"></i></summary>
             <div class="uf-grp" id="uf-pal"></div>
             <div class="pchips" style="margin-top:6px">
               <label class="pchip" title="Ścianka o własnej szerokości (np. regulowana)"><i class="ti ti-ruler-measure"></i><span>własna</span><input type="number" id="uf-cus" min="1" step="0.1" placeholder="szer."><button type="button" id="uf-cus-b" title="Dodaj ściankę o podanej szerokości za zaznaczonym klockiem">＋</button></label>
               <div class="pbtn2"><button type="button" id="uf-rl" title="Obróć zaznaczony klocek w lewo (Shift+R)">↶ obrót</button><button type="button" id="uf-rr" title="Obróć zaznaczony klocek w prawo (R) — albo kliknij klocek drugi raz">↷ R</button></div>
             </div>
-          </div>
-          <div class="pcat"><div class="pct"><i class="ti ti-wall"></i>Zaznaczona ścianka</div>
+          </details>
+          <details class="pcat" open data-k="wall"><summary class="pct"><i class="ti ti-wall"></i>Zaznaczona ścianka<i class="ti ti-chevron-down pcv"></i></summary>
             <div class="pchips">
               <label class="pchip" title="Wysokość zaznaczonej ścianki"><i class="ti ti-arrows-vertical"></i><span>wys.</span><select id="uf-h"></select></label>
               <label class="pchip" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><i class="ti ti-layout-sidebar-right"></i><span>wysłona ręcznie</span><input type="checkbox" id="uf-back"></label>
@@ -1116,8 +1117,8 @@
             <div class="pchips uk"><label class="pchip wide" title="Sposób mocowania grafiki na tej płaszczyźnie K-Frame (bez zaznaczenia ścianki — domyślnie dla nowych)"><i class="ti ti-paint"></i><span>montaż</span><select id="uf-mount"></select></label></div>
             <div id="uf-paint" class="uk" title="Kolor malowania zaznaczonej płaszczyzny (bez zaznaczenia — domyślny dla nowych)"><button type="button" id="uf-pbtn" title="Wybierz kolor: paleta, kod RAL / NCS albo własny kolor"><i class="uf-pdot"></i><span id="uf-paint-n"></span> ▾</button><label class="pchip wide" title="Maluj też bok ścianki (grubość — słupek między ściankami) w tym samym kolorze"><i class="ti ti-layout-distribute-vertical"></i><span>maluj też bok</span><input type="checkbox" id="uf-pside"></label>
               <div id="uf-pmenu"><div class="uf-pw"></div><div class="uf-prow"><input type="text" id="uf-pcode" placeholder="RAL 7016 lub NCS S 2030-Y90R" autocomplete="off"><button type="button" id="uf-pcodeb">Użyj</button></div><div class="uf-prow"><label>Własny kolor <input type="color" id="uf-paint-c" title="Własny kolor"></label></div><div class="uf-phint">RAL i NCS na ekranie są przybliżone — do zamówienia farby liczy się wpisany kod.</div></div></div>
-          </div>
-          <div class="pcat"><div class="pct"><i class="ti ti-layout-board"></i>Stoisko</div>
+          </details>
+          <details class="pcat" open data-k="stand"><summary class="pct"><i class="ti ti-layout-board"></i>Stoisko<i class="ti ti-chevron-down pcv"></i></summary>
             <div class="pchips">
               <label class="pchip" title="Długość stoiska (oś pozioma)"><i class="ti ti-arrows-horizontal"></i><span>dł.</span><input type="text" inputmode="decimal" id="uf-sl"></label>
               <label class="pchip" title="Głębokość stoiska (oś pionowa)"><i class="ti ti-arrows-vertical"></i><span>gł.</span><input type="text" inputmode="decimal" id="uf-sd"></label>
@@ -1128,10 +1129,13 @@
               <label class="pchip ue" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><i class="ti ti-square-plus"></i><span>zaślepki PCW</span><input type="checkbox" id="uf-caps"></label>
               <label class="pchip ue" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><i class="ti ti-square-plus"></i><span>zaślepki ELTEX</span><input type="checkbox" id="uf-capsx"></label>
             </div>
-          </div>
+          </details>
+          <details class="pfold" data-k="keys"><summary><i class="ti ti-chevron-right"></i><i class="ti ti-keyboard"></i>Myszka i klawisze</summary><div class="hint" id="uf-keys"></div></details>
         </aside>
-        <div class="uf-main"><canvas id="uf-cv"></canvas><button type="button" class="uf-help" id="uf-help" title="Informacje o zaznaczeniu, myszka i klawisze">?</button><div id="uf-helpm"><div class="uf-info" id="uf-info"></div><div id="uf-keys"></div></div><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
+        <div id="uf-sidet" class="uf-sh" title="Ustawienia — kliknij, aby rozsunąć / schować"><span class="arr">◂</span><span class="vt">Ustawienia</span><span class="arr">◂</span></div>
+        <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
         </div>
+        <div class="uf-info" id="uf-info"></div>
       </div>
     </div>
   </div>
@@ -8483,12 +8487,13 @@ async function closeUltraFrame() {
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
   // obrót widoku 3D strzałkami na podglądzie (o 90° w lewo / w prawo)
   const v12 = () => UF.d.v12 != null ? UF.d.v12 : UF.d.v8 != null ? (UF.d.v8 >> 1) * 3 + (UF.d.v8 & 1) : (UF.d.view || 0) * 3;      // 0..11: co 30° — narożnik, dwa pośrednie widoki pod kątem, następny narożnik…
+  const sideArr = () => { const off = $('uf-pane').classList.contains('uf-side-off'); $('uf-sidet').querySelectorAll('.arr').forEach(x => x.textContent = off ? '▸' : '◂'); };
   try { if (localStorage.getItem('INDEX_UFSIDE') === '0') $('uf-pane').classList.add('uf-side-off'); } catch (e) {}
-  $('uf-sidet').onclick = () => { const off = $('uf-pane').classList.toggle('uf-side-off'); try { localStorage.setItem('INDEX_UFSIDE', off ? '0' : '1'); } catch (e) {} ufDraw(); };
-  { const hb = $('uf-help'), hm = $('uf-helpm'), hc = () => { hm.classList.remove('open'); hb.classList.remove('on'); };      // ikonka „?”: zaznaczenie + skróty w okienku
-    hb.onclick = e => { e.stopPropagation(); const o = hm.classList.toggle('open'); hb.classList.toggle('on', o); };
-    document.addEventListener('pointerdown', e => { if (hm.classList.contains('open') && !hm.contains(e.target) && !hb.contains(e.target)) hc(); });
-    UF.helpClose = () => { if (!hm.classList.contains('open')) return false; hc(); return true; }; }
+  sideArr();
+  $('uf-sidet').onclick = () => { const off = $('uf-pane').classList.toggle('uf-side-off'); try { localStorage.setItem('INDEX_UFSIDE', off ? '0' : '1'); } catch (e) {} sideArr(); ufDraw(); };
+  $('uf-side').addEventListener('transitionend', e => { if (e.target === $('uf-side') && UF.open) ufDraw(); });
+  { let st = {}; try { st = JSON.parse(localStorage.getItem('INDEX_UFSEC') || '{}'); } catch (e) {}       // karty panelu: zapamiętane zwinięcia
+    document.querySelectorAll('#uf-side details.pcat, #uf-side details.pfold').forEach(dt => { if (st[dt.dataset.k] === 0) dt.open = false; else if (st[dt.dataset.k] === 1) dt.open = true; dt.addEventListener('toggle', () => { st[dt.dataset.k] = dt.open ? 1 : 0; try { localStorage.setItem('INDEX_UFSEC', JSON.stringify(st)); } catch (e) {} }); }); }
   const grip = $('uf-pvg');       // zmiana rozmiaru podglądu 3D przeciąganiem narożnika (lewy dolny)
   grip.onpointerdown = e => {
     e.preventDefault(); e.stopPropagation(); grip.setPointerCapture(e.pointerId);
@@ -8522,7 +8527,7 @@ async function closeUltraFrame() {
     else if (k === 'b' || k === 'B') { const r = ufSelRun(); ufSetBack(r ? !r.manual : true); }
     else if (k === 'Backspace' || k === 'Delete') ufDelete();
     else if ((k === 'z' || k === 'Z') && e.ctrlKey) ufUndo();
-    else if (k === 'Escape') { if (!(UF.helpClose && UF.helpClose())) closeUltraFrame(); }
+    else if (k === 'Escape') closeUltraFrame();
     else if (k === 'f' || k === 'F') { UF.vw = null; ufDraw(); }
     else if (k === '+' || k === '=') ufZoomAt(...mid(), 1.25);
     else if (k === '-') ufZoomAt(...mid(), 1 / 1.25);
