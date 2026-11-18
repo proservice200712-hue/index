@@ -289,6 +289,7 @@
   .split-v:hover, .split-h:hover { background: var(--accent); }
 
   #pane-bottom { flex: 1 1 auto; min-height: 100px; display: flex; background: #fff; }
+  #screen-project.split-down #pane-bottom { min-height: 0; overflow: hidden; }   /* belka zwinięta dwuklikiem na dół: widok zajmuje cały ekran */
   #el-pane { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
   /* zegar-butla: pierścień jak w Butli, łuk = ile czasu zostało z bieżącego odcinka */
   /* widok graficzny listy elementów — jak index z Corela: litera w kółku + typ, okienko w skali, linie wymiarowe w cm */
@@ -1140,7 +1141,7 @@
       </div>
     </div>
   </div>
-  <div class="split-h" id="split-h" title="Przeciągnij, aby zmienić podział ekranu"><div id="cl-chip" title="Rozwiń zegar"><i></i><b id="cl-chip-t">–</b><span id="cl-chip-l"></span></div></div>
+  <div class="split-h" id="split-h" title="Przeciągnij, aby zmienić podział ekranu · dwuklik = zwiń na dół / przywróć"><div id="cl-chip" title="Rozwiń zegar"><i></i><b id="cl-chip-t">–</b><span id="cl-chip-l"></span></div></div>
   <div id="pane-bottom">
     <div id="el-pane">
       <div class="el-bar">
@@ -6422,9 +6423,8 @@ function renderLog() {
   }
   // belka między wizkami a elementami: wizki rosną i maleją razem z polem (to samo przybliżenie
   // względem „Dopasuj”, ten sam punkt na środku) — w górę mniejszy widok, w dół większy
-  drag($('split-h'), e => {
-    const r = $('screen-project').getBoundingClientRect();
-    const h = clamp(e.clientY - r.top, 120, r.height - 110);
+  const sp = $('screen-project');
+  const setTop = h => {
     if (!hasPhotos()) { root.style.setProperty('--top-h', h + 'px'); return; }
     const TB = 48, r0 = viewer.getBoundingClientRect(); // TB: miejsce na pasek narzędzi (jak w fitView)
     const z = V.scale / (V.fit || V.scale), cx0 = r0.width / 2, cy0 = TB + (r0.height - TB) / 2;
@@ -6435,7 +6435,26 @@ function renderLog() {
     V.scale = V.fit * z;
     V.tx = r1.width / 2 - sx * V.scale; V.ty = TB + (r1.height - TB) / 2 - sy * V.scale;
     applyView();
-  }, () => { try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
+  };
+  drag($('split-h'), e => {
+    const r = sp.getBoundingClientRect();
+    sp.classList.remove('split-down');
+    setTop(clamp(e.clientY - r.top, 120, r.height - 110));
+  }, () => { if (!sp.classList.contains('split-down')) try { localStorage.setItem('INDEX_TOP_H', getComputedStyle(root).getPropertyValue('--top-h').trim()); } catch (e) {} });
+  // dwuklik w belkę: zwija dolną część na dół (widok na cały ekran), drugi dwuklik wraca tam, gdzie belka była
+  let prevTop = '';
+  $('split-h').addEventListener('dblclick', e => {
+    if (e.target.closest('#cl-chip')) return;
+    const r = sp.getBoundingClientRect();
+    if (!sp.classList.contains('split-down')) {
+      prevTop = getComputedStyle(root).getPropertyValue('--top-h').trim() || '58%';
+      sp.classList.add('split-down'); setTop(r.height - 8);
+    } else {
+      sp.classList.remove('split-down');
+      const px = /px$/.test(prevTop) ? parseFloat(prevTop) : r.height * (parseFloat(prevTop) || 58) / 100;
+      setTop(px); root.style.setProperty('--top-h', prevTop);
+    }
+  });
   drag($('split-v'), e => {
     const r = $('logside').getBoundingClientRect();
     root.style.setProperty('--log-w', clamp(r.right - e.clientX, 200, window.innerWidth * 0.5) + 'px');
