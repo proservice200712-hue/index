@@ -70,6 +70,13 @@
   .todo-row small { color: var(--gray); font-size: .7rem; white-space: nowrap; }
   .todo-row.done .t { text-decoration: line-through; color: var(--gray); }
   .todo-h { margin: 12px 0 2px; font-size: .72rem; font-weight: 700; letter-spacing: .5px; color: var(--gray); text-transform: uppercase; }
+  #uf-paint { display: none; align-items: center; gap: 4px; margin-left: 8px; }
+  #uf-pane.uf-paint-on #uf-paint { display: inline-flex; flex-wrap: wrap; }
+  #uf-paint .uf-pw { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+  #uf-paint .uf-sw { width: 20px; height: 20px; padding: 0; border: 1px solid #718096; cursor: pointer; border-radius: 50% !important; }
+  #uf-paint .uf-sw.on { outline: 2px solid #38a169; outline-offset: 1px; }
+  #uf-paint #uf-paint-c { width: 28px; height: 24px; padding: 0; border: 1px solid #718096; background: none; cursor: pointer; }
+  #uf-paint-n { font-size: .78rem; font-weight: 600; margin-left: 4px; }
   #uf-pane:not(.uf-k) .uk, #uf-pane.uf-k .ue { display: none !important; }   /* przyciski tylko dla K-Frame / tylko dla EasyFrame */
   .uf-sys { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 560px) { .uf-sys { grid-template-columns: 1fr; } }
@@ -1044,7 +1051,7 @@
         </div>
         <div class="uf-bar uf-bar2">
           <span class="uf-grp"><label>Ścianka: <select id="uf-h" title="Wysokość zaznaczonej ścianki"></select></label><label class="uf-chk" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><input type="checkbox" id="uf-back"> wysłona ręcznie</label></span>
-          <span class="uf-grp uk"><label title="Sposób mocowania grafiki na ściance K-Frame (zaznaczona ścianka albo domyślnie dla nowych)">Montaż: <select id="uf-mount"></select></label><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl+klik = 10×, Shift+klik albo Shift+strzałka = cała ścianka)">Krok strzałek <input type="number" id="uf-step" value="10" min="1" step="1"> mm</label></span>
+          <span class="uf-grp uk"><label title="Sposób mocowania grafiki na ściance K-Frame (zaznaczona ścianka albo domyślnie dla nowych)">Montaż: <select id="uf-mount"></select></label><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl+klik = 10×, Shift+klik albo Shift+strzałka = cała ścianka)">Krok strzałek <input type="number" id="uf-step" value="10" min="1" step="1"> mm</label><span id="uf-paint" title="Kolor malowania zaznaczonej ścianki (bez zaznaczenia — domyślny dla nowych)">Kolor: <span class="uf-pw"></span><input type="color" id="uf-paint-c" title="Własny kolor"><b id="uf-paint-n"></b></span></span>
           <span class="uf-div"></span>
           <b>Stoisko</b>
           <span class="uf-grp"><input type="text" inputmode="decimal" id="uf-sl" title="Długość stoiska (oś pozioma)"> × <input type="text" inputmode="decimal" id="uf-sd" title="Głębokość stoiska (oś pionowa)"> <span id="uf-sa" class="uf-area"></span></span>
@@ -6641,10 +6648,15 @@ const UF_PAL_K = [
 const ufPal = () => ufK() ? UF_PAL_K : UF_PAL_E;
 const ufHs = () => ufK() ? [UF_KH] : UF_HS;
 // montaż grafiki na K-Frame: [id, nazwa, typ elementu, SEG?]
+// malowanie ścianki K-Frame: podstawowa paleta [nazwa, RAL, kolor]
+const UF_PAINTS = [['Biały', '9010', '#f1ece1'], ['Czarny', '9005', '#16171a'], ['Szary jasny', '7035', '#cbd0cc'], ['Antracyt', '7016', '#383e42'], ['Czerwony', '3020', '#cc0605'],
+  ['Pomarańczowy', '2004', '#e75b12'], ['Żółty', '1018', '#f5c82e'], ['Zielony', '6018', '#57a639'], ['Niebieski', '5015', '#2271b3'], ['Granatowy', '5002', '#20214f'], ['Fioletowy', '4005', '#6c4675'], ['Brązowy', '8017', '#45322e']];
+const ufPaintName = hex => { const p = UF_PAINTS.find(x => x[2].toLowerCase() === String(hex || '').toLowerCase()); return p ? `${p[0]} (RAL ${p[1]})` : `kolor własny ${String(hex || '').toUpperCase()}`; };
+const ufShade = (hex, f) => { const n = parseInt(String(hex).slice(1), 16) || 0; return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * f))).toString(16).padStart(2, '0')).join(''); };
 const UF_STEP = 10;                                                       // domyślny krok strzałek K-Frame [mm]
-const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretch', 'tkanina naciągnięta na płytę', 'blackback', false], ['film', 'folia na płycie', 'folia-laminat', false], ['pcw', 'płyta PCW z drukiem', 'pcw', false]];
+const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretch', 'tkanina naciągnięta na płytę', 'blackback', false], ['film', 'folia na płycie', 'folia-laminat', false], ['pcw', 'płyta PCW z drukiem', 'pcw', false], ['paint', 'malowanie (kolor do wyboru)', 'nie-wiem', false]];
 const ufMount = k => UF_MOUNTS.find(m => m[0] === k) || UF_MOUNTS[0];
-const ufKNote = run => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${ufMount(run.mount)[1]}`;
+const ufKNote = run => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${run.mount === 'paint' ? 'malowanie — ' + ufPaintName(run.paint) : ufMount(run.mount)[1]}`;
 const UF_KKEYS = 'ścianka z płytą po obu stronach (grafika z dwóch stron, płyta od strony zaplecza, wysłona ręczna) ma 6,6 cm: kratownica 6 cm + płyta 3 mm z każdej strony · zaplecze ma płytę w środku, bez grafik · ścianki nie mogą na siebie nachodzić (czerwony obrys) · przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie wymiary przy zaznaczonej ściance (odległość od końców ścianki, do której dolega) — kliknij liczbę i wpisz nowy wymiar · niebieskie strzałki ją przesuwają · kropka w narożniku zaznaczonego modułu: chwyć i przyciągnij do narożnika innej ścianki, granicy stoiska albo lica innego modułu (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wystające · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
 const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : ufK() ? (p.back || (p.id && UF_DBL.has(p.id)) ? UF_KT + 3 : UF_KT) : UF_T;   // K-Frame: kratownica 60 + płyta 3 mm = 63; ścianka dwustronna (wysłona) ma drugą płytę: 66          // grubość klocka: ELTEX — własna, reszta ramy E80
 const ufCorners = r => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];   // narożniki prostokąta klocka (świat, mm)
@@ -6720,7 +6732,7 @@ function ufGeom0(d) {
   runs.forEach(r => {
     const walls = r.ops.filter(o => o.t !== 'post'), f = walls[0];
     r.dir = r.ori === 0 ? 0 : 1;
-    r.key = 'uf:' + f.id; r.h = f.h || d.H; r.manual = !!f.back; r.mount = f.mount || d.mount || (ufK() ? 'stretch' : 'seg');
+    r.key = 'uf:' + f.id; r.h = f.h || d.H; r.manual = !!f.back; r.mount = f.mount || d.mount || (ufK() ? 'stretch' : 'seg'); r.paint = f.paint || d.paint || UF_PAINTS[0][2];
     r.backW = walls.reduce((s, o) => s + o.len, 0); r.mods = walls.length;
     // ścianka na zamkniętym boku stoiska (za nią sąsiad): wysłona zewnętrzna od 248 w górę
     r.closed = '';
@@ -6914,7 +6926,7 @@ function ufFaceSpec(fc) {
   const terms = items.map(it => numIn(fromMM(it.len)));
   const elx = items.find(it => it.op.t === 'eltex');
   return { w: fc.b - fc.a, h, door, doorsMore, doorOps: items.filter(it => it.op.t === 'door').map(it => it.op), wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: doors.length,
-    notes: ufK() ? ufKNote(fc.run) : elx ? `rama ELTEX, grubość ${lenPL(ufTh(elx.op))} ${UNIT()}` : '', mount: fc.run.mount };
+    notes: ufK() ? ufKNote(fc.run) : elx ? `rama ELTEX, grubość ${lenPL(ufTh(elx.op))} ${UNIT()}` : '', mount: fc.run.mount, paint: fc.run.paint };
 }
 // wysłona zaplecza (Blackback od wewnątrz pomieszczenia): same moduły lica, po kolei od lewej patrząc na wysłonę z pomieszczenia; z drzwiami, gdy w licu są drzwi
 function ufZapSpec(zf) {
@@ -6941,7 +6953,7 @@ function ufSpec(run, role) {
   }
   const terms = items.map(o => numIn(fromMM(o.len)));
   return { w, h, door, wExpr: terms.length > 1 ? terms.join('+') : '', wExprUnit: UNIT(), doors: items.filter(o => o.t === 'door').length,
-    notes: ufK() ? ufKNote(run) : '', mount: run.mount };
+    notes: ufK() ? ufKNote(run) : '', mount: run.mount, paint: run.paint };
 }
 const UF_SIDE = { n: 'górny', e: 'prawy', s: 'dolny', w: 'lewy' };
 const ufExtSpec = e => ({ w: e.w, h: e.h, door: null, wExpr: '', wExprUnit: UNIT(), doors: 0, notes: `wysłona zewnętrzna od ${lenPL(UF_EXT_FROM)} ${UNIT()} w górę — cały ${UF_SIDE[e.side]} bok stoiska (za nim sąsiad)` });
@@ -7087,7 +7099,7 @@ function ufOverlaps(p, skip) {
 function ufNewPiece(op, x, y, dir, from) {
   const n = { id: ufUid(), ...op, x, y, dir };
   if (n.t === 'door') { n.hinge = 'l'; n.swing = 'in'; }
-  if (from && from.t !== 'post') { n.back = !!from.back; if (from.h) n.h = from.h; if (from.mount) n.mount = from.mount; }
+  if (from && from.t !== 'post') { n.back = !!from.back; if (from.h) n.h = from.h; if (from.mount) n.mount = from.mount; if (from.paint) n.paint = from.paint; }
   return n;
 }
 // klik w paletę: klocek dokłada się na końcu zaznaczonego (albo ostatniego) klocka
@@ -7120,6 +7132,7 @@ function ufRotate(cw = true) {
     if (ufOverlaps(p)) { p.dir = od; p.len = ol; if (ol0) p.len0 = ol0; else delete p.len0; UF.undo.pop(); return toast(UF_OVL_MSG, 'error', 3000); } }
   ufChanged();
 }
+function ufSetPaint(v) { const r = ufSelRun(); ufPush(); if (!r) UF.d.paint = v; else r.ops.forEach(o => { if (o.t !== 'post') o.paint = v; }); ufChanged(); }
 function ufSetMount(v) { const r = ufSelRun(); if (!r) { ufPush(); UF.d.mount = v; ufChanged(); return; } ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.mount = v; }); ufChanged(); }
 function ufSetBack(v) { const r = ufSelRun(); if (!r) { toast('Zaznacz ściankę (kliknij jej klocek)', 'error'); ufSyncBar(); return; } ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.back = v; }); ufChanged(); }
 function ufSetH(v) { const r = ufSelRun(); if (!r) return; ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.h = v; }); ufChanged(); }
@@ -7133,7 +7146,11 @@ function ufSyncBar() {
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
   $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
   $('uf-look').textContent = d.look === 'bare' ? (ufK() ? '▦ 3D: kratownica' : '▦ 3D: gołe ramy') : '▮ 3D: pełne ściany';
-  $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mount) || d.mount || (ufK() ? 'stretch' : 'seg'); if (document.activeElement !== $('uf-step')) $('uf-step').value = UF.step || UF_STEP;
+  $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mount) || d.mount || (ufK() ? 'stretch' : 'seg');
+  { const pc = (r && r.paint) || d.paint || UF_PAINTS[0][2];       // paleta kolorów — tylko przy montażu „malowanie"
+    $('uf-pane').classList.toggle('uf-paint-on', ufK() && $('uf-mount').value === 'paint');
+    $('uf-paint').querySelectorAll('.uf-sw').forEach(b => b.classList.toggle('on', b.dataset.c.toLowerCase() === pc.toLowerCase()));
+    $('uf-paint-c').value = pc; $('uf-paint-n').textContent = ufPaintName(pc); } if (document.activeElement !== $('uf-step')) $('uf-step').value = UF.step || UF_STEP;
   const all = ufRuns(), n = all.length;
   let t;
   if (r) {
@@ -7261,7 +7278,7 @@ function ufDraw() {
       const k0 = rn.ori === 0 ? 'x' : 'y', lo = Math.min(...rn.parts.map(q => q[k0 + '0'])), hi = Math.max(...rn.parts.map(q => q[k0 + '1'])), th2 = rn.th || UF_KT;
       const sides = new Map();      // strona → kolor: grafika (ciemny brąz), zaplecze bez grafik (jasny), tył z wysłoną
       geo.inner.filter(zf => zf.run === rn).forEach(zf => sides.set(zf.inn, '#cfa97a'));
-      geo.faces.filter(fc => fc.run === rn || (fc.runs2 && fc.runs2.includes(rn))).forEach(fc => sides.set(fc.inn, '#a8743c'));
+      geo.faces.filter(fc => fc.run === rn || (fc.runs2 && fc.runs2.includes(rn))).forEach(fc => sides.set(fc.inn, ufK() && rn.mount === 'paint' ? rn.paint : '#a8743c'));
       if (rn.backKind === 'manual') { const bi = rn.line >= (rn.ori === 0 ? st.D : st.L) / 2 ? 1 : -1; if (!sides.has(bi)) sides.set(bi, '#c98f4f'); }
       sides.forEach((col, inn) => band(rn.ori, rn.line + inn * th2 / 2, inn, lo, hi, col));
     });
@@ -7846,12 +7863,12 @@ function ufRender3D(o) {
   // co jest na licach (pełne ściany): tkanina SEG na licach grafik, wysłony — zaplecza i ręczna na całą wysokość, zewnętrzna od 248 w górę;
   // lico bez niczego (np. tył ścianki od sąsiada poniżej 248) to gołe ramy na ciemnoszarym tle
   const covers = [];
-  const addCov = (ori, f, n, a, b, z0, z1) => {
+  const addCov = (ori, f, n, a, b, z0, z1, paint) => {
     const A = rot(...(ori === 0 ? [a, f] : [f, a])), B = rot(...(ori === 0 ? [b, f] : [f, b])), nv = rv(...(ori === 0 ? [0, n] : [n, 0]));
     const side = nv[1] > 0.5 ? 's' : nv[0] > 0.5 ? 'e' : ''; if (!side) return;
-    covers.push(side === 's' ? { side, pl: A[1], lo: Math.min(A[0], B[0]), hi: Math.max(A[0], B[0]), z0, z1 } : { side, pl: A[0], lo: Math.min(A[1], B[1]), hi: Math.max(A[1], B[1]), z0, z1 });
+    covers.push(side === 's' ? { side, pl: A[1], lo: Math.min(A[0], B[0]), hi: Math.max(A[0], B[0]), z0, z1, paint } : { side, pl: A[0], lo: Math.min(A[1], B[1]), hi: Math.max(A[1], B[1]), z0, z1, paint });
   };
-  (geo.faces || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
+  (geo.faces || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h, KF && fc.run.mount === 'paint' ? fc.run.paint : ''));
   (geo.inner || geo.zap || []).forEach(fc => addCov(fc.ori, fc.f, fc.inn, fc.a, fc.b, 0, fc.h));
   geo.runs.forEach(r => {
     const k0 = r.ori === 0 ? 'x' : 'y', a = Math.min(...r.parts.map(q => q[k0 + '0'])), b = Math.max(...r.parts.map(q => q[k0 + '1']));
@@ -7890,6 +7907,7 @@ function ufRender3D(o) {
       const side = (pts, sd, col, hide) => {
         const long = post || (sd === 's' ? bx.x1 - bx.x0 >= bx.y1 - bx.y0 : bx.y1 - bx.y0 > bx.x1 - bx.x0);   // krótki bok (koniec ścianki) — bez zmian
         const cv2 = long ? covOf(bx, sd) : [];
+        const pc = cv2.find(c => c.paint && c.z0 <= 1 && c.z1 >= h - 1); if (pc && !bare) col = ufShade(pc.paint, sd === 's' ? 1 : 0.82);      // malowanie: lico w kolorze farby
         if (!long || cv2.some(c => c.z0 <= 1 && c.z1 >= h - 1)) { face(pts, col, hide); if (!cp[sd]) texOn(bx, pts, sd); return; }
         const top = cv2.length ? Math.max(0, Math.min(...cv2.map(c => c.z0))) : h, U = sd === 's' ? bx.x1 - bx.x0 : bx.y1 - bx.y0, du = sd === 's' ? ux : uy;
         const at = z => sd === 's' ? T(bx.x0, bx.y1, z) : T(bx.x1, bx.y0, z), q = (z, u) => { const p0 = at(z); return [p0[0] + du[0] * u, p0[1] + du[1] * u]; };
@@ -8065,7 +8083,7 @@ async function ufGenerate() {
     const take = set => { let n = 1; while (set.has(n)) n++; set.add(n); return n; };
     const jobs = [], marks = new Map(), tcol = typeById('blackback').color;
     // przód: jedna grafika na każde lico widoczne od alejki; tył: wysłona ręczna na całą ściankę
-    const units = geoG.faces.map(fc => ({ run: { key: fc.key }, role: 'front', spec: ufFaceSpec(fc) }))
+    const units = geoG.faces.map(fc => { let spec = ufFaceSpec(fc); if (ufK() && spec.mount === 'paint') spec = { ...spec, door: null, doorsMore: [], doors: 0 }; return { run: { key: fc.key }, role: 'front', spec }; })
       .concat(runs.filter(r => r.backKind).map(r => ({ run: { key: r.key }, role: 'back', spec: ufSpec(r, 'back') })));
     units.forEach(({ run, role, spec }) => {
       const ex = S.elements.find(e => e.ufKey === run.key && e.ufRole === role && !e.doorFor);
@@ -8074,7 +8092,7 @@ async function ufGenerate() {
       else {
         const mt = ufK() ? ufMount(spec.mount) : null, tid = mt ? mt[2] : 'blackback', wys = role === 'back' && tid === 'blackback';
         rec = { num: wys ? 0 : take(usedNum), typeId: tid, combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: DOOR_TYPES.includes(tid) ? spec.door : null, doorsMore: DOOR_TYPES.includes(tid) ? spec.doorsMore || [] : [], thick: '',
-          ...togValues({ wyslona: wys }, tid), frontlit: false, sidelit: false, seg: mt ? (role === 'front' && mt[3]) : !wys, wyslona: wys, wnum: wys ? take(usedW) : null, name: '', w: spec.w, h: spec.h, d: '', qty: 1, notes: spec.notes,
+          ...togValues({ wyslona: wys }, tid), frontlit: false, sidelit: false, seg: mt ? (role === 'front' && mt[3]) : !wys, wyslona: wys, wnum: wys ? take(usedW) : null, name: ufK() && spec.mount === 'paint' ? 'Malowanie — ' + ufPaintName(spec.paint) : '', w: spec.w, h: spec.h, d: '', qty: 1, notes: spec.notes,
           wExpr: spec.wExpr, wExprUnit: spec.wExpr ? spec.wExprUnit : '', ufKey: run.key, ufRole: role, photoId: '', shape: null, createdAt: nowIso(), createdBy: S.me.id };
         mark = markOf(rec);
       }
@@ -8153,7 +8171,7 @@ async function ufGenerate() {
       let id;
       if (j.ex) {
         id = j.ex.id;
-        await DB.update(pElements(pid), id, { w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...more, photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
+        await DB.update(pElements(pid), id, { ...(ufK() && j.role === 'front' && j.spec.mount === 'paint' ? { typeId: 'nie-wiem', seg: false, name: 'Malowanie — ' + ufPaintName(j.spec.paint), notes: j.spec.notes } : {}), w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...more, photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
         nUpd++;
       } else { id = await DB.add(pElements(pid), { ...j.rec, ...more, photoId, shape }); nNew++; }
       if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], photoId, shape });
@@ -8233,6 +8251,7 @@ function ufInitUi() {
   ufPalRender();
   const hs = ufHs().map(v => `<option value="${v}">${lenPL(v)} ${UNIT()}${ufStackTxt(v) ? ' (' + ufStackTxt(v) + ')' : ''}</option>`).join('');
   $('uf-h').innerHTML = hs; $('uf-sh').innerHTML = hs;
+  $('uf-paint').querySelector('.uf-pw').innerHTML = UF_PAINTS.map(p => `<button type="button" class="uf-sw" data-c="${p[2]}" title="${p[0]} (RAL ${p[1]})" style="background:${p[2]}"></button>`).join('');
   $('uf-mount').innerHTML = UF_MOUNTS.map(m => `<option value="${m[0]}">${esc(m[1])}</option>`).join('');
   $('uf-pane').classList.toggle('uf-k', ufK());
 }
@@ -8294,6 +8313,8 @@ async function closeUltraFrame() {
   $('uf-capsx').onchange = e => { ufPush(); UF.d.stand.capsX = e.target.checked; ufChanged(); };
   $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
   $('uf-mount').onchange = e => ufSetMount(e.target.value);
+  $('uf-paint').onclick = e => { const b = e.target.closest('.uf-sw'); if (b) ufSetPaint(b.dataset.c); };
+  $('uf-paint-c').onchange = e => ufSetPaint(e.target.value);
   $('uf-step').onchange = e => { const v = parseFloat(e.target.value); UF.step = v >= 1 ? v : UF_STEP; e.target.value = UF.step; };
   $('uf-sysb').onclick = ufSwitchSystem;
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
