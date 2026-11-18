@@ -6791,6 +6791,34 @@ function ufGeom0(d) {
       zap.push({ key: 'uf:zap:' + w0.op.id + ':' + (sd > 0 ? 'p' : 'm'), run: r, ori: r.ori, inn: sd, f, a: sa, b: sb, h: r.h, items });
     });
   }));
+  // K-Frame: ścianka prostopadła, która kończy się równo z płaszczyzną lica (T/L bez wystawania na drugą stronę), jest zakryta grafiką:
+  // lico biegnie przez jej grubość — dwa lica po obu stronach takiej ścianki łączą się w jedną grafikę (np. 99,5 + 6,6 + 199 + 6,6),
+  // a przy końcu lica, do którego taka ścianka przylega, lico sięga do jej zewnętrznej krawędzi
+  if (ufK()) {
+    const flushQ = (fc, side) => {            // side: -1 początek lica, +1 koniec
+      const k0 = fc.ori === 0 ? 'x' : 'y', p0 = fc.ori === 0 ? 'y' : 'x', edge = side < 0 ? fc.a : fc.b;
+      return parts.find(q => q.op.t === 'w' && !fc.run.parts.includes(q) && (q.dir & 1) !== fc.ori
+        && Math.abs(q[k0 + (side < 0 ? '1' : '0')] - edge) <= TOL
+        && (fc.inn > 0 ? Math.abs(q[p0 + '1'] - fc.f) <= TOL && q[p0 + '0'] < fc.run.line : Math.abs(q[p0 + '0'] - fc.f) <= TOL && q[p0 + '1'] > fc.run.line)) || null;
+    };
+    faces.forEach(fc => { fc.extL = flushQ(fc, -1); fc.extR = flushQ(fc, 1); });
+    faces.sort((p, q) => p.ori - q.ori || p.inn - q.inn || p.f - q.f || p.a - q.a);
+    const out = [];
+    for (const fc of faces) {
+      const A = out[out.length - 1];
+      if (A && A.ori === fc.ori && A.inn === fc.inn && Math.abs(A.f - fc.f) < 15 && Math.abs(A.h - fc.h) < 1 && A.extR && fc.extL && A.extR === fc.extL) {
+        const k0 = fc.ori === 0 ? 'x' : 'y', q = A.extR;
+        out[out.length - 1] = { ...A, b: fc.b, items: A.items.concat([{ op: q.op, len: q[k0 + '1'] - q[k0 + '0'] }], fc.items), runs2: [...(A.runs2 || [A.run]), fc.run], extR: fc.extR };
+      } else out.push(fc);
+    }
+    out.forEach(fc => {
+      const k0 = fc.ori === 0 ? 'x' : 'y';
+      if (fc.extL) { fc.items = [{ op: fc.extL.op, len: fc.extL[k0 + '1'] - fc.extL[k0 + '0'] }].concat(fc.items); fc.a = fc.extL[k0 + '0']; }
+      if (fc.extR) { fc.items = fc.items.concat([{ op: fc.extR.op, len: fc.extR[k0 + '1'] - fc.extR[k0 + '0'] }]); fc.b = fc.extR[k0 + '1']; }
+      delete fc.extL; delete fc.extR;
+    });
+    faces.length = 0; out.forEach(fc => faces.push(fc));
+  }
   // ELTEX przyłożony licem do innej ramy (jedna linia, inna grubość): lica w tej samej płaszczyźnie, stykające się — jedna grafika
   faces.sort((p, q) => p.ori - q.ori || p.inn - q.inn || p.f - q.f || p.a - q.a);
   for (let i = faces.length - 1; i > 0; i--) {
