@@ -5413,15 +5413,12 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
     g.strokeStyle = sty === 'ef80' ? '#667286' : '#4f5a6b'; g.lineWidth = w + 3; g.stroke();
     g.strokeStyle = sty === 'ef80' ? '#f8f9fb' : '#c6cdd6'; g.lineWidth = w; g.stroke();
     if (sty === 't50') { g.strokeStyle = '#59667a'; g.lineWidth = Math.max(1.2, w * 0.16); g.stroke(); }
-    if (sty === 'ef80') {
-      const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.floor(L / Math.max(30, 300 * s)));
-      g.fillStyle = '#2d3748'; for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; g.beginPath(); g.arc(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, Math.max(1.8, w * 0.17), 0, Math.PI * 2); g.fill(); }
-    }
     g.restore();
   };
   const railSeg = (a, b) => sty === 'r32' ? line(a, b, lw) : bar(a, b, lw);
-  const wPost = sty === 'ef80' ? Math.max(lw, Math.min(24, 80 * s * 1.2)) : lw;
+  const wPost = sty === 'ef80' ? Math.max(lw * 1.7, Math.min(40, 80 * s * 2.4)) : lw;
   const cornerPost = p => { const a = T(p[0], p[1], 0), b = T(p[0], p[1], H); sty === 'r32' ? line(a, b, lw) : bar(a, b, wPost); };      // słupek na końcu (EF: 80 × 80 mm)
+  const capPost = () => { if (sty !== 'ef80' || m !== 'box') return; const k = 55; [[0, 0], [W, 0], [W, D], [0, D]].forEach(([x, y]) => poly([T(x - k, y - k, H), T(x + k, y - k, H), T(x + k, y + k, H), T(x - k, y + k, H)], '#ffffff', '#2d3748')); };      // góra słupka 80 × 80
   const flatStrut = (p, dir) => {                                 // rozpórka płaska: wąski płaskownik w płaszczyźnie lica
     const fw = Math.max(25, Math.min(60, 40)) / 2, q = [T(p[0] - dir[0] * fw, p[1] - dir[1] * fw, 0), T(p[0] + dir[0] * fw, p[1] + dir[1] * fw, 0), T(p[0] + dir[0] * fw, p[1] + dir[1] * fw, H), T(p[0] - dir[0] * fw, p[1] - dir[1] * fw, H)];
     poly(q, '#e4e8ed', '#5b6678'); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1; g.beginPath(); g.moveTo((q[0][0] + q[1][0]) / 2, (q[0][1] + q[1][1]) / 2); g.lineTo((q[2][0] + q[3][0]) / 2, (q[2][1] + q[3][1]) / 2); g.stroke();
@@ -5450,17 +5447,19 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
     };
     if (ghost) {      // lica z grafiką w połowie przezroczyste, szkielet (profile, rozpórki) na wierzchu
       g.save(); g.globalAlpha = 0.5; if (hasIn) { faceIn(2); faceIn(3); } else { face(2, false); face(3, false); } face(0, true); face(1, true); g.restore();
-      [0, 3, 1, 2].forEach(i => rail(0, i)); posts.forEach(post); [0, 3, 1, 2].forEach(i => rail(H, i));
+      [0, 3, 1, 2].forEach(i => rail(0, i)); posts.forEach(post); [0, 3, 1, 2].forEach(i => rail(H, i)); capPost();
     } else {
     if (!tex) [0, 3].forEach(i => rail(0, i));                    // dół: tylne krawędzie (północ i zachód) — przy tkaninie niewidoczne
     if (tex) {
       posts.forEach(post);                                        // rozpórki są za licami — widać je tylko tam, gdzie lico jest półprzezroczyste
       if (hasIn) { faceIn(2); faceIn(3); } else { face(2, false); face(3, false); }
       face(0, true); face(1, true);                               // przednie lica z grafiką
+      if (sty === 'ef80') C.forEach(c => cornerPost(c));          // EF 80: słupki 80 × 80 na narożnikach wyeksponowane na wierzchu tkaniny
     } else back.forEach(post);                                    // szkielet — bez lic
     if (!tex) [1, 2].forEach(i => rail(0, i));                    // dół: przednie krawędzie — przy tkaninie zasłonięte nią
     if (!tex) front.forEach(post);
     [0, 3, 1, 2].forEach(i => rail(H, i));                        // góra: tylne, potem przednie
+    capPost();
     }
   } else {
     const N = 120, th = i => i * 2 * Math.PI / N, nd = a => Math.sin(a + ang), pt3 = (a, z) => T(cx + R * Math.cos(a), cy + R * Math.sin(a), z);
