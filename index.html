@@ -1171,7 +1171,7 @@
           <details class="pfold" data-k="keys"><summary><i class="ti ti-chevron-right"></i><i class="ti ti-keyboard"></i>Myszka i klawisze</summary><div class="hint" id="uf-keys"></div></details>
         </aside>
         <div id="uf-sidet" class="uf-sh" title="Ustawienia — kliknij, aby rozsunąć / schować"><span class="arr">◂</span><span class="vt">Ustawienia</span><span class="arr">◂</span></div>
-        <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
+        <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D — przeciągnij, aby swobodnie obracać (orbita: poziomo obrót, pionowo wysokość kamery); dwuklik = widok z narożnika"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
         </div>
         <div class="uf-info" id="uf-info"></div>
       </div>
@@ -8406,7 +8406,7 @@ function ufPalDoorMenu(e) {
 // ---------- widok 3D (rzut izometryczny): plansza do wizki albo podgląd w rogu edytora ----------
 // o: { W szerokość [px], preview, marks: Map(klucz|rola → { mark, color, wTxt }) } → { cv, pos: Map(klucz|rola → [nx, ny]) }
 function ufRender3D(o) {
-  const d = UF.d, geo = ufGeom(d), vi12 = (d.v12 != null ? d.v12 : d.v8 != null ? (d.v8 >> 1) * 3 + (d.v8 & 1) : (d.view || 0) * 3) % 12, yaw = (45 + 30 * vi12) % 360, view = Math.floor(yaw / 90) & 3, ang = (yaw % 90) * Math.PI / 180, pv = !!o.preview, W = o.W, st = d.stand;
+  const d = UF.d, geo = ufGeom(d), vi12 = (d.v12 != null ? d.v12 : d.v8 != null ? (d.v8 >> 1) * 3 + (d.v8 & 1) : (d.view || 0) * 3) % 12, yaw = d.yaw != null ? ((d.yaw % 360) + 360) % 360 : (45 + 30 * vi12) % 360, view = Math.floor(yaw / 90) & 3, ang = (yaw % 90) * Math.PI / 180, pv = !!o.preview, W = o.W, st = d.stand;
   if (!geo.parts.length) return null;
   const roofs = ufRoofs(geo), addOf = new Map();                 // łuk siedzi na wierzchu ścianek (nie zmienia ich wysokości) — tylko powiększa obszar rysunku
   roofs.forEach(rf => { if (rf.R) addOf.set(rf.a, rf.R); });
@@ -8414,7 +8414,9 @@ function ufRender3D(o) {
   const rot = (x, y) => { const dx = x - cx, dy = y - cy, [a, c] = view === 0 ? [dx, dy] : view === 1 ? [-dy, dx] : view === 2 ? [-dx, -dy] : [dy, -dx]; return [cx + a, cy + c]; };
   const hOf = p => p.run ? p.run.h : d.H;
   const boxes = geo.parts.map(p => { const [ax, ay] = rot(p.x0, p.y0), [bx, by] = rot(p.x1, p.y1); return { p, x0: Math.min(ax, bx), x1: Math.max(ax, bx), y0: Math.min(ay, by), y1: Math.max(ay, by), h: hOf(p), hf: (p.run ? p.run.h : d.H) + (addOf.get(p.run) || 0) }; });
-  const ca = Math.cos(ang), sa = Math.sin(ang), P = (x, y, z) => [1.2247449 * (x * ca - y * sa), 0.7071068 * (x * sa + y * ca) - z];   // rzut z kąta: 45° = klasyczna izometria z narożnika; 15° / 75° = pośrednie widoki pod kątem
+  // orbita: yaw (dowolny kąt wokół stoiska) i pitch (wysokość kamery nad podłogą); domyślnie 45° / 35,264° = klasyczna izometria z narożnika
+  const pit = clamp(d.pitch != null ? d.pitch : 35.264, 8, 85) * Math.PI / 180, kx = 1 / Math.cos(pit), ky = Math.tan(pit);
+  const ca = Math.cos(ang), sa = Math.sin(ang), P = (x, y, z) => [kx * (x * ca - y * sa), ky * (x * sa + y * ca) - z];
   const fl = [[0, 0], [st.L, 0], [st.L, st.D], [0, st.D]].map(([x, y]) => rot(x, y));
   let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
   const grow = (x, y, z) => { const [X, Y] = P(x, y, z); mnX = Math.min(mnX, X); mxX = Math.max(mxX, X); mnY = Math.min(mnY, Y); mxY = Math.max(mxY, Y); };
@@ -9170,7 +9172,7 @@ async function closeUltraFrame() {
   $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
   $('uf-mount').onchange = e => ufSetMount(e.target.value);
   $('uf-plane').onclick = e => { const b = e.target.closest('[data-pl]'); if (b) { UF.pl = b.dataset.pl; ufSyncBar(); ufDraw(); } };
-  $('uf-pv').onclick = e => {                  // klik na ścianie w podglądzie 3D: wybiera ściankę i płaszczyznę (przód / tył)
+  $('uf-pv').onclick = e => { if (Date.now() - (UF.pvMoved || 0) < 400) return;                 // klik na ścianie w podglądzie 3D: wybiera ściankę i płaszczyznę (przód / tył); po przeciągnięciu (orbita) — bez wyboru
     const pv = $('uf-pv'), rc = pv.getBoundingClientRect(), x = (e.clientX - rc.left) * pv.width / rc.width, y = (e.clientY - rc.top) * pv.height / rc.height;
     const inside = pts => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
     const hs = UF.pvHits || [];
@@ -9218,8 +9220,22 @@ async function closeUltraFrame() {
     grip.onpointerup = grip.onpointercancel = () => { grip.onpointermove = grip.onpointerup = grip.onpointercancel = null; try { localStorage.setItem('INDEX_UFPV', String(Math.round(UF.pvW || 0))); } catch (e) {} ufPreview(); };
   };
   grip.ondblclick = () => { UF.pvW = 0; try { localStorage.removeItem('INDEX_UFPV'); } catch (e) {} ufPreview(); };
-  $('uf-vl').onclick = () => { UF.d.v12 = (v12() + 11) % 12; ufChanged(); };
-  $('uf-vr').onclick = () => { UF.d.v12 = (v12() + 1) % 12; ufChanged(); };
+  const vYaw = () => UF.d.yaw != null ? UF.d.yaw : (45 + 30 * (v12() % 12)) % 360;
+  $('uf-vl').onclick = () => { UF.d.yaw = (vYaw() + 330) % 360; ufChanged(); };
+  $('uf-vr').onclick = () => { UF.d.yaw = (vYaw() + 30) % 360; ufChanged(); };
+  { // orbita: przeciągnij podgląd 3D — w poziomie obrót wokół stoiska, w pionie wysokość kamery; dwuklik = widok domyślny z narożnika
+    const pv = $('uf-pv'); let dr = null; pv.style.cursor = 'grab'; pv.style.touchAction = 'none';
+    pv.addEventListener('pointerdown', e => { if (e.button !== 0 || !UF.d) return; dr = { x: e.clientX, y: e.clientY, yaw: vYaw(), pitch: UF.d.pitch != null ? UF.d.pitch : 35.264, moved: false, raf: 0 }; try { pv.setPointerCapture(e.pointerId); } catch (er) {} });
+    pv.addEventListener('pointermove', e => {
+      if (!dr) return; const dx = e.clientX - dr.x, dy = e.clientY - dr.y;
+      if (!dr.moved && Math.hypot(dx, dy) < 4) return; if (!dr.moved) { dr.moved = true; pv.style.cursor = 'grabbing'; }
+      UF.d.yaw = ((dr.yaw - dx * 0.6) % 360 + 360) % 360; UF.d.pitch = clamp(dr.pitch + dy * 0.4, 8, 85);
+      if (!dr.raf) dr.raf = requestAnimationFrame(() => { if (dr) dr.raf = 0; ufPreview(); });
+    });
+    const end = () => { if (!dr) return; const m = dr.moved; dr = null; pv.style.cursor = 'grab'; if (m) { UF.pvMoved = Date.now(); ufChanged(); } };
+    pv.addEventListener('pointerup', end); pv.addEventListener('pointercancel', end);
+    pv.addEventListener('dblclick', () => { UF.d.yaw = 45; UF.d.pitch = 35.264; delete UF.d.v12; ufChanged(); });
+  }
   $('uf-go').onclick = ufGenerate; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen;
   $('uf-cus-b').onclick = () => {
     const v = toMM($('uf-cus').value);
