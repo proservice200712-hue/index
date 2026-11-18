@@ -70,16 +70,45 @@
   .todo-row small { color: var(--gray); font-size: .7rem; white-space: nowrap; }
   .todo-row.done .t { text-decoration: line-through; color: var(--gray); }
   .todo-h { margin: 12px 0 2px; font-size: .72rem; font-weight: 700; letter-spacing: .5px; color: var(--gray); text-transform: uppercase; }
-  #uf-plane { display: none; align-items: center; gap: 4px; margin-right: 10px; }
-  #uf-pane.uf-sel #uf-plane { display: inline-flex; }
-  #uf-plane button { padding: 3px 10px; border: 1px solid #718096; background: #fff; color: #2d3748; cursor: pointer; font: inherit; font-size: .8rem; }
-  #uf-plane button.on { background: #38a169; border-color: #2f855a; color: #fff; font-weight: 700; }
+  /* panel boczny edytora (uporządkowany jak „Podział” w Offset Wizard): karty z ikonami, chipy, przełączniki, zwijane podpowiedzi */
+  .uf-body { display: flex; flex: 1 1 auto; min-height: 0; }
+  #uf-side { flex: 0 0 324px; overflow-y: auto; background: #fff; border-right: 1px solid var(--line); padding: 8px 8px 12px; color: var(--dark); font-size: .78rem; }
+  #uf-pane.uf-side-off #uf-side { display: none; }
+  #uf-side .pcat { border: 1px solid var(--line); background: #fff; padding: 7px 8px 8px; margin: 0 0 8px; }
+  #uf-side .pct { display: flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--gray); margin: 0 0 6px; }
+  #uf-side .pct .ti { font-size: 17px; color: #2d3748; }
+  #uf-side .pchips { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  #uf-side .pchip { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: #f7fafc; padding: 3px 4px; font-size: .74rem; cursor: pointer; min-width: 0; }
+  #uf-side .pchip .ti { font-size: 15px; color: var(--gray); flex: none; }
+  #uf-side .pchip > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #uf-side .pchip input[type=text], #uf-side .pchip input[type=number] { width: 52px; padding: 3px 4px; border: 1px solid #cbd5e0; font: inherit; background: #fff; color: var(--dark); }
+  #uf-side .pchip select { max-width: 84px; padding: 2px 3px; border: 1px solid #cbd5e0; font: inherit; font-size: .72rem; background: #fff; color: var(--dark); }
+  #uf-side .pchip input[type=checkbox] { margin: 0; flex: none; width: 15px; height: 15px; accent-color: #38a169; }
+  #uf-side .pchip.wide { grid-column: 1 / -1; }
+  #uf-side .pchip.wide select { max-width: none; flex: 1; }
+  #uf-side button { background: #f7fafc; border: 1px solid var(--line); color: #2d3748; padding: 5px 9px; cursor: pointer; font-size: .76rem; font-weight: 600; }
+  #uf-side button:hover { background: #edf2f7; }
+  #uf-side .uf-grp { flex-wrap: wrap; gap: 4px; }
+  #uf-side .pchip > button { padding: 2px 8px; }
+  #uf-side .pbtn2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  #uf-side .pseg { display: none; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; margin: 6px 0; }
+  #uf-pane.uf-sel #uf-side .pseg { display: grid; }
+  #uf-side .pseg button { border: 1.5px solid var(--line); text-align: center; padding: 5px 2px 4px; font-size: .72rem; line-height: 1.15; color: #4a5568; background: #fff; }
+  #uf-side .pseg button .ti { display: block; font-size: 21px; margin: 0 auto 2px; }
+  #uf-side .pseg button.on { border-color: var(--accent); background: #f0fbe8; color: #2f6b12; }
+  #uf-side .pfold { border-top: 1px solid var(--line); padding: 3px 0; }
+  #uf-side .pfold summary { cursor: pointer; list-style: none; font-size: .76rem; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+  #uf-side .pfold summary::-webkit-details-marker { display: none; }
+  #uf-side .pfold summary .ti { font-size: 16px; color: var(--gray); }
+  #uf-side .pfold summary .ti-chevron-right { transition: transform .15s; } #uf-side .pfold[open] summary .ti-chevron-right { transform: rotate(90deg); }
+  #uf-side .hint { font-size: .7rem; color: var(--gray); line-height: 1.5; }
+  #uf-side .uf-area { color: #2f855a; margin: 0; }
   #uf-pv { cursor: pointer; }
-  #uf-paint { display: none; align-items: center; gap: 6px; margin-left: 8px; position: relative; }
-  #uf-pane.uf-paint-on #uf-paint { display: inline-flex; }
-  #uf-pbtn { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer; }
-  #uf-pbtn .uf-pdot { width: 16px; height: 16px; border: 1px solid #718096; border-radius: 50% !important; display: inline-block; }
-  #uf-paint-n { font-size: .78rem; font-weight: 600; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #uf-paint { display: none; margin-top: 6px; gap: 5px; align-items: stretch; position: relative; flex-wrap: wrap; }
+  #uf-pane.uf-paint-on #uf-paint { display: flex; }
+  #uf-side #uf-pbtn { flex: 1 1 100%; display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; text-align: left; }
+  #uf-pbtn .uf-pdot { width: 16px; height: 16px; border: 1px solid #718096; border-radius: 50% !important; display: inline-block; flex: none; }
+  #uf-paint-n { flex: 1; font-size: .78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #uf-pmenu { display: none; position: fixed; z-index: 700; width: 292px; background: #fff; color: #2d3748; border: 1px solid #a0aec0; box-shadow: 0 6px 22px rgba(0,0,0,.3); padding: 10px; }
   #uf-pmenu.open { display: block; }
   #uf-pmenu .uf-pw { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 10px; }
@@ -96,7 +125,7 @@
   .uf-sys button:hover { border-color: var(--accent); background: #fffbe6; }
   .uf-sys b { display: block; font-size: 1.05rem; margin-bottom: 6px; }
   .uf-sys small { display: block; color: var(--gray); line-height: 1.45; }
-  .uf-main { position: relative; flex: 1 1 auto; min-height: 0; }
+  .uf-main { position: relative; flex: 1 1 auto; min-height: 0; min-width: 0; }
   #uf-cv { position: absolute; inset: 0; width: 100%; height: 100%; cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cg stroke='%23fff' stroke-width='4.2' stroke-linecap='round'%3E%3Cpath d='M13 2v8M13 16v8M2 13h8M16 13h8'/%3E%3C/g%3E%3Cg stroke='%2338a169' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M13 2v8M13 16v8M2 13h8M16 13h8'/%3E%3C/g%3E%3Ccircle cx='13' cy='13' r='1.6' fill='%2338a169' stroke='%23fff' stroke-width='1'/%3E%3C/svg%3E") 13 13, crosshair; touch-action: none; } /* zielony krzyżyk z białą obwódką (systemowy jest biały) */
   #uf-pvw { position: absolute; right: 8px; top: 8px; width: min(440px, 55%); }   /* podgląd 3D: 2× większy niż wcześniej */
   #uf-pv { display: block; width: 100%; opacity: .9; background: #fff; border: 1px solid var(--line); box-shadow: 0 2px 10px rgba(0,0,0,.15); }
@@ -946,6 +975,7 @@
   @keyframes clockHl { 50% { box-shadow: 0 0 0 4px #e53e3e, 0 0 8px 2px rgba(229,62,62,.25); } }
   .menu.tour-menu .mi small { color: #718096; font-weight: 400; }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 </head>
 <body>
 
@@ -1052,30 +1082,51 @@
         <div class="uf-bar">
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
           <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
-          <span class="uf-grp" id="uf-pal"></span>
-          <span class="uf-grp"><input type="number" id="uf-cus" min="1" step="0.1" placeholder="własna" title="Ścianka o własnej szerokości (np. regulowana)"><button type="button" id="uf-cus-b" title="Dodaj ściankę o podanej szerokości za zaznaczonym klockiem">＋</button></span>
-          <span class="uf-grp"><button type="button" id="uf-rl" title="Obróć zaznaczony klocek w lewo (Shift+R)">↶</button><button type="button" id="uf-rr" title="Obróć zaznaczony klocek w prawo (R) — albo kliknij klocek drugi raz">↷ R</button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
           <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl+klik = 10×, Shift+klik albo Shift+strzałka = cała ścianka)">Krok strzałek <input type="number" id="uf-step" value="10" min="1" step="1"> mm</label></span>
           <span class="uf-sp"></span>
+          <button type="button" id="uf-sidet" title="Pokaż / schowaj panel ustawień">☰ Panel</button>
           <button type="button" id="uf-look" title="Widok 3D: pełne ściany (z grafiką, bez podziału) albo gołe ramy z widocznym podziałem na moduły">▮ 3D: pełne ściany</button>
           <button type="button" id="uf-go" class="uf-go" title="Zrób widok 3D jako nową wizkę, ze znacznikami i elementami (SEG + wysłony)">◈ Zrób widok 3D</button>
           <button type="button" id="uf-x" title="Zamknij (Esc)">✕</button>
         </div>
-        <div class="uf-bar uf-bar2">
-          <span class="uf-grp"><label>Ścianka: <select id="uf-h" title="Wysokość zaznaczonej ścianki"></select></label><label class="uf-chk" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><input type="checkbox" id="uf-back"> wysłona ręcznie</label></span>
-          <span class="uf-grp uk"><span id="uf-plane" title="Która płaszczyzna zaznaczonej ścianki jest edytowana (montaż, malowanie): przód = lico od strony wnętrza stoiska, tył = lico odwrotne. Klik na ścianie w podglądzie 3D wybiera ściankę i płaszczyznę."><b>Płaszczyzna:</b> <button type="button" data-pl="f">przód</button><button type="button" data-pl="b">tył</button></span><label title="Sposób mocowania grafiki na ściance K-Frame (zaznaczona ścianka albo domyślnie dla nowych)">Montaż: <select id="uf-mount"></select></label><span id="uf-paint" title="Kolor malowania zaznaczonej płaszczyzny (bez zaznaczenia — domyślny dla nowych)"><button type="button" id="uf-pbtn" title="Wybierz kolor: paleta, kod RAL / NCS albo własny kolor"><i class="uf-pdot"></i><span id="uf-paint-n"></span> ▾</button><label class="uf-chk" title="Maluj też bok ścianki (grubość — słupek między ściankami) w tym samym kolorze"><input type="checkbox" id="uf-pside"> z bokiem</label>
-            <div id="uf-pmenu"><div class="uf-pw"></div><div class="uf-prow"><input type="text" id="uf-pcode" placeholder="RAL 7016 lub NCS S 2030-Y90R" autocomplete="off"><button type="button" id="uf-pcodeb">Użyj</button></div><div class="uf-prow"><label>Własny kolor <input type="color" id="uf-paint-c" title="Własny kolor"></label></div><div class="uf-phint">RAL i NCS na ekranie są przybliżone — do zamówienia farby liczy się wpisany kod.</div></div></span></span>
-          <span class="uf-div"></span>
-          <b>Stoisko</b>
-          <span class="uf-grp"><input type="text" inputmode="decimal" id="uf-sl" title="Długość stoiska (oś pozioma)"> × <input type="text" inputmode="decimal" id="uf-sd" title="Głębokość stoiska (oś pionowa)"> <span id="uf-sa" class="uf-area"></span></span>
-          <label>Wysokość <select id="uf-sh" title="Domyślna wysokość ścianek"></select></label>
-          <label class="uf-chk" id="uf-ext-l" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><input type="checkbox" id="uf-ext"> <span id="uf-ext-t">wysłony zewn.</span></label>
-          <label class="uf-chk" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><input type="checkbox" id="uf-zap"> wysłona zaplecza</label>
-          <label class="uf-chk ue" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><input type="checkbox" id="uf-caps"> zaślepki PCW</label>
-          <label class="uf-chk ue" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><input type="checkbox" id="uf-capsx"> zaślepki ELTEX</label>
-        </div>
+        <div class="uf-body">
+        <aside id="uf-side">
+          <div class="pcat"><div class="pct"><i class="ti ti-layout-grid-add"></i>Moduły — przeciągnij na plan</div>
+            <div class="uf-grp" id="uf-pal"></div>
+            <div class="pchips" style="margin-top:6px">
+              <label class="pchip" title="Ścianka o własnej szerokości (np. regulowana)"><i class="ti ti-ruler-measure"></i><span>własna</span><input type="number" id="uf-cus" min="1" step="0.1" placeholder="szer."><button type="button" id="uf-cus-b" title="Dodaj ściankę o podanej szerokości za zaznaczonym klockiem">＋</button></label>
+              <div class="pbtn2"><button type="button" id="uf-rl" title="Obróć zaznaczony klocek w lewo (Shift+R)">↶ obrót</button><button type="button" id="uf-rr" title="Obróć zaznaczony klocek w prawo (R) — albo kliknij klocek drugi raz">↷ R</button></div>
+            </div>
+          </div>
+          <div class="pcat"><div class="pct"><i class="ti ti-wall"></i>Zaznaczona ścianka</div>
+            <div class="pchips">
+              <label class="pchip" title="Wysokość zaznaczonej ścianki"><i class="ti ti-arrows-vertical"></i><span>wys.</span><select id="uf-h"></select></label>
+              <label class="pchip" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><i class="ti ti-layout-sidebar-right"></i><span>wysłona ręcznie</span><input type="checkbox" id="uf-back"></label>
+            </div>
+            <div class="pseg uk" id="uf-plane" title="Która płaszczyzna zaznaczonej ścianki jest edytowana (montaż, malowanie): przód = lico od strony wnętrza stoiska, tył = lico odwrotne. Klik na ścianie w podglądzie 3D wybiera ściankę i płaszczyznę.">
+              <button type="button" data-pl="f"><i class="ti ti-square-arrow-down"></i>przód</button><button type="button" data-pl="b"><i class="ti ti-square-arrow-up"></i>tył</button>
+            </div>
+            <div class="pchips uk"><label class="pchip wide" title="Sposób mocowania grafiki na tej płaszczyźnie K-Frame (bez zaznaczenia ścianki — domyślnie dla nowych)"><i class="ti ti-paint"></i><span>montaż</span><select id="uf-mount"></select></label></div>
+            <div id="uf-paint" class="uk" title="Kolor malowania zaznaczonej płaszczyzny (bez zaznaczenia — domyślny dla nowych)"><button type="button" id="uf-pbtn" title="Wybierz kolor: paleta, kod RAL / NCS albo własny kolor"><i class="uf-pdot"></i><span id="uf-paint-n"></span> ▾</button><label class="pchip wide" title="Maluj też bok ścianki (grubość — słupek między ściankami) w tym samym kolorze"><i class="ti ti-layout-distribute-vertical"></i><span>maluj też bok</span><input type="checkbox" id="uf-pside"></label>
+              <div id="uf-pmenu"><div class="uf-pw"></div><div class="uf-prow"><input type="text" id="uf-pcode" placeholder="RAL 7016 lub NCS S 2030-Y90R" autocomplete="off"><button type="button" id="uf-pcodeb">Użyj</button></div><div class="uf-prow"><label>Własny kolor <input type="color" id="uf-paint-c" title="Własny kolor"></label></div><div class="uf-phint">RAL i NCS na ekranie są przybliżone — do zamówienia farby liczy się wpisany kod.</div></div></div>
+          </div>
+          <div class="pcat"><div class="pct"><i class="ti ti-layout-board"></i>Stoisko</div>
+            <div class="pchips">
+              <label class="pchip" title="Długość stoiska (oś pozioma)"><i class="ti ti-arrows-horizontal"></i><span>dł.</span><input type="text" inputmode="decimal" id="uf-sl"></label>
+              <label class="pchip" title="Głębokość stoiska (oś pionowa)"><i class="ti ti-arrows-vertical"></i><span>gł.</span><input type="text" inputmode="decimal" id="uf-sd"></label>
+              <label class="pchip" title="Domyślna wysokość ścianek"><i class="ti ti-ruler-3"></i><span>wys.</span><select id="uf-sh"></select></label>
+              <div class="pchip" title="Powierzchnia stoiska"><i class="ti ti-chart-area"></i><span>pole</span><b id="uf-sa" class="uf-area"></b></div>
+              <label class="pchip" id="uf-ext-l" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><i class="ti ti-fence"></i><span id="uf-ext-t">wysłony zewn.</span><input type="checkbox" id="uf-ext"></label>
+              <label class="pchip" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><i class="ti ti-door"></i><span>wysłona zaplecza</span><input type="checkbox" id="uf-zap"></label>
+              <label class="pchip ue" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><i class="ti ti-square-plus"></i><span>zaślepki PCW</span><input type="checkbox" id="uf-caps"></label>
+              <label class="pchip ue" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><i class="ti ti-square-plus"></i><span>zaślepki ELTEX</span><input type="checkbox" id="uf-capsx"></label>
+            </div>
+          </div>
+          <details class="pfold"><summary><i class="ti ti-chevron-right"></i><i class="ti ti-keyboard"></i>Myszka i klawisze</summary><div class="hint" id="uf-keys"></div></details>
+        </aside>
         <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
+        </div>
         <div class="uf-info" id="uf-info"></div>
       </div>
     </div>
@@ -7216,7 +7267,8 @@ function ufSyncBar() {
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (od ${lenPL(ufExtFrom())} w górę)</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= ufExtFrom() ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(ufExtFrom()) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? 'ramy ' + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '') + `<span class="uf-keys">${ufK() ? UF_KKEYS : `zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij`}</span>`;
+  $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '');
+  $('uf-keys').innerHTML = `${ufK() ? UF_KKEYS : `zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij`}`;
 }
 
 // ---------- rysowanie widoku z góry ----------
@@ -7971,8 +8023,8 @@ function ufRender3D(o) {
       // lico ściany: pełne (tkanina / wysłona) albo gołe ramy z wysłoną tylko tam, gdzie jest (zewnętrzna — pasek od 248 w górę)
       const side = (pts, sd, col, hide) => {
         const long = post || (sd === 's' ? bx.x1 - bx.x0 >= bx.y1 - bx.y0 : bx.y1 - bx.y0 > bx.x1 - bx.x0);   // krótki bok (koniec ścianki) — bez zmian
-        const cv2 = long ? covOf(bx, sd) : [];
-        const pc = cv2.find(c => c.paint && c.z0 <= 1 && c.z1 >= h - 1); if (pc && !bare) col = ufShade(pc.paint, sd === 's' ? 1 : 0.82);
+        const cvA = covOf(bx, sd), cv2 = long ? cvA : [];
+        const pc = cvA.find(c => c.paint && c.z0 <= 1 && c.z1 >= h - 1); if (pc && !bare) col = ufShade(pc.paint, sd === 's' ? 1 : 0.82);      // także słupki (końce ścianek prostopadłych) przykryte licem
         const prn = bx.p.run, psc = prn && KF && (prn.mounts.f === 'paint' && prn.psides.f ? prn.paints.f : prn.mounts.b === 'paint' && prn.psides.b ? prn.paints.b : '');
         if (!long && !post && psc) col = ufShade(psc, sd === 's' ? 1 : 0.82);   // malowanie razem z bokiem ścianki
         if (!long || cv2.some(c => c.z0 <= 1 && c.z1 >= h - 1)) { face(pts, col, hide); if (!cp[sd]) texOn(bx, pts, sd); return; }
@@ -8142,7 +8194,7 @@ async function ufTexPreload() {
 }
 function ufPreview() {
   const pv = $('uf-pv'); if (!pv) return;
-  const wr = $('uf-pvw'), mainW = ($('uf-pane').clientWidth || 800), cssW = clamp(UF.pvW || Math.min(440, mainW * 0.55), 220, Math.max(240, mainW - 16));
+  const wr = $('uf-pvw'), mainW = ($('uf-cv').clientWidth || 800), cssW = clamp(UF.pvW || Math.min(440, mainW * 0.55), 220, Math.max(240, mainW - 16));
   const hits = [], sr = ufSelRun();
   const r = ufRender3D({ W: clamp(Math.round(cssW * 1.3), 440, 1700), preview: true, tex: true, hits, selKey: sr ? sr.key : '', pl: ufPl() });
   UF.pvHits = hits;
@@ -8427,10 +8479,12 @@ async function closeUltraFrame() {
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
   // obrót widoku 3D strzałkami na podglądzie (o 90° w lewo / w prawo)
   const v12 = () => UF.d.v12 != null ? UF.d.v12 : UF.d.v8 != null ? (UF.d.v8 >> 1) * 3 + (UF.d.v8 & 1) : (UF.d.view || 0) * 3;      // 0..11: co 30° — narożnik, dwa pośrednie widoki pod kątem, następny narożnik…
+  try { if (localStorage.getItem('INDEX_UFSIDE') === '0') $('uf-pane').classList.add('uf-side-off'); } catch (e) {}
+  $('uf-sidet').onclick = () => { const off = $('uf-pane').classList.toggle('uf-side-off'); try { localStorage.setItem('INDEX_UFSIDE', off ? '0' : '1'); } catch (e) {} ufDraw(); };
   const grip = $('uf-pvg');       // zmiana rozmiaru podglądu 3D przeciąganiem narożnika (lewy dolny)
   grip.onpointerdown = e => {
     e.preventDefault(); e.stopPropagation(); grip.setPointerCapture(e.pointerId);
-    const wr = $('uf-pvw'), r0 = wr.getBoundingClientRect(), ar = r0.height / r0.width, x0 = e.clientX, y0 = e.clientY, w0 = r0.width, maxW = ($('uf-pane').clientWidth || 800) - 16; let raf = 0;
+    const wr = $('uf-pvw'), r0 = wr.getBoundingClientRect(), ar = r0.height / r0.width, x0 = e.clientX, y0 = e.clientY, w0 = r0.width, maxW = ($('uf-cv').clientWidth || 800) - 16; let raf = 0;
     grip.onpointermove = ev => {
       UF.pvW = clamp(w0 + ((x0 - ev.clientX) + (ev.clientY - y0) / ar) / 2, 220, maxW);
       wr.style.width = UF.pvW + 'px';
