@@ -717,6 +717,7 @@
   details.adm summary { cursor: pointer; font-size: 0.78rem; font-weight: 700; color: var(--gray); }
 
   /* konto tylko do podgladu (Gesuto): bez przyciskow edycji */
+  body.no-uf #btn-uf, body.no-uf .uf-entry { display: none !important; }
   body.viewer #toolbar [data-tool], body.viewer #toolbar [onclick^="pickPhotos"], body.viewer #toolbar [onclick^="pasteFromClipboard"], body.viewer #btn-align, body.viewer #btn-uf,
   body.viewer #toolbar .sep, body.viewer #viewer-empty .btn, body.viewer .pdel, body.viewer #btn-turbo, body.viewer [onclick^="newElementWithoutShape"],
   body.viewer #gc-tools button:not([onclick^="graphFit"]), body.viewer .row-act, body.viewer #side-acts, body.viewer .fair-row .add, body.viewer .fair-row .ed, body.viewer .stand-row .ed,
@@ -776,6 +777,11 @@
   /* maski zasłaniają oczy i policzki alpaki */
   #alpaca[data-costume="ghostface"] .eye, #alpaca[data-costume="ghostface"] .eyehl, #alpaca[data-costume="ghostface"] .blush,
   #alpaca[data-costume="jason"] .eye, #alpaca[data-costume="jason"] .eyehl, #alpaca[data-costume="jason"] .blush { display: none; }
+  /* Avengersi: osobne postacie (nie alpaka) — ta sama animacja biegu (.lg) */
+  #alpaca[data-kind="hero"] #alp-body, #alpaca:not([data-kind="hero"]) #hero-svg { display: none; }
+  #alpaca:not([data-costume="iron"]) .hr-iron, #alpaca:not([data-costume="cap"]) .hr-cap, #alpaca:not([data-costume="thor"]) .hr-thor,
+  #alpaca:not([data-costume="hulk"]) .hr-hulk, #alpaca:not([data-costume="widow"]) .hr-widow, #alpaca:not([data-costume="spider"]) .hr-spider { display: none; }
+  #alpaca .hr-glow { filter: drop-shadow(0 0 2px #7fe7ff) drop-shadow(0 0 4px #4ccfff); }
   #alpaca .ru-nose { filter: drop-shadow(0 0 2px #ff4d4d) drop-shadow(0 0 5px #ff2d2d); }
   #alpaca.run svg { animation: alpBob .32s ease-in-out infinite; }
   #alpaca .lg { transform-box: fill-box; transform-origin: 50% 8%; }
@@ -1005,7 +1011,7 @@
         <div style="display:flex;gap:10px;pointer-events:auto">
           <button class="btn btn-solid" onclick="pasteFromClipboard()">📋 Wklej (Ctrl+V)</button>
           <button class="btn" onclick="pickPhotos()">Wybierz pliki…</button>
-          <button class="btn" onclick="openUltraFrame()" title="Narysuj ścianki ramy (widok z góry) i zrób z nich widok 3D">▦ Ultra Frame</button>
+          <button class="btn uf-entry" onclick="openUltraFrame()" title="Narysuj ścianki ramy (widok z góry) i zrób z nich widok 3D">▦ Ultra Frame</button>
         </div>
       </div>
       <div id="viewer-hint" class="hidden"></div>
@@ -1123,7 +1129,7 @@
       <g stroke-width="1.6" fill="none"><path d="M12 70 L88 146"/><path d="M64 68 L94 146"/><path d="M136 68 L106 146"/><path d="M188 70 L112 146"/></g>
     </g>
   </svg>
-  <svg viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
+  <svg id="alp-body" viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
     <g stroke="#3b2f2f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
       <rect class="lg lb" x="25" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
       <rect class="lg lf" x="61" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
@@ -1239,6 +1245,17 @@
     <circle class="eye" cx="84" cy="15" r="2.6" fill="#3b2f2f"/>
     <circle class="eyehl" cx="85" cy="14" r=".9" fill="#fff"/>
     <circle class="blush" cx="87" cy="21" r="2.6" fill="#f4a3a3"/>
+  </svg>
+  <!-- Avengersi: osobne postacie biegnące po ekranie -->
+  <svg id="hero-svg" viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="#3b2f2f" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <g class="hr-iron"><g class="lg lb"><rect x="44" y="68" width="11" height="31" rx="4.5" fill="#c1272d"/><rect x="43" y="95" width="13" height="12" rx="4.5" fill="#f2b705"/></g><g class="lg lf"><rect x="57" y="68" width="11" height="31" rx="4.5" fill="#c1272d"/><rect x="56" y="95" width="13" height="12" rx="4.5" fill="#f2b705"/></g><rect x="42" y="31" width="28" height="39" rx="9" fill="#c1272d"/><path d="M42 58 h28 v8 q-14 6 -28 0z" fill="#f2b705"/><circle class="hr-glow" cx="56" cy="43" r="6" fill="#d9fbff" stroke="#f2b705" stroke-width="2.4"/><g class="lg lf"><rect x="33" y="33" width="9" height="33" rx="4.5" fill="#c1272d"/><circle cx="37.5" cy="67" r="5" fill="#f2b705"/></g><g class="lg lb"><rect x="70" y="33" width="9" height="33" rx="4.5" fill="#c1272d"/><circle cx="74.5" cy="67" r="5" fill="#f2b705"/></g><circle cx="56" cy="19" r="12" fill="#c1272d"/><path d="M45 21 q11 -5 22 0 q0 11 -11 13 q-11 -2 -11 -13z" fill="#f2b705"/><path d="M47 16 l8 1 M65 16 l-8 1" fill="none" stroke="#e6fbff" stroke-width="3.4" class="hr-glow"/></g>
+      <g class="hr-cap"><g class="lg lb"><rect x="44" y="68" width="11" height="31" rx="4.5" fill="#1f4e9c"/><rect x="43" y="95" width="13" height="12" rx="4.5" fill="#d62828"/></g><g class="lg lf"><rect x="57" y="68" width="11" height="31" rx="4.5" fill="#1f4e9c"/><rect x="56" y="95" width="13" height="12" rx="4.5" fill="#d62828"/></g><rect x="42" y="31" width="28" height="39" rx="9" fill="#1f4e9c"/><path d="M42 56 h28 M42 61 h28 M42 66 h28" stroke="#fff" stroke-width="2.6"/><path d="M56 36 l2 5 l5 0 l-4 3 l1.5 5 l-4.5 -3 l-4.5 3 l1.5 -5 l-4 -3 l5 0z" fill="#fff" stroke-width="1"/><g class="lg lf"><rect x="33" y="33" width="9" height="33" rx="4.5" fill="#1f4e9c"/><circle cx="37.5" cy="67" r="5" fill="#d62828"/></g><g class="lg lb"><rect x="70" y="33" width="9" height="33" rx="4.5" fill="#1f4e9c"/><circle cx="74.5" cy="67" r="5" fill="#d62828"/></g><circle cx="56" cy="20" r="12" fill="#1f4e9c"/><path d="M48 22 q8 6 16 0 q0 9 -8 11 q-8 -2 -8 -11z" fill="#f2c9a0"/><path d="M53 12 l3 -8 l3 8 M54.2 9 h3.6" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M44 16 l-7 -3 l7 6z M68 16 l7 -3 l-7 6z" fill="#fff" stroke-width="1.4"/><circle cx="52" cy="22" r="1.3" fill="#3b2f2f" stroke="none"/><circle cx="60" cy="22" r="1.3" fill="#3b2f2f" stroke="none"/><g><circle cx="30" cy="58" r="15" fill="#d62828" stroke-width="2.2"/><circle cx="30" cy="58" r="10.5" fill="#fff" stroke-width="1.2"/><circle cx="30" cy="58" r="6.5" fill="#d62828" stroke-width="1.2"/><circle cx="30" cy="58" r="3.6" fill="#1f4e9c" stroke-width="1"/></g></g>
+      <g class="hr-thor"><path d="M46 33 Q20 50 16 90 L44 80z M66 33 Q92 50 96 90 L68 80z" fill="#c1272d"/><g class="lg lb"><rect x="44" y="68" width="11" height="31" rx="4.5" fill="#3a4252"/><rect x="43" y="95" width="13" height="12" rx="4.5" fill="#5c4630"/></g><g class="lg lf"><rect x="57" y="68" width="11" height="31" rx="4.5" fill="#3a4252"/><rect x="56" y="95" width="13" height="12" rx="4.5" fill="#5c4630"/></g><rect x="42" y="31" width="28" height="39" rx="8" fill="#4a5568"/><circle cx="49" cy="42" r="4.4" fill="#c9ced6" stroke-width="1.6"/><circle cx="63" cy="42" r="4.4" fill="#c9ced6" stroke-width="1.6"/><circle cx="56" cy="52" r="4.4" fill="#c9ced6" stroke-width="1.6"/><rect x="42" y="62" width="28" height="4" fill="#5c4630" stroke-width="1.2"/><g class="lg lf"><rect x="33" y="33" width="9" height="33" rx="4.5" fill="#c9ced6"/><circle cx="37.5" cy="67" r="5" fill="#f2c9a0"/></g><g class="lg lb"><rect x="70" y="33" width="9" height="33" rx="4.5" fill="#c9ced6"/><circle cx="74.5" cy="67" r="5" fill="#f2c9a0"/></g><path d="M43 14 q-6 14 -2 26 q8 -2 8 -14z M69 14 q6 14 2 26 q-8 -2 -8 -14z" fill="#f2c94c"/><circle cx="56" cy="20" r="11.5" fill="#f2c9a0"/><path d="M44 17 q12 -14 24 0 q-12 -4 -24 0z" fill="#f2c94c"/><circle cx="52" cy="22" r="1.3" fill="#3b2f2f" stroke="none"/><circle cx="60" cy="22" r="1.3" fill="#3b2f2f" stroke="none"/><path d="M52 28 q4 2 8 0" fill="none" stroke-width="1.6"/><g><rect x="80" y="66" width="3.4" height="20" fill="#6b4423" stroke-width="1.6"/><rect x="72" y="56" width="19" height="11" rx="1.6" fill="#9aa3b0" stroke-width="2"/></g></g>
+      <g class="hr-hulk"><g class="lg lb"><rect x="41" y="68" width="14" height="31" rx="6" fill="#6fb43f"/><rect x="40" y="95" width="16" height="12" rx="6" fill="#6fb43f"/></g><g class="lg lf"><rect x="57" y="68" width="14" height="31" rx="6" fill="#6fb43f"/><rect x="56" y="95" width="16" height="12" rx="6" fill="#6fb43f"/></g><rect x="36" y="30" width="40" height="42" rx="14" fill="#6fb43f"/><path d="M50 40 q6 7 0 14 M62 40 q-6 7 0 14" fill="none" stroke="#3f7a1f" stroke-width="2"/><path d="M38 62 h36 v14 q-18 8 -36 0z" fill="#7d4bb5"/><g class="lg lf"><rect x="24" y="33" width="13" height="33" rx="4.5" fill="#6fb43f"/><circle cx="30.5" cy="67" r="5" fill="#6fb43f"/></g><g class="lg lb"><rect x="75" y="33" width="13" height="33" rx="4.5" fill="#6fb43f"/><circle cx="81.5" cy="67" r="5" fill="#6fb43f"/></g><circle cx="56" cy="20" r="12.5" fill="#6fb43f"/><path d="M43 17 q2 -14 14 -12 q12 -2 13 12 q-13 -6 -27 0z" fill="#1d1d1d"/><path d="M48 18 l7 3 M64 18 l-7 3" fill="none" stroke="#1d1d1d" stroke-width="3.4"/><circle cx="52" cy="22" r="1.5" fill="#fff" stroke="none"/><circle cx="60" cy="22" r="1.5" fill="#fff" stroke="none"/><path d="M50 29 q6 -3 12 0" fill="none" stroke-width="2.4"/></g>
+      <g class="hr-widow"><path d="M43 14 q-6 16 0 34 l12 -4 l1 -22z M69 14 q6 16 0 34 l-12 -4 l-1 -22z" fill="#b3321c"/><g class="lg lb"><rect x="44" y="68" width="11" height="31" rx="4.5" fill="#1f1f24"/><rect x="43" y="95" width="13" height="12" rx="4.5" fill="#2d2d33"/></g><g class="lg lf"><rect x="57" y="68" width="11" height="31" rx="4.5" fill="#1f1f24"/><rect x="56" y="95" width="13" height="12" rx="4.5" fill="#2d2d33"/></g><rect x="42" y="31" width="28" height="39" rx="9" fill="#1f1f24"/><rect x="42" y="58" width="28" height="5" fill="#8a8a92" stroke-width="1.2"/><path d="M51 38 h10 l-5 6 l5 6 h-10 l5 -6z" fill="#d62828" stroke-width="1"/><g class="lg lf"><rect x="33" y="33" width="9" height="33" rx="4.5" fill="#1f1f24"/><circle cx="37.5" cy="67" r="5" fill="#1f1f24"/></g><g class="lg lb"><rect x="70" y="33" width="9" height="33" rx="4.5" fill="#1f1f24"/><circle cx="74.5" cy="67" r="5" fill="#1f1f24"/></g><circle cx="56" cy="20" r="11.5" fill="#f2c9a0"/><path d="M43 20 Q42 4 56 4 Q70 4 69 20 Q62 12 56 14 Q50 12 43 20z" fill="#b3321c"/><circle cx="52" cy="22" r="1.3" fill="#3b2f2f" stroke="none"/><circle cx="60" cy="22" r="1.3" fill="#3b2f2f" stroke="none"/><path d="M52 28 q4 2 8 0" fill="none" stroke="#a02020" stroke-width="1.8"/></g>
+      <g class="hr-spider"><g class="lg lb"><rect x="44" y="68" width="11" height="31" rx="4.5" fill="#1f4e9c"/><rect x="43" y="95" width="13" height="12" rx="4.5" fill="#d62828"/></g><g class="lg lf"><rect x="57" y="68" width="11" height="31" rx="4.5" fill="#1f4e9c"/><rect x="56" y="95" width="13" height="12" rx="4.5" fill="#d62828"/></g><rect x="42" y="31" width="28" height="39" rx="9" fill="#d62828"/><path d="M42 50 q-1 12 4 20 M70 50 q1 12 -4 20" fill="none" stroke="#1f4e9c" stroke-width="5"/><path d="M56 32 v38 M44 42 q12 5 24 0 M44 55 q12 5 24 0" fill="none" stroke="#1d1d1d" stroke-width="1.3"/><path d="M56 41 l-4 -3 M56 41 l4 -3 M56 41 l-5 3 M56 41 l5 3" fill="none" stroke="#1d1d1d" stroke-width="1.6"/><circle cx="56" cy="42" r="2.2" fill="#1d1d1d" stroke="none"/><g class="lg lf"><rect x="33" y="33" width="9" height="33" rx="4.5" fill="#d62828"/><circle cx="37.5" cy="67" r="5" fill="#d62828"/></g><g class="lg lb"><rect x="70" y="33" width="9" height="33" rx="4.5" fill="#d62828"/><circle cx="74.5" cy="67" r="5" fill="#d62828"/></g><circle cx="56" cy="20" r="12" fill="#d62828"/><path d="M56 8 v24 M44 20 q12 4 24 0 M46 12 q10 5 20 0 M46 28 q10 -4 20 0" fill="none" stroke="#1d1d1d" stroke-width="1.2"/><ellipse cx="50" cy="19" rx="5.4" ry="3.6" fill="#fff" transform="rotate(14 50 19)" stroke-width="1.8"/><ellipse cx="62" cy="19" rx="5.4" ry="3.6" fill="#fff" transform="rotate(-14 62 19)" stroke-width="1.8"/></g>
+    </g>
   </svg>
 </div>
 <input type="file" id="file-generic" accept="image/*,.tif,.tiff" class="hidden">
@@ -1967,6 +1984,13 @@ function startPresence() {
 }
 // w samouczku i pokazie z lektorką widać interfejs zwykłego użytkownika (bez Turbo, Zlecenia, Archiwum X)
 const isAdmin = () => !!(S.me && S.me.admin) && (!S.tour || !!S.tour.pro);
+// funkcje włączane per konto w panelu użytkowników (u.features): domyślnie Ultra Frame mają wszyscy poza podglądem, Offset Wizard — administratorzy
+const FEATS = [['uf', 'Ultra Frame', u => !u.viewer], ['ow', 'Offset Wizard', u => !!u.admin]];
+const CREATURES = [['alpaca', '🦙 Alpaka (stroje sezonowe)'], ['avengers', '🦸 Avengersi (losowo: Iron Man, Kapitan Ameryka, Thor, Hulk, Czarna Wdowa, Spider-Man)'], ['none', '🚫 Brak biegającego stworka']];
+const featOf = (u, k) => { const v = u && u.features && u.features[k], f = FEATS.find(x => x[0] === k); return typeof v === 'boolean' ? v : !!(u && f && f[2](u)); };
+const featOn = k => featOf(S.me, k) && !(k === 'ow' && S.tour && !S.tour.pro);
+const creatureOf = u => { const c = u && u.features && u.features.creature; return CREATURES.some(x => x[0] === c) ? c : 'alpaca'; };
+const applyFeatures = () => document.body.classList.toggle('no-uf', !!S.me && !featOn('uf'));
 const isViewer = () => !!(S.me && S.me.viewer);                    // konto tylko do podgladu (Gesuto)
 const noPassUser = u => !!u && !!u.viewer && !u.passHash;          // podglad bez hasla: wchodzi sam login
 // warstwa bazy tylko do odczytu: zapisy sa po cichu odrzucane (wyjatek: obecnosc i jednostki wlasnego konta)
@@ -2034,7 +2058,7 @@ function loginNoPass(u) {
   enterApp(u);
 }
 function enterApp(u) {
-  S.me = u;
+  S.me = u; applyFeatures();
   if (u.viewer) {
     DB = readOnlyDB(DB); document.body.classList.add('viewer');
     const ve = $('viewer-empty'); if (ve) ve.innerHTML = '<div class="big">Brak wizek w tym stoisku</div>';
@@ -2054,6 +2078,7 @@ function enterApp(u) {
   if (pid) openProject(pid); else goHome();
 }
 async function logout() {
+  document.body.classList.remove('no-uf');
   try { localStorage.removeItem('INDEX_SESSION'); } catch (e) {}
   clearInterval(presenceTimer);
   await Promise.race([presenceBeat(true), new Promise(r => setTimeout(r, 700))]); // znika zielona obwódka od razu
@@ -2753,7 +2778,7 @@ function goHome() {
   showScreen('screen-home');
   $('hdr-project').classList.add('hidden');
   $('hdr-cd').innerHTML = '';
-  $('hdr-actions').innerHTML = isAdmin() ? `<button class="btn" onclick="openProjectForm()">+ Nowy projekt</button>` + owBtn() : '';
+  $('hdr-actions').innerHTML = (isAdmin() ? `<button class="btn" onclick="openProjectForm()">+ Nowy projekt</button>` : '') + owBtn();
   history.replaceState(null, '', location.pathname + (MODE_QS ? '?' + MODE_QS : ''));
   renderHome();
   renderSide();
@@ -3574,9 +3599,9 @@ function renderProjectHeader() {
     ${isAdmin() ? `<button class="btn" onclick="openExportDialog()">⇩ Eksport</button>` : ''}${owBtn()}`;
 }
 // Offset Wizard (admin) — zawsze ostatni w nagłówku, tuż przed flagami; w projekcie od razu wie, którego stoiska dotyczy
-const owBtn = () => isAdmin() ? `<button class="btn" onclick="openOffsetWizard()" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : '';
+const owBtn = () => featOn('ow') ? `<button class="btn" onclick="openOffsetWizard()" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : '';
 const owUrl = q => { const u = new URLSearchParams(q || {}); if (TEST) u.set('test', '1'); if (DEMO) u.set('demo', '1'); const s = u.toString(); return 'offset.html' + (s ? '?' + s : ''); };
-function openOffsetWizard(eid, extra) { window.open(owUrl({ ...(S.project ? { p: S.project.id } : {}), ...(eid ? { e: eid } : {}), ...(extra || {}) }), '_blank'); }
+function openOffsetWizard(eid, extra) { if (!featOn('ow')) return; window.open(owUrl({ ...(S.project ? { p: S.project.id } : {}), ...(eid ? { e: eid } : {}), ...(extra || {}) }), '_blank'); }
 let statsTimer = null;
 function syncProjectStats() {
   clearTimeout(statsTimer);
@@ -5217,7 +5242,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       ? `${axLinked(el) ? axBadge(el, 'btn') + '<button type="button" class="btn" id="ed-axclear" title="Odłącz od Archiwum X (wymiary zostają)">✕</button>' : ''}
         <button type="button" class="btn" id="ed-axpick" title="Gotowe logo z magazynu: eksponat, komplet albo grupa">🗄 Z Archiwum X</button>
         ${editing && !axLinked(el) ? '<button type="button" class="btn" id="ed-ax">🗄 Do Archiwum X</button>' : ''}
-        ${editing ? `<button type="button" class="btn" id="ed-ow" title="${editing.offset ? 'Otwórz zapisany offset tego elementu w edytorze' : 'Przygotuj offsety tego elementu'}">⌖ Offset${editing.offset ? ' ✓' : ''}</button>` : ''}`
+        ${editing && featOn('ow') ? `<button type="button" class="btn" id="ed-ow" title="${editing.offset ? 'Otwórz zapisany offset tego elementu w edytorze' : 'Przygotuj offsety tego elementu'}">⌖ Offset${editing.offset ? ' ✓' : ''}</button>` : ''}`
       : '';
     if (t && t.variants && t.variants.length) {
       h += `<div class="fld"><label>${t.id === 'podwieszana' ? 'Kształt konstrukcji' : 'Wykonanie'}</label>
@@ -8148,7 +8173,7 @@ function ufInitUi() {
   $('uf-mount').innerHTML = UF_MOUNTS.map(m => `<option value="${m[0]}">${esc(m[1])}</option>`).join('');
   $('uf-pane').classList.toggle('uf-k', ufK());
 }
-async function openUltraFrame() { if (isViewer()) return;
+async function openUltraFrame() { if (isViewer() || !featOn('uf')) return;
   if (!S.project || UF.open) return;
   const saved = S.project.ultraFrame, has = !!(saved && ((saved.pieces && saved.pieces.length) || (saved.chains && saved.chains.length)));
   let sys = has ? (saved.sys || 'e') : await ufAskSystem();       // układ już narysowany — otwiera się w swoim systemie; pusty — pytamy
@@ -9233,11 +9258,12 @@ function openUsersPanel() {
   m.el.querySelector('[data-c]').onclick = () => m.close();
   const render = () => {
     $('up-body').innerHTML = `
-      <table class="adm-t"><thead><tr><th></th><th>Login</th><th>Imię i nazwisko</th><th>Firma / agencja</th><th>Rola</th><th>Hasło</th><th></th></tr></thead>
+      <table class="adm-t"><thead><tr><th></th><th>Login</th><th>Imię i nazwisko</th><th>Firma / agencja</th><th>Rola</th><th>Funkcje</th><th>Hasło</th><th></th></tr></thead>
       <tbody>${S.users.map(u => `<tr>
         <td><span class="avatar-sm" style="background:${u.color}">${esc(u.login.slice(0, 3))}</span></td>
         <td><b>${esc(u.login)}</b></td><td>${esc(u.name || '')}</td><td>${esc(u.company || '')}</td>
         <td>${u.admin ? '👑 administrator' : u.viewer ? '👁 tylko podgląd' : 'użytkownik'}</td>
+        <td>${u.viewer ? '<span style="color:var(--gray)">—</span>' : `<button class="btn btn-sm" data-feat="${u.id}" title="Włącz lub wyłącz funkcje tego konta">⚙ ${FEATS.filter(f => featOf(u, f[0])).map(f => f[0] === 'uf' ? 'UF' : 'OW').join(' · ') || 'brak'} · ${esc(CREATURES.find(c => c[0] === creatureOf(u))[1].split(' ')[0])}</button>`}</td>
         <td>${u.passHash ? '✓ ustawione' : noPassUser(u) ? 'bez hasła' : '<span class="tag-warn">brak — konto nieaktywne</span>'}</td>
         <td style="white-space:nowrap;text-align:right">
           ${FIXED_VIEWERS.includes(u.id) ? '' : `<button class="btn btn-sm" data-pass="${u.id}">Ustaw hasło</button>`}
@@ -9254,6 +9280,7 @@ function openUsersPanel() {
       </div>
       <button class="btn btn-solid" id="nu-add">Dodaj konto</button>
       <div class="hint" style="margin-top:8px;font-size:.75rem;color:var(--gray)">Nowe konto nie widzi żadnego projektu, dopóki nie zaznaczysz go w ustawieniach projektu (⚙ Projekt → Dostęp dla).</div>`;
+    $('up-body').querySelectorAll('[data-feat]').forEach(b => b.onclick = () => openFeaturesDialog(b.dataset.feat, render));
     $('up-body').querySelectorAll('[data-pass]').forEach(b => b.onclick = () => setUserPassword(b.dataset.pass, render));
     $('up-body').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
       const u = userById(b.dataset.del);
@@ -9273,6 +9300,23 @@ function openUsersPanel() {
     };
   };
   render();
+}
+// funkcje konta: Ultra Frame, Offset Wizard i rodzaj biegającego stworka
+function openFeaturesDialog(id, after) {
+  const u = userById(id); if (!u) return;
+  const m = openModal({ title: 'Funkcje konta ' + esc(u.login), body: `
+    ${FEATS.map(f => `<label style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer"><input type="checkbox" data-ft="${f[0]}" ${featOf(u, f[0]) ? 'checked' : ''}><span><b>${f[1]}</b>${f[2](u) ? '' : ' <span style="color:var(--gray);font-size:.78rem">(domyślnie wyłączone dla tej roli)</span>'}</span></label>`).join('')}
+    <div class="fld" style="margin-top:14px"><label>Biegający stworek</label><select id="ft-cr">${CREATURES.map(c => `<option value="${c[0]}" ${creatureOf(u) === c[0] ? 'selected' : ''}>${esc(c[1])}</option>`).join('')}</select></div>`,
+    footer: '<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ft-ok">Zapisz</button>' });
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('ft-ok').onclick = async () => {
+    const features = { creature: $('ft-cr').value };
+    m.el.querySelectorAll('[data-ft]').forEach(i => features[i.dataset.ft] = i.checked);
+    await DB.set(C_USERS, id, { login: u.login, features }, true);
+    await reloadUsers();
+    if (S.me && S.me.id === id) { S.me = userById(id); applyFeatures(); if (S.project) renderProjectHeader(); else goHome(); }
+    m.close(); toast('Zapisano funkcje konta ' + u.login, 'success'); after && after();
+  };
 }
 function setUserPassword(id, after) {
   const u = userById(id);
@@ -9371,14 +9415,19 @@ document.addEventListener('mouseout', e => { if (e.target.closest && e.target.cl
 // stroje alpaki (losowane przy każdym wyjściu): październik (do Halloween) — dynia
 // (postacie z horrorów były mało czytelne); grudzień — gwiazdor, renifer Rudolf albo elf; w pozostałe miesiące zwykła
 const pickW = list => { let r = Math.random() * list.reduce((a, [, w]) => a + w, 0); for (const [v, w] of list) { if ((r -= w) < 0) return v; } return list[0][0]; };
+const AVENGERS = ['iron', 'cap', 'thor', 'hulk', 'widow', 'spider'];
+const creatureKind = () => creatureOf(S.me);
 function alpacaCostume() {
   const a = $('alpaca'); if (!a) return;
+  if (creatureKind() === 'avengers') { a.dataset.kind = 'hero'; a.dataset.costume = AVENGERS[Math.floor(Math.random() * AVENGERS.length)]; return; }
+  delete a.dataset.kind;
   const m = new Date().getMonth();
   a.dataset.costume = m === 9 ? 'pumpkin'
     : m === 11 ? pickW([['santa', 45], ['rudolph', 30], ['elf', 25]]) : '';
 }
 alpacaCostume();
 function runAlpaca() {
+  if (creatureKind() === 'none') return;
   alpacaCostume();
   const a = $('alpaca'); if (!a || !a.animate || document.hidden || a.dataset.busy) return;
   const bar = $('split-h'), clock = $('clock-pane'), r = Math.random();
@@ -10951,7 +11000,7 @@ window.addEventListener('load', async () => {
   $('login-btn').disabled = false;
   DB.sub(C_USERS, rows => {
     S.users = mergeUsers(rows);
-    if (S.me) { const me = userById(S.me.id); if (me) { S.me = me; renderMyAvatar(); } refreshPresence(); }
+    if (S.me) { const me = userById(S.me.id); if (me) { S.me = me; renderMyAvatar(); applyFeatures(); } refreshPresence(); }
     else renderLoginAvatars();
   });
   // zapamiętana sesja
