@@ -337,6 +337,7 @@
   .gc-frame.has-img .gc-pl { border-right: 1px solid rgba(255,255,255,.9); box-shadow: 1px 0 0 rgba(26,32,44,.5); }   /* linie podziału nad obrazkiem */
   .gc-frame.has-img .gc-pl span { display: none; }
   .gc-frame .x { z-index: 3; }
+  .gc-frame.has-img > .x { display: flex; }          /* wspólny obrazek konstrukcji (pod podglądami płaszczyzn) — ✕ zawsze widoczny, żeby dało się go usunąć */
   #viewer.copying { cursor: copy; }
   .mark-menu { position: fixed; z-index: 400; min-width: 230px; padding: 4px 0; }
   .mark-menu .mm-sep { height: 1px; background: var(--line); margin: 3px 0; } /* kreska między grupami w menu */
@@ -777,6 +778,7 @@
   .pl-srow > b { min-width: 64px; }
   .pl-srow > span { flex: 1 1 220px; }
   .pl-srow.drag { background: #f0fbe8; outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .pl-comb { background: #fffaf0; }
   .pl-drop-h { font-size: .72rem; color: var(--gray); margin: 2px 0 4px; }
   .pl-th { height: 34px; max-width: 90px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
   .pl-total { display: flex; gap: 10px; padding: 8px 0 2px; font-size: .88rem; border-top: 2px solid var(--dark); margin-top: 4px; flex-wrap: wrap; }
@@ -5540,6 +5542,11 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       <div class="pl-srow"><b>${esc(planeName(q))}</b><span>${lenPL(q.w)} × ${lenPL(q.h)} → do druku <b>${lenPL(q.gw)} × ${lenPL(q.gh)}</b> ${UNIT()}${hangBleedAny(q.bb) ? ' · ze spadem' : ''}</span>
         ${q.thumb ? `<img class="pl-th" src="${esc(q.thumb)}" alt=""><button type="button" class="btn btn-sm" data-ptrm="${i}" title="Usuń podgląd">✕</button>`
           : `<button type="button" class="btn btn-sm" data-ptb="${i}" title="Wklej podgląd tej płaszczyzny ze schowka (albo wybierz plik)">🖼 Wklej podgląd</button>`}</div>`).join('') +
+      (() => {
+        const st = editing && S.elements.find(x => x.id === editing.id); if (!st) return '';
+        const row = (url, inn) => url ? `<div class="pl-srow pl-comb"><b>${inn ? 'Zadruk wewn.' : 'Cała konstrukcja'}</b><span>wspólny podgląd jednym obrazkiem (leży pod podglądami płaszczyzn)</span><img class="pl-th" src="${esc(url)}" alt=""><button type="button" class="btn btn-sm" data-ctrm="${inn ? 'in' : ''}" title="Usuń wspólny podgląd">✕</button></div>` : '';
+        return row(st.thumb, false) + (cur.inside ? row(st.thumbIn, true) : '');
+      })() +
       `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
     // podgląd płaszczyzn: wklejony ze schowka, wybrany albo upuszczony (także kilka plików naraz, po kolei od wskazanej płaszczyzny)
     const putPlaneFiles = async (start, files) => {
@@ -5559,7 +5566,8 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       const file = await clipboardImageFile() || await chooseImageFile();
       if (file) putPlaneFiles(+b.dataset.ptb, [file]);
     });
-    box.querySelectorAll('.pl-srow').forEach((row, i) => {
+    box.querySelectorAll('[data-ctrm]').forEach(b => b.onclick = async () => { await removeThumb(editing.id, b.dataset.ctrm); setTimeout(renderPlaneSum, 350); });
+    box.querySelectorAll('.pl-srow:not(.pl-comb)').forEach((row, i) => {
       row.addEventListener('dragover', e => { if (hasFiles(e)) { e.preventDefault(); e.stopPropagation(); row.classList.add('drag'); } });
       row.addEventListener('dragleave', () => row.classList.remove('drag'));
       row.addEventListener('drop', e => { row.classList.remove('drag'); if (!hasFiles(e)) return; e.preventDefault(); e.stopPropagation(); putPlaneFiles(i, [...e.dataTransfer.files]); });
