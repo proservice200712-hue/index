@@ -1134,7 +1134,7 @@
               <label class="pchip wide" title="Góra ścianki: prosta, łuk (promień R, od wierzchu ścianki w górę), daszek (poziomo, pod kątem prostym do ściany) albo łuk + daszek. Łuk i daszek to osobne elementy — dotyczą tylko zaznaczonej ścianki."><i class="ti ti-arrow-curve-right"></i><span>góra</span><select id="uf-roof"><option value="">prosta</option><option value="arc">łuk</option><option value="can">daszek</option><option value="both">łuk + daszek</option></select></label>
               <label class="pchip wide" id="uf-roofr-l" title="Promień łuku — łuk zaczyna się R poniżej wierzchu ścianki (np. dostawka 110,5 cm → R do 110,5)"><i class="ti ti-ruler-measure"></i><span>promień R</span><input type="text" inputmode="decimal" id="uf-roofr"></label>
               <label class="pchip wide" id="uf-roofd-l" title="Głębokość daszku: poziomo od ściany pod kątem prostym (od końca łuku, jeśli jest łuk). Puste = do przeciwległej ścianki"><i class="ti ti-ruler-measure"></i><span>głęb. daszku</span><input type="text" inputmode="decimal" id="uf-roofd" placeholder="do przeciw."></label>
-              <label class="pchip wide" id="uf-roofk-l" title="Daszek opada ukośnie na wierzch przeciwległej ścianki, zamiast wisieć poziomo nad nią (np. po łuku)"><i class="ti ti-arrow-down-right"></i><span>opada na ściankę</span><input type="checkbox" id="uf-roofk"></label>
+              <label class="pchip wide" id="uf-roofk-l" title="Daszek opada prostopadle (pionowym brzegiem) na wierzch przeciwległej ścianki, zamiast wisieć poziomo nad nią (np. po łuku). Bez opadania przylega do jej lica pod kątem prostym."><i class="ti ti-arrow-down-right"></i><span>opada na ściankę</span><input type="checkbox" id="uf-roofk"></label>
             </div>
             <div class="pseg uk" id="uf-plane" title="Która płaszczyzna zaznaczonej ścianki jest edytowana (montaż, malowanie): przód = lico od strony wnętrza stoiska, tył = lico odwrotne. Klik na ścianie w podglądzie 3D wybiera ściankę i płaszczyznę.">
               <button type="button" data-pl="f"><i class="ti ti-square-arrow-down"></i>przód</button><button type="button" data-pl="b"><i class="ti ti-square-arrow-up"></i>tył</button>
@@ -1172,7 +1172,7 @@
           <details class="pfold" data-k="keys"><summary><i class="ti ti-chevron-right"></i><i class="ti ti-keyboard"></i>Myszka i klawisze</summary><div class="hint" id="uf-keys"></div></details>
         </aside>
         <div id="uf-sidet" class="uf-sh" title="Ustawienia — kliknij, aby rozsunąć / schować"><span class="arr">◂</span><span class="vt">Ustawienia</span><span class="arr">◂</span></div>
-        <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D — przeciągnij, aby swobodnie obracać (orbita: poziomo obrót, pionowo wysokość kamery); dwuklik = widok z narożnika"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
+        <div class="uf-main"><canvas id="uf-cv"></canvas><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D — przeciągnij, aby swobodnie obracać (orbita: poziomo obrót, pionowo wysokość kamery); kółko = zoom, Shift+przeciągnięcie = przesuwanie; dwuklik = widok z narożnika"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
         </div>
         <div class="uf-info" id="uf-info"></div>
       </div>
@@ -7656,8 +7656,11 @@ function ufRoofs(geo) {
   geo.runs.forEach(a => {
     const c = ufRoofCfg(a); if (!c.arc && !c.can) return;
     const [lo, hi] = ufRange(a), h = a.h, vOut = a.line - a.inn0 * (a.th || UF_T) / 2, p = ufPartner(geo, a), span = p ? Math.abs(p.line - p.inn0 * (p.th || UF_T) / 2 - vOut) : 0;
-    const R = c.arc ? Math.max(50, Math.min(c.R || 600, 6000)) : 0, v0 = R, d = c.can ? (c.d > 0 ? c.d : (span - v0 > 1 ? span - v0 : 1000)) : 0;
-    out.push({ a, ori: a.ori, lo, hi, h, R, can: c.can, d, v0, vOut, dir: a.inn0, span, auto: c.can && !(c.d > 0), t0: a.th || UF_T, drop: c.can && c.drop, pH: p ? p.h : a.h });
+    const R = c.arc ? Math.max(50, Math.min(c.R || 600, 6000)) : 0, v0 = R, t0 = a.th || UF_T, pth = p ? (p.th || UF_T) : 0, pH = p ? p.h : a.h, zsTop = R ? h + R : h + t0, canRest = !!p && pH <= zsTop - t0 + 1;
+    // auto: daszek dochodzi do przeciwległej ścianki — do jej wewnętrznego lica (przylega prostopadle, nie wchodzi w ścianę); z opadaniem nad niższą ścianką — do jej zewnętrznego lica (pionowy brzeg siada na wierzchu)
+    const vEndAuto = p ? ((c.drop && canRest) ? span : span - pth) : v0 + 1000, d = c.can ? (c.d > 0 ? c.d : Math.max(1, vEndAuto - v0)) : 0;
+    const leg = !!(c.can && c.drop && p && canRest && v0 + d >= span - pth - 1);
+    out.push({ a, ori: a.ori, lo, hi, h, R, can: c.can, d, v0, vOut, dir: a.inn0, span, auto: c.can && !(c.d > 0), t0, drop: c.can && c.drop, pH, zsTop, leg });
   });
   return out;
 }
@@ -8426,8 +8429,8 @@ function ufRender3D(o) {
   fl.forEach(([x, y]) => grow(x, y, 0));
   if (o.dims) { const ex = 900; [[-ex, -ex], [st.L + ex, -ex], [st.L + ex, st.D + ex], [-ex, st.D + ex]].forEach(([x, y]) => grow(...rot(x, y), 0)); } // miejsce na wymiary stoiska
   const M = pv ? 8 : 130, TOP = pv ? 8 : 150, BOT = pv ? 8 : 60, bw = mxX - mnX, bh = mxY - mnY;
-  const s = Math.min((W - 2 * M) / bw, ((pv ? Math.round(418 * W / 572) : 1100) - TOP - BOT) / bh), H = pv ? Math.round(418 * W / 572) : Math.round(bh * s + TOP + BOT), CW = pv ? W : Math.max(900, Math.round(bw * s + 2 * M));
-  const offX = pv ? (W - bw * s) / 2 : M, offY = pv ? (H - bh * s) / 2 : TOP;        // podgląd: ramka o stałym rozmiarze, rysunek wyśrodkowany (orbita jej nie zmienia)
+  const zk = pv ? clamp(d.zoom || 1, 0.5, 8) : 1, s = Math.min((W - 2 * M) / bw, ((pv ? Math.round(418 * W / 572) : 1100) - TOP - BOT) / bh) * zk, H = pv ? Math.round(418 * W / 572) : Math.round(bh * s + TOP + BOT), CW = pv ? W : Math.max(900, Math.round(bw * s + 2 * M));
+  const offX = pv ? (W - bw * s) / 2 + (d.pvx || 0) * W : M, offY = pv ? (H - bh * s) / 2 + (d.pvy || 0) * H : TOP;        // podgląd: ramka o stałym rozmiarze, rysunek wyśrodkowany (orbita jej nie zmienia)
   const T = (x, y, z) => { const [X, Y] = P(x, y, z); return [offX + (X - mnX) * s, offY + (Y - mnY) * s]; };
   const cv = document.createElement('canvas'); cv.width = CW; cv.height = H;
   const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, CW, H); g.lineJoin = 'round';
@@ -8653,7 +8656,11 @@ function ufRender3D(o) {
     const { lo, hi, h, R, vOut, dir } = rf, t0 = rf.t0, N = Math.max(6, Math.round(R / 50)), segs = [];
     // elementy osobno, każdy z grubością ścianki: łuk (niebieskawy; p = powierzchnia zewnętrzna, q = wewnętrzna) i daszek (żółtawy; leży na wierzchu ściany albo za łukiem, może opadać ukośnie na przeciwległą ściankę)
     if (rf.R) { const Rin = Math.max(1, R - t0), arcA = [], arcQ = []; for (let k = 0; k <= N; k++) { const th = k / N * Math.PI / 2; arcA.push([R - R * Math.cos(th), h + R * Math.sin(th)]); arcQ.push([R - Rin * Math.cos(th), h + Rin * Math.sin(th)]); } segs.push({ p: arcA, q: arcQ, y: false }); }
-    if (rf.can) { const zs = rf.R ? h + R : h + t0, ze = rf.drop ? rf.pH + t0 : zs; segs.push({ p: [[rf.v0, zs], [rf.v0 + rf.d, ze]], q: [[rf.v0, zs - t0], [rf.v0 + rf.d, ze - t0]], y: true }); }
+    if (rf.can) {       // daszek poziomy; z opadaniem — pionowy brzeg (prostopadle) schodzi na wierzch przeciwległej ścianki
+      const zs = rf.zsTop, vE = rf.v0 + rf.d;
+      segs.push({ p: [[rf.v0, zs], [vE, zs]], q: [[rf.v0, zs - t0], [vE, zs - t0]], y: true });
+      if (rf.leg) segs.push({ p: [[vE, zs], [vE, rf.pH]], q: [[vE - t0, zs - t0], [vE - t0, rf.pH]], y: true });
+    }
     const Wv = v => vOut + dir * v, xy = (u, v) => rf.ori === 0 ? [u, Wv(v)] : [Wv(v), u];
     const Pw = (u, v, z) => { const [rx, ry] = rot(...xy(u, v)); return T(rx, ry, z); }, dep = (u, v) => { const [rx, ry] = rot(...xy(u, v)); return rx * sa + ry * ca; };
     const base = KF && rf.a.mounts.f === 'paint' ? rf.a.paints.f : '#eef1f5';
@@ -8872,7 +8879,7 @@ function ufProduction() {
     const k0 = rf.ori === 0 ? 'x' : 'y', segs = rf.a.parts.filter(q => q.op.t !== 'post').map(q => Math.round((Math.min(q[k0 + '1'], rf.hi) - Math.max(q[k0 + '0'], rf.lo)) * 10) / 10).filter(v => v > 1);
     segs.forEach(w => {
       if (rf.R) add(9, `łuk R ${ufLen(rf.R)} · wysokość łuku ${ufLen(rf.R)} × szer. ${ufLen(w)}`, `zagięcie 90° · gr. ${lenPL(rf.t0)} — osobny element`, 'plain');
-      if (rf.can) add(9, `daszek ${ufLen(rf.d)} × ${ufLen(w)}`, `${rf.R ? 'za łukiem' : 'pod kątem prostym do ściany'}${rf.drop ? ', opada na ściankę' : ''} · gr. ${lenPL(rf.t0)} — osobny element`, 'plain');
+      if (rf.can) add(9, `daszek ${ufLen(rf.d)} × ${ufLen(w)}`, `${rf.R ? 'za łukiem' : 'pod kątem prostym do ściany'}${rf.leg ? ', opada prostopadle na ściankę' : ''} · gr. ${lenPL(rf.t0)} — osobny element`, 'plain');
     });
   });
   // lightbox: wspólna ramka na całej szerokości lica
@@ -9234,16 +9241,21 @@ async function closeUltraFrame() {
   $('uf-vr').onclick = () => { UF.d.yaw = (vYaw() + 30) % 360; ufChanged(); };
   { // orbita: przeciągnij podgląd 3D — w poziomie obrót wokół stoiska, w pionie wysokość kamery; dwuklik = widok domyślny z narożnika
     const pv = $('uf-pv'); let dr = null; pv.style.cursor = 'grab'; pv.style.touchAction = 'none';
-    pv.addEventListener('pointerdown', e => { if (e.button !== 0 || !UF.d) return; dr = { x: e.clientX, y: e.clientY, yaw: vYaw(), pitch: UF.d.pitch != null ? UF.d.pitch : 35.264, moved: false, raf: 0 }; try { pv.setPointerCapture(e.pointerId); } catch (er) {} });
+    pv.addEventListener('pointerdown', e => { if ((e.button !== 0 && e.button !== 1) || !UF.d) return; dr = { x: e.clientX, y: e.clientY, yaw: vYaw(), pitch: UF.d.pitch != null ? UF.d.pitch : 35.264, pan: e.shiftKey || e.button === 1, px: UF.d.pvx || 0, py: UF.d.pvy || 0, moved: false, raf: 0 }; if (dr.pan) e.preventDefault(); try { pv.setPointerCapture(e.pointerId); } catch (er) {} });
     pv.addEventListener('pointermove', e => {
       if (!dr) return; const dx = e.clientX - dr.x, dy = e.clientY - dr.y;
       if (!dr.moved && Math.hypot(dx, dy) < 4) return; if (!dr.moved) { dr.moved = true; pv.style.cursor = 'grabbing'; }
-      UF.d.yaw = ((dr.yaw - dx * 0.6) % 360 + 360) % 360; UF.d.pitch = clamp(dr.pitch + dy * 0.4, 8, 85);
+      if (dr.pan) { const rc = pv.getBoundingClientRect(); UF.d.pvx = dr.px + dx / rc.width; UF.d.pvy = dr.py + dy / rc.height; }       // Shift / środkowy przycisk: przesuwanie
+      else { UF.d.yaw = ((dr.yaw - dx * 0.6) % 360 + 360) % 360; UF.d.pitch = clamp(dr.pitch + dy * 0.4, 8, 85); }
       if (!dr.raf) dr.raf = requestAnimationFrame(() => { if (dr) dr.raf = 0; ufPreview(); });
     });
     const end = () => { if (!dr) return; const m = dr.moved; dr = null; pv.style.cursor = 'grab'; if (m) { UF.pvMoved = Date.now(); ufChanged(); } };
     pv.addEventListener('pointerup', end); pv.addEventListener('pointercancel', end);
-    pv.addEventListener('dblclick', () => { UF.d.yaw = 45; UF.d.pitch = 35.264; delete UF.d.v12; ufChanged(); });
+    pv.addEventListener('dblclick', () => { UF.d.yaw = 45; UF.d.pitch = 35.264; delete UF.d.v12; delete UF.d.zoom; delete UF.d.pvx; delete UF.d.pvy; ufChanged(); });
+    pv.addEventListener('wheel', e => {      // zoom podglądu kółkiem (wokół wskaźnika)
+      e.preventDefault(); const rc = pv.getBoundingClientRect(), cx = (e.clientX - rc.left) / rc.width, cy = (e.clientY - rc.top) / rc.height, z0 = UF.d.zoom || 1, dl = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY, z1 = clamp(z0 * Math.pow(1.0018, -dl), 0.5, 8), k = z1 / z0;
+      UF.d.pvx = cx - 0.5 - (cx - 0.5 - (UF.d.pvx || 0)) * k; UF.d.pvy = cy - 0.5 - (cy - 0.5 - (UF.d.pvy || 0)) * k; UF.d.zoom = z1; ufPreview(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800);
+    }, { passive: false });
   }
   $('uf-go').onclick = ufGenerate; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen;
   $('uf-cus-b').onclick = () => {
