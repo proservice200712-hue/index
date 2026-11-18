@@ -1620,6 +1620,9 @@ function openModal({ title, body, footer = '', wide = false, onClose }) {
   if (first) setTimeout(() => first.focus(), 30);
   return m;
 }
+// ostatnia pozycja kursora (do ustawienia okna potwierdzenia pod przyciskiem)
+document.addEventListener('pointermove', e => { window._lastPtr = { x: e.clientX, y: e.clientY }; }, { passive: true, capture: true });
+document.addEventListener('pointerdown', e => { window._lastPtr = { x: e.clientX, y: e.clientY }; }, { passive: true, capture: true });
 function confirmBox(text, okLabel = 'Tak', danger = true) {
   return new Promise(res => {
     const m = openModal({ title: 'Potwierdź', body: `<div style="line-height:1.5">${text}</div>`,
@@ -1632,7 +1635,21 @@ function confirmBox(text, okLabel = 'Tak', danger = true) {
       if ((e.key === 'Enter' || e.key === 'Delete') && !e.repeat) { e.preventDefault(); e.stopPropagation(); m.el.querySelector('[data-yes]').click(); }
     };
     setTimeout(() => document.addEventListener('keydown', onKey, true), 0);
-    m.el.querySelector('[data-yes]').onclick = () => { document.removeEventListener('keydown', onKey, true); m.onYes = true; m.el.remove(); modalStack = modalStack.filter(x => x !== m); res(true); };
+    const yes = m.el.querySelector('[data-yes]'), modal = m.el.querySelector('.modal'), t0 = performance.now();
+    yes.onclick = e => {
+      if (e && e.isTrusted && performance.now() - t0 < 450) return;         // klik myszą tuż po otwarciu (np. drugi klik dwukliku) nie potwierdza
+      document.removeEventListener('keydown', onKey, true); m.onYes = true; m.el.remove(); modalStack = modalStack.filter(x => x !== m); res(true);
+    };
+    // okno przesuwamy tak, żeby domyślny przycisk wypadł pod kursorem (strony nie mogą ruszyć kursorem), a przycisk dostaje fokus
+    requestAnimationFrame(() => {
+      const lp = window._lastPtr;
+      if (lp && modal) {
+        const r = yes.getBoundingClientRect(), mr = modal.getBoundingClientRect();
+        const dx = clamp(lp.x - (r.left + r.width / 2), 8 - mr.left, innerWidth - 8 - mr.right), dy = clamp(lp.y - (r.top + r.height / 2), 8 - mr.top, innerHeight - 8 - mr.bottom);
+        modal.style.transform = `translate(${dx}px, ${dy}px)`;
+      }
+      yes.focus({ preventScroll: true });
+    });
   });
 }
 function download(name, blob) {
