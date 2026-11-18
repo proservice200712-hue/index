@@ -5777,7 +5777,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
         const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
-          photoId: photoId || '', shape: shape || null, createdAt: nowIso(), createdBy: S.me.id };
+          photoId: photoId || '', shape: shape ? autoLab(shape, photoId) : null, createdAt: nowIso(), createdBy: S.me.id };      // nowy punkt: znacznik z literą delikatnie obok punktu (strzałka)
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
         if (d.wExpr) Object.assign(rec, { wExpr: d.wExpr, wExprUnit: d.wExprUnit });
