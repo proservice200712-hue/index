@@ -2968,7 +2968,21 @@ function toggleSide(force) {
   $('side-arr').textContent = $('side-arr2').textContent = sideState.open ? '◂' : '▸';
   saveSideState();
   renderSide();
+  sideIdle();
 }
+// samoczynne chowanie menu „Targi · stoiska”: gdy kursora nie ma nad nim przez 4 s (nie chowa przy wpisywaniu, otwartym oknie i w samouczku)
+let sideIdleT = 0;
+function sideIdle() {
+  clearTimeout(sideIdleT);
+  if (!sideState.open || S.tour) return;
+  sideIdleT = setTimeout(() => {
+    const sd = $('side'), ae = document.activeElement;
+    if (!sideState.open || S.tour) return;
+    if (sd.matches(':hover') || (ae && sd.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) || document.querySelector('.modal-back')) return sideIdle();
+    toggleSide(false);
+  }, 4000);
+}
+['pointermove', 'pointerdown', 'pointerenter', 'pointerleave', 'wheel'].forEach(ev => $('side').addEventListener(ev, sideIdle, { passive: true }));
 
 const fairEnd = f => tsOf(f.eventEnd) || (tsOf(f.eventStart) ? tsOf(f.eventStart) + 864e5 : null);
 function fairSort(a, b) {
