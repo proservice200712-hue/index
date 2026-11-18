@@ -7089,7 +7089,7 @@ const ufLen = mm => UNIT() === 'cm' ? (Math.round(Number(mm) * 10) / 100).toLoca
 const UF_PAL_K = [
   { id: 'k99', key: '1', op: { t: 'w', len: UF_KW } },
   { id: 'k49', key: '2', op: { t: 'w', len: UF_KW / 2 } },                    // połówka modułu: 49,75 cm
-  { id: 'kdoor', key: '3', op: { t: 'door', len: UF_KW, mode: 'flush' } },   // drzwi w jednym module: zlicowane z płytą albo wystające
+  { id: 'kdoor', key: '3', op: { t: 'door', len: UF_KW, mode: 'flush' } },   // drzwi w jednym module: zlicowane z płytą albo wpuszczone
 ];
 const ufPal = () => ufK() ? UF_PAL_K : UF_PAL_E;
 const ufHs = () => ufK() ? [UF_KH, UF_KH + UF_KADD[0], UF_KH + UF_KADD[1]] : UF_HS;
@@ -7124,8 +7124,8 @@ const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretc
 const ufMount = k => UF_MOUNTS.find(m => m[0] === k) || UF_MOUNTS[0];
 const ufPlOf = (run, inn) => inn === run.inn0 ? 'f' : 'b';
 const ufPl = () => UF.pl === 'b' ? 'b' : 'f';
-const ufKNote = (run, pl = 'f') => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${run.mounts[pl] === 'paint' ? 'malowanie — ' + ufPaintLabel(run, pl) + (run.psides[pl] ? ', razem z bokiem ścianki' : '') : run.mounts[pl] === 'lightbox' ? 'lightbox — wspólna ramka głębokości 6 cm na całej szerokości lica, pasek LED po obwodzie wewnętrznym, grafika lightbox z przodu' : ufMount(run.mounts[pl])[1]}${pl === 'b' ? ' (tył ścianki)' : ''}`;
-const UF_KKEYS = 'ścianka z płytą po obu stronach (grafika z dwóch stron, płyta od strony zaplecza, wysłona ręczna) ma 6,6 cm: kratownica 6 cm + płyta 3 mm z każdej strony · zaplecze ma płytę w środku, bez grafik · ścianki nie mogą na siebie nachodzić (czerwony obrys) · przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie wymiary przy zaznaczonej ściance (odległość od końców ścianki, do której dolega) — kliknij liczbę i wpisz nowy wymiar · niebieskie strzałki ją przesuwają · kropka w narożniku zaznaczonego modułu: chwyć i przyciągnij do narożnika innej ścianki, granicy stoiska albo lica innego modułu (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wystające · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
+const ufKNote = (run, pl = 'f') => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${run.mounts[pl] === 'paint' ? 'malowanie — ' + ufPaintLabel(run, pl) + (run.psides[pl] ? ', razem z bokiem ścianki' : '') : run.mounts[pl] === 'lightbox' ? 'lightbox — wspólna ramka głębokości 6 cm na całej szerokości lica, pasek LED po obwodzie wewnętrznym, grafika lightbox z przodu' : ufMount(run.mounts[pl])[1]}${pl === 'b' ? ' (tył ścianki)' : ''}${run.ops.some(o => o.t === 'door') ? ' · ściana z drzwiami obudowana płytą z dwóch stron' : ''}`;
+const UF_KKEYS = 'ścianka z płytą po obu stronach (grafika z dwóch stron, płyta od strony zaplecza, wysłona ręczna) ma 6,6 cm: kratownica 6 cm + płyta 3 mm z każdej strony · zaplecze ma płytę w środku, bez grafik · ścianki nie mogą na siebie nachodzić (czerwony obrys) · przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie wymiary przy zaznaczonej ściance (odległość od końców ścianki, do której dolega) — kliknij liczbę i wpisz nowy wymiar · niebieskie strzałki ją przesuwają · kropka w narożniku zaznaczonego modułu: chwyć i przyciągnij do narożnika innej ścianki, granicy stoiska albo lica innego modułu (krok w polu „Krok strzałek”; Ctrl+klik = 10×, Shift = cała ścianka; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wpuszczone · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
 const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : ufK() ? (p.back || (p.id && UF_DBL.has(p.id)) ? UF_KT + 3 : UF_KT) : UF_T;   // K-Frame: kratownica 60 + płyta 3 mm = 63; ścianka dwustronna (wysłona) ma drugą płytę: 66          // grubość klocka: ELTEX — własna, reszta ramy E80
 const ufCorners = r => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];   // narożniki prostokąta klocka (świat, mm)
 const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
@@ -7137,7 +7137,7 @@ const ufStack = h => { if (ufK()) { const r0 = Math.round(h); return r0 > UF_KH 
 const ufStackTxt = h => ufStack(h).length > 1 ? ufStack(h).map(v => lenPL(v)).join(' + ') : '';
 const UF = { open: false, pid: '', d: null, sel: null, rot: false, undo: [], tr: null, tmr: 0, busy: false, ro: null, drag: null, pd: null, geo: null };
 const ufUid = () => Math.random().toString(36).slice(2, 8);
-const ufPalLabel = p => ufK() && p.op.t === 'door' ? `drzwi w module ${lenPL(UF_KW)} — ${p.op.mode === 'proud' ? 'wystające' : 'zlicowane'}` : ufK() ? `${p.op.len < UF_KW - 1 ? 'połówka modułu' : 'moduł'} K-Frame ${ufLen(p.op.len)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}` : p.op.t === 'eltex' ? 'rama ELTEX (własna długość, wysokość i grubość)' : p.op.t === 'post' ? `słupek ${lenPL(80)}` : p.op.t === 'door' ? `drzwi ${lenPL(992)} ▸ ${lenPL(p.op.size === 'h2480' ? 2480 : 1984)}` : `ścianka ${lenPL(p.op.len)}`;
+const ufPalLabel = p => ufK() && p.op.t === 'door' ? `drzwi w module ${lenPL(UF_KW)} — ${p.op.mode === 'proud' ? 'wpuszczone' : 'zlicowane'}` : ufK() ? `${p.op.len < UF_KW - 1 ? 'połówka modułu' : 'moduł'} K-Frame ${ufLen(p.op.len)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}` : p.op.t === 'eltex' ? 'rama ELTEX (własna długość, wysokość i grubość)' : p.op.t === 'post' ? `słupek ${lenPL(80)}` : p.op.t === 'door' ? `drzwi ${lenPL(992)} ▸ ${lenPL(p.op.size === 'h2480' ? 2480 : 1984)}` : `ścianka ${lenPL(p.op.len)}`;
 const ufStandDefault = k => ({ L: 6000, D: 3000, open: { n: false, e: false, s: true, w: false }, ext: !k });
 const ufEnd = p => [p.x + UF_DIR[p.dir][0] * p.len, p.y + UF_DIR[p.dir][1] * p.len];
 function ufRect(p) {
@@ -7351,7 +7351,7 @@ function ufGeom0(d) {
     const sd = new Set();
     faces.forEach(fc => { if (fc.run === r || (fc.runs2 && fc.runs2.includes(r))) sd.add(fc.inn); });
     zap.forEach(zf => { if (zf.run === r) sd.add(zf.inn); });
-    if (r.manual || (sd.has(1) && sd.has(-1))) r.ops.forEach(o => dbl.push(o.id));
+    if (r.manual || (sd.has(1) && sd.has(-1)) || r.ops.some(o => o.t === 'door')) r.ops.forEach(o => dbl.push(o.id));   // ścianka z drzwiami — zawsze płyta po obu stronach
   });
   return { parts, runs, ext, ends, caps, faces, zap: st && st.zap ? zap : [], inner: zap, dbl, pub, rooms, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
 }
@@ -7382,7 +7382,7 @@ function ufPublic(st, parts) {
   f.region = (x, y) => { const i = Math.floor(x / c), j = Math.floor(y / c); return i < 0 || j < 0 || i >= nx || j >= ny ? 0 : reg[j * nx + i]; };
   return f;
 }
-// drzwi do elementu: EasyFrame — drzwi to cały moduł (SEG 99,2 × 248 / 198,4); K-Frame — skrzydło 80 × 200 na środku modułu (zlicowane albo wystające)
+// drzwi do elementu: EasyFrame — drzwi to cały moduł (SEG 99,2 × 248 / 198,4); K-Frame — skrzydło 80 × 200 na środku modułu (zlicowane albo wpuszczone)
 function ufDoorSpec(o, off, h) {
   if (ufK()) return { on: true, from: 'left', dist: Math.round((off + Math.max(0, (o.len - UF_KDW) / 2)) * 10) / 10, std: true, hinge: o.hinge || 'l', swing: o.swing || 'in', mode: o.mode === 'proud' ? 'proud' : 'flush', bul: o.bul === 'y' };
   return { on: true, from: 'left', dist: off, size: o.size === 'h2480' && h >= 2480 ? 'h2480' : 'h1984', hinge: o.hinge || 'l', swing: o.swing || 'in', bul: o.bul === 'y' };
@@ -7803,12 +7803,12 @@ function ufDraw() {
       let df = a2 - a1; while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
       g.arc(hx, hy, len, a1, a2, df < 0); g.stroke();
       g.fillStyle = '#2b6cb0'; g.beginPath(); g.arc(hx, hy, 3, 0, Math.PI * 2); g.fill();
-      if (ufK()) { // skrzydło: zlicowane (w grubości ścianki, lico z płytą) albo wystające (przed płytą); front = strona płyty / grafiki
-        const lt = 40, off = o.mode === 'proud' ? ufTh(o) / 2 + lt / 2 : ufTh(o) / 2 - lt / 2, fr = dg.front, ux = dg.free[0] - dg.hinge[0], uy = dg.free[1] - dg.hinge[1], ul = Math.hypot(ux, uy) || 1;
+      if (ufK()) { // skrzydło: zlicowane (w grubości ścianki, lico z płytą) albo wpuszczone (cofnięte w głąb ścianki); front = strona płyty / grafiki
+        const lt = 40, off = o.mode === 'proud' ? ufTh(o) / 2 - lt / 2 - 35 : ufTh(o) / 2 - lt / 2, fr = dg.front, ux = dg.free[0] - dg.hinge[0], uy = dg.free[1] - dg.hinge[1], ul = Math.hypot(ux, uy) || 1;
         const c = (u, v) => [X(dg.hinge[0] + ux / ul * u + fr[0] * v), Y(dg.hinge[1] + uy / ul * u + fr[1] * v)];
         g.beginPath(); [c(0, off - lt / 2), c(ul, off - lt / 2), c(ul, off + lt / 2), c(0, off + lt / 2)].forEach(([qa, qb], qi) => qi ? g.lineTo(qa, qb) : g.moveTo(qa, qb)); g.closePath();
         g.fillStyle = o.mode === 'proud' ? '#ed8936' : '#2b6cb0'; g.fill(); g.strokeStyle = '#1a365d'; g.lineWidth = 1; g.stroke();
-        if (o.len * s > 60) { const m1 = c(ul / 2, off), tx = m1[0] + fr[0] * 15, ty = m1[1] + fr[1] * 15; g.fillStyle = o.mode === 'proud' ? '#9c4221' : '#1a4f86'; g.font = `700 10px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.mode === 'proud' ? 'wystające' : 'zlicowane', tx, ty); }
+        if (o.len * s > 60) { const m1 = c(ul / 2, off), tx = m1[0] + fr[0] * 15, ty = m1[1] + fr[1] * 15; g.fillStyle = o.mode === 'proud' ? '#9c4221' : '#1a4f86'; g.font = `700 10px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(o.mode === 'proud' ? 'wpuszczone' : 'zlicowane', tx, ty); }
       }
       { // klamka: przy wolnym brzegu skrzydła (strona przeciwna do zawiasów)
         const ux = dg.free[0] - dg.hinge[0], uy = dg.free[1] - dg.hinge[1], ul = Math.hypot(ux, uy) || 1, kx = dg.free[0] - ux / ul * 70, ky = dg.free[1] - uy / ul * 70;
@@ -7840,6 +7840,7 @@ function ufDraw() {
       geo.inner.filter(zf => zf.run === rn).forEach(zf => { const pl = ufPlOf(rn, zf.inn); sides.set(zf.inn, rn.mounts[pl] === 'paint' ? rn.paints[pl] : '#cfa97a'); });
       geo.faces.filter(fc => fc.run === rn || (fc.runs2 && fc.runs2.includes(rn))).forEach(fc => { const pl = ufPlOf(rn, fc.inn); sides.set(fc.inn, rn.mounts[pl] === 'paint' ? rn.paints[pl] : '#a8743c'); });
       if (rn.backKind === 'manual') { const bi = rn.line >= (rn.ori === 0 ? st.D : st.L) / 2 ? 1 : -1; if (!sides.has(bi)) sides.set(bi, '#c98f4f'); }
+      if (rn.ops.some(o => o.t === 'door')) [-1, 1].forEach(bi => { if (!sides.has(bi)) sides.set(bi, '#c98f4f'); });
       sides.forEach((col, inn) => band(rn.ori, rn.line + inn * th2 / 2, inn, lo, hi, col));
       if (sel && rn.ops.some(o => o.id === sel)) {          // wybrana płaszczyzna zaznaczonej ścianki — zielona linia po jej stronie
         const inn = ufPl() === 'f' ? rn.inn0 : -rn.inn0, pos = rn.line + inn * (th2 / 2 + 6);
@@ -8292,7 +8293,7 @@ function ufWallMenu(e, wx, wy, tol) {
   const full = o.len0 || o.len, K = ufK();
   if (K ? full < UF_KDW + 40 : Math.abs(full - 992) > 1) { return toast(K ? `Za wąski moduł na drzwi (min. ${lenPL(UF_KDW + 40)} ${UNIT()})` : `Drzwi zrobisz tylko z modułu ${lenPL(992)} ${UNIT()}`, 'error', 3500); }
   const m = document.createElement('div'); m.className = 'menu mark-menu';
-  const opts = K ? [['flush', 'drzwi zlicowane z płytą'], ['proud', 'drzwi wystające przed płytę']] : UF_DOOR_HS.map(([k, v]) => [k, 'drzwi wysokość ' + lenPL(v)]);
+  const opts = K ? [['flush', 'drzwi zlicowane z płytą'], ['proud', 'drzwi wpuszczone (w głąb ścianki)']] : UF_DOOR_HS.map(([k, v]) => [k, 'drzwi wysokość ' + lenPL(v)]);
   m.innerHTML = `<div class="mm-h">Ścianka ${lenPL(o.len)} — zamień na:</div>` + opts.map(([k, v]) => `<button type="button" data-wd="${k}">🚪 ${v}</button>`).join('');
   document.body.appendChild(m);
   const rc = m.getBoundingClientRect();
@@ -8316,7 +8317,7 @@ function ufContext(e) {
   const o = q.op, m = document.createElement('div'); m.className = 'menu mark-menu';
   const row = (k, v, lab, cur) => `<button type="button" data-uk="${k}" data-uv="${v}">${cur === v ? '● ' : '○ '}${lab}</button>`;
   m.innerHTML = `<div class="mm-h">Drzwi · ${ufK() ? lenPL(o.len) + ' w module' : lenPL(o.len) + ' ▸ ' + lenPL(o.size === 'h2480' ? 2480 : 1984)}</div>
-    ${ufK() ? row('mode', 'flush', 'drzwi zlicowane z płytą', o.mode || 'flush') + row('mode', 'proud', 'drzwi wystające przed płytę', o.mode || 'flush') : UF_DOOR_HS.map(([k, v]) => row('size', k, 'wysokość ' + lenPL(v), o.size || 'h2480')).join('')}<div class="mm-sep"></div>
+    ${ufK() ? row('mode', 'flush', 'drzwi zlicowane z płytą', o.mode || 'flush') + row('mode', 'proud', 'drzwi wpuszczone (w głąb ścianki)', o.mode || 'flush') : UF_DOOR_HS.map(([k, v]) => row('size', k, 'wysokość ' + lenPL(v), o.size || 'h2480')).join('')}<div class="mm-sep"></div>
     ${row('bul', 'n', 'drzwi bez bulaja', o.bul || 'n')}${row('bul', 'y', 'drzwi z bulajem (okno Ø 30 cm)', o.bul || 'n')}<div class="mm-sep"></div>
     ${row('hinge', 'l', 'zawiasy po lewej', o.hinge || 'l')}${row('hinge', 'r', 'zawiasy po prawej', o.hinge || 'l')}<div class="mm-sep"></div>
     ${row('swing', 'in', 'otwierane do środka', o.swing || 'in')}${row('swing', 'out', 'otwierane na zewnątrz', o.swing || 'in')}`;
@@ -8334,7 +8335,7 @@ function ufPalDoorMenu(e) {
   if (ufK()) {
     const mc = UF.d.doorMode || 'flush', mk = document.createElement('div'); mk.className = 'menu mark-menu';
     const bc = UF.d.doorBul || 'n';
-    mk.innerHTML = `<div class="mm-h">Drzwi w module ${lenPL(UF_KW)}</div>` + [['flush', 'zlicowane z płytą'], ['proud', 'wystające przed płytę']].map(([k, v]) => `<button type="button" data-dm="${k}">${mc === k ? '● ' : '○ '}${v}</button>`).join('')
+    mk.innerHTML = `<div class="mm-h">Drzwi w module ${lenPL(UF_KW)}</div>` + [['flush', 'zlicowane z płytą'], ['proud', 'wpuszczone (w głąb ścianki)']].map(([k, v]) => `<button type="button" data-dm="${k}">${mc === k ? '● ' : '○ '}${v}</button>`).join('')
       + '<div class="mm-sep"></div>' + [['n', 'bez bulaja'], ['y', 'z bulajem (okno Ø 30 cm)']].map(([k, v]) => `<button type="button" data-db="${k}">${bc === k ? '● ' : '○ '}${v}</button>`).join('');
     document.body.appendChild(mk); const rc0 = mk.getBoundingClientRect();
     mk.style.left = clamp(e.clientX, 6, innerWidth - rc0.width - 6) + 'px'; mk.style.top = clamp(e.clientY, 6, innerHeight - rc0.height - 6) + 'px';
@@ -8474,6 +8475,7 @@ function ufRender3D(o) {
     const k0 = r.ori === 0 ? 'x' : 'y', a = Math.min(...r.parts.map(q => q[k0 + '0'])), b = Math.max(...r.parts.map(q => q[k0 + '1']));
     const inn0 = r.line >= (r.ori === 0 ? st.D : st.L) / 2 ? -1 : 1, fb = r.line - inn0 * (r.th || UF_T) / 2;
     if (r.backKind === 'manual') addCov(r.ori, fb, -inn0, a, b, 0, r.h, pnt(r, -inn0));
+    if (KF && r.ops.some(o => o.t === 'door')) [-1, 1].forEach(sn => addCov(r.ori, r.line + sn * (r.th || UF_T) / 2, sn, a, b, 0, r.h, pnt(r, sn)));      // ściana z drzwiami: płyta z obu stron
     if (r.closed && geo.ext.some(e => e.side === r.closed)) addCov(r.ori, fb, -inn0, a, b, ufExtFrom(), r.h);
   });
   const covOf = (bx, side) => covers.filter(c => c.side === side && Math.abs(c.pl - (side === 's' ? bx.y1 : bx.x1)) < 2
@@ -8563,22 +8565,22 @@ function ufRender3D(o) {
     if (bx.p.op.t === 'door') {
       const alongX = (bx.x1 - bx.x0) >= (bx.y1 - bx.y0), dh = KF ? Math.min(h, DOOR_STD.h) : Math.min(h, bx.p.op.size === 'h2480' ? 2480 : 1984), ins = KF ? Math.max(0, ((alongX ? bx.x1 - bx.x0 : bx.y1 - bx.y0) - UF_KDW) / 2) : 70;
       if (o.hits) o.hits.push({ pts: alongX ? [T(bx.x0 + ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, dh), T(bx.x0 + ins, bx.y1, dh)] : [T(bx.x1, bx.y0 + ins, 0), T(bx.x1, bx.y1 - ins, 0), T(bx.x1, bx.y1 - ins, dh), T(bx.x1, bx.y0 + ins, dh)], id: bx.p.op.id, pl: null });
-      if (alongX) poly([T(bx.x0 + ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, 0), T(bx.x1 - ins, bx.y1, dh), T(bx.x0 + ins, bx.y1, dh)], '#bcd9f0');
-      else poly([T(bx.x1, bx.y0 + ins, 0), T(bx.x1, bx.y1 - ins, 0), T(bx.x1, bx.y1 - ins, dh), T(bx.x1, bx.y0 + ins, dh)], '#9dc3e3');
-      if (KF && bx.p.op.mode === 'proud') { // skrzydło wystające 40 mm przed płytę — rysowane na ścianie, na której jest front drzwi
-        const fr = ufDoorGeom(bx.p.op, d, geo.pub).front, fv = rv(fr[0], fr[1]), e = 40;
-        if (alongX && fv[1] > 0.5) { poly([T(bx.x1 - ins, bx.y1, 0), T(bx.x1 - ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x1 - ins, bx.y1, dh)], '#dd6b20'); poly([T(bx.x0 + ins, bx.y1, dh), T(bx.x1 - ins, bx.y1, dh), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x0 + ins, bx.y1 + e, dh)], '#ed8936'); poly([T(bx.x0 + ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, 0), T(bx.x1 - ins, bx.y1 + e, dh), T(bx.x0 + ins, bx.y1 + e, dh)], '#f6ad55'); }
-        else if (!alongX && fv[0] > 0.5) { poly([T(bx.x1, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1, bx.y1 - ins, dh)], '#dd6b20'); poly([T(bx.x1, bx.y0 + ins, dh), T(bx.x1, bx.y1 - ins, dh), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1 + e, bx.y0 + ins, dh)], '#ed8936'); poly([T(bx.x1 + e, bx.y0 + ins, 0), T(bx.x1 + e, bx.y1 - ins, 0), T(bx.x1 + e, bx.y1 - ins, dh), T(bx.x1 + e, bx.y0 + ins, dh)], '#f6ad55'); }
+      const REC = KF && bx.p.op.mode === 'proud' ? 35 : 0, ua = (alongX ? bx.x0 : bx.y0) + ins, ub = (alongX ? bx.x1 : bx.y1) - ins;     // wpuszczone: skrzydło cofnięte o 35 mm w głąb ścianki
+      const lf = (off, z0, z1) => alongX ? [T(ua, bx.y1 + off, z0), T(ub, bx.y1 + off, z0), T(ub, bx.y1 + off, z1), T(ua, bx.y1 + off, z1)] : [T(bx.x1 + off, ua, z0), T(bx.x1 + off, ub, z0), T(bx.x1 + off, ub, z1), T(bx.x1 + off, ua, z1)];
+      if (REC) {       // wnęka: ciemny otwór w licu i widoczny bok wnęki (ościeżnica), potem skrzydło głębiej
+        poly(lf(0, 0, dh), '#4a5568');
+        poly(alongX ? [T(ua, bx.y1 - REC, 0), T(ua, bx.y1, 0), T(ua, bx.y1, dh), T(ua, bx.y1 - REC, dh)] : [T(bx.x1 - REC, ua, 0), T(bx.x1, ua, 0), T(bx.x1, ua, dh), T(bx.x1 - REC, ua, dh)], '#8b97a8');
       }
+      poly(lf(-REC, 0, dh), alongX ? '#bcd9f0' : '#9dc3e3');
       if (bx.p.op.bul === 'y') {       // bulaj: stalowa obręcz Ø 34 ze śrubami i mleczną szybą, wysoko na skrzydle
-        const mid = alongX ? (bx.x0 + bx.x1) / 2 : (bx.y0 + bx.y1) / 2, zc = Math.min(dh - 330, 1500), R0 = 170, pr2 = KF && bx.p.op.mode === 'proud' ? 41 : 1;
+        const mid = alongX ? (bx.x0 + bx.x1) / 2 : (bx.y0 + bx.y1) / 2, zc = Math.min(dh - 330, 1500), R0 = 170, pr2 = REC ? 1 - REC : 1;
         const pp = (u, z) => alongX ? T(u, bx.y1 + pr2, z) : T(bx.x1 + pr2, u, z);
         const ring = (r, fill, stroke) => { g.beginPath(); for (let k = 0; k < 40; k++) { const a = k / 40 * Math.PI * 2, [px, py] = pp(mid + Math.cos(a) * r, zc + Math.sin(a) * r); k ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); g.fillStyle = fill; g.fill(); g.strokeStyle = stroke; g.lineWidth = LW; g.stroke(); };
         ring(R0, '#b4bdc8', '#4a5568'); ring(R0 * 0.78, '#e7eef3', '#718096');
         g.fillStyle = '#4a5568'; for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.2, [px, py] = pp(mid + Math.cos(a) * R0 * 0.89, zc + Math.sin(a) * R0 * 0.89); g.beginPath(); g.arc(px, py, Math.max(0.8, 6 * s), 0, Math.PI * 2); g.fill(); }
       }
       { // klamka: przy wolnym brzegu skrzydła (po stronie przeciwnej do zawiasów), na wysokości ok. 100 cm, na widocznej stronie drzwi
-        const dg2 = ufDoorGeom(bx.p.op, d, geo.pub), [frx, fry] = rot(dg2.free[0], dg2.free[1]), pr = KF && bx.p.op.mode === 'proud' ? 41 : 1;
+        const dg2 = ufDoorGeom(bx.p.op, d, geo.pub), [frx, fry] = rot(dg2.free[0], dg2.free[1]), pr = REC ? 1 - REC : 1;
         if (alongX) {
           const mid = (bx.x0 + bx.x1) / 2, edge = frx > mid ? bx.x1 - ins : bx.x0 + ins, sg = edge > mid ? -1 : 1, xa = edge + sg * 110, xb = xa + sg * 210, yy = bx.y1 + pr;
           poly([T(xa - 30, yy, 940), T(xa + 30, yy, 940), T(xa + 30, yy, 1080), T(xa - 30, yy, 1080)], '#a0aec0');
@@ -8763,7 +8765,7 @@ function ufProduction() {
     r[side] += n;
   };
   const sided = r => {
-    if (r.manual) return true; const sd = new Set();
+    if (r.manual || r.ops.some(o => o.t === 'door')) return true; const sd = new Set();
     geo.faces.forEach(fc => { if (fc.run === r || (fc.runs2 && fc.runs2.includes(r))) sd.add(fc.inn); });
     geo.inner.forEach(zf => { if (zf.run === r) sd.add(zf.inn); });
     return sd.has(1) && sd.has(-1);
@@ -8780,7 +8782,7 @@ function ufProduction() {
       if (o.t === 'eltex') { add(9, `rama ELTEX ${ufLen(len)} × ${ufLen(o.h || h)} · gr. ${lenPL(ufTh(o))}`, '', side); return; }
       const cut = !!o.len0, std = cut ? -1 : Math.abs(len - L1) < 1 ? 0 : Math.abs(len - L1 / 2) < 1 ? 1 : -1;
       if (o.t === 'door') {
-        const sub = [K ? (o.mode === 'proud' ? 'wystające' : 'zlicowane') : (o.size === 'h2480' ? 'wys. 248' : 'wys. 198,4'), o.bul === 'y' ? 'z bulajem Ø 30' : 'bez bulaja'].join(' · ');
+        const sub = [(o.hinge === 'r' ? 'prawostronne' : 'lewostronne') + ' (zawiasy po ' + (o.hinge === 'r' ? 'prawej' : 'lewej') + ')', K ? (o.mode === 'proud' ? 'wpuszczone' : 'zlicowane') : (o.size === 'h2480' ? 'wys. 248' : 'wys. 198,4'), o.bul === 'y' ? 'z bulajem Ø 30' : 'bez bulaja'].join(' · ');
         add(std === 0 && baseStd ? 2 : 9, `drzwi ${ufLen(len)} × ${ufLen(base)}`, sub, side);
       } else if (std >= 0 && baseStd) add(std === 0 ? 0 : 1, `${ufLen(len)} × ${ufLen(base)}`, '', side);
       else add(9, `ścianka ${ufLen(len)} × ${ufLen(base)}`, cut ? `ucięta z ${ufLen(o.len0)}` : (std >= 0 ? 'inna wysokość' : 'inna długość'), side);
@@ -8970,8 +8972,8 @@ async function ufGenerate() {
 // ---------- okno edytora ----------
 // paleta modułów: krótkie napisy (ikona + wymiar), pełna nazwa w dymku; drzwi — jedna ikona, wysokość pod prawym klawiszem
 function ufPalRender() {
-  const palShort = p => p.op.t === 'eltex' ? 'ELTEX' : p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? (ufK() ? lenPL(UF_KW) + (ufPalOp(p).mode === 'proud' ? ' wyst.' : ' zlic.') + (ufPalOp(p).bul === 'y' ? ' ◎' : '') : lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) + (ufPalOp(p).bul === 'y' ? ' ◎' : '')) : ufLen(p.op.len);
-  $('uf-pal').innerHTML = ufPal().map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? (ufK() ? ' · prawy klawisz = drzwi zlicowane / wystające' : ' · prawy klawisz = wysokość drzwi') : p.op.t === 'eltex' ? ' · po upuszczeniu okno wymiarów, prawy klawisz na ramie = zmiana wymiarów' : ''}"${p.op.t === 'eltex' ? ' style="color:#90cdf4;font-weight:800"' : ''}>${p.op.t === 'door' ? '🚪 ' : p.op.t === 'post' ? '■ ' : p.op.t === 'eltex' ? '' : '▭ '}${palShort(p)}</button>`).join('');
+  const palShort = p => p.op.t === 'eltex' ? 'ELTEX' : p.op.t === 'post' ? lenPL(80) : p.op.t === 'door' ? (ufK() ? lenPL(UF_KW) + (ufPalOp(p).mode === 'proud' ? ' wpuszcz.' : ' zlic.') + (ufPalOp(p).bul === 'y' ? ' ◎' : '') : lenPL(ufPalOp(p).size === 'h1984' ? 1984 : 2480) + (ufPalOp(p).bul === 'y' ? ' ◎' : '')) : ufLen(p.op.len);
+  $('uf-pal').innerHTML = ufPal().map(p => `<button type="button" data-pal="${p.id}" title="${esc(ufPalLabel({ op: ufPalOp(p) }))} — przeciągnij na plan (albo kliknij: dołoży się za zaznaczonym) [${p.key}]${p.op.t === 'door' ? (ufK() ? ' · prawy klawisz = drzwi zlicowane / wpuszczone' : ' · prawy klawisz = wysokość drzwi') : p.op.t === 'eltex' ? ' · po upuszczeniu okno wymiarów, prawy klawisz na ramie = zmiana wymiarów' : ''}"${p.op.t === 'eltex' ? ' style="color:#90cdf4;font-weight:800"' : ''}>${p.op.t === 'door' ? '🚪 ' : p.op.t === 'post' ? '■ ' : p.op.t === 'eltex' ? '' : '▭ '}${palShort(p)}</button>`).join('');
   // znacznik pokoju rozmów MT — przeciągany na środek zamkniętego pomieszczenia (bez znacznika pomieszczenie to zaplecze)
   $('uf-pal').insertAdjacentHTML('beforeend', Object.entries(UF_ROOM).map(([k, v]) => `<button type="button" data-room="${k}" title="${v.txt}: ${v.name} — przeciągnij na środek zamkniętego pomieszczenia; na planie: przeciągnij, prawy klawisz = zmiana / usunięcie" style="color:#90cdf4;font-weight:800">${v.txt}</button>`).join(''));
   $('uf-pal').querySelectorAll('[data-room]').forEach(b => b.onpointerdown = e => {
