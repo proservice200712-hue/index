@@ -588,6 +588,15 @@
   .type-btn:hover { border-color: var(--gray); }
   .type-btn.on { border-color: var(--dark); background: #f1f8ec; box-shadow: inset 4px 0 0 var(--accent); }
   .type-btn .sw { width: 14px; height: 14px; flex: 0 0 auto; }
+  .slides { position: relative; width: 100%; height: 100%; }
+  .slides img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none !important; max-height: none !important; object-fit: contain; opacity: 0; transition: opacity 1s ease-in-out; }
+  .slides img.on { opacity: 1; }
+  .ex-cell { display: flex; flex-wrap: wrap; gap: 4px; width: 214px; align-items: flex-start; }
+  .ex-cell .ex-slot { position: relative; }
+  .ex-cell .ex-thumb { width: 64px; height: 44px; }
+  .ex-cell .ex-x { position: absolute; top: -5px; right: -5px; width: 18px; height: 18px; padding: 0; line-height: 16px; font-size: .7rem; background: #fff; border: 1px solid var(--red); color: var(--red); cursor: pointer; border-radius: 50% !important; }
+  .ex-cell .ex-sec { flex-basis: 100%; font-size: .72rem; color: var(--gray); }
+  .ex-cell .ex-sec input { width: 50px; padding: 2px 4px; }
   .ex-thumb.ex-svg { position: relative; cursor: pointer; overflow: hidden; background: #fff; }
   .ex-thumb.ex-svg svg { width: 100%; height: 100%; opacity: .45; }
   .ex-thumb.ex-svg span { position: absolute; inset: auto 0 2px 0; text-align: center; font-size: .65rem; font-weight: 700; color: var(--dark); }
@@ -2730,9 +2739,26 @@ function exampleSvg(t) {
   }[t.icon || 'other'] || '';
   return `<svg viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg">${wall}${art}</svg>`;
 }
-const exampleHtml = (t, v) => (v && v.example) ? `<img src="${esc(v.example)}" alt="">`
-  : (!v && t.example) ? `<img src="${esc(t.example)}" alt="">`
-  : exampleSvg(v ? { ...t, icon: v.icon || t.icon } : t);
+// zdjęcia przykładowe typu / wykonania: do 3, płynnie zmieniają się co N sekund (domyślnie 10; ustawia admin w panelu Typy elementów)
+const EX_MAX = 3, EX_SEC = 10;
+const exList = x => (x && x.examples && x.examples.length ? x.examples : x && x.example ? [x.example] : []).filter(Boolean).slice(0, EX_MAX);
+const exSec = (t, v) => Math.max(2, Number((v && v.slideSec) || (t && t.slideSec)) || EX_SEC);
+function exampleHtml(t, v) {
+  const list = exList(v || t);
+  if (!list.length) return exampleSvg(v ? { ...t, icon: v.icon || t.icon } : t);
+  if (list.length === 1) return `<img src="${esc(list[0])}" alt="">`;
+  return `<div class="slides" data-sec="${exSec(t, v)}">${list.map((u, i) => `<img src="${esc(u)}" alt=""${i ? '' : ' class="on"'}>`).join('')}</div>`;
+}
+setInterval(() => {                       // jeden zegar dla wszystkich pokazów na ekranie
+  const now = Date.now();
+  document.querySelectorAll('.slides').forEach(el => {
+    const im = el.querySelectorAll('img'); if (im.length < 2) return;
+    if (!el._t) el._t = now;
+    if (now - el._t < (Number(el.dataset.sec) || EX_SEC) * 1000) return;
+    el._t = now; const i = [...im].findIndex(x => x.classList.contains('on'));
+    im[i].classList.remove('on'); im[(i + 1) % im.length].classList.add('on');
+  });
+}, 400);
 
 // =====================================================================
 //  LISTA PROJEKTÓW
@@ -9369,22 +9395,27 @@ function openTypesPanel() {
     footer: '<button class="btn" id="tp-add" style="margin-right:auto">+ Nowy typ</button><button class="btn" data-c>Zamknij</button>' });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   const render = () => {
-    const exThumb = (ex, svg, attr) => `<div class="ex-thumb ${ex ? '' : 'ex-svg'}" ${attr} title="${ex ? 'Zmień zdjęcie' : 'Wgraj zdjęcie (do tej pory pokazuje się rysunek poglądowy)'}" style="${ex ? `background-image:url('${esc(thumbUrl(ex, 130, 90))}')` : ''}">${ex ? '' : svg + '<span>+ wgraj zdjęcie</span>'}</div>`;
+    const exCell = (x, svg, tid, vid, sec) => {
+      const list = exList(x), fill = i => `<div class="ex-slot"><div class="ex-thumb" data-xs="${i}" title="Zmień to zdjęcie" style="background-image:url('${esc(thumbUrl(list[i], 130, 90))}')"></div><button type="button" class="ex-x" data-xrm="${i}" title="Usuń to zdjęcie">✕</button></div>`;
+      const slots = list.map((u, i) => fill(i));
+      if (list.length < EX_MAX) slots.push(`<div class="ex-slot"><div class="ex-thumb ex-svg" data-xs="${list.length}" title="${list.length ? 'Dodaj kolejne zdjęcie (max ' + EX_MAX + ')' : 'Wgraj zdjęcie (do tej pory pokazuje się rysunek poglądowy)'}">${list.length ? '<span style="position:static;font-size:1.3rem;line-height:44px">+</span>' : svg + '<span>+ wgraj zdjęcie</span>'}</div></div>`);
+      return `<div class="ex-cell" data-tid="${tid}" data-vid="${vid || ''}">${slots.join('')}<div class="ex-sec" title="Co ile sekund zdjęcia zmieniają się płynnie (gdy jest ich więcej niż jedno)">zmiana co <input type="number" data-xsec min="2" max="120" value="${sec}"> s</div></div>`;
+    };
     $('tp-body').innerHTML = `<div class="hint" style="font-size:.78rem;color:var(--gray);margin-bottom:10px">Kolor = kolor obwódki na wizce i w PDF. Spad dodawany automatycznie z każdej strony.
-      <b>Zdjęcie przykładowe</b> widzi agencja po prawej stronie okna elementu — kliknij miniaturę, aby wgrać albo zmienić; ✕ przywraca rysunek poglądowy. Typy z wykonaniami (np. Logo 3D, Konstrukcja podwieszana) mają zdjęcie także dla każdego wykonania (wiersze ↳).</div>
+      <b>Zdjęcia przykładowe</b> widzi agencja po prawej stronie okna elementu: do 3 na typ (i na każde wykonanie — wiersze ↳), zmieniają się płynnie co podaną liczbę sekund. Kliknij miniaturę, aby wgrać albo zmienić; ✕ przy zdjęciu je usuwa (bez zdjęć wraca rysunek poglądowy).</div>
       <table class="adm-t"><thead><tr><th>Kol.</th><th>Nazwa</th><th>Opis dla agencji</th><th>Spad [mm]</th><th>Przykład</th><th>Kolej.</th><th></th></tr></thead>
       <tbody>${S.types.map(t => `<tr data-id="${t.id}">
         <td><input type="color" data-f="color" value="${esc(t.color)}"></td>
         <td style="min-width:170px"><input type="text" data-f="name" value="${esc(t.name)}"></td>
         <td style="min-width:240px"><input type="text" data-f="desc" value="${esc(t.desc || '')}"></td>
         <td style="width:80px"><input type="number" data-f="bleed" min="0" value="${esc(t.bleed || 0)}"></td>
-        <td>${exThumb(t.example, exampleSvg(t), 'data-ex')}${t.example ? '<button class="btn btn-sm" data-exrm title="Usuń zdjęcie — wróci rysunek poglądowy" style="margin-top:3px">✕ zdjęcie</button>' : ''}</td>
+        <td>${exCell(t, exampleSvg(t), t.id, '', exSec(t))}</td>
         <td style="width:64px"><input type="number" data-f="order" value="${esc(t.order || 0)}"></td>
         <td style="white-space:nowrap"><button class="btn btn-sm btn-green" data-save>Zapisz</button>
           ${t.id === 'nie-wiem' ? '' : '<button class="btn btn-sm btn-red" data-del>✕</button>'}</td></tr>`
         + (t.variants || []).map(v => `<tr class="tp-var" data-vt="${t.id}" data-vid="${v.id}"><td></td>
         <td colspan="2" style="color:var(--gray);font-size:.8rem">↳ <b style="color:var(--dark)">${esc(t.name)} — ${esc(v.name)}</b><br>${esc(v.desc || '')}</td><td></td>
-        <td>${exThumb(v.example, exampleSvg({ ...t, icon: v.icon || t.icon }), 'data-vex')}${v.example ? '<button class="btn btn-sm" data-vrm title="Usuń zdjęcie — wróci rysunek poglądowy" style="margin-top:3px">✕ zdjęcie</button>' : ''}</td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>`;
+        <td>${exCell(v, exampleSvg({ ...t, icon: v.icon || t.icon }), t.id, v.id, exSec(t, v))}</td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>`;
     // wgrywanie / zmiana zdjęcia przykładowego (typ albo wykonanie)
     const pickEx = save => {
       const fi = $('file-generic');
@@ -9397,16 +9428,27 @@ function openTypesPanel() {
       };
       fi.click();
     };
-    const saveVar = (tid, vid, url) => {
-      const t = S.types.find(x => x.id === tid), vs = clone(t.variants || DEFAULT_TYPES.find(x => x.id === tid).variants);
-      vs.forEach(v => { if (v.id === vid) { if (url) v.example = url; else delete v.example; } });
-      return DB.set(C_TYPES, tid, { variants: vs }, true);
+    // zmiana listy zdjęć / czasu dla typu (vid pusty) albo wykonania
+    const exUpdate = async (tid, vid, fn) => {
+      await ensureTypesSeeded();
+      const t = S.types.find(x => x.id === tid);
+      if (!vid) {
+        const o = { examples: exList(t).slice(), slideSec: t.slideSec }; fn(o);
+        const ex = o.examples.filter(Boolean).slice(0, EX_MAX);
+        await DB.set(C_TYPES, tid, { examples: ex, example: ex[0] || '', slideSec: o.slideSec || EX_SEC }, true);
+      } else {
+        const vs = clone(t.variants || DEFAULT_TYPES.find(x => x.id === tid).variants), v = vs.find(x => x.id === vid);
+        const o = { examples: exList(v).slice(), slideSec: v.slideSec }; fn(o);
+        const ex = o.examples.filter(Boolean).slice(0, EX_MAX);
+        v.examples = ex; if (ex[0]) v.example = ex[0]; else delete v.example; v.slideSec = o.slideSec || EX_SEC;
+        await DB.set(C_TYPES, tid, { variants: vs }, true);
+      }
     };
-    $('tp-body').querySelectorAll('tr[data-vid]').forEach(tr => {
-      const tid = tr.dataset.vt, vid = tr.dataset.vid;
-      tr.querySelector('[data-vex]').onclick = () => pickEx(url => saveVar(tid, vid, url));
-      const rm = tr.querySelector('[data-vrm]');
-      if (rm) rm.onclick = async () => { await ensureTypesSeeded(); await saveVar(tid, vid, ''); setTimeout(render, 150); };
+    $('tp-body').querySelectorAll('.ex-cell').forEach(c => {
+      const tid = c.dataset.tid, vid = c.dataset.vid;
+      c.querySelectorAll('[data-xs]').forEach(el => el.onclick = () => { const i = +el.dataset.xs; pickEx(url => exUpdate(tid, vid, o => { o.examples[i] = url; })); });
+      c.querySelectorAll('[data-xrm]').forEach(el => el.onclick = async () => { const i = +el.dataset.xrm; await exUpdate(tid, vid, o => { o.examples.splice(i, 1); }); setTimeout(render, 150); });
+      c.querySelector('[data-xsec]').onchange = async e => { const n = clamp(Math.round(Number(e.target.value)) || EX_SEC, 2, 120); e.target.value = n; await exUpdate(tid, vid, o => { o.slideSec = n; }); toast('Zapisano: zmiana co ' + n + ' s', 'success', 1800); };
     });
     $('tp-body').querySelectorAll('tr[data-id]').forEach(tr => {
       const id = tr.dataset.id;
@@ -9426,9 +9468,6 @@ function openTypesPanel() {
         if (!await confirmBox('Usunąć ten typ?' + (used ? ` W bieżącym projekcie używa go ${used} el.` : ''), 'Usuń')) return;
         await ensureTypesSeeded(); await DB.del(C_TYPES, id); setTimeout(render, 100);
       };
-      tr.querySelector('[data-ex]').onclick = () => pickEx(url => DB.set(C_TYPES, id, { example: url }, true));
-      const exrm = tr.querySelector('[data-exrm]');
-      if (exrm) exrm.onclick = async () => { await ensureTypesSeeded(); await DB.set(C_TYPES, id, { example: '' }, true); setTimeout(render, 150); };
     });
   };
   $('tp-add').onclick = async () => {
