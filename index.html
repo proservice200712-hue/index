@@ -1131,7 +1131,7 @@
             <div class="pchips">
               <label class="pchip" title="Wysokość zaznaczonej ścianki"><i class="ti ti-arrows-vertical"></i><span>wys.</span><select id="uf-h"></select></label>
               <label class="pchip" title="Wysłona na całą wysokość tej ścianki (B); wysłony zewnętrzne dla zamkniętych boków stoiska liczą się same"><i class="ti ti-layout-sidebar-right"></i><span>wysłona ręcznie</span><input type="checkbox" id="uf-back"></label>
-              <label class="pchip wide" title="Góra ścianki: prosta, łuk o podanym promieniu (np. na dostawce) albo zadaszenie płaskie do przeciwległej ścianki. Ustawia się na obu przeciwległych ściankach naraz."><i class="ti ti-arrow-curve-right"></i><span>góra</span><select id="uf-roof"><option value="">prosta</option><option value="arch">łuk / zadaszenie łukowe</option><option value="flat">zadaszenie płaskie</option></select></label>
+              <label class="pchip wide" title="Góra ścianki: prosta, sam łuk o podanym promieniu, łuk + daszek (zadaszenie łukowe) albo daszek płaski do przeciwległej ścianki. Łuk siedzi na ściankach, od ich wierzchu w górę. Ustawia się na obu przeciwległych ściankach naraz."><i class="ti ti-arrow-curve-right"></i><span>góra</span><select id="uf-roof"><option value="">prosta</option><option value="arc">łuk (sam łuk)</option><option value="arch">łuk + daszek (zadaszenie łukowe)</option><option value="flat">daszek płaski</option></select></label>
               <label class="pchip wide" id="uf-roofr-l" title="Promień łuku — łuk zaczyna się R poniżej wierzchu ścianki (np. dostawka 110,5 cm → R do 110,5)"><i class="ti ti-ruler-measure"></i><span>promień R</span><input type="text" inputmode="decimal" id="uf-roofr"></label>
             </div>
             <div class="pseg uk" id="uf-plane" title="Która płaszczyzna zaznaczonej ścianki jest edytowana (montaż, malowanie): przód = lico od strony wnętrza stoiska, tył = lico odwrotne. Klik na ścianie w podglądzie 3D wybiera ściankę i płaszczyznę.">
@@ -7623,6 +7623,8 @@ const ufSetMount = v => ufSetPlane('pm', v, 'mount');
 function ufSetBack(v) { const r = ufSelRun(); if (!r) { toast('Zaznacz ściankę (kliknij jej klocek)', 'error'); ufSyncBar(); return; } ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.back = v; }); ufChanged(); }
 function ufSetH(v) { const r = ufSelRun(); if (!r) return; ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.h = v; }); const pr = ufRoofOf(r) && ufPartner(ufGeom(UF.d), r, q => !!ufRoofOf(q)); if (pr) pr.ops.forEach(o => { if (o.t !== 'post') o.h = v; }); ufChanged(); }   // ścianka z zadaszeniem: przeciwległa dostaje tę samą wysokość
 const ufRoofOf = r => { const f = r.ops.find(o => o.t !== 'post' && o.roof && o.roof.t); return f ? f.roof : null; };
+const ufIsArc = t => t === 'arc' || t === 'arch';
+const ufRoofName = rf => rf.t === 'flat' ? 'daszek płaski' : rf.t === 'arc' ? `łuk R ${lenPL(rf.R)}` : rf.b ? `zadaszenie łukowe (łuk R ${lenPL(rf.R)} + daszek)` : `łuk R ${lenPL(rf.R)}`;
 const ufRange = r => { const k = r.ori === 0 ? 'x' : 'y'; return [Math.min(...r.parts.map(q => q[k + '0'])), Math.max(...r.parts.map(q => q[k + '1']))]; };
 // przeciwległa ścianka: równoległa, po drugiej stronie wnętrza, z nakładającym się odcinkiem (najbliższa)
 function ufPartner(geo, a, pred) {
@@ -7639,8 +7641,8 @@ function ufRoofs(geo) {
     const ra = ufRoofOf(a), b = ufPartner(geo, a, q => !used.has(q) && ufRoofOf(q) && ufRoofOf(q).t === ra.t); if (b) used.add(b);
     const [alo, ahi] = ufRange(a), [blo, bhi] = b ? ufRange(b) : [alo, ahi], lo = Math.max(alo, blo), hi = Math.min(ahi, bhi), h = b ? Math.min(a.h, b.h) : a.h;
     const vOut = a.line - a.inn0 * (a.th || UF_T) / 2, span = b ? Math.abs(b.line - b.inn0 * (b.th || UF_T) / 2 - vOut) : 0;
-    let R = ra.t === 'arch' ? Math.max(50, Number(ra.r) || 600) : 0;
-    if (R) R = Math.max(50, Math.min(R, h - 100, b ? span / 2 : R));
+    let R = ufIsArc(ra.t) ? Math.max(50, Number(ra.r) || 600) : 0;
+    if (R && b) R = Math.max(50, Math.min(R, span / 2));
     out.push({ a, b, t: ra.t, ori: a.ori, lo, hi, h, R, span, vOut, dir: a.inn0 });
   });
   return out;
@@ -7652,7 +7654,7 @@ function ufSetRoof(t, r) {
   const val = t ? { t, r: Math.round(r !== undefined ? r : (cur && cur.r) || 600) } : null;
   [run, part].filter(Boolean).forEach(x => x.ops.forEach(o => { if (o.t === 'post') return; if (val) { o.roof = { ...val }; if (x !== run) o.h = run.h; } else delete o.roof; }));
   ufChanged();
-  if (val && !part && t === 'flat') toast('Zadaszenie płaskie potrzebuje przeciwległej ścianki (po drugiej stronie stoiska) — na razie go nie widać', 'error', 5500);
+  if (val && !part && t === 'flat') toast('Daszek płaski potrzebuje przeciwległej ścianki (po drugiej stronie stoiska) — na razie go nie widać', 'error', 5500);
 }
 // lista wysokości: wysokość spoza listy (niestandardowa) dopisuje się jako osobna pozycja
 function ufHOpt(sel, v) {
@@ -7696,7 +7698,7 @@ function ufSyncBar() {
   $('uf-look').textContent = d.look === 'bare' ? (ufK() ? '▦ 3D: kratownica' : '▦ 3D: gołe ramy') : '▮ 3D: pełne ściany';
   $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mounts[ufPl()]) || d.mount || (ufK() ? 'stretch' : 'seg');
   $('uf-pane').classList.toggle('uf-sel', !!r);
-  { const rf = r && ufRoofOf(r); $('uf-roof').disabled = !r; $('uf-roof').value = rf ? rf.t : ''; $('uf-roofr-l').classList.toggle('hidden', !(rf && rf.t === 'arch')); if (document.activeElement !== $('uf-roofr')) $('uf-roofr').value = rf && rf.t === 'arch' ? numIn(fromMM(rf.r || 600)) : ''; }
+  { const rf = r && ufRoofOf(r); $('uf-roof').disabled = !r; $('uf-roof').value = rf ? rf.t : ''; $('uf-roofr-l').classList.toggle('hidden', !(rf && ufIsArc(rf.t))); if (document.activeElement !== $('uf-roofr')) $('uf-roofr').value = rf && ufIsArc(rf.t) ? numIn(fromMM(rf.r || 600)) : ''; }
   $('uf-plane').querySelectorAll('[data-pl]').forEach(b => b.classList.toggle('on', b.dataset.pl === ufPl()));
   { const pc = (r && r.paints[ufPl()]) || d.paint || UF_PAINTS[0][2];       // paleta kolorów — tylko przy montażu „malowanie"
     $('uf-pane').classList.toggle('uf-paint-on', ufK() && $('uf-mount').value === 'paint');
@@ -7707,7 +7709,7 @@ function ufSyncBar() {
   let t;
   if (r) {
     const gs = ufGeom(d), eo = gs.ext.find(x => x.side === r.closed), fs = gs.faces.filter(f => f.run.key === r.key), rit = ufRoofs(gs).find(x => x.a.key === r.key || (x.b && x.b.key === r.key)),
-      rtx = rit ? ` · <b class="uf-bk">${rit.t === 'arch' ? 'łuk R ' + lenPL(rit.R) : 'zadaszenie płaskie'}${rit.b ? ' · rozpiętość ' + lenPL(rit.span) : rit.t === 'flat' ? ' · brak przeciwległej ścianki' : ''}</b>` : '';
+      rtx = rit ? ` · <b class="uf-bk">${ufRoofName(rit)}${rit.b ? ' · rozpiętość ' + lenPL(rit.span) : rit.t === 'flat' ? ' · brak przeciwległej ścianki' : ''}</b>` : '';
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (${ufExtTxt()})</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= ufExtFrom() ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(ufExtFrom()) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? (ufK() ? 'moduł + dostawka ' : 'ramy ') + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}${rtx}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
@@ -7894,7 +7896,7 @@ function ufDraw(light) {
     g.save(); g.fillStyle = `rgba(229,62,62,${0.14 + 0.36 * pul})`; g.fillRect(...rect); g.strokeStyle = `rgba(229,62,62,${0.55 + 0.45 * pul})`; g.lineWidth = 2; g.setLineDash([9, 5]); g.strokeRect(...rect); g.setLineDash([]);
     const mx = rf.ori === 0 ? (rf.lo + rf.hi) / 2 : (vmin + vmax) / 2, my = rf.ori === 0 ? (vmin + vmax) / 2 : (rf.lo + rf.hi) / 2;
     g.translate(X(mx), Y(my)); if (rf.ori === 1) g.rotate(-Math.PI / 2); g.fillStyle = '#c53030'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(rf.t === 'arch' ? `${rf.b ? 'zadaszenie łukowe' : 'łuk'} R ${lenPL(rf.R)}` : 'zadaszenie płaskie', 0, 0); g.restore();
+    g.fillText(ufRoofName(rf), 0, 0); g.restore();
   });
   // ELTEX: kropki w narożnikach — chwyć narożnik i przyłóż go do narożnika słupka / ramy (przyciąga się)
   geo.parts.forEach(q => {
@@ -8390,12 +8392,12 @@ function ufPalDoorMenu(e) {
 function ufRender3D(o) {
   const d = UF.d, geo = ufGeom(d), vi12 = (d.v12 != null ? d.v12 : d.v8 != null ? (d.v8 >> 1) * 3 + (d.v8 & 1) : (d.view || 0) * 3) % 12, yaw = (45 + 30 * vi12) % 360, view = Math.floor(yaw / 90) & 3, ang = (yaw % 90) * Math.PI / 180, pv = !!o.preview, W = o.W, st = d.stand;
   if (!geo.parts.length) return null;
-  const roofs = ufRoofs(geo), redOf = new Map();                 // ścianki z łukiem są niższe o promień — resztę wysokości robi łuk
-  roofs.forEach(rf => { if (rf.t === 'arch' && rf.R) { redOf.set(rf.a, rf.R); if (rf.b) redOf.set(rf.b, rf.R); } });
+  const roofs = ufRoofs(geo), addOf = new Map();                 // łuk siedzi na wierzchu ścianek (nie zmienia ich wysokości) — tylko powiększa obszar rysunku
+  roofs.forEach(rf => { if (ufIsArc(rf.t) && rf.R) { addOf.set(rf.a, rf.R); if (rf.b) addOf.set(rf.b, rf.R); } });
   const bb = geo.bounds, cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
   const rot = (x, y) => { const dx = x - cx, dy = y - cy, [a, c] = view === 0 ? [dx, dy] : view === 1 ? [-dy, dx] : view === 2 ? [-dx, -dy] : [dy, -dx]; return [cx + a, cy + c]; };
-  const hOf = p => p.run ? p.run.h - (redOf.get(p.run) || 0) : d.H;
-  const boxes = geo.parts.map(p => { const [ax, ay] = rot(p.x0, p.y0), [bx, by] = rot(p.x1, p.y1); return { p, x0: Math.min(ax, bx), x1: Math.max(ax, bx), y0: Math.min(ay, by), y1: Math.max(ay, by), h: hOf(p), hf: p.run ? p.run.h : d.H }; });
+  const hOf = p => p.run ? p.run.h : d.H;
+  const boxes = geo.parts.map(p => { const [ax, ay] = rot(p.x0, p.y0), [bx, by] = rot(p.x1, p.y1); return { p, x0: Math.min(ax, bx), x1: Math.max(ax, bx), y0: Math.min(ay, by), y1: Math.max(ay, by), h: hOf(p), hf: (p.run ? p.run.h : d.H) + (addOf.get(p.run) || 0) }; });
   const ca = Math.cos(ang), sa = Math.sin(ang), P = (x, y, z) => [1.2247449 * (x * ca - y * sa), 0.7071068 * (x * sa + y * ca) - z];   // rzut z kąta: 45° = klasyczna izometria z narożnika; 15° / 75° = pośrednie widoki pod kątem
   const fl = [[0, 0], [st.L, 0], [st.L, st.D], [0, st.D]].map(([x, y]) => rot(x, y));
   let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
@@ -8626,32 +8628,37 @@ function ufRender3D(o) {
   // łuki i zadaszenia: powierzchnia w paskach wzdłuż ścianki (profil: pion → łuk R → poziom → łuk → pion); w kratownicy — same żebra i podłużnice
   roofs.forEach(rf => {
     if (!(rf.R || (rf.t === 'flat' && rf.b))) return;
-    const { lo, hi, h, R, span, vOut, dir } = rf, N = Math.max(6, Math.round(R / 50)), pts = [];
-    if (rf.t === 'flat') pts.push([0, h], [span, h]);
+    const { lo, hi, h, R, span, vOut, dir } = rf, N = Math.max(6, Math.round(R / 50)), segs = [];
+    // elementy osobno: łuk (niebieskawy) z każdej strony i daszek (żółtawy) między nimi / sam daszek płaski
+    if (rf.t === 'flat') segs.push({ p: [[0, h], [span, h]], y: true });
     else {
-      for (let k = 0; k <= N; k++) { const th = k / N * Math.PI / 2; pts.push([R - R * Math.cos(th), h - R + R * Math.sin(th)]); }
-      if (rf.b) for (let k = N; k >= 0; k--) { const th = k / N * Math.PI / 2; pts.push([span - R + R * Math.cos(th), h - R + R * Math.sin(th)]); }
+      const arcA = [], arcB = [];
+      for (let k = 0; k <= N; k++) { const th = k / N * Math.PI / 2; arcA.push([R - R * Math.cos(th), h + R * Math.sin(th)]); }
+      for (let k = N; k >= 0; k--) { const th = k / N * Math.PI / 2; arcB.push([span - R + R * Math.cos(th), h + R * Math.sin(th)]); }
+      segs.push({ p: arcA, y: false });
+      if (rf.b) { if (rf.t === 'arch' && span - 2 * R > 1) segs.push({ p: [[R, h + R], [span - R, h + R]], y: true }); segs.push({ p: arcB, y: false }); }
     }
     const Wv = v => vOut + dir * v, xy = (u, v) => rf.ori === 0 ? [u, Wv(v)] : [Wv(v), u];
     const Pw = (u, v, z) => { const [rx, ry] = rot(...xy(u, v)); return T(rx, ry, z); }, dep = (u, v) => { const [rx, ry] = rot(...xy(u, v)); return rx * sa + ry * ca; };
     const base = KF && rf.a.mounts.f === 'paint' ? rf.a.paints.f : '#eef1f5';
     const k0 = rf.ori === 0 ? 'x' : 'y', cuts = new Set();
     rf.a.parts.filter(q => q.op.t !== 'post').forEach(q => [q[k0 + '0'], q[k0 + '1']].forEach(u => { if (u > lo + 5 && u < hi - 5) cuts.add(Math.round(u)); }));
-    const line = (u, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([v, z], k) => { const [px, py] = Pw(u, v, z); k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke(); };
-    // kratownica jak w ściankach, tylko niebieskawa: ramki na styku modułów, podłużnice co ok. 47 cm długości łuku, poprzeczki co ok. 33 cm
-    const us = [lo, ...[...cuts].sort((p, q) => p - q), hi];
-    let tot = 0; const cum = [0]; for (let i = 1; i < pts.length; i++) { tot += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); cum.push(tot); }
-    const at = t => { let i = 1; while (i < pts.length - 1 && cum[i] < t) i++; const a0 = cum[i - 1], b0 = cum[i], f = b0 > a0 ? (t - a0) / (b0 - a0) : 0; return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f]; };
-    const nvv = Math.max(1, Math.round(tot / 470)), rows = []; for (let k = 0; k <= nvv; k++) rows.push(at(tot * k / nvv));
-    const bw = Math.max(pv ? 1.1 : 1.8, 45 * s * 1.15), bars = [];
-    for (let i = 0; i < us.length - 1; i++) {
-      const u0 = us[i], u1 = us[i + 1];
-      [u0, u1].forEach(u => bars.push(pts.map(([v, z]) => Pw(u, v, z))));
-      rows.forEach(([v, z]) => bars.push([Pw(u0, v, z), Pw(u1, v, z)]));
-      const nu = Math.max(1, Math.round((u1 - u0) / 330)); for (let k = 1; k < nu; k++) { const u = u0 + (u1 - u0) * k / nu; bars.push(pts.map(([v, z]) => Pw(u, v, z))); }
-    }
-    const strokeBars = (col, w) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'butt'; g.lineJoin = 'round'; bars.forEach(pl => { g.beginPath(); pl.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }); };
-    strokeBars('#1a3a5f', bw + 2 * LW); strokeBars('#8fbfee', bw);
+    // kratownica jak w ściankach: ramki na styku modułów, podłużnice co ok. 47 cm długości łuku, poprzeczki co ok. 33 cm; łuki niebieskawe, daszek żółtawy
+    const us = [lo, ...[...cuts].sort((p, q) => p - q), hi], bw = Math.max(pv ? 1.1 : 1.8, 45 * s * 1.15), barsB = [], barsY = [];
+    segs.forEach(sg => {
+      const pts = sg.p, bars = sg.y ? barsY : barsB; let tot = 0; const cum = [0];
+      for (let i = 1; i < pts.length; i++) { tot += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); cum.push(tot); }
+      const at = t => { let i = 1; while (i < pts.length - 1 && cum[i] < t) i++; const a0 = cum[i - 1], b0 = cum[i], f = b0 > a0 ? (t - a0) / (b0 - a0) : 0; return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f]; };
+      const nvv = Math.max(1, Math.round(tot / 470)), rows = []; for (let k = 0; k <= nvv; k++) rows.push(at(tot * k / nvv));
+      for (let i = 0; i < us.length - 1; i++) {
+        const u0 = us[i], u1 = us[i + 1];
+        [u0, u1].forEach(u => bars.push(pts.map(([v, z]) => Pw(u, v, z))));
+        rows.forEach(([v, z]) => bars.push([Pw(u0, v, z), Pw(u1, v, z)]));
+        const nu = Math.max(1, Math.round((u1 - u0) / 330)); for (let k = 1; k < nu; k++) { const u = u0 + (u1 - u0) * k / nu; bars.push(pts.map(([v, z]) => Pw(u, v, z))); }
+      }
+    });
+    const strokeBars = (bars, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'butt'; g.lineJoin = 'round'; bars.forEach(pl => { g.beginPath(); pl.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }); };
+    strokeBars(barsB, '#1a3a5f', bw + 2 * LW); strokeBars(barsY, '#6b4e0a', bw + 2 * LW); strokeBars(barsB, '#8fbfee', bw); strokeBars(barsY, '#f1d98a', bw);
   });
   const pos = new Map();
   if (!pv) {
@@ -8831,10 +8838,10 @@ function ufProduction() {
     if (rf.t === 'flat' && !rf.b) return;
     const k0 = rf.ori === 0 ? 'x' : 'y', segs = rf.a.parts.filter(q => q.op.t !== 'post').map(q => Math.round((Math.min(q[k0 + '1'], rf.hi) - Math.max(q[k0 + '0'], rf.lo)) * 10) / 10).filter(v => v > 1);
     segs.forEach(w => {
-      if (rf.t === 'flat') add(9, `zadaszenie płaskie ${ufLen(rf.span)} × ${ufLen(w)}`, 'płyta zadaszenia', 'plain');
+      if (rf.t === 'flat') add(9, `daszek płaski ${ufLen(rf.span)} × ${ufLen(w)}`, 'daszek — osobny element', 'plain');
       else {
         add(9, `łuk R ${ufLen(rf.R)} · wysokość łuku ${ufLen(rf.R)} × szer. ${ufLen(w)}`, `zagięcie 90° (${rf.b ? '2 szt. na moduł' : '1 szt.'})`, 'plain', rf.b ? 2 : 1);
-        if (rf.b && rf.span - 2 * rf.R > 1) add(9, `zadaszenie — część płaska ${ufLen(rf.span - 2 * rf.R)} × ${ufLen(w)}`, 'między łukami', 'plain');
+        if (rf.t === 'arch' && rf.b && rf.span - 2 * rf.R > 1) add(9, `daszek (część płaska) ${ufLen(rf.span - 2 * rf.R)} × ${ufLen(w)}`, 'między łukami — osobny element', 'plain');
       }
     });
   });
@@ -9131,7 +9138,7 @@ async function closeUltraFrame() {
   $('uf-h').onchange = async e => { if (e.target.value === 'custom') { const r0 = ufSelRun(), v = await ufAskHeight(r0 ? r0.h : UF.d.H); if (v) ufSetH(v); else ufSyncBar(); return; } ufSetH(parseInt(e.target.value, 10)); };
   $('uf-back').onchange = e => ufSetBack(e.target.checked);
   $('uf-roof').onchange = e => ufSetRoof(e.target.value, undefined);
-  $('uf-roofr').onchange = e => { const r0 = ufSelRun(), rf = r0 && ufRoofOf(r0), v = toMM(e.target.value); if (!rf || rf.t !== 'arch') return; if (!(v >= 50)) { toast('Podaj promień łuku, min. ' + lenPL(50) + ' ' + UNIT(), 'error'); return ufSyncBar(); } ufSetRoof('arch', v); };
+  $('uf-roofr').onchange = e => { const r0 = ufSelRun(), rf = r0 && ufRoofOf(r0), v = toMM(e.target.value); if (!rf || !ufIsArc(rf.t)) return; if (!(v >= 50)) { toast('Podaj promień łuku, min. ' + lenPL(50) + ' ' + UNIT(), 'error'); return ufSyncBar(); } ufSetRoof(rf.t, v); };
   $('uf-sh').onchange = async e => { let v = parseInt(e.target.value, 10); if (e.target.value === 'custom') { v = await ufAskHeight(UF.d.H); if (!v) return ufSyncBar(); } ufPush(); UF.d.H = v; ufChanged(); };
   const dimIn = (id, k) => $(id).addEventListener('change', e => { const v = toMM(e.target.value); if (!(v >= 1000 && v <= 60000)) { toast(`Podaj wymiar od ${lenPL(1000)} do ${lenPL(60000)} ${UNIT()}`, 'error'); ufSyncBar(); return; } ufPush(); UF.d.stand[k] = v; UF.d.pieces.forEach(p => ufFit(p)); ufChanged(); });
   dimIn('uf-sl', 'L'); dimIn('uf-sd', 'D');
