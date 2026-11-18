@@ -1134,6 +1134,7 @@
               <label class="pchip wide" title="Góra ścianki: prosta, łuk (promień R, od wierzchu ścianki w górę), daszek (poziomo, pod kątem prostym do ściany) albo łuk + daszek. Łuk i daszek to osobne elementy — dotyczą tylko zaznaczonej ścianki."><i class="ti ti-arrow-curve-right"></i><span>góra</span><select id="uf-roof"><option value="">prosta</option><option value="arc">łuk</option><option value="can">daszek</option><option value="both">łuk + daszek</option></select></label>
               <label class="pchip wide" id="uf-roofr-l" title="Promień łuku — łuk zaczyna się R poniżej wierzchu ścianki (np. dostawka 110,5 cm → R do 110,5)"><i class="ti ti-ruler-measure"></i><span>promień R</span><input type="text" inputmode="decimal" id="uf-roofr"></label>
               <label class="pchip wide" id="uf-roofd-l" title="Głębokość daszku: poziomo od ściany pod kątem prostym (od końca łuku, jeśli jest łuk). Puste = do przeciwległej ścianki"><i class="ti ti-ruler-measure"></i><span>głęb. daszku</span><input type="text" inputmode="decimal" id="uf-roofd" placeholder="do przeciw."></label>
+              <label class="pchip wide" id="uf-roofk-l" title="Daszek opada ukośnie na wierzch przeciwległej ścianki, zamiast wisieć poziomo nad nią (np. po łuku)"><i class="ti ti-arrow-down-right"></i><span>opada na ściankę</span><input type="checkbox" id="uf-roofk"></label>
             </div>
             <div class="pseg uk" id="uf-plane" title="Która płaszczyzna zaznaczonej ścianki jest edytowana (montaż, malowanie): przód = lico od strony wnętrza stoiska, tył = lico odwrotne. Klik na ścianie w podglądzie 3D wybiera ściankę i płaszczyznę.">
               <button type="button" data-pl="f"><i class="ti ti-square-arrow-down"></i>przód</button><button type="button" data-pl="b"><i class="ti ti-square-arrow-up"></i>tył</button>
@@ -7634,13 +7635,13 @@ function ufSetH(v) { const r = ufSelRun(); if (!r) return; ufPush(); r.ops.forEa
 const ufRoofCfg = r => {
   const f = r.ops.find(o => o.t !== 'post' && (o.arc || o.can || (o.roof && o.roof.t)));
   if (!f) return { arc: false, can: false, R: 0, d: 0 };
-  if (f.arc || f.can) return { arc: !!f.arc, R: f.arc ? Number(f.arc.r) || 600 : 0, can: !!f.can, d: f.can ? Number(f.can.d) || 0 : 0 };
+  if (f.arc || f.can) return { arc: !!f.arc, R: f.arc ? Number(f.arc.r) || 600 : 0, can: !!f.can, d: f.can ? Number(f.can.d) || 0 : 0, drop: f.can ? !!f.can.drop : false };
   const t = f.roof.t;                                                    // zgodność ze starym zapisem
   return { arc: t === 'arc' || t === 'arch', R: Number(f.roof.r) || 600, can: t === 'arch' || t === 'flat', d: 0 };
 };
 const ufRoofOf = r => { const c = ufRoofCfg(r); return c.arc || c.can ? c : null; };
 const ufRoofMode = c => c.arc && c.can ? 'both' : c.arc ? 'arc' : c.can ? 'can' : '';
-const ufRoofName = rf => [rf.R ? `łuk R ${lenPL(rf.R)}` : '', rf.can ? `daszek ${lenPL(rf.d)}` : ''].filter(Boolean).join(' + ');
+const ufRoofName = rf => [rf.R ? `łuk R ${lenPL(rf.R)}` : '', rf.can ? `daszek ${lenPL(rf.d)}${rf.drop ? ' (opada)' : ''}` : ''].filter(Boolean).join(' + ');
 const ufRange = r => { const k = r.ori === 0 ? 'x' : 'y'; return [Math.min(...r.parts.map(q => q[k + '0'])), Math.max(...r.parts.map(q => q[k + '1']))]; };
 // przeciwległa ścianka: równoległa, po drugiej stronie wnętrza, z nakładającym się odcinkiem (najbliższa)
 function ufPartner(geo, a, pred) {
@@ -7656,15 +7657,15 @@ function ufRoofs(geo) {
     const c = ufRoofCfg(a); if (!c.arc && !c.can) return;
     const [lo, hi] = ufRange(a), h = a.h, vOut = a.line - a.inn0 * (a.th || UF_T) / 2, p = ufPartner(geo, a), span = p ? Math.abs(p.line - p.inn0 * (p.th || UF_T) / 2 - vOut) : 0;
     const R = c.arc ? Math.max(50, Math.min(c.R || 600, 6000)) : 0, v0 = R, d = c.can ? (c.d > 0 ? c.d : (span - v0 > 1 ? span - v0 : 1000)) : 0;
-    out.push({ a, ori: a.ori, lo, hi, h, R, can: c.can, d, v0, vOut, dir: a.inn0, span, auto: c.can && !(c.d > 0) });
+    out.push({ a, ori: a.ori, lo, hi, h, R, can: c.can, d, v0, vOut, dir: a.inn0, span, auto: c.can && !(c.d > 0), t0: a.th || UF_T, drop: c.can && c.drop, pH: p ? p.h : a.h });
   });
   return out;
 }
 // mode: '' (prosta) | 'arc' | 'can' | 'both'; o2: { r, d } — dotyczy tylko zaznaczonej ścianki
 function ufSetRoof(mode, o2) {
   const run = ufSelRun(); if (!run || UF.busy) return; ufPush();
-  const cur = ufRoofCfg(run), r = o2 && o2.r !== undefined ? Math.round(o2.r) : Math.round(cur.R || 600), dd = o2 && o2.d !== undefined ? Math.round(o2.d) : Math.round(cur.d || 0);
-  run.ops.forEach(o => { if (o.t === 'post') return; delete o.roof; delete o.arc; delete o.can; if (mode === 'arc' || mode === 'both') o.arc = { r }; if (mode === 'can' || mode === 'both') o.can = { d: dd }; });
+  const cur = ufRoofCfg(run), r = o2 && o2.r !== undefined ? Math.round(o2.r) : Math.round(cur.R || 600), dd = o2 && o2.d !== undefined ? Math.round(o2.d) : Math.round(cur.d || 0), dp = o2 && o2.drop !== undefined ? !!o2.drop : !!cur.drop;
+  run.ops.forEach(o => { if (o.t === 'post') return; delete o.roof; delete o.arc; delete o.can; if (mode === 'arc' || mode === 'both') o.arc = { r }; if (mode === 'can' || mode === 'both') o.can = dp ? { d: dd, drop: true } : { d: dd }; });
   ufChanged();
 }
 // lista wysokości: wysokość spoza listy (niestandardowa) dopisuje się jako osobna pozycja
@@ -7710,6 +7711,7 @@ function ufSyncBar() {
   $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mounts[ufPl()]) || d.mount || (ufK() ? 'stretch' : 'seg');
   $('uf-pane').classList.toggle('uf-sel', !!r);
   { const rc = r && ufRoofCfg(r); $('uf-roof').disabled = !r; $('uf-roof').value = rc ? ufRoofMode(rc) : ''; $('uf-roofr-l').classList.toggle('hidden', !(rc && rc.arc)); $('uf-roofd-l').classList.toggle('hidden', !(rc && rc.can));
+    $('uf-roofk-l').classList.toggle('hidden', !(rc && rc.can)); $('uf-roofk').checked = !!(rc && rc.drop);
     if (document.activeElement !== $('uf-roofr')) $('uf-roofr').value = rc && rc.arc ? numIn(fromMM(rc.R || 600)) : ''; if (document.activeElement !== $('uf-roofd')) $('uf-roofd').value = rc && rc.can && rc.d > 0 ? numIn(fromMM(rc.d)) : ''; }
   $('uf-plane').querySelectorAll('[data-pl]').forEach(b => b.classList.toggle('on', b.dataset.pl === ufPl()));
   { const pc = (r && r.paints[ufPl()]) || d.paint || UF_PAINTS[0][2];       // paleta kolorów — tylko przy montażu „malowanie"
@@ -8409,7 +8411,7 @@ function ufRender3D(o) {
   const d = UF.d, geo = ufGeom(d), vi12 = (d.v12 != null ? d.v12 : d.v8 != null ? (d.v8 >> 1) * 3 + (d.v8 & 1) : (d.view || 0) * 3) % 12, yaw = d.yaw != null ? ((d.yaw % 360) + 360) % 360 : (45 + 30 * vi12) % 360, view = Math.floor(yaw / 90) & 3, ang = (yaw % 90) * Math.PI / 180, pv = !!o.preview, W = o.W, st = d.stand;
   if (!geo.parts.length) return null;
   const roofs = ufRoofs(geo), addOf = new Map();                 // łuk siedzi na wierzchu ścianek (nie zmienia ich wysokości) — tylko powiększa obszar rysunku
-  roofs.forEach(rf => { if (rf.R) addOf.set(rf.a, rf.R); });
+  roofs.forEach(rf => { if (rf.R || rf.can) addOf.set(rf.a, rf.R || rf.t0); });
   const bb = geo.bounds, cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
   const rot = (x, y) => { const dx = x - cx, dy = y - cy, [a, c] = view === 0 ? [dx, dy] : view === 1 ? [-dy, dx] : view === 2 ? [-dx, -dy] : [dy, -dx]; return [cx + a, cy + c]; };
   const hOf = p => p.run ? p.run.h : d.H;
@@ -8424,8 +8426,9 @@ function ufRender3D(o) {
   fl.forEach(([x, y]) => grow(x, y, 0));
   if (o.dims) { const ex = 900; [[-ex, -ex], [st.L + ex, -ex], [st.L + ex, st.D + ex], [-ex, st.D + ex]].forEach(([x, y]) => grow(...rot(x, y), 0)); } // miejsce na wymiary stoiska
   const M = pv ? 8 : 130, TOP = pv ? 8 : 150, BOT = pv ? 8 : 60, bw = mxX - mnX, bh = mxY - mnY;
-  const s = Math.min((W - 2 * M) / bw, ((pv ? Math.round(418 * W / 572) : 1100) - TOP - BOT) / bh), H = Math.round(bh * s + TOP + BOT), CW = pv ? W : Math.max(900, Math.round(bw * s + 2 * M));
-  const T = (x, y, z) => { const [X, Y] = P(x, y, z); return [M + (X - mnX) * s, TOP + (Y - mnY) * s]; };
+  const s = Math.min((W - 2 * M) / bw, ((pv ? Math.round(418 * W / 572) : 1100) - TOP - BOT) / bh), H = pv ? Math.round(418 * W / 572) : Math.round(bh * s + TOP + BOT), CW = pv ? W : Math.max(900, Math.round(bw * s + 2 * M));
+  const offX = pv ? (W - bw * s) / 2 : M, offY = pv ? (H - bh * s) / 2 : TOP;        // podgląd: ramka o stałym rozmiarze, rysunek wyśrodkowany (orbita jej nie zmienia)
+  const T = (x, y, z) => { const [X, Y] = P(x, y, z); return [offX + (X - mnX) * s, offY + (Y - mnY) * s]; };
   const cv = document.createElement('canvas'); cv.width = CW; cv.height = H;
   const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, CW, H); g.lineJoin = 'round';
   // podłoga stoiska i alejka (otwarte boki)
@@ -8647,10 +8650,10 @@ function ufRender3D(o) {
   // łuki i zadaszenia: powierzchnia w paskach wzdłuż ścianki (profil: pion → łuk R → poziom → łuk → pion); w kratownicy — same żebra i podłużnice
   roofs.forEach(rf => {
     if (!(rf.R || rf.can)) return;
-    const { lo, hi, h, R, vOut, dir } = rf, N = Math.max(6, Math.round(R / 50)), segs = [];
-    // elementy osobno: łuk (niebieskawy) i daszek (żółtawy, poziomo — za łukiem albo wprost od wierzchu ściany pod kątem prostym)
-    if (rf.R) { const arcA = []; for (let k = 0; k <= N; k++) { const th = k / N * Math.PI / 2; arcA.push([R - R * Math.cos(th), h + R * Math.sin(th)]); } segs.push({ p: arcA, y: false }); }
-    if (rf.can) { const z = rf.R ? h + R : h; segs.push({ p: [[rf.v0, z], [rf.v0 + rf.d, z]], y: true }); }
+    const { lo, hi, h, R, vOut, dir } = rf, t0 = rf.t0, N = Math.max(6, Math.round(R / 50)), segs = [];
+    // elementy osobno, każdy z grubością ścianki: łuk (niebieskawy; p = powierzchnia zewnętrzna, q = wewnętrzna) i daszek (żółtawy; leży na wierzchu ściany albo za łukiem, może opadać ukośnie na przeciwległą ściankę)
+    if (rf.R) { const Rin = Math.max(1, R - t0), arcA = [], arcQ = []; for (let k = 0; k <= N; k++) { const th = k / N * Math.PI / 2; arcA.push([R - R * Math.cos(th), h + R * Math.sin(th)]); arcQ.push([R - Rin * Math.cos(th), h + Rin * Math.sin(th)]); } segs.push({ p: arcA, q: arcQ, y: false }); }
+    if (rf.can) { const zs = rf.R ? h + R : h + t0, ze = rf.drop ? rf.pH + t0 : zs; segs.push({ p: [[rf.v0, zs], [rf.v0 + rf.d, ze]], q: [[rf.v0, zs - t0], [rf.v0 + rf.d, ze - t0]], y: true }); }
     const Wv = v => vOut + dir * v, xy = (u, v) => rf.ori === 0 ? [u, Wv(v)] : [Wv(v), u];
     const Pw = (u, v, z) => { const [rx, ry] = rot(...xy(u, v)); return T(rx, ry, z); }, dep = (u, v) => { const [rx, ry] = rot(...xy(u, v)); return rx * sa + ry * ca; };
     const base = KF && rf.a.mounts.f === 'paint' ? rf.a.paints.f : '#eef1f5';
@@ -8658,14 +8661,19 @@ function ufRender3D(o) {
     rf.a.parts.filter(q => q.op.t !== 'post').forEach(q => [q[k0 + '0'], q[k0 + '1']].forEach(u => { if (u > lo + 5 && u < hi - 5) cuts.add(Math.round(u)); }));
     if (!bare) {       // pełny podgląd: łuki i daszki zawsze przysłonięte (pełna powierzchnia, bez szkieletu); łuk niebieskawy, daszek żółtawy
       const strips = [];
-      segs.forEach(sg => { for (let i = 0; i < sg.p.length - 1; i++) {
-        const [v0, z0] = sg.p[i], [v1, z1] = sg.p[i + 1]; if (Math.abs(v1 - v0) + Math.abs(z1 - z0) < 0.5) continue;
+      segs.forEach(sg => [[sg.p, 1], [sg.q, 0.74]].forEach(([pts, sh]) => { for (let i = 0; i < pts.length - 1; i++) {      // powierzchnia zewnętrzna i wewnętrzna (grubość ścianki)
+        const [v0, z0] = pts[i], [v1, z1] = pts[i + 1]; if (Math.abs(v1 - v0) + Math.abs(z1 - z0) < 0.5) continue;
         const ang = Math.atan2(Math.abs(z1 - z0), Math.abs(v1 - v0));
-        strips.push({ q: [Pw(lo, v0, z0), Pw(hi, v0, z0), Pw(hi, v1, z1), Pw(lo, v1, z1)], f: 1 - 0.2 * Math.sin(ang), y: sg.y, dd: dep((lo + hi) / 2, (v0 + v1) / 2), z: (z0 + z1) / 2 });
-      } });
+        strips.push({ q: [Pw(lo, v0, z0), Pw(hi, v0, z0), Pw(hi, v1, z1), Pw(lo, v1, z1)], f: sh * (1 - 0.2 * Math.sin(ang)), y: sg.y, dd: dep((lo + hi) / 2, (v0 + v1) / 2), z: (z0 + z1) / 2 - (sh < 1 ? 0.5 : 0) });
+      } }));
       strips.sort((p, q) => p.dd - q.dd || p.z - q.z).forEach(({ q, f, y }) => { const col = ufShade(y ? '#f1d98a' : '#9cc7ee', f); g.beginPath(); q.forEach(([x, yy], k) => k ? g.lineTo(x, yy) : g.moveTo(x, yy)); g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = col; g.lineWidth = 1; g.stroke(); });
       const seam = (u, col, w) => segs.forEach(sg => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); sg.p.forEach(([v, z], k) => { const [px, py] = Pw(u, v, z); k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke(); });
-      cuts.forEach(u => seam(u, 'rgba(26,32,44,.45)', LW * 1.1)); [lo, hi].forEach(u => seam(u, '#1a202c', LW * 1.3));
+      cuts.forEach(u => seam(u, 'rgba(26,32,44,.45)', LW * 1.1));
+      [[lo, -1], [hi, 1]].forEach(([u, sgn]) => {        // widoczny brzeg łuku / daszku — przekrój o grubości ścianki
+        const nx = rf.ori === 0 ? sgn : 0, ny = rf.ori === 0 ? 0 : sgn, [rx, ry] = rv(nx, ny);
+        segs.forEach(sg => { if (rx * sa + ry * ca > 0.01) { const poly2 = [...sg.p.map(([v, z]) => Pw(u, v, z)), ...sg.q.slice().reverse().map(([v, z]) => Pw(u, v, z))]; g.beginPath(); poly2.forEach(([x, yy], k) => k ? g.lineTo(x, yy) : g.moveTo(x, yy)); g.closePath(); g.fillStyle = ufShade(sg.y ? '#f1d98a' : '#9cc7ee', 0.88); g.fill(); g.strokeStyle = '#1a202c'; g.lineWidth = LW * 1.2; g.stroke(); } });
+      });
+      [lo, hi].forEach(u => segs.forEach(sg => { g.strokeStyle = '#1a202c'; g.lineWidth = LW * 1.1; g.beginPath(); sg.p.forEach(([v, z], k) => { const [px, py] = Pw(u, v, z); k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke(); }));
       return;
     }
     // kratownica jak w ściankach: ramki na styku modułów, podłużnice co ok. 47 cm długości łuku, poprzeczki co ok. 33 cm; łuki niebieskawe, daszek żółtawy
@@ -8863,8 +8871,8 @@ function ufProduction() {
   ufRoofs(geo).forEach(rf => {      // łuk i daszek — osobne elementy, po jednym na moduł wzdłuż ścianki
     const k0 = rf.ori === 0 ? 'x' : 'y', segs = rf.a.parts.filter(q => q.op.t !== 'post').map(q => Math.round((Math.min(q[k0 + '1'], rf.hi) - Math.max(q[k0 + '0'], rf.lo)) * 10) / 10).filter(v => v > 1);
     segs.forEach(w => {
-      if (rf.R) add(9, `łuk R ${ufLen(rf.R)} · wysokość łuku ${ufLen(rf.R)} × szer. ${ufLen(w)}`, 'zagięcie 90° — osobny element', 'plain');
-      if (rf.can) add(9, `daszek ${ufLen(rf.d)} × ${ufLen(w)}`, `${rf.R ? 'za łukiem' : 'pod kątem prostym do ściany'} — osobny element`, 'plain');
+      if (rf.R) add(9, `łuk R ${ufLen(rf.R)} · wysokość łuku ${ufLen(rf.R)} × szer. ${ufLen(w)}`, `zagięcie 90° · gr. ${lenPL(rf.t0)} — osobny element`, 'plain');
+      if (rf.can) add(9, `daszek ${ufLen(rf.d)} × ${ufLen(w)}`, `${rf.R ? 'za łukiem' : 'pod kątem prostym do ściany'}${rf.drop ? ', opada na ściankę' : ''} · gr. ${lenPL(rf.t0)} — osobny element`, 'plain');
     });
   });
   // lightbox: wspólna ramka na całej szerokości lica
@@ -9161,6 +9169,7 @@ async function closeUltraFrame() {
   $('uf-back').onchange = e => ufSetBack(e.target.checked);
   $('uf-roof').onchange = e => ufSetRoof(e.target.value, undefined);
   $('uf-roofr').onchange = e => { const r0 = ufSelRun(), c = r0 && ufRoofCfg(r0), v = toMM(e.target.value); if (!c || !c.arc) return; if (!(v >= 50)) { toast('Podaj promień łuku, min. ' + lenPL(50) + ' ' + UNIT(), 'error'); return ufSyncBar(); } ufSetRoof(ufRoofMode(c), { r: v }); };
+  $('uf-roofk').onchange = e => { const r0 = ufSelRun(), c = r0 && ufRoofCfg(r0); if (!c || !c.can) return; ufSetRoof(ufRoofMode(c), { drop: e.target.checked }); };
   $('uf-roofd').onchange = e => { const r0 = ufSelRun(), c = r0 && ufRoofCfg(r0), txt = String(e.target.value).trim(), v = txt ? toMM(txt) : 0; if (!c || !c.can) return; if (txt && !(v >= 50)) { toast('Podaj głębokość daszku, min. ' + lenPL(50) + ' ' + UNIT() + ' (puste = do przeciwległej ścianki)', 'error'); return ufSyncBar(); } ufSetRoof(ufRoofMode(c), { d: v }); };
   $('uf-sh').onchange = async e => { let v = parseInt(e.target.value, 10); if (e.target.value === 'custom') { v = await ufAskHeight(UF.d.H); if (!v) return ufSyncBar(); } ufPush(); UF.d.H = v; ufChanged(); };
   const dimIn = (id, k) => $(id).addEventListener('change', e => { const v = toMM(e.target.value); if (!(v >= 1000 && v <= 60000)) { toast(`Podaj wymiar od ${lenPL(1000)} do ${lenPL(60000)} ${UNIT()}`, 'error'); ufSyncBar(); return; } ufPush(); UF.d.stand[k] = v; UF.d.pieces.forEach(p => ufFit(p)); ufChanged(); });
