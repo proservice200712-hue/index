@@ -7120,7 +7120,7 @@ const ufPaintLabel = (run, pl) => (run.pnames && run.pnames[pl]) || ufPaintName(
 const ufPaintName = hex => { const p = UF_PAINTS.find(x => x[2].toLowerCase() === String(hex || '').toLowerCase()); return p ? `${p[0]} (RAL ${p[1]})` : `kolor własny ${String(hex || '').toUpperCase()}`; };
 const ufShade = (hex, f) => { const n = parseInt(String(hex).slice(1), 16) || 0; return '#' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * f))).toString(16).padStart(2, '0')).join(''); };
 const UF_STEP = 10;                                                       // domyślny krok strzałek K-Frame [mm]
-const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretch', 'tkanina naciągnięta na płytę', 'blackback', false], ['film', 'folia na płycie', 'folia-laminat', false], ['pcw', 'płyta PCW z drukiem', 'pcw', false], ['paint', 'malowanie (kolor do wyboru)', 'nie-wiem', false], ['lightbox', 'lightbox (ramka 6 cm + LED)', 'lightbox', true]];
+const UF_MOUNTS = [['seg', 'tkanina SEG (w rowku)', 'blackback', true], ['stretch', 'tkanina naciągnięta na płytę', 'blackback', false], ['film', 'folia na płycie', 'folia-laminat', false], ['pcw', 'płyta PCW z drukiem', 'pcw', false], ['paint', 'malowanie (kolor do wyboru)', 'nie-wiem', false], ['lightbox', 'lightbox (ramka 6 cm + LED)', 'lightbox', true], ['plate', 'sama płyta (bez grafiki, zamiast wysłony)', 'nie-wiem', false]];
 const ufMount = k => UF_MOUNTS.find(m => m[0] === k) || UF_MOUNTS[0];
 const ufPlOf = (run, inn) => inn === run.inn0 ? 'f' : 'b';
 const ufPl = () => UF.pl === 'b' ? 'b' : 'f';
@@ -7351,6 +7351,7 @@ function ufGeom0(d) {
     const sd = new Set();
     faces.forEach(fc => { if (fc.run === r || (fc.runs2 && fc.runs2.includes(r))) sd.add(fc.inn); });
     zap.forEach(zf => { if (zf.run === r) sd.add(zf.inn); });
+    [-1, 1].forEach(i => { if (r.mounts[ufPlOf(r, i)] === 'plate') sd.add(i); });      // lico przykryte samą płytą (bez grafiki) — ścianka obita z tej strony
     if (r.manual || (sd.has(1) && sd.has(-1)) || r.ops.some(o => o.t === 'door')) r.ops.forEach(o => dbl.push(o.id));   // ścianka z drzwiami — zawsze płyta po obu stronach
   });
   return { parts, runs, ext, ends, caps, faces, zap: st && st.zap ? zap : [], inner: zap, dbl, pub, rooms, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
@@ -7872,6 +7873,7 @@ function ufDraw(light) {
       geo.faces.filter(fc => fc.run === rn || (fc.runs2 && fc.runs2.includes(rn))).forEach(fc => { const pl = ufPlOf(rn, fc.inn); sides.set(fc.inn, rn.mounts[pl] === 'paint' ? rn.paints[pl] : '#a8743c'); });
       if (rn.backKind === 'manual') { const bi = rn.line >= (rn.ori === 0 ? st.D : st.L) / 2 ? 1 : -1; if (!sides.has(bi)) sides.set(bi, '#c98f4f'); }
       if (rn.ops.some(o => o.t === 'door')) [-1, 1].forEach(bi => { if (!sides.has(bi)) sides.set(bi, '#c98f4f'); });
+      [-1, 1].forEach(bi => { if (rn.mounts[ufPlOf(rn, bi)] === 'plate' && !sides.has(bi)) sides.set(bi, '#e3d3b0'); });      // sama płyta bez grafiki
       sides.forEach((col, inn) => band(rn.ori, rn.line + inn * th2 / 2, inn, lo, hi, col));
       if (sel && rn.ops.some(o => o.id === sel)) {          // wybrana płaszczyzna zaznaczonej ścianki — zielona linia po jej stronie
         const inn = ufPl() === 'f' ? rn.inn0 : -rn.inn0, pos = rn.line + inn * (th2 / 2 + 6);
@@ -8512,6 +8514,7 @@ function ufRender3D(o) {
     const inn0 = r.line >= (r.ori === 0 ? st.D : st.L) / 2 ? -1 : 1, fb = r.line - inn0 * (r.th || UF_T) / 2;
     if (r.backKind === 'manual') addCov(r.ori, fb, -inn0, a, b, 0, r.h, pnt(r, -inn0));
     if (KF && r.ops.some(o => o.t === 'door')) [-1, 1].forEach(sn => addCov(r.ori, r.line + sn * (r.th || UF_T) / 2, sn, a, b, 0, r.h, pnt(r, sn)));      // ściana z drzwiami: płyta z obu stron
+    if (KF) [-1, 1].forEach(sn => { if (r.mounts[ufPlOf(r, sn)] === 'plate') addCov(r.ori, r.line + sn * (r.th || UF_T) / 2, sn, a, b, 0, r.h, pnt(r, sn)); });      // lico przykryte samą płytą
     if (r.closed && geo.ext.some(e => e.side === r.closed)) addCov(r.ori, fb, -inn0, a, b, ufExtFrom(), r.h);
   });
   const covOf = (bx, side) => covers.filter(c => c.side === side && Math.abs(c.pl - (side === 's' ? bx.y1 : bx.x1)) < 2
@@ -8809,6 +8812,7 @@ function ufProduction() {
     if (r.manual || r.ops.some(o => o.t === 'door')) return true; const sd = new Set();
     geo.faces.forEach(fc => { if (fc.run === r || (fc.runs2 && fc.runs2.includes(r))) sd.add(fc.inn); });
     geo.inner.forEach(zf => { if (zf.run === r) sd.add(zf.inn); });
+    [-1, 1].forEach(i => { if (r.mounts[ufPlOf(r, i)] === 'plate') sd.add(i); });
     return sd.has(1) && sd.has(-1);
   };
   const seen = new Set(); let nMod = 0;
@@ -8885,7 +8889,7 @@ async function ufGenerate() {
     const take = set => { let n = 1; while (set.has(n)) n++; set.add(n); return n; };
     const jobs = [], marks = new Map(), tcol = typeById('blackback').color;
     // przód: jedna grafika na każde lico widoczne od alejki; tył: wysłona ręczna na całą ściankę
-    const units = geoG.faces.map(fc => { let spec = ufFaceSpec(fc); if (ufK() && spec.mount === 'paint') spec = { ...spec, door: null, doorsMore: [], doors: 0 }; return { run: { key: fc.key }, role: 'front', spec }; })
+    const units = geoG.faces.filter(fc => !ufK() || fc.run.mounts[ufPlOf(fc.run, fc.inn)] !== 'plate').map(fc => { let spec = ufFaceSpec(fc); if (ufK() && spec.mount === 'paint') spec = { ...spec, door: null, doorsMore: [], doors: 0 }; return { run: { key: fc.key }, role: 'front', spec }; })
       .concat(runs.filter(r => r.backKind).map(r => ({ run: { key: r.key }, role: 'back', spec: ufSpec(r, 'back') })));
     units.forEach(({ run, role, spec }) => {
       const ex = S.elements.find(e => e.ufKey === run.key && e.ufRole === role && !e.doorFor);
