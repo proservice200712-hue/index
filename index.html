@@ -7666,7 +7666,7 @@ function ufHOpt(sel, v) {
 function ufAskHeight(cur) {
   return new Promise(res => {
     let done = false; const fin = v => { if (!done) { done = true; res(v); } };
-    const m = openModal({ title: 'Niestandardowa wysokość', body: `<div class="fld"><label>Wysokość ścianki [${UNIT()}]</label><input type="text" inputmode="decimal" id="uf-hx-in" value="${esc(numIn(fromMM(cur)))}" style="width:150px"></div><div class="hint" style="margin-top:8px">Od ${lenPL(500)} do ${lenPL(8000)} ${UNIT()}. Wysokość spoza standardu trafia do ścianek nietypowych w Produkcji i na planie świeci na czerwono.</div>`,
+    const m = openModal({ title: 'Niestandardowa wysokość', body: `<div class="fld"><label>Wysokość ścianki [${UNIT()}]</label><input type="text" inputmode="decimal" id="uf-hx-in" value="${esc(numIn(fromMM(cur)))}" style="width:150px"></div><div class="hint" style="margin-top:8px">Od ${lenPL(500)} do ${lenPL(8000)} ${UNIT()}. Wysokość spoza standardu trafia do ścianek nietypowych w Produkcji i na planie pulsuje na żółto.</div>`,
       footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" data-ok>Zastosuj</button>`, onClose: () => fin(null) });
     const inp = m.el.querySelector('#uf-hx-in'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
     const ok = () => { const v = toMM(inp.value); if (!(v >= 500 && v <= 8000)) return toast(`Podaj wysokość od ${lenPL(500)} do ${lenPL(8000)} ${UNIT()}`, 'error'); fin(v); m.close(); };
@@ -7682,7 +7682,7 @@ function ufStdPiece(o, r) {
   if (o.t === 'door' ? Math.abs(len - L1) >= 1 : !(Math.abs(len - L1) < 1 || Math.abs(len - L1 / 2) < 1)) return false;
   return stk.slice(1).every(a => K ? Math.abs(a - UF_KADD[0]) < 1 || Math.abs(a - UF_KADD[1]) < 1 : Math.abs(a % 496) < 1 || Math.abs((a % 496) - 496) < 1);
 }
-const ufNonStdAny = geo => geo.parts.some(q => q.run && !ufStdPiece(q.op, q.run)) || ufRoofs(geo).some(r => r.R || (r.t === 'flat' && r.b));
+const ufNonStdAny = geo => geo.parts.some(q => q.run && !ufStdPiece(q.op, q.run));
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
   { const fl = ufFloor(); $('uf-fl-ctl').classList.toggle('hidden', !fl); if (!fl) UF.floorEdit = false;
@@ -7713,7 +7713,7 @@ function ufSyncBar() {
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (${ufExtTxt()})</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= ufExtFrom() ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(ufExtFrom()) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? (ufK() ? 'moduł + dostawka ' : 'ramy ') + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}${rtx}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '') + (ufNonStdAny(ufGeom(d)) ? ' <b style="color:#e53e3e">· czerwone pulsujące = element niestandardowy (ucięty, inna długość / wysokość, łuk, zadaszenie)</b>' : '');
+  $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '') + (ufNonStdAny(ufGeom(d)) ? ' <b style="color:#b7791f">· żółte pulsujące = element niestandardowy (ucięty, inna długość / wysokość)</b>' : '');
   $('uf-keys').innerHTML = `${ufK() ? UF_KKEYS : `zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij`}`;
 }
 
@@ -7824,7 +7824,7 @@ function ufDraw(light) {
     g.fillStyle = ufK() ? (o.t === 'door' ? '#e8f1fa' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#f0e4cc') : o.t === 'eltex' ? '#90cdf4' : o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#e9ecef';
     g.fillRect(x, y, w, h); g.strokeStyle = o.t === 'eltex' ? UF_ELTEX_COL : '#4a5568'; g.lineWidth = o.t === 'eltex' ? 1.6 : 1; g.strokeRect(x, y, w, h);
     if (ufK() && ufOverlaps(o)) { g.strokeStyle = '#e53e3e'; g.lineWidth = 2.5; g.strokeRect(x, y, w, h); }
-    if (p.run && !ufStdPiece(o, p.run)) { g.save(); g.fillStyle = `rgba(229,62,62,${0.16 + 0.42 * pul})`; g.fillRect(x, y, w, h); g.strokeStyle = `rgba(229,62,62,${0.55 + 0.45 * pul})`; g.lineWidth = 2.4; g.strokeRect(x, y, w, h); g.restore(); }
+    if (p.run && !ufStdPiece(o, p.run)) { g.save(); g.fillStyle = `rgba(250,204,21,${0.2 + 0.5 * pul})`; g.fillRect(x, y, w, h); g.strokeStyle = `rgba(214,158,46,${0.6 + 0.4 * pul})`; g.lineWidth = 2.4; g.strokeRect(x, y, w, h); g.restore(); }
     if (o.t === 'door') {
       const dg = ufDoorGeom(o, d, geo.pub), len = (ufK() ? UF_KDW : o.len) * s;
       g.strokeStyle = '#2b6cb0'; g.lineWidth = 1.3; g.beginPath();
@@ -7889,14 +7889,18 @@ function ufDraw(light) {
       if ((fc.b - fc.a) * s > 90) { const mx = (fc.a + fc.b) / 2, my = (lo + hi) / 2 + fc.inn * 70; g.save(); g.translate(X(fc.ori === 0 ? mx : my), Y(fc.ori === 0 ? my : mx)); if (fc.ori === 1) g.rotate(-Math.PI / 2); g.fillStyle = '#b7791f'; g.font = `700 10px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('LIGHTBOX · LED', 0, 0); g.restore(); }
     });
   }
-  ufRoofs(geo).forEach(rf => {      // zadaszenie / łuk: obrys w planie (kreskowany), opis z promieniem
+  ufRoofs(geo).forEach(rf => {      // łuk (niebieskawy) i daszek (żółtawy): przezroczyste strefy w planie, bez pulsowania
     if (rf.t === 'flat' && !rf.b) return;
-    const ext = rf.b ? rf.span : rf.R, v0 = rf.vOut, v1 = rf.vOut + rf.dir * ext, vmin = Math.min(v0, v1), vmax = Math.max(v0, v1);
-    const rect = rf.ori === 0 ? [X(rf.lo), Y(vmin), (rf.hi - rf.lo) * s, (vmax - vmin) * s] : [X(vmin), Y(rf.lo), (vmax - vmin) * s, (rf.hi - rf.lo) * s];
-    g.save(); g.fillStyle = `rgba(229,62,62,${0.14 + 0.36 * pul})`; g.fillRect(...rect); g.strokeStyle = `rgba(229,62,62,${0.55 + 0.45 * pul})`; g.lineWidth = 2; g.setLineDash([9, 5]); g.strokeRect(...rect); g.setLineDash([]);
-    const mx = rf.ori === 0 ? (rf.lo + rf.hi) / 2 : (vmin + vmax) / 2, my = rf.ori === 0 ? (vmin + vmax) / 2 : (rf.lo + rf.hi) / 2;
-    g.translate(X(mx), Y(my)); if (rf.ori === 1) g.rotate(-Math.PI / 2); g.fillStyle = '#c53030'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(ufRoofName(rf), 0, 0); g.restore();
+    const zone = (va, vb, yel) => {       // va, vb — odległość od zewnętrznego lica ścianki A w głąb wnętrza
+      const w0 = rf.vOut + rf.dir * va, w1 = rf.vOut + rf.dir * vb, wmin = Math.min(w0, w1), wmax = Math.max(w0, w1);
+      const rect = rf.ori === 0 ? [X(rf.lo), Y(wmin), (rf.hi - rf.lo) * s, (wmax - wmin) * s] : [X(wmin), Y(rf.lo), (wmax - wmin) * s, (rf.hi - rf.lo) * s];
+      g.save(); g.fillStyle = yel ? 'rgba(236,201,75,.28)' : 'rgba(66,153,225,.22)'; g.fillRect(...rect); g.strokeStyle = yel ? '#d69e2e' : '#3182ce'; g.lineWidth = 1.6; g.setLineDash([9, 5]); g.strokeRect(...rect); g.restore();
+    };
+    if (rf.t === 'flat') zone(0, rf.span, true);
+    else { zone(0, rf.R, false); if (rf.b) { if (rf.t === 'arch' && rf.span - 2 * rf.R > 1) zone(rf.R, rf.span - rf.R, true); zone(rf.span - rf.R, rf.span, false); } }
+    const ext = rf.b ? rf.span : rf.R, v0 = rf.vOut, v1 = rf.vOut + rf.dir * ext, vmid = (v0 + v1) / 2, um = (rf.lo + rf.hi) / 2;
+    g.save(); g.translate(X(rf.ori === 0 ? um : vmid), Y(rf.ori === 0 ? vmid : um)); if (rf.ori === 1) g.rotate(-Math.PI / 2); g.fillStyle = rf.t === 'flat' ? '#8a5a00' : '#2b6cb0'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(rf.t === 'arch' && rf.b ? `łuk R ${lenPL(rf.R)} + daszek` : ufRoofName(rf), 0, 0); g.restore();
   });
   // ELTEX: kropki w narożnikach — chwyć narożnik i przyłóż go do narożnika słupka / ramy (przyciąga się)
   geo.parts.forEach(q => {
