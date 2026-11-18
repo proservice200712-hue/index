@@ -781,6 +781,9 @@
   .pl-srow > span { flex: 1 1 220px; }
   .pl-srow.drag { background: #f0fbe8; outline: 2px dashed var(--accent); outline-offset: -2px; }
   .pl-comb { background: #fffaf0; }
+  .viz-set { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; font-size: .8rem; margin-top: 12px; padding-top: 8px; border-top: 1px dotted var(--line); }
+  .viz-set label { display: inline-flex; align-items: center; gap: 5px; }
+  .viz-set input { width: 64px; padding: 3px 5px; }
   .pl-drop-h { font-size: .72rem; color: var(--gray); margin: 2px 0 4px; }
   .pl-th { height: 34px; max-width: 90px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
   .pl-total { display: flex; gap: 10px; padding: 8px 0 2px; font-size: .88rem; border-top: 2px solid var(--dark); margin-top: 4px; flex-wrap: wrap; }
@@ -2507,7 +2510,7 @@ const planeName = p => p.label + (p.side ? ' ' + p.side : '');
 const qtyOf = e => isHang(e) && e.variant === 'inny' ? 1 : Math.max(1, Number(e.qty) || 1);
 // pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
 const hangFields = d => isHang(d)
-  ? { prof: hangProf(d)[0], vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
+  ? { prof: hangProf(d)[0], viz: d.viz ? { strut: Number(d.viz.strut) || 1000, cabMode: d.viz.cabMode || 'point', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
       pthumbs: (d.pthumbs || []).slice(0, (planesOf(d) || []).length) }
   : { hbMode: '', hbSides: null, pthumbs: [] };
 // obrazek ze schowka (null, gdy brak / brak zgody)
@@ -5316,19 +5319,23 @@ document.addEventListener('pointerdown', ev => {
 // =====================================================================
 async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teksturą (grafiki płaszczyzn), 'frame' = sam szkielet (profile, rozpórki, linki)
   const tex = mode !== 'frame';
+  const vo = el.viz || {}, strutStep = Math.max(50, Number(vo.strut) || 1000), cabMode = ['point', 'vertical', 'none'].includes(vo.cabMode) ? vo.cabMode : 'point';
+  const cabStep = Math.max(100, Number(vo.cabStep) || 1500), cabH = Math.max(50, Number(vo.cabH) || 1000);      // rozpórki / linki: odstęp i wysokość [mm]
   const m = dimsMode(el); if (m !== 'box' && m !== 'ring') return null;
   const W = Number(el.w), H = Number(el.h), D = m === 'box' ? depthOf(el) : W;
   if (!(W > 0 && H > 0 && D > 0)) return null;
-  const pls = (planesOf(el) || []).filter(q => q.side !== 'inside'), imgs = [];
+  const allP = planesOf(el) || [], pls = allP.filter(q => q.side !== 'inside'), insP = allP.filter(q => q.side === 'inside'), imgs = [], imgsIn = [];
   for (const q of pls) { let im = null; if (tex && q.thumb) { try { im = await loadImg(q.thumb); } catch (e) { /* bez grafiki */ } } imgs.push(im); }
+  for (const q of insP) { let im = null; if (tex && q.thumb) { try { im = await loadImg(q.thumb); } catch (e) { /* bez grafiki */ } } imgsIn.push(im); }
+  const hasIn = tex && !!el.inside;                       // zadruk wewnątrz: tylne lica od środka są pełne (zakrywają rozpórki)
   const pt = { r32: 32, t50: 50, ef80: 80 }[hangProf(el)[0]] || 32, col = typeById('podwieszana').color || '#8e44ad';
   const ang = 36 * Math.PI / 180, ca = Math.cos(ang), sa = Math.sin(ang);
   const P = (x, y, z) => [1.2247449 * (x * ca - y * sa), 0.7071068 * (x * sa + y * ca) - z];
-  const cab = Math.max(450, Math.max(W, D) * 0.5), cx = W / 2, cy = D / 2, R = W / 2, DEG = Math.PI / 180;
+  const cab = cabMode === 'none' ? 0 : cabH, cx = W / 2, cy = D / 2, R = W / 2, DEG = Math.PI / 180;
   const ext = [];
   if (m === 'box') { for (const x of [0, W]) for (const y of [0, D]) for (const z of [0, H]) ext.push(P(x, y, z)); }
   else for (let a = 0; a < 360; a += 10) for (const z of [0, H]) ext.push(P(cx + R * Math.cos(a * DEG), cy + R * Math.sin(a * DEG), z));
-  ext.push(P(cx, cy, H + cab));
+  if (cab > 0) ext.push(P(cx, cy, H + cab));
   const minX = Math.min(...ext.map(p => p[0])), maxX = Math.max(...ext.map(p => p[0])), minY = Math.min(...ext.map(p => p[1])), maxY = Math.max(...ext.map(p => p[1]));
   const M = 170, CW = 1700, bw = maxX - minX, bh = maxY - minY, s = Math.min((CW - 2 * M) / bw, 820 / bh), CH = Math.round(bh * s + 2 * M + 80);
   const T = (x, y, z) => { const [X, Y] = P(x, y, z); return [M + (X - minX) * s, M + (Y - minY) * s]; };
@@ -5349,8 +5356,9 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
     g.transform((TR[0] - TL[0]) / sw, (TR[1] - TL[1]) / sw, (BL[0] - TL[0]) / im.height, (BL[1] - TL[1]) / im.height, TL[0], TL[1]);
     g.drawImage(im, sx, 0, sw, im.height, 0, 0, sw, im.height); g.restore();
   };
-  // rozpórki: pionowe, co ok. 1 m (na narożnikach zawsze)
-  const nOn = L => Math.max(1, Math.round(L / 1000));
+  const lite = k => { const n = parseInt(col.slice(1), 16), r = n >> 16, gg = (n >> 8) & 255, b = n & 255; return `rgb(${Math.round(r + (255 - r) * k)},${Math.round(gg + (255 - gg) * k)},${Math.round(b + (255 - b) * k)})`; };
+  // rozpórki: pionowe, co zadany odstęp (na narożnikach zawsze)
+  const nOn = L => Math.max(1, Math.round(L / strutStep));
   if (m === 'box') {
     const C = [[0, 0], [W, 0], [W, D], [0, D]];
     const depth = ([x, y]) => x * sa + y * ca, mid = depth([cx, cy]);
@@ -5364,36 +5372,62 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
       const TL = T(a[0], a[1], H), TR = T(b[0], b[1], H), BL = T(a[0], a[1], 0), BR = T(b[0], b[1], 0), q = [TL, TR, BR, BL], im = withImg ? imgs[i] : null;
       if (im) { image(im, TL, TR, BL, 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, tint(withImg ? 0.3 : 0.2), tint(0.7));
     };
+    // tylne lica oglądane od środka (zadruk wewnątrz): 2 = północ (od lewej: x rośnie), 3 = zachód (od lewej: y maleje)
+    const faceIn = i => {
+      const a = i === 2 ? [0, 0] : [0, D], b = i === 2 ? [W, 0] : [0, 0];
+      const TL = T(a[0], a[1], H), TR = T(b[0], b[1], H), BL = T(a[0], a[1], 0), BR = T(b[0], b[1], 0), q = [TL, TR, BR, BL], im = imgsIn[i];
+      if (im) { image(im, TL, TR, BL, 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, lite(0.78), tint(0.7));
+    };
     [0, 3].forEach(i => rail(0, i));                              // dół: tylne krawędzie (północ i zachód)
-    back.forEach(post);
-    if (tex) { face(2, false); face(3, false); face(0, true); face(1, true); }      // lica: tylne (od środka), potem przednie z grafiką; szkielet — bez lic
+    if (tex) {
+      posts.forEach(post);                                        // rozpórki są za licami — widać je tylko tam, gdzie lico jest półprzezroczyste
+      if (hasIn) { faceIn(2); faceIn(3); } else { face(2, false); face(3, false); }
+      face(0, true); face(1, true);                               // przednie lica z grafiką
+    } else back.forEach(post);                                    // szkielet — bez lic
     [1, 2].forEach(i => rail(0, i));                              // dół: przednie krawędzie
-    front.forEach(post);
+    if (!tex) front.forEach(post);
     [0, 3, 1, 2].forEach(i => rail(H, i));                        // góra: tylne, potem przednie
   } else {
     const N = 120, th = i => i * 2 * Math.PI / N, nd = a => Math.sin(a + ang), pt3 = (a, z) => T(cx + R * Math.cos(a), cy + R * Math.sin(a), z);
     const ring = (z, front) => { g.beginPath(); let st = false; for (let i = 0; i <= N; i++) { const a = th(i); if ((nd(a) > 0) !== front) { st = false; continue; } const [x, y] = pt3(a, z); st ? g.lineTo(x, y) : g.moveTo(x, y); st = true; }
       g.strokeStyle = '#4a5568'; g.lineWidth = lw + 3; g.stroke(); g.strokeStyle = '#cfd5dd'; g.lineWidth = lw; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = Math.max(1, lw * 0.25); g.stroke(); };
-    const nStr = Math.max(8, Math.min(32, Math.round(Math.PI * W / 900))), strutAt = a => line(pt3(a, 0), pt3(a, H), lw2);
+    const nStr = Math.max(4, Math.min(80, Math.round(Math.PI * W / strutStep))), strutAt = a => line(pt3(a, 0), pt3(a, H), lw2);
     const struts = Array.from({ length: nStr }, (_, k) => k * 2 * Math.PI / nStr + 0.12);
     const seg = (i, front) => {
       const a0 = th(i), a1 = th(i + 1), am = (a0 + a1) / 2; if ((nd(am) > 0) !== front) return;
-      const TLq = pt3(a1, H), TRq = pt3(a0, H), BLq = pt3(a1, 0), BRq = pt3(a0, 0), q = [pt3(a0, H), pt3(a1, H), pt3(a1, 0), pt3(a0, 0)], im = front ? imgs[0] : null;
-      if (im) {
+      const TLq = pt3(a1, H), TRq = pt3(a0, H), BLq = pt3(a1, 0), BRq = pt3(a0, 0), q = [pt3(a0, H), pt3(a1, H), pt3(a1, 0), pt3(a0, 0)], im = front ? imgs[0] : (hasIn ? imgsIn[0] : null);
+      if (im && front) {
         const u = a => 0.5 + (Math.PI / 2 - (a + ang)) / (2 * Math.PI), uL = u(a1), uR = u(a0);
         image(im, TLq, TRq, BLq, Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q.map(([x, y]) => [x, y]));
-      } else poly(q, tint(front ? 0.3 : 0.2));
+      } else if (im) {                                           // tylna połowa od środka: czytane od lewej w stronę rosnącego kąta
+        const u = a => 0.5 + ((a + ang) - 1.5 * Math.PI) / (2 * Math.PI), uL = u(a0), uR = u(a1);
+        image(im, pt3(a0, H), pt3(a1, H), pt3(a0, 0), Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q.map(([x, y]) => [x, y]));
+      } else if (!front && hasIn) poly(q, lite(0.78));
+      else poly(q, tint(front ? 0.3 : 0.2));
     };
-    ring(0, false); struts.filter(a => nd(a) <= 0).forEach(strutAt);
+    ring(0, false);
+    if (tex) struts.forEach(strutAt); else struts.filter(a => nd(a) <= 0).forEach(strutAt);
     if (tex) { for (let i = 0; i < N; i++) seg(i, false); for (let i = 0; i < N; i++) seg(i, true); }
     if (tex) { g.strokeStyle = tint(0.7); g.lineWidth = 1.5; [0, H].forEach(z => { g.beginPath(); for (let i = 0; i <= N; i++) { const [x, y] = pt3(th(i), z); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }); }
-    struts.filter(a => nd(a) > 0).forEach(strutAt); ring(0, true);
+    if (!tex) struts.filter(a => nd(a) > 0).forEach(strutAt);
+    ring(0, true);
     ring(H, false); ring(H, true);
   }
-  // linki zawieszenia do jednego punktu nad konstrukcją
-  const apex = T(cx, cy, H + cab), hooks = m === 'box' ? [[0, 0], [W, 0], [W, D], [0, D]].map(([x, y]) => T(x, y, H)) : [45, 135, 225, 315].map(a => T(cx + R * Math.cos(a * DEG), cy + R * Math.sin(a * DEG), H));
-  g.strokeStyle = '#2d3748'; g.lineWidth = 2; hooks.forEach(h => { g.beginPath(); g.moveTo(h[0], h[1]); g.lineTo(apex[0], apex[1]); g.stroke(); });
-  g.beginPath(); g.arc(apex[0], apex[1], 9, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 3; g.stroke();
+  // linki zawieszenia: w punktach co zadany odstęp wzdłuż obwodu — zbiegają do jednego punktu nad konstrukcją albo idą pionowo w górę (wysokość = cabH)
+  if (cabMode !== 'none') {
+    const anchors = [];
+    if (m === 'box') { const C2 = [[0, 0], [W, 0], [W, D], [0, D]]; for (let i = 0; i < 4; i++) { const [x0, y0] = C2[i], [x1, y1] = C2[(i + 1) % 4], n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / cabStep)); for (let k = 0; k < n; k++) anchors.push([x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n]); } }
+    else { const nC = Math.max(4, Math.round(Math.PI * W / cabStep)); for (let k = 0; k < nC; k++) { const a = k * 2 * Math.PI / nC; anchors.push([cx + R * Math.cos(a), cy + R * Math.sin(a)]); } }
+    g.strokeStyle = '#2d3748'; g.lineWidth = 2; g.fillStyle = '#fff';
+    if (cabMode === 'point') {
+      const apex = T(cx, cy, H + cabH);
+      anchors.forEach(([x, y]) => { const h = T(x, y, H); g.beginPath(); g.moveTo(h[0], h[1]); g.lineTo(apex[0], apex[1]); g.stroke(); });
+      g.beginPath(); g.arc(apex[0], apex[1], 9, 0, Math.PI * 2); g.fill(); g.lineWidth = 3; g.stroke();
+    } else anchors.forEach(([x, y]) => {
+      const h = T(x, y, H), t2 = T(x, y, H + cabH); g.lineWidth = 2; g.beginPath(); g.moveTo(h[0], h[1]); g.lineTo(t2[0], t2[1]); g.stroke();
+      g.beginPath(); g.arc(t2[0], t2[1], 6, 0, Math.PI * 2); g.fill(); g.lineWidth = 2.5; g.stroke();
+    });
+  }
   // wymiary podstawowe
   const F = 'Segoe UI, Arial, sans-serif', U = ' ' + UNIT();
   const dim = (A, B, o, txt) => {
@@ -5703,6 +5737,12 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         const row = (url, inn) => url ? `<div class="pl-srow pl-comb"><b>${inn ? 'Zadruk wewn.' : 'Cała konstrukcja'}</b><span>wspólny podgląd jednym obrazkiem (leży pod podglądami płaszczyzn)</span><img class="pl-th" src="${esc(url)}" alt=""><button type="button" class="btn btn-sm" data-ctrm="${inn ? 'in' : ''}" title="Usuń wspólny podgląd">✕</button></div>` : '';
         return row(st.thumb, false) + (cur.inside ? row(st.thumbIn, true) : '');
       })() +
+      (['box', 'ring'].includes(dimsMode(cur)) ? (() => {
+        const vz = { strut: 1000, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) }, num = k => `<input type="number" data-vz="${k}" min="1" step="${unitStep()}" value="${esc(fromMM(vz[k]))}">`;
+        return `<div class="viz-set"><b>Wizualizacja:</b> <label>rozpórki co ${num('strut')} ${UNIT()}</label>
+          <label>linki <select data-vz="cabMode"><option value="point" ${vz.cabMode === 'point' ? 'selected' : ''}>w jeden punkt</option><option value="vertical" ${vz.cabMode === 'vertical' ? 'selected' : ''}>pionowo</option><option value="none" ${vz.cabMode === 'none' ? 'selected' : ''}>bez linek</option></select></label>
+          <label>co ${num('cabStep')} ${UNIT()}</label><label>wysokość ${num('cabH')} ${UNIT()}</label></div>`;
+      })() : '') +
       (['box', 'ring'].includes(dimsMode(cur)) ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="ed-hviz" title="Rysunek konstrukcji z teksturą (grafiki płaszczyzn), profilami, rozpórkami co ok. 1 m, linkami i wymiarami — dodawany jako nowa wizka w górnym panelu">🖼 Wizualizacja z teksturą</button><button type="button" class="btn" id="ed-hviz2" title="Sam szkielet: profile, rozpórki co ok. 1 m, linki i wymiary (bez grafik) — dodawany jako nowa wizka w górnym panelu">▦ Szkielet (sam profil)</button></div>` : '') +
       `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
     // podgląd płaszczyzn: wklejony ze schowka, wybrany albo upuszczony (także kilka plików naraz, po kolei od wskazanej płaszczyzny)
@@ -5723,6 +5763,10 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       const file = await clipboardImageFile() || await chooseImageFile();
       if (file) putPlaneFiles(+b.dataset.ptb, [file]);
     });
+    box.querySelectorAll('[data-vz]').forEach(i => i.addEventListener(i.tagName === 'SELECT' ? 'change' : 'input', () => {
+      el.viz = { strut: 1000, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) };
+      el.viz[i.dataset.vz] = i.tagName === 'SELECT' ? i.value : (toMM(i.value) || el.viz[i.dataset.vz]);
+    }));
     [['ed-hviz', 'tex', 'vizPhotoId'], ['ed-hviz2', 'frame', 'vizFramePhotoId']].forEach(([bid, mode, key]) => { const hv = $(bid); if (hv) hv.onclick = async () => { hv.disabled = true; const c2 = read(); await hangMakeViz(c2, $('ed-badge').textContent.trim(), editing && editing.id, mode); el[key] = c2[key]; hv.disabled = false; }; });
     box.querySelectorAll('[data-ctrm]').forEach(b => b.onclick = async () => { await removeThumb(editing.id, b.dataset.ctrm); setTimeout(renderPlaneSum, 350); });
     box.querySelectorAll('.pl-srow:not(.pl-comb)').forEach((row, i) => {
