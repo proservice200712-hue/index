@@ -5452,13 +5452,13 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
       g.save(); g.globalAlpha = 0.5; if (hasIn) { faceIn(2); faceIn(3); } else { face(2, false); face(3, false); } face(0, true); face(1, true); g.restore();
       [0, 3, 1, 2].forEach(i => rail(0, i)); posts.forEach(post); [0, 3, 1, 2].forEach(i => rail(H, i));
     } else {
-    [0, 3].forEach(i => rail(0, i));                              // dół: tylne krawędzie (północ i zachód)
+    if (!tex) [0, 3].forEach(i => rail(0, i));                    // dół: tylne krawędzie (północ i zachód) — przy tkaninie niewidoczne
     if (tex) {
       posts.forEach(post);                                        // rozpórki są za licami — widać je tylko tam, gdzie lico jest półprzezroczyste
       if (hasIn) { faceIn(2); faceIn(3); } else { face(2, false); face(3, false); }
       face(0, true); face(1, true);                               // przednie lica z grafiką
     } else back.forEach(post);                                    // szkielet — bez lic
-    [1, 2].forEach(i => rail(0, i));                              // dół: przednie krawędzie
+    if (!tex) [1, 2].forEach(i => rail(0, i));                    // dół: przednie krawędzie — przy tkaninie zasłonięte nią
     if (!tex) front.forEach(post);
     [0, 3, 1, 2].forEach(i => rail(H, i));                        // góra: tylne, potem przednie
     }
@@ -5484,12 +5484,12 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
       g.save(); g.globalAlpha = 0.5; for (let i = 0; i < N; i++) seg(i, false); for (let i = 0; i < N; i++) seg(i, true); g.restore();
       ring(0, false); struts.forEach(strutAt); ring(0, true); ring(H, false); ring(H, true);
     } else {
-    ring(0, false);
+    if (!tex) ring(0, false);
     if (tex) struts.forEach(strutAt); else struts.filter(a => nd(a) <= 0).forEach(strutAt);
     if (tex) { for (let i = 0; i < N; i++) seg(i, false); for (let i = 0; i < N; i++) seg(i, true); }
     if (tex) { g.strokeStyle = tint(0.7); g.lineWidth = 1.5; [0, H].forEach(z => { g.beginPath(); for (let i = 0; i <= N; i++) { const [x, y] = pt3(th(i), z); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }); }
     if (!tex) struts.filter(a => nd(a) > 0).forEach(strutAt);
-    ring(0, true);
+    if (!tex) ring(0, true);
     ring(H, false); ring(H, true);
     }
   }
