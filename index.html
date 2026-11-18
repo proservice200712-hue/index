@@ -7621,7 +7621,7 @@ function ufSetPaint(v, name) {
 }
 const ufSetMount = v => ufSetPlane('pm', v, 'mount');
 function ufSetBack(v) { const r = ufSelRun(); if (!r) { toast('Zaznacz ściankę (kliknij jej klocek)', 'error'); ufSyncBar(); return; } ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.back = v; }); ufChanged(); }
-function ufSetH(v) { const r = ufSelRun(); if (!r) return; ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.h = v; }); ufChanged(); }
+function ufSetH(v) { const r = ufSelRun(); if (!r) return; ufPush(); r.ops.forEach(o => { if (o.t !== 'post') o.h = v; }); const pr = ufRoofOf(r) && ufPartner(ufGeom(UF.d), r, q => !!ufRoofOf(q)); if (pr) pr.ops.forEach(o => { if (o.t !== 'post') o.h = v; }); ufChanged(); }   // ścianka z zadaszeniem: przeciwległa dostaje tę samą wysokość
 const ufRoofOf = r => { const f = r.ops.find(o => o.t !== 'post' && o.roof && o.roof.t); return f ? f.roof : null; };
 const ufRange = r => { const k = r.ori === 0 ? 'x' : 'y'; return [Math.min(...r.parts.map(q => q[k + '0'])), Math.max(...r.parts.map(q => q[k + '1']))]; };
 // przeciwległa ścianka: równoległa, po drugiej stronie wnętrza, z nakładającym się odcinkiem (najbliższa)
@@ -7654,6 +7654,33 @@ function ufSetRoof(t, r) {
   ufChanged();
   if (val && !part && t === 'flat') toast('Zadaszenie płaskie potrzebuje przeciwległej ścianki (po drugiej stronie stoiska) — na razie go nie widać', 'error', 5500);
 }
+// lista wysokości: wysokość spoza listy (niestandardowa) dopisuje się jako osobna pozycja
+function ufHOpt(sel, v) {
+  v = String(Math.round(Number(v)));
+  sel.querySelectorAll('.uf-hx').forEach(o => { if (o.value !== v) o.remove(); });
+  if (![...sel.options].some(o => o.value === v)) { const o = document.createElement('option'); o.value = v; o.className = 'uf-hx'; o.textContent = `${lenPL(v)} ${UNIT()} (niestandardowa)`; sel.insertBefore(o, sel.querySelector('[value="custom"]')); }
+  sel.value = v;
+}
+function ufAskHeight(cur) {
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    const m = openModal({ title: 'Niestandardowa wysokość', body: `<div class="fld"><label>Wysokość ścianki [${UNIT()}]</label><input type="text" inputmode="decimal" id="uf-hx-in" value="${esc(numIn(fromMM(cur)))}" style="width:150px"></div><div class="hint" style="margin-top:8px">Od ${lenPL(500)} do ${lenPL(8000)} ${UNIT()}. Wysokość spoza standardu trafia do ścianek nietypowych w Produkcji i na planie świeci na czerwono.</div>`,
+      footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" data-ok>Zastosuj</button>`, onClose: () => fin(null) });
+    const inp = m.el.querySelector('#uf-hx-in'); setTimeout(() => { inp.focus(); inp.select(); }, 30);
+    const ok = () => { const v = toMM(inp.value); if (!(v >= 500 && v <= 8000)) return toast(`Podaj wysokość od ${lenPL(500)} do ${lenPL(8000)} ${UNIT()}`, 'error'); fin(v); m.close(); };
+    m.el.querySelector('[data-ok]').onclick = ok; m.el.querySelector('[data-c]').onclick = () => m.close();
+    inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } };
+  });
+}
+// element systemowy (standardowa długość, wysokość, dostawka, bez ucięcia) — reszta jest „niestandardowa” i na planie pulsuje na czerwono
+function ufStdPiece(o, r) {
+  if (o.t === 'post') return true; if (o.t === 'eltex') return false;
+  const K = ufK(), L1 = K ? UF_KW : 992, len = Math.round(o.len * 10) / 10, stk = ufStack(Math.round(r.h)), base = stk[0];
+  if (o.len0 || !(K ? Math.abs(base - UF_KH) < 1 : base === 2480 || base === 1984)) return false;
+  if (o.t === 'door' ? Math.abs(len - L1) >= 1 : !(Math.abs(len - L1) < 1 || Math.abs(len - L1 / 2) < 1)) return false;
+  return stk.slice(1).every(a => K ? Math.abs(a - UF_KADD[0]) < 1 || Math.abs(a - UF_KADD[1]) < 1 : Math.abs(a % 496) < 1 || Math.abs((a % 496) - 496) < 1);
+}
+const ufNonStdAny = geo => geo.parts.some(q => q.run && !ufStdPiece(q.op, q.run)) || ufRoofs(geo).some(r => r.R || (r.t === 'flat' && r.b));
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
   { const fl = ufFloor(); $('uf-fl-ctl').classList.toggle('hidden', !fl); if (!fl) UF.floorEdit = false;
@@ -7661,11 +7688,11 @@ function ufSyncBar() {
     $('uf-fl-ed').classList.toggle('on', !!UF.floorEdit); $('uf-cv').style.cursor = UF.floorEdit ? 'move' : ''; }
   const r = ufSelRun(), sel = $('uf-h'), cb = $('uf-back');
   sel.disabled = !r; cb.disabled = !r;
-  sel.value = String(r ? r.h : d.H); cb.checked = !!(r && r.manual);
+  ufHOpt(sel, r ? r.h : d.H); cb.checked = !!(r && r.manual);
   const act = document.activeElement;
   if (act !== $('uf-sl')) $('uf-sl').value = numIn(fromMM(st.L)); if (act !== $('uf-sd')) $('uf-sd').value = numIn(fromMM(st.D));
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
-  $('uf-sh').value = String(d.H); $('uf-ext').checked = !!st.ext; $('uf-extm').value = !st.ext ? '0' : st.extFull ? 'full' : 'top'; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
+  ufHOpt($('uf-sh'), d.H); $('uf-ext').checked = !!st.ext; $('uf-extm').value = !st.ext ? '0' : st.extFull ? 'full' : 'top'; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
   $('uf-look').textContent = d.look === 'bare' ? (ufK() ? '▦ 3D: kratownica' : '▦ 3D: gołe ramy') : '▮ 3D: pełne ściany';
   $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mounts[ufPl()]) || d.mount || (ufK() ? 'stretch' : 'seg');
   $('uf-pane').classList.toggle('uf-sel', !!r);
@@ -7684,7 +7711,7 @@ function ufSyncBar() {
     const wy = eo ? ` · <b class="uf-bk">wysłona zewn. na cały bok: ${lenPL(eo.w)} × ${lenPL(eo.h)} (${ufExtTxt()})</b>` : r.backKind === 'manual' ? ` · <b class="uf-bk">wysłona ${lenPL(r.backW)} × ${lenPL(r.h)}</b>` : r.closed && r.h <= ufExtFrom() ? ' · <span class="uf-no">bez wysłony (do ' + lenPL(ufExtFrom()) + ')</span>' : '';
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? (ufK() ? 'moduł + dostawka ' : 'ramy ') + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}${rtx}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
-  $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '');
+  $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '') + (ufNonStdAny(ufGeom(d)) ? ' <b style="color:#e53e3e">· czerwone pulsujące = element niestandardowy (ucięty, inna długość / wysokość, łuk, zadaszenie)</b>' : '');
   $('uf-keys').innerHTML = `${ufK() ? UF_KKEYS : `zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij`}`;
 }
 
@@ -7729,7 +7756,7 @@ async function ufSetFloor(file) {
     tt.remove(); ufChanged(); toast('Podkład leży na podłodze — dopasuj skalę (✥ przesuń / skaluj) i rysuj ścianki', 'success', 5000);
   } catch (e) { tt.remove(); toast('Nie udało się wczytać obrazka: ' + e.message, 'error', 5000); }
 }
-function ufDraw() {
+function ufDraw(light) {
   const cv = $('uf-cv'); if (!cv || !UF.open) return;
   if (!S.project || S.project.id !== UF.pid) return closeUltraFrame();
   const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -7739,6 +7766,7 @@ function ufDraw() {
   const F = `Segoe UI, Arial, sans-serif`, W = r.width, H = r.height, d = UF.d, st = d.stand;
   g.fillStyle = '#f4f6f8'; g.fillRect(0, 0, W, H);
   const geo = ufGeom(d); UF.geo = geo;
+  const pul = 0.5 + 0.5 * Math.sin(Date.now() / 260); UF.hasNS = ufNonStdAny(geo);
   let b = geo.bounds || { x0: 0, y0: 0, x1: st.L, y1: st.D };
   const mg = 650; b = { x0: b.x0 - mg, y0: b.y0 - mg, x1: b.x1 + mg, y1: b.y1 + mg };
   const bw = Math.max(b.x1 - b.x0, 3000), bh = Math.max(b.y1 - b.y0, 1800);
@@ -7794,6 +7822,7 @@ function ufDraw() {
     g.fillStyle = ufK() ? (o.t === 'door' ? '#e8f1fa' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#f0e4cc') : o.t === 'eltex' ? '#90cdf4' : o.t === 'post' ? '#d62d20' : o.t === 'door' ? '#cfe3f6' : o.len0 ? '#ffd8a8' : bk ? '#fde3c8' : '#e9ecef';
     g.fillRect(x, y, w, h); g.strokeStyle = o.t === 'eltex' ? UF_ELTEX_COL : '#4a5568'; g.lineWidth = o.t === 'eltex' ? 1.6 : 1; g.strokeRect(x, y, w, h);
     if (ufK() && ufOverlaps(o)) { g.strokeStyle = '#e53e3e'; g.lineWidth = 2.5; g.strokeRect(x, y, w, h); }
+    if (p.run && !ufStdPiece(o, p.run)) { g.save(); g.fillStyle = `rgba(229,62,62,${0.16 + 0.42 * pul})`; g.fillRect(x, y, w, h); g.strokeStyle = `rgba(229,62,62,${0.55 + 0.45 * pul})`; g.lineWidth = 2.4; g.strokeRect(x, y, w, h); g.restore(); }
     if (o.t === 'door') {
       const dg = ufDoorGeom(o, d, geo.pub), len = (ufK() ? UF_KDW : o.len) * s;
       g.strokeStyle = '#2b6cb0'; g.lineWidth = 1.3; g.beginPath();
@@ -7862,9 +7891,9 @@ function ufDraw() {
     if (rf.t === 'flat' && !rf.b) return;
     const ext = rf.b ? rf.span : rf.R, v0 = rf.vOut, v1 = rf.vOut + rf.dir * ext, vmin = Math.min(v0, v1), vmax = Math.max(v0, v1);
     const rect = rf.ori === 0 ? [X(rf.lo), Y(vmin), (rf.hi - rf.lo) * s, (vmax - vmin) * s] : [X(vmin), Y(rf.lo), (vmax - vmin) * s, (rf.hi - rf.lo) * s];
-    g.save(); g.fillStyle = 'rgba(66,153,225,.10)'; g.fillRect(...rect); g.strokeStyle = '#3182ce'; g.lineWidth = 1.6; g.setLineDash([9, 5]); g.strokeRect(...rect); g.setLineDash([]);
+    g.save(); g.fillStyle = `rgba(229,62,62,${0.14 + 0.36 * pul})`; g.fillRect(...rect); g.strokeStyle = `rgba(229,62,62,${0.55 + 0.45 * pul})`; g.lineWidth = 2; g.setLineDash([9, 5]); g.strokeRect(...rect); g.setLineDash([]);
     const mx = rf.ori === 0 ? (rf.lo + rf.hi) / 2 : (vmin + vmax) / 2, my = rf.ori === 0 ? (vmin + vmax) / 2 : (rf.lo + rf.hi) / 2;
-    g.translate(X(mx), Y(my)); if (rf.ori === 1) g.rotate(-Math.PI / 2); g.fillStyle = '#2b6cb0'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.translate(X(mx), Y(my)); if (rf.ori === 1) g.rotate(-Math.PI / 2); g.fillStyle = '#c53030'; g.font = `700 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(rf.t === 'arch' ? `${rf.b ? 'zadaszenie łukowe' : 'łuk'} R ${lenPL(rf.R)}` : 'zadaszenie płaskie', 0, 0); g.restore();
   });
   // ELTEX: kropki w narożnikach — chwyć narożnik i przyłóż go do narożnika słupka / ramy (przyciąga się)
@@ -8010,7 +8039,8 @@ function ufDraw() {
     g.fillStyle = '#718096'; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('Przeciągnij ikonę modułu na plan — klocki styczne same się sklejają w ściankę', W / 2, Math.max(24, Y(st.D) + 32));
   }
-  ufPreview();
+  if (UF.hasNS && !UF.pulseT) UF.pulseT = setInterval(() => { if (!UF.open || !UF.hasNS) { clearInterval(UF.pulseT); UF.pulseT = 0; return; } if (!UF.drag && !document.hidden) ufDraw(true); }, 130);
+  if (!light) ufPreview();
 }
 const ufCanvasPos = e => { const r = $('uf-cv').getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 const ufWorld = (px, py) => { const { s, ox, oy } = UF.tr; return [(px - ox) / s, (py - oy) / s]; };
@@ -8608,20 +8638,20 @@ function ufRender3D(o) {
     const k0 = rf.ori === 0 ? 'x' : 'y', cuts = new Set();
     rf.a.parts.filter(q => q.op.t !== 'post').forEach(q => [q[k0 + '0'], q[k0 + '1']].forEach(u => { if (u > lo + 5 && u < hi - 5) cuts.add(Math.round(u)); }));
     const line = (u, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); pts.forEach(([v, z], k) => { const [px, py] = Pw(u, v, z); k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke(); };
-    if (bare) {
-      [lo, ...cuts, hi].forEach(u => line(u, '#bb9a62', 2));
-      pts.forEach(([v, z], ii) => { if (ii % Math.max(1, Math.round(N / 3)) !== 0 && ii !== pts.length - 1) return; const A1 = Pw(lo, v, z), B1 = Pw(hi, v, z); g.strokeStyle = '#d2b27a'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(A1[0], A1[1]); g.lineTo(B1[0], B1[1]); g.stroke(); });
-    } else {
-      const strips = [];
-      for (let i = 0; i < pts.length - 1; i++) {
-        const [v0, z0] = pts[i], [v1, z1] = pts[i + 1]; if (Math.abs(v1 - v0) + Math.abs(z1 - z0) < 0.5) continue;
-        const ang = Math.atan2(Math.abs(z1 - z0), Math.abs(v1 - v0));
-        strips.push({ q: [Pw(lo, v0, z0), Pw(hi, v0, z0), Pw(hi, v1, z1), Pw(lo, v1, z1)], f: 1 - 0.2 * Math.sin(ang), dd: dep((lo + hi) / 2, (v0 + v1) / 2), z: (z0 + z1) / 2 });
-      }
-      strips.sort((p, q) => p.dd - q.dd || p.z - q.z).forEach(({ q, f }) => { const col = ufShade(base, f); g.beginPath(); q.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = col; g.lineWidth = 1; g.stroke(); });
-      cuts.forEach(u => line(u, 'rgba(26,32,44,.45)', LW * 1.1));
-      [lo, hi].forEach(u => line(u, '#1a202c', LW * 1.3));
+    // kratownica jak w ściankach, tylko niebieskawa: ramki na styku modułów, podłużnice co ok. 47 cm długości łuku, poprzeczki co ok. 33 cm
+    const us = [lo, ...[...cuts].sort((p, q) => p - q), hi];
+    let tot = 0; const cum = [0]; for (let i = 1; i < pts.length; i++) { tot += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); cum.push(tot); }
+    const at = t => { let i = 1; while (i < pts.length - 1 && cum[i] < t) i++; const a0 = cum[i - 1], b0 = cum[i], f = b0 > a0 ? (t - a0) / (b0 - a0) : 0; return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f]; };
+    const nvv = Math.max(1, Math.round(tot / 470)), rows = []; for (let k = 0; k <= nvv; k++) rows.push(at(tot * k / nvv));
+    const bw = Math.max(pv ? 1.1 : 1.8, 45 * s * 1.15), bars = [];
+    for (let i = 0; i < us.length - 1; i++) {
+      const u0 = us[i], u1 = us[i + 1];
+      [u0, u1].forEach(u => bars.push(pts.map(([v, z]) => Pw(u, v, z))));
+      rows.forEach(([v, z]) => bars.push([Pw(u0, v, z), Pw(u1, v, z)]));
+      const nu = Math.max(1, Math.round((u1 - u0) / 330)); for (let k = 1; k < nu; k++) { const u = u0 + (u1 - u0) * k / nu; bars.push(pts.map(([v, z]) => Pw(u, v, z))); }
     }
+    const strokeBars = (col, w) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'butt'; g.lineJoin = 'round'; bars.forEach(pl => { g.beginPath(); pl.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }); };
+    strokeBars('#1a3a5f', bw + 2 * LW); strokeBars('#8fbfee', bw);
   });
   const pos = new Map();
   if (!pv) {
@@ -9007,7 +9037,7 @@ function ufFreshLayout(sys, keep) {
 // kontrolki edytora zależne od systemu: paleta, wysokości, montaż
 function ufInitUi() {
   ufPalRender();
-  const hs = ufHs().map(v => `<option value="${v}">${lenPL(v)} ${UNIT()}${ufStackTxt(v) ? ' (' + ufStackTxt(v) + ')' : ''}</option>`).join('');
+  const hs = ufHs().map(v => `<option value="${v}">${lenPL(v)} ${UNIT()}${ufStackTxt(v) ? ' (' + ufStackTxt(v) + ')' : ''}</option>`).join('') + '<option value="custom">inna wysokość…</option>';
   $('uf-h').innerHTML = hs; $('uf-sh').innerHTML = hs;
   $('uf-paint').querySelector('.uf-pw').innerHTML = UF_PAINTS.map(p => `<button type="button" class="uf-sw" data-c="${p[2]}" title="${p[0]} (RAL ${p[1]})" style="background:${p[2]}"></button>`).join('');
   $('uf-mount').innerHTML = UF_MOUNTS.map(m => `<option value="${m[0]}">${esc(m[1])}</option>`).join('');
@@ -9095,11 +9125,11 @@ async function closeUltraFrame() {
   $('uf-zf').onclick = () => { UF.vw = null; ufDraw(); };
   $('uf-rl').onclick = () => ufRotate(false); $('uf-rr').onclick = () => ufRotate(true);
   $('uf-undo').onclick = ufUndo; $('uf-del').onclick = ufDelete;
-  $('uf-h').onchange = e => ufSetH(parseInt(e.target.value, 10));
+  $('uf-h').onchange = async e => { if (e.target.value === 'custom') { const r0 = ufSelRun(), v = await ufAskHeight(r0 ? r0.h : UF.d.H); if (v) ufSetH(v); else ufSyncBar(); return; } ufSetH(parseInt(e.target.value, 10)); };
   $('uf-back').onchange = e => ufSetBack(e.target.checked);
   $('uf-roof').onchange = e => ufSetRoof(e.target.value, undefined);
   $('uf-roofr').onchange = e => { const r0 = ufSelRun(), rf = r0 && ufRoofOf(r0), v = toMM(e.target.value); if (!rf || rf.t !== 'arch') return; if (!(v >= 50)) { toast('Podaj promień łuku, min. ' + lenPL(50) + ' ' + UNIT(), 'error'); return ufSyncBar(); } ufSetRoof('arch', v); };
-  $('uf-sh').onchange = e => { ufPush(); UF.d.H = parseInt(e.target.value, 10); ufChanged(); };
+  $('uf-sh').onchange = async e => { let v = parseInt(e.target.value, 10); if (e.target.value === 'custom') { v = await ufAskHeight(UF.d.H); if (!v) return ufSyncBar(); } ufPush(); UF.d.H = v; ufChanged(); };
   const dimIn = (id, k) => $(id).addEventListener('change', e => { const v = toMM(e.target.value); if (!(v >= 1000 && v <= 60000)) { toast(`Podaj wymiar od ${lenPL(1000)} do ${lenPL(60000)} ${UNIT()}`, 'error'); ufSyncBar(); return; } ufPush(); UF.d.stand[k] = v; UF.d.pieces.forEach(p => ufFit(p)); ufChanged(); });
   dimIn('uf-sl', 'L'); dimIn('uf-sd', 'D');
   $('uf-extm').onchange = e => { ufPush(); const v = e.target.value; UF.d.stand.ext = v !== '0'; UF.d.stand.extFull = v === 'full'; ufChanged(); };
