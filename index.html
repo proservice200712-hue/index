@@ -9034,8 +9034,11 @@ function ufRender3D(o) {
     let m = g2[a][lo]; const iv = ufHBand(g2[b][hi] - g2[a][lo]).map(l => { const r = [m, m + l]; m += l; return r; });
     return bx.seg = { ax, iv };
   };
-  const rowFr = (bx, ax, o, du, dv, U, hh, col, rowI) => {
+  const rowFr = (bx, ax, o, du, dv, U, hh, col, rowI, edge) => {
     const a0 = ax === 'x' ? bx.x0 : bx.y0, a1 = ax === 'x' ? bx.x1 : bx.y1, sg = hbOn && rowI > 0 && ufHRow(hh) && !KF ? segOf(bx) : null;
+    if (sg && sg.ax !== ax && sg.iv.length) {      // koniec klocka w pasie nadstawki: bez pionowych przegródek na styku — tylko na końcach leżącego modułu
+      if (!sg.iv.some(([m0, m1]) => Math.abs(m0 - edge) < 2 || Math.abs(m1 - edge) < 2)) return;
+    }
     if (!sg || sg.ax !== ax || !sg.iv.length) return frame(o, du, dv, U, hh, col);
     const P = (u, v) => [o[0] + du[0] * u + dv[0] * v, o[1] + du[1] * u + dv[1] * v];
     g.save(); g.beginPath(); [P(0, 0), P(U, 0), P(U, hh), P(0, hh)].forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.clip();
@@ -9054,8 +9057,8 @@ function ufRender3D(o) {
         // ELTEX: jedna rama na całą wysokość, niebieska
         const elx = bx.p.op.t === 'eltex', C = elx ? ['#90cdf4', '#63b3ed', '#4299e1', '#3182ce'] : KF ? ['#cfae75', '#bb9a62', '#d8b980', '#c3a36b'] : ['#a3acb8', '#8f99a7', '#aeb6c1', '#949eab'];
         let z0 = 0; const zs = (elx ? [h] : ufStack(h)).map(hh => { const r = [z0, hh]; z0 += hh; return r; }), at = (x, y, z) => T(x, y, z);
-        zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0], elx ? 0 : ri); rowFr(bx, 'y', at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1], elx ? 0 : ri); });                     // tył: północ, zachód
-        zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, C[2], elx ? 0 : ri); rowFr(bx, 'y', at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[3], elx ? 0 : ri); }); // przód: południe, wschód
+        zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0], elx ? 0 : ri, bx.y0); rowFr(bx, 'y', at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1], elx ? 0 : ri, bx.x0); });                     // tył: północ, zachód
+        zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, C[2], elx ? 0 : ri, bx.y1); rowFr(bx, 'y', at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[3], elx ? 0 : ri, bx.x1); }); // przód: południe, wschód
       }
       poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#68d391' : '#c3cad3');
     } else {
@@ -9078,7 +9081,7 @@ function ufRender3D(o) {
         const top = cv2.length ? Math.max(0, Math.min(...cv2.map(c => c.z0))) : h, U = sd === 's' ? bx.x1 - bx.x0 : bx.y1 - bx.y0, du = sd === 's' ? ux : uy;
         const at = z => sd === 's' ? T(bx.x0, bx.y1, z) : T(bx.x1, bx.y0, z), q = (z, u) => { const p0 = at(z); return [p0[0] + du[0] * u, p0[1] + du[1] * u]; };
         if (post) poly([q(0, 0), q(0, U), q(top, U), q(top, 0)], '#aeb6c1');
-        else { let z = 0; ufStack(h).forEach((hh, ri) => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#4a5568'); rowFr(bx, sd === 's' ? 'x' : 'y', at(z), du, vZ, U, z1 - z, KF ? '#d2b27a' : '#aeb6c1', ri); } z += hh; }); }
+        else { let z = 0; ufStack(h).forEach((hh, ri) => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#4a5568'); rowFr(bx, sd === 's' ? 'x' : 'y', at(z), du, vZ, U, z1 - z, KF ? '#d2b27a' : '#aeb6c1', ri, sd === 's' ? bx.y1 : bx.x1); } z += hh; }); }
         if (top < h - 1) poly([q(top, 0), q(top, U), q(h, U), q(h, 0)], col);
       };
       // wybór ściany kliknięciem w podglądzie: wielokąty lic zapamiętane w kolejności rysowania; wybrana płaszczyzna zaznaczonej ścianki ma zielony obrys
