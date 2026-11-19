@@ -5679,6 +5679,28 @@ async function hangMakeViz(el, mark, eid, mode = 'tex') {
   } catch (e) { toast('Nie udało się: ' + e.message, 'error', 6000); }
   finally { t.remove(); }
 }
+// wizualizacja konstrukcji podwieszanej powstaje sama przy zapisie elementu; zmiana wymiarów / ustawień odświeża istniejącą wizkę (w jej bieżącym widoku)
+const hangSig = e => JSON.stringify([e.variant, e.w, e.h, e.d, hangProf(e)[0], !!e.inside, e.hbMode, e.hbSides, e.viz, e.vw, (e.pthumbs || []).join('|')]);
+const hangVizPhoto = e => { const id = [e.vizPhotoId, e.vizFramePhotoId, e.vizGhostPhotoId].find(x => x && S.photos.some(p => p.id === x)); return id ? S.photos.find(p => p.id === id) : null; };
+async function hangAutoViz(el) {
+  if (!el || !el.id || !isHang(el) || isViewer() || !S.project || !['box', 'ring'].includes(dimsMode(el))) return;
+  if (!(Number(el.w) > 0 && Number(el.h) > 0 && (dimsMode(el) === 'ring' || depthOf(el) > 0))) return;
+  const sig = hangSig(el), pid = S.project.id, ph = hangVizPhoto(el);
+  if (ph && el.vizSig === sig) return;                           // nic się nie zmieniło — wizualizacja aktualna
+  if (!ph) await hangMakeViz(el, markOf(el), el.id, 'tex');
+  else {
+    const mode = hangViewMode(ph, el), t = toast('Odświeżam wizualizację konstrukcji…', '', 60000);
+    try {
+      const cv = await hangRender(el, markOf(el), mode); if (!cv) throw new Error('uzupełnij wymiary konstrukcji');
+      const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+      const up = await storeImage(new File([blob], 'podwieszenie-' + (markOf(el) || 'A') + '.png', { type: 'image/png' }), 3200, { png: true });
+      await DB.update(pPhotos(pid), ph.id, { url: up.url, w: up.w, h: up.h, alts: { [mode]: up.url }, vmode: mode });
+      toast('Wizualizacja zaktualizowana', 'success', 3000);
+    } catch (e) { toast('Nie udało się odświeżyć wizualizacji: ' + e.message, 'error', 6000); }
+    finally { t.remove(); }
+  }
+  await DB.update(pElements(pid), el.id, { vizSig: sig });
+}
 function openElementDialog({ id, shape, photoId, turbo, typeId }) {
   const editing = id ? S.elements.find(e => e.id === id) : null;
   if (id && !editing) return;
@@ -5953,7 +5975,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
           <label>linki <select data-vz="cabMode"><option value="point" ${vz.cabMode === 'point' ? 'selected' : ''}>w jeden punkt</option><option value="vertical" ${vz.cabMode === 'vertical' ? 'selected' : ''}>pionowo</option><option value="none" ${vz.cabMode === 'none' ? 'selected' : ''}>bez linek</option></select></label>
           <label>co ${num('cabStep')} ${UNIT()}</label><label>wysokość ${num('cabH')} ${UNIT()}</label></div>`;
       })() : '') +
-      (['box', 'ring'].includes(dimsMode(cur)) ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="ed-hviz" title="Rysunek konstrukcji z teksturą (grafiki płaszczyzn; bez grafik — tkanina domyślna), profilami, rozpórkami, linkami i wymiarami — dodawany jako nowa wizka w górnym panelu. Widok (pełny / szkielet / półprzezroczysta tkanina) i orbitę zmienisz na gotowej wizce.">🖼 Wizualizacja</button></div>` : '') +
+      (['box', 'ring'].includes(dimsMode(cur)) ? `<div class="hint" style="margin-top:6px">Wizualizacja powstaje automatycznie po zapisaniu i odświeża się, gdy zmienią się wymiary lub ustawienia konstrukcji. Widok (pełny / szkielet / tkanina półprzezroczysta) i orbitę zmienisz na gotowej wizce.</div>` : '') +
       `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
     // podgląd płaszczyzn: wklejony ze schowka, wybrany albo upuszczony (także kilka plików naraz, po kolei od wskazanej płaszczyzny)
     const putPlaneFiles = async (start, files) => {
@@ -6182,6 +6204,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         if (diff) addLog(pid, `Element ${markOf({ ...editing, ...fields })}: ${diff}`, editing.id);
         if (hasDoor({ ...editing, ...fields }) || S.elements.some(e => e.doorFor === editing.id)) await syncDoorElement(editing.id, { ...editing, ...fields });
         m.close();
+        hangAutoViz({ ...editing, ...fields, id: editing.id }).catch(e => console.warn('wizualizacja:', e));
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
         const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
@@ -6195,6 +6218,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         addLog(pid, `Dodano element ${markOf({ ...d, num: el.num })} — ${typeLabel(d)}${hasDims(d) ? ', ' + netTxt(d) + ' ' + UNIT() : ', wymiar do ustalenia'}${d.qty > 1 ? ', ' + d.qty + ' szt.' : ''}`, newId);
         m.close();
         S.selId = newId;
+        hangAutoViz({ ...rec, id: newId }).catch(e => console.warn('wizualizacja:', e));
         if (isLbSeg(rec)) applyLightboxBack(newId, rec, turbo && !el.backSel ? 'skip' : el.backSel);
         if (turbo) { setTimeout(() => openElementDialog({ shape: null, photoId: '', turbo: true }), 60); return; }
       }
