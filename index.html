@@ -102,6 +102,8 @@
   #uf-sk button:hover { background: #3b475b; } #uf-sk button.on { background: #38a169; border-color: #68d391; }
   #uf-sk button[data-skt="d"].on { background: #ecc94b; border-color: #faf089; color: #1a202c; } #uf-sk .go { background: #3182ce; border-color: #63b3ed; }
   #uf-sk label { display: inline-flex; align-items: center; gap: 6px; } #uf-sk input[type=range] { width: 110px; accent-color: #38a169; }
+  #uf-sk.gen [data-skt], #uf-sk.gen #uf-sk-go, #uf-sk.gen #uf-sk-mag-l, #uf-sk.gen #uf-sk-undo, #uf-sk.gen #uf-sk-clr { display: none; }
+  #uf-sk #uf-sk-edit, #uf-sk #uf-sk-info { display: none; } #uf-sk.gen #uf-sk-edit { display: inline-block; } #uf-sk.gen #uf-sk-info { display: inline; color: #cbd5e0; font-size: .76rem; }
   #uf-sketch.on { background: var(--accent) !important; color: var(--dark) !important; }
   #uf-fl-ctl input[type=range] { width: 100px; accent-color: #38a169; }
   .uf-prod-tb { width: 100%; border-collapse: collapse; font-size: .82rem; }
@@ -1197,7 +1199,8 @@
             <button type="button" data-skt="d" title="Kreska żółta przerywana: drzwi [2]">┅ Drzwi</button>
             <button type="button" id="uf-sk-go" class="go" title="Ułóż ściany z modułów K-Frame [Enter]">⚙ Generuj</button>
             <label title="Jak mocno dopasować rysunek do gotowych modułów 99,5 i 49,75: dokładny = tak jak narysowano (ścianki niestandardowe na końcach), ekonomiczny = prawie same gotowe moduły, optymalny = pośrednio"><span>Dopasowanie:</span><input type="range" id="uf-sk-fit" min="0" max="2" step="1"><b id="uf-sk-fitv" style="min-width:86px"></b></label>
-            <label title="Przyciąganie do końców i linii innych kresek, krawędzi stoiska i siatki 5 cm"><input type="checkbox" id="uf-sk-mag" checked> magnes</label>
+            <label id="uf-sk-mag-l" title="Przyciąganie do końców i linii innych kresek, krawędzi stoiska i siatki 5 cm"><input type="checkbox" id="uf-sk-mag" checked> magnes</label>
+            <span id="uf-sk-info"></span><button type="button" id="uf-sk-edit" title="Wróć do rysowania (moduły zostaną usunięte, rysunek zostaje)">✎ Edytuj rysunek</button>
             <button type="button" id="uf-sk-undo" title="Cofnij ostatnią kreskę [Backspace] — prawy klawisz na kresce usuwa ją">↶</button><button type="button" id="uf-sk-clr" title="Wyczyść wszystkie kreski">🗑</button><button type="button" id="uf-sk-x" title="Zamknij rysowanie [Esc]">✕</button>
           </div><div id="uf-pvw" class="hidden"><canvas id="uf-pv" title="Podgląd widoku 3D — przeciągnij, aby swobodnie obracać (orbita: poziomo obrót, pionowo wysokość kamery); kółko = zoom, Shift+przeciągnięcie = przesuwanie; dwuklik = widok z narożnika"></canvas><button type="button" class="uf-pva l" id="uf-vl" title="Obróć widok 3D w lewo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">◀</button><div id="uf-pvg" title="Przeciągnij narożnik, aby powiększyć / pomniejszyć podgląd (dwuklik = rozmiar domyślny)"></div><button type="button" class="uf-pva r" id="uf-vr" title="Obróć widok 3D w prawo (skok co 30°: narożnik i dwa widoki pośrednie pod kątem)">▶</button></div></div>
         </div>
@@ -7966,17 +7969,19 @@ const UF_SK_FITS = ['dokładny', 'optymalny', 'ekonomiczny'];
 const ufSkData = () => { const dd = UF.d; if (!dd.sk) dd.sk = { lines: [], fit: 1, magnet: true }; return dd.sk; };
 function ufSkBtn() {
   const b = $('uf-sketch'); if (!b || !UF.d) return;
-  const show = !UF.d.pieces.length || UF.skOn;
-  b.classList.toggle('hidden', !show); b.classList.toggle('on', !!UF.skOn);
+  const sk = ufSkData(); if (sk.gen && !UF.d.pieces.length) sk.gen = false;
+  const show = !UF.d.pieces.length || UF.skOn || !!sk.gen;
+  b.classList.toggle('hidden', !show); b.classList.toggle('on', !!UF.skOn || (!!sk.gen && sk.bar !== false));
   if (!show && UF.skOn) UF.skOn = false;
 }
 function ufSkSync() {
   const bar = $('uf-sk'); if (!bar || !UF.d) return;
-  bar.classList.toggle('hidden', !UF.skOn);
-  const sk = ufSkData();
+  const sk = ufSkData(), gen = !!(sk.gen && UF.d.pieces.length && !UF.skOn);
+  bar.classList.toggle('hidden', !(UF.skOn || (gen && sk.bar !== false))); bar.classList.toggle('gen', gen);
   bar.querySelectorAll('[data-skt]').forEach(b => b.classList.toggle('on', b.dataset.skt === (UF.skTool || 'w')));
   if (document.activeElement !== $('uf-sk-fit')) $('uf-sk-fit').value = sk.fit == null ? 1 : sk.fit;
   $('uf-sk-fitv').textContent = UF_SK_FITS[sk.fit == null ? 1 : sk.fit]; $('uf-sk-mag').checked = sk.magnet !== false;
+  $('uf-sk-info').textContent = gen ? (sk.info || '') : '';
   $('uf-cv').style.cursor = UF.skOn ? 'crosshair' : '';
 }
 function ufSkOn() {
@@ -8001,15 +8006,16 @@ function ufSkSnap(pt, from) {
   return [x, y];
 }
 function ufSkPaint(g, X, Y, s, F) {
-  const sk = UF.d.sk; if (!sk || UF.d.pieces.length) return;
+  const sk = UF.d.sk; if (!sk || (UF.d.pieces.length && !sk.gen)) return;
+  const ghost = !!(sk.gen && UF.d.pieces.length && !UF.skOn);       // po wygenerowaniu rysunek zostaje jako blady podkład
   const paint = (l, al) => {
-    const [a, b] = l.p; g.save(); g.globalAlpha = al; g.lineCap = 'round'; g.lineWidth = 7; g.strokeStyle = l.t === 'd' ? '#e0a800' : '#2f9e44'; g.setLineDash(l.t === 'd' ? [14, 9] : []);
+    const [a, b] = l.p; g.save(); g.globalAlpha = al; g.lineCap = 'round'; g.lineWidth = ghost ? 4 : 7; g.strokeStyle = l.t === 'd' ? '#e0a800' : '#2f9e44'; g.setLineDash(l.t === 'd' ? [14, 9] : []);
     g.beginPath(); g.moveTo(X(a[0]), Y(a[1])); g.lineTo(X(b[0]), Y(b[1])); g.stroke(); g.restore();
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 150) return;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 150 || ghost) return;
     const mx = X((a[0] + b[0]) / 2), my = Y((a[1] + b[1]) / 2), txt = lenPL(Math.round(len));
     g.save(); g.font = `700 11px ${F}`; const tw = g.measureText(txt).width + 8; g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(mx - tw / 2, my - 18, tw, 15); g.fillStyle = '#22543d'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, mx, my - 10); g.restore();
   };
-  sk.lines.forEach(l => paint(l, .95));
+  sk.lines.forEach(l => paint(l, ghost ? .45 : .95));
   if (UF.skDraft) paint({ t: UF.skTool || 'w', p: [UF.skDraft.a, UF.skDraft.b] }, .6);
   if (UF.skOn && UF.skHover) { g.save(); g.beginPath(); g.arc(X(UF.skHover[0]), Y(UF.skHover[1]), 8, 0, Math.PI * 2); g.strokeStyle = '#2b6cb0'; g.lineWidth = 2.5; g.stroke(); g.restore(); }
 }
@@ -8034,9 +8040,9 @@ function ufSkMods(L, fit, nFixed, W = UF_KW) {
   else out.push(Math.round(r));
   return out;
 }
-function ufSkGenerate() {
+function ufSkGenerate(keepView) {
   const sk = ufSkData(); if (!sk.lines.length) return toast('Najpierw narysuj ściany (zielona kreska)', 'error');
-  const T = UF_KT + 3, fit = sk.fit == null ? 1 : sk.fit, TOL = 150;       // oś ściany; grubość ścianki obitej z obu stron (6,6 cm)
+  const T = UF_KT + 3, fit = sk.fit == null ? 1 : sk.fit, TOL = 400;       // oś ściany; grubość ścianki obitej z obu stron (6,6 cm)
   // 1. kreski → osie poziome / pionowe
   const segs = sk.lines.map(l => { const [a, b] = l.p, hor = Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]); return hor ? { t: l.t, ori: 0, c: (a[1] + b[1]) / 2, a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]) } : { t: l.t, ori: 1, c: (a[0] + b[0]) / 2, a: Math.min(a[1], b[1]), b: Math.max(a[1], b[1]) }; }).filter(x => x.b - x.a >= 150);
   // 2. współliniowe ściany → jeden odcinek
@@ -8057,7 +8063,7 @@ function ufSkGenerate() {
       if (r) r.doors.push(dc); else runs.push({ ori: dg.ori, c: dg.c, a: dc - UF_KW / 2, b: dc + UF_KW / 2, n: 1, doors: [dc] });
     });
   });
-  if (!ufK()) return ufSkBuildE(runs, fit, sk);        // EasyFrame: w narożnikach i na stykach stoją słupki
+  if (!ufK()) return ufSkBuildE(runs, fit, sk, keepView);        // EasyFrame: w narożnikach i na stykach stoją słupki
   // 4. narożniki i styki: ściana przelotowa (dłuższa; przy równych — pozioma) sięga do zewnętrznego lica, dolegająca kończy się na jej licu
   const len = r => r.b - r.a;
   runs.forEach(r => { r.ea = r.a; r.eb = r.b; r.butt = false; });
@@ -8086,14 +8092,11 @@ function ufSkGenerate() {
       pieces.push(op); pos += m.len;
     });
   });
-  if (!pieces.length) return toast('Kreski są zbyt krótkie — narysuj dłuższe ściany', 'error');
-  ufPush(); UF.d.pieces = pieces; sk.lines = []; UF.skOn = false; UF.skDraft = null; UF.skHover = null; UF.sel = null; UF.vw = null;
-  ufChanged();
-  toast(`Wygenerowano ${pieces.length} modułów: ${nStd} standardowych, ${nDoor} drzwi, ${nCus} niestandardowych (żółte pulsujące na planie) — dopasowanie „${UF_SK_FITS[fit]}”`, 'success', 8000);
+  return ufSkApply(pieces, { nStd, nCus, nDoor, nPost: 0 }, fit, keepView);
 }
 // EasyFrame: słupek 80 × 80 w każdym narożniku i styku (T / L / +); ściany kończą się na licu słupka, przelotowa jest przecięta słupkiem
-function ufSkBuildE(runs, fit, sk) {
-  const P = UF_T / 2, TOL = 150, W1 = 992, junc = [], pieces = [];
+function ufSkBuildE(runs, fit, sk, keepView) {
+  const P = UF_T / 2, TOL = 400, W1 = 992, junc = [], pieces = [];
   runs.filter(r => r.ori === 0).forEach(h => runs.filter(v => v.ori === 1).forEach(v => {
     if (h.c >= v.a - TOL && h.c <= v.b + TOL && v.c >= h.a - TOL && v.c <= h.b + TOL) { const x = v.c, y = h.c; if (!junc.some(j => Math.hypot(j.x - x, j.y - y) < 100)) junc.push({ x, y }); }
   }));
@@ -8101,8 +8104,8 @@ function ufSkBuildE(runs, fit, sk) {
   runs.forEach(r => {
     const cuts = junc.filter(j => r.ori === 0 ? Math.abs(j.y - r.c) <= TOL && j.x >= r.a - TOL && j.x <= r.b + TOL : Math.abs(j.x - r.c) <= TOL && j.y >= r.a - TOL && j.y <= r.b + TOL).map(j => r.ori === 0 ? j.x : j.y).sort((p, q) => p - q);
     let start = r.a, startPost = false;
-    cuts.forEach(cp => { const end = cp - P; if (end - start >= 100) parts.push({ r, a: start, b: end, fa: startPost, fb: true }); start = cp + P; startPost = true; });
-    if (!cuts.length) parts.push({ r, a: r.a, b: r.b, fa: false, fb: false }); else if (r.b - start >= 100) parts.push({ r, a: start, b: r.b, fa: startPost, fb: false });
+    cuts.forEach((cp, i) => { const end = cp - P; if (end - start >= (i === 0 ? 400 : 100)) parts.push({ r, a: start, b: end, fa: startPost, fb: true }); start = cp + P; startPost = true; });      // krótka końcówka za narożnikiem (kreska wystaje) jest ucinana
+    if (!cuts.length) parts.push({ r, a: r.a, b: r.b, fa: false, fb: false }); else if (r.b - start >= 400) parts.push({ r, a: start, b: r.b, fa: startPost, fb: false });
   });
   let nStd = 0, nCus = 0, nDoor = 0;
   parts.forEach(pt => {
@@ -8122,10 +8125,22 @@ function ufSkBuildE(runs, fit, sk) {
     });
   });
   junc.forEach(j => pieces.push({ id: ufUid(), t: 'post', len: UF_T, x: j.x - P, y: j.y, dir: 0 }));
-  if (!pieces.length) return toast('Kreski są zbyt krótkie — narysuj dłuższe ściany', 'error');
-  ufPush(); UF.d.pieces = pieces; sk.lines = []; UF.skOn = false; UF.skDraft = null; UF.skHover = null; UF.sel = null; UF.vw = null;
+  return ufSkApply(pieces, { nStd, nCus, nDoor, nPost: junc.length }, fit, keepView);
+}
+// zastosowanie wyniku: rysunek ZOSTAJE (blady na planie), a pasek z suwakiem „Dopasowanie” przelicza układ po każdej zmianie
+const ufSkSig = () => JSON.stringify(UF.d.pieces.map(p => [p.id, p.x, p.y, p.len, p.t, p.dir, p.h, p.mode, p.size, p.bul, p.hinge, p.swing]));
+function ufSkApply(pieces, st, fit, keepView) {
+  const sk = ufSkData(); if (!pieces.length) return toast('Kreski są zbyt krótkie — narysuj dłuższe ściany', 'error');
+  ufPush(); UF.d.pieces = pieces; sk.gen = true; sk.bar = true; sk.sig = ufSkSig(); sk.fitApplied = fit;
+  sk.info = `${pieces.length - st.nPost} modułów · ${st.nStd} stand. · ${st.nDoor} drzwi · ${st.nCus} niestand.` + (st.nPost ? ` · ${st.nPost} słupków` : '');
+  UF.skOn = false; UF.skDraft = null; UF.skHover = null; UF.sel = null; if (!keepView) UF.vw = null;
   ufChanged();
-  toast(`Wygenerowano ${pieces.length - junc.length} modułów: ${nStd} standardowych, ${nDoor} drzwi, ${nCus} niestandardowych (żółte pulsujące na planie) i ${junc.length} słupków 80 × 80 w narożnikach i na stykach — dopasowanie „${UF_SK_FITS[fit]}”`, 'success', 9000);
+  if (!keepView) toast(`Wygenerowano: ${sk.info} — dopasowanie „${UF_SK_FITS[fit]}”. Suwak „Dopasowanie” nad stoiskiem przelicza układ od nowa.`, 'success', 8000);
+}
+async function ufSkRegen() {
+  const sk = ufSkData(); if (!sk.gen || !sk.lines.length || !UF.d.pieces.length) return;
+  if (ufSkSig() !== sk.sig && !await confirmBox('Moduły były zmieniane ręcznie — zmiana dopasowania ułoży je od nowa z rysunku i te zmiany znikną. Kontynuować?', 'Ułóż od nowa')) { sk.fit = sk.fitApplied == null ? 1 : sk.fitApplied; ufSkSync(); return; }
+  ufSkGenerate(true);
 }
 function ufSkContext(e) {       // prawy klawisz na kresce usuwa ją
   e.preventDefault(); const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 14 / UF.tr.s, sk = ufSkData(); let bi = -1, bd = tol;
@@ -8154,14 +8169,18 @@ function ufSkInit() {
     if (Math.hypot(dr.b[0] - dr.a[0], dr.b[1] - dr.a[1]) >= 200) { ufSkData().lines.push({ t: UF.skTool || 'w', p: [dr.a, dr.b] }); ufChanged(); } else ufDraw(true);
   };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  $('uf-sketch').onclick = () => UF.skOn ? ufSkOff() : ufSkOn();
+  $('uf-sketch').onclick = () => { const sk = ufSkData(); if (UF.skOn) ufSkOff(); else if (sk.gen && UF.d.pieces.length) { sk.bar = sk.bar === false; ufSkSync(); ufSkBtn(); } else ufSkOn(); };
   $('uf-sk').querySelectorAll('[data-skt]').forEach(b => b.onclick = () => { UF.skTool = b.dataset.skt; ufSkSync(); });
   $('uf-sk-go').onclick = ufSkGenerate;
-  $('uf-sk-fit').oninput = e => { ufSkData().fit = +e.target.value; ufSkSync(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800); };
+  $('uf-sk-fit').oninput = e => { const sk = ufSkData(); sk.fit = +e.target.value; ufSkSync(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800); if (sk.gen && UF.d.pieces.length) { clearTimeout(UF.skT); UF.skT = setTimeout(ufSkRegen, 220); } };
   $('uf-sk-mag').onchange = e => { ufSkData().magnet = e.target.checked; clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800); };
   $('uf-sk-undo').onclick = ufSkUndo;
   $('uf-sk-clr').onclick = async () => { const sk = ufSkData(); if (!sk.lines.length) return; if (await confirmBox('Wyczyścić wszystkie narysowane kreski?', 'Wyczyść')) { sk.lines = []; ufChanged(); } };
-  $('uf-sk-x').onclick = ufSkOff;
+  $('uf-sk-x').onclick = () => { const sk = ufSkData(); if (!UF.skOn && sk.gen) { sk.bar = false; ufSkSync(); ufSkBtn(); } else ufSkOff(); };
+  $('uf-sk-edit').onclick = async () => {
+    if (!await confirmBox('Wrócić do rysowania? Ułożone moduły zostaną usunięte (rysunek zostaje).', 'Wróć do rysunku')) return;
+    const sk = ufSkData(); ufPush(); UF.d.pieces = []; sk.gen = false; UF.skOn = true; UF.skTool = 'w'; ufChanged();
+  };
 }
 function ufDraw(light) {
   const cv = $('uf-cv'); if (!cv || !UF.open) return;
