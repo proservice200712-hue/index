@@ -688,6 +688,14 @@
   .bleed-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 0.85rem; }
   .bleed-row .bl-i { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .fld .bleed-row input { width: 80px; padding: 6px 8px; border: 1.5px solid var(--line); }
+  .hw-tiles { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }
+  .hw-t img { width: 58px; height: 58px; object-fit: contain; display: block; }
+  .hw-len { margin: 6px 0; font-size: .85rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .hw-len input { width: 90px; padding: 5px 7px; border: 1.5px solid var(--line); }
+  .hw-more { margin-top: 8px; font-size: .84rem; } .hw-more summary { cursor: pointer; font-weight: 600; color: #4a5568; }
+  .hw-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .hw-row img { width: 40px; height: 40px; object-fit: contain; flex: none; } .hw-row > span { flex: 1; min-width: 0; }
+  .hw-row input { width: 62px; padding: 4px 6px; border: 1.5px solid var(--line); } .hw-row small { color: var(--gray); }
   .door-fld { border-left: 3px solid #3182ce; padding-left: 10px; margin-bottom: 12px; }
   .door-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
   .rp-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; font: inherit; cursor: pointer; text-align: left; }
@@ -2507,6 +2515,44 @@ const isHang = el => el.typeId === 'podwieszana';
 const HANG_PROFILES = [['r32', 'Okrągły 32 mm', 0], ['t50', 'T 50 mm', 50], ['ef80', 'EF 80 mm', 80]];
 const hangProf = el => HANG_PROFILES.find(p => p[0] === el.prof) || HANG_PROFILES[0];
 const hangInset = el => hangProf(el)[2];
+// osprzęt do podwieszenia: elementy (numer, nazwa, plik kafelka, czy to linka — wtedy ma długość) i zestawy; domyślnie opcja 2
+const HW_ITEMS = [
+  ['01.01.24', 'Waleczek z uchem mały', 'hw-01-01-24.png', false],
+  ['01.06.24', 'Ogniwo z nakrętką 4mm atestowane', 'hw-01-06-24.png', false],
+  ['01.07.24', 'Linka Ø2 pętla', 'hw-01-07-24.png', true],
+  ['01.08.24', 'Ślizgacz linkowy ZIP-CLIP 50kg na linę 2mm', 'hw-01-08-24.png', false],
+  ['01.09.24', 'Linka Ø3 pętla z kauszą', 'hw-01-09-24.png', true],
+  ['01.10.24', 'Ślizgacz linkowy reutlinger type 30 V Ring 85kg na linę 3mm', 'hw-01-10-24.png', false],
+];
+const HW_KITS = [['k1', 'Opcja 1', ['01.01.24', '01.06.24', '01.07.24', '01.08.24']], ['k2', 'Opcja 2', ['01.01.24', '01.06.24', '01.09.24', '01.10.24']]];
+const hwDefault = () => ({ kit: 'k2', len: 0, items: {} });
+function hwClean(hw) {
+  if (!hw) return null;
+  const items = {}; Object.entries(hw.items || {}).forEach(([c, v]) => { const q = Math.max(0, Math.floor(Number(v && v.q) || 0)); if (q > 0 && HW_ITEMS.some(i => i[0] === c)) items[c] = { q, len: Number(v.len) || 0 }; });
+  return { kit: HW_KITS.some(k => k[0] === hw.kit) ? hw.kit : '', len: Number(hw.len) || 0, items };
+}
+// lista do eksportu: elementy zestawu (po 1; linka z długością zestawu) + pojedyncze dodatkowe (z ilością i własną długością linki)
+function hwList(el) {
+  const hw = el && el.hw; if (!hw) return [];
+  const map = new Map(), add = (c, q, len) => { const k = map.get(c) || { q: 0, len: 0 }; k.q += q; if (len) k.len = len; map.set(c, k); };
+  const kit = HW_KITS.find(k => k[0] === hw.kit);
+  if (kit) kit[2].forEach(c => add(c, 1, HW_ITEMS.find(i => i[0] === c)[3] ? Number(hw.len) || 0 : 0));
+  Object.entries(hw.items || {}).forEach(([c, v]) => { const q = Math.max(0, Math.floor(Number(v && v.q) || 0)); if (q > 0 && HW_ITEMS.some(i => i[0] === c)) add(c, q, Number(v.len) || 0); });
+  return HW_ITEMS.filter(i => map.has(i[0])).map(i => ({ code: i[0], name: i[1], src: 'pod/' + i[2], cable: i[3], q: map.get(i[0]).q, len: map.get(i[0]).len }));
+}
+const hwOk = el => hwList(el).length > 0;
+function hwHtml(el) {
+  const hw = el.hw, kit = HW_KITS.find(k => k[0] === hw.kit), list = hwList(el), nExtra = Object.values(hw.items || {}).filter(v => v && v.q > 0).length;
+  const tile = c => { const it = HW_ITEMS.find(i => i[0] === c); return `<span class="hw-t" title="${esc(c + ' · ' + it[1])}"><img src="pod/${it[2]}" alt=""></span>`; };
+  return `<div class="fld hw-fld" style="margin-top:12px"><label>Osprzęt podwieszenia *</label>
+    <div class="var-list">${HW_KITS.map(([id, n]) => `<button type="button" class="type-btn var-btn ${hw.kit === id ? 'on' : ''}" data-hkit="${id}">${n}${id === 'k2' ? ' (domyślna)' : ''}</button>`).join('')}<button type="button" class="type-btn var-btn ${!hw.kit ? 'on' : ''}" data-hkit="">Bez zestawu — same pojedyncze elementy</button></div>
+    ${kit ? `<div class="hw-tiles">${kit[2].map(tile).join('')}</div>
+      <div class="hw-len">Długość linki <input type="number" id="ed-hwlen" min="0" step="${unitStep()}" value="${esc(hw.len ? fromMM(hw.len) : '')}" placeholder="np. 150"> ${UNIT()} <span class="hint" style="margin:0">(pokaże się pod linką w eksporcie)</span></div>` : ''}
+    <details class="hw-more" ${nExtra ? 'open' : ''}><summary>Pojedyncze elementy — dodaj dodatkowo</summary>
+      ${HW_ITEMS.map(([c, n, f, cable]) => { const v = (hw.items || {})[c] || {}; return `<div class="hw-row"><img src="pod/${f}" alt=""><span><b>${c}</b> ${esc(n)}</span><input type="number" min="0" step="1" data-hwq="${c}" value="${v.q || 0}" title="Ilość sztuk">${cable ? `<input type="number" min="0" step="${unitStep()}" data-hwl="${c}" value="${esc(v.len ? fromMM(v.len) : '')}" placeholder="dł." title="Długość linki [${UNIT()}]"><small>${UNIT()}</small>` : ''}</div>`; }).join('')}
+    </details>
+    ${list.length ? '' : '<div class="hint" style="color:#c53030;font-weight:600">⚠ Wybierz opcję albo dodaj choć jeden element — bez tego podwieszenia nie da się zatwierdzić.</div>'}</div>`;
+}
 // płaszczyzny zadruku wewnątrz: z wymiaru zewnętrznego odjęta grubość profilu po obu stronach (szerokość i głębokość / średnica)
 function planeBaseIn(el, base) {
   const t = hangInset(el); if (!t) return base;
@@ -2555,7 +2601,7 @@ const planeName = p => p.label + (p.side ? ' ' + p.side : '');
 const qtyOf = e => isHang(e) && e.variant === 'inny' ? 1 : Math.max(1, Number(e.qty) || 1);
 // pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
 const hangFields = d => isHang(d)
-  ? { prof: hangProf(d)[0], viz: d.viz ? { strut: Number(d.viz.strut) || 1000, cabMode: d.viz.cabMode || 'point', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
+  ? { prof: hangProf(d)[0], hw: hwClean(d.hw), viz: d.viz ? { strut: Number(d.viz.strut) || 1000, cabMode: d.viz.cabMode || 'point', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
       pthumbs: (d.pthumbs || []).slice(0, (planesOf(d) || []).length) }
   : { hbMode: '', hbSides: null, pthumbs: [] };
 // obrazek ze schowka (null, gdy brak / brak zgody)
@@ -5465,7 +5511,11 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
     const N = 120, th = i => i * 2 * Math.PI / N, nd = a => Math.sin(a + ang), pt3 = (a, z) => T(cx + R * Math.cos(a), cy + R * Math.sin(a), z);
     const ring = (z, front) => { g.beginPath(); let st = false; for (let i = 0; i <= N; i++) { const a = th(i); if ((nd(a) > 0) !== front) { st = false; continue; } const [x, y] = pt3(a, z); st ? g.lineTo(x, y) : g.moveTo(x, y); st = true; }
       g.strokeStyle = '#4a5568'; g.lineWidth = lw + 3; g.stroke(); g.strokeStyle = '#cfd5dd'; g.lineWidth = lw; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = Math.max(1, lw * 0.25); g.stroke(); };
-    const nStr = Math.max(4, Math.min(80, Math.round(Math.PI * W / strutStep))), strutAt = a => flatStrut([cx + R * Math.cos(a), cy + R * Math.sin(a)], [-Math.sin(a), Math.cos(a)]);
+    const nStr = Math.max(4, Math.min(80, Math.round(Math.PI * W / strutStep))), strutAt = a => {       // rozpórka wygięta: w połowie wysokości lekko cofnięta do środka (wklęsła)
+      const dl = Math.min(70, H * 0.12), fw = 20, tx = -Math.sin(a), ty = Math.cos(a), N2 = 14, Lp = [], Rp = [];
+      for (let k = 0; k <= N2; k++) { const z = H * k / N2, rr = R - dl * Math.sin(Math.PI * k / N2), x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a); Lp.push(T(x - tx * fw, y - ty * fw, z)); Rp.push(T(x + tx * fw, y + ty * fw, z)); }
+      poly([...Lp, ...Rp.reverse()], '#e4e8ed', '#5b6678');
+    };
     const struts = Array.from({ length: nStr }, (_, k) => k * 2 * Math.PI / nStr + 0.12);
     const seg = (i, front) => {
       const a0 = th(i), a1 = th(i + 1), am = (a0 + a1) / 2; if ((nd(am) > 0) !== front) return;
@@ -5724,6 +5774,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     if (t && t.id === 'podwieszana') h += `<div class="fld" style="margin-top:12px"><label>Profil konstrukcji</label><div class="var-list">${HANG_PROFILES.map(([id, n]) => `<button type="button" class="type-btn var-btn ${hangProf(el)[0] === id ? 'on' : ''}" data-prof="${id}">${n}</button>`).join('')}</div>
         <div class="hint">${hangInset(el) ? `Wymiar wewnętrzny (zadruk wewnątrz) = zewnętrzny − 2 × ${lenPL(hangInset(el))} ${UNIT()} (grubość profilu) w szerokości i głębokości, wysokość bez zmian. Domyślnie bez spadów.` : 'Profil okrągły 32 mm: zadruk wewnątrz w tym samym wymiarze co zewnętrzny.'}</div></div>`;
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, z takim samym spadem)</span></span></label>`;
+    if (t && t.id === 'podwieszana') { if (!el.hw) el.hw = hwDefault(); h += hwHtml(el); }
     if (t && t.id === 'podwieszana') {
       if (!el.hbMode) { const k0 = hangBleed(el); el.hbMode = hangBleedAny(k0) ? 'custom' : 'none'; if (el.hbMode === 'custom') el.hbSides = { ...k0 }; }
       hb = `<div class="fld bleed-fld" style="margin-top:12px"><label>Spady (zadruk zewnętrzny)</label><div class="var-list">
@@ -5766,6 +5817,10 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     $('ed-doorslot').querySelectorAll('input[data-dbl]').forEach(i => i.addEventListener('input', () => { el.door.bleed[i.dataset.dbl] = toMM(i.value); refresh(); }));
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
+    $('ed-opts').querySelectorAll('[data-hkit]').forEach(b => b.onclick = () => { el.hw = el.hw || hwDefault(); el.hw.kit = b.dataset.hkit; renderOpts(); refresh(); });
+    const hwl = $('ed-hwlen'); if (hwl) hwl.addEventListener('input', () => { el.hw.len = toMM(hwl.value) || 0; });
+    $('ed-opts').querySelectorAll('input[data-hwq]').forEach(i => i.addEventListener('change', () => { const c = i.dataset.hwq; el.hw.items = el.hw.items || {}; el.hw.items[c] = { ...(el.hw.items[c] || {}), q: Math.max(0, Math.floor(Number(i.value) || 0)) }; renderOpts(); }));
+    $('ed-opts').querySelectorAll('input[data-hwl]').forEach(i => i.addEventListener('input', () => { const c = i.dataset.hwl; el.hw.items = el.hw.items || {}; el.hw.items[c] = { q: 0, ...(el.hw.items[c] || {}), len: toMM(i.value) || 0 }; }));
     $('ed-opts').querySelectorAll('[data-prof]').forEach(b => b.onclick = () => {
       el.prof = b.dataset.prof;
       if (hangInset(el)) { el.hbMode = 'none'; el.hbSides = null; }      // T i EF: domyślnie bez spadów (można zmienić niżej)
@@ -6058,6 +6113,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     // wysłona zamieniona na zwykły element dostaje nową, wolną literę
     if (editing && isWys(editing) && !isWys(d)) d.num = nextNum(editing.id);
     if (!d.typeId) return toast('Wybierz typ elementu', 'error');
+    if (isHang(d) && !hwOk(d)) return toast('Podwieszenie: wybierz opcję osprzętu (Opcja 1 / 2) albo dodaj choć jeden element — bez tego nie można zatwierdzić', 'error', 6000);
     $('ed-ok').disabled = true;
     const pid = S.project.id;
     try {
@@ -9715,6 +9771,8 @@ async function renderIndexA3(stamp) {
     for (const [i, q] of (planesOf(r.el) || []).entries()) if (q.thumb) { try { pthumbs[r.el.id + '#' + i] = await loadImg(q.thumb); } catch (e) {} }
     if (r.el.inside && r.el.thumbIn) { try { thumbs[r.el.id + '#in'] = await loadImg(r.el.thumbIn); } catch (e) {} }
   }
+  const hwImgs = {};          // kafelki osprzętu i obrazek użytego profilu (podwieszenia)
+  for (const r of rows) if (isHang(r.el) && r.w !== '') for (const sr of ['pod/prof-' + hangProf(r.el)[0] + '.png', ...hwList(r.el).map(i => i.src)]) if (!(sr in hwImgs)) { try { hwImgs[sr] = await loadImg(sr); } catch (e) { hwImgs[sr] = null; } }
   const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24;
   const withD = rows.filter(r => r.w !== '');
   const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
@@ -9728,14 +9786,16 @@ async function renderIndexA3(stamp) {
     const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0, hpInRows = hpIn.length ? (hpIn.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0;
     const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? (hpIn.length ? FH + 106 + hpRows * 46 + (hpInRows - 1) * 46 : 14 + hpRows * 46) : gb ? 88 : 48;
     const qw = (r.qty || 1) > 1 ? 110 : 0;
-    const w = Math.max(LM + FW + 10 + qw, 230);
+    const hwOn = isHang(r.el) && d, hwL = hwOn ? hwList(r.el) : [], hpim = hwOn ? hwImgs['pod/prof-' + hangProf(r.el)[0] + '.png'] : null, hwH = hwOn ? 168 : 0;
+    const hwW = hwOn ? (hpim ? hpim.width / hpim.height * 120 : 60) + 44 + hwL.length * 112 : 0;
+    const w = Math.max(LM + FW + 10 + qw, 230, hwW);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
     const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ, w - 56, 3);
     g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
     const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
     const head = 20 + title.length * 34;
     const notes = (!d ? 40 : dimsMode(r.el) !== 'flat' ? 36 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
-    return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes, title, nlines, head };
+    return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes + hwH, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
   };
   // okienka w rzędach (kolejność: alfabetycznie albo od najwyższych — co lepiej wypełnia arkusz)
   // okienka po kolei (A, B, C… / 1, 2, 3…) w rzędach; obs = blok wizek u góry — rzędy obok niego go omijają
@@ -9963,6 +10023,18 @@ async function renderIndexA3(stamp) {
         g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
         const ny = fy + FH + BM + (!d ? 72 : dimsMode(r.el) !== 'flat' ? 62 : 30);
         cd.nlines.forEach((ln, i) => g.fillText(ln, bx, ny + i * 30));
+      }
+      if (cd.hw) {       // na dole: najpierw rodzaj użytego profilu, obok kafelki osprzętu do podwieszenia (bez numerów i opisów; linka — z długością)
+        const ty = by + cd.h - cd.hwH + 24; let tx = bx;
+        const pim = cd.hw.pim; if (pim) { const ph = 120, pw = pim.width / pim.height * ph; g.drawImage(crispCanvas(pim, pw * EXP_Q, ph * EXP_Q) || pim, tx, ty, pw, ph); tx += pw + 16; }
+        g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.beginPath(); g.moveTo(tx, ty + 4); g.lineTo(tx, ty + 116); g.stroke(); tx += 18;
+        cd.hw.items.forEach(it => {
+          const im = hwImgs[it.src];
+          if (im) g.drawImage(im, tx, ty, 100, 100 * im.height / im.width);
+          if (it.q > 1) { g.fillStyle = '#1a202c'; g.font = `800 ${FS}px ${PDF_FONT}`; g.textAlign = 'right'; g.fillText('×' + it.q, tx + 100, ty + 24); g.textAlign = 'left'; }
+          if (it.cable && it.len) { g.fillStyle = '#2d3748'; g.font = `700 ${FS * .85}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(it.len) + ' ' + UNIT(), tx + 50, ty + 128); g.textAlign = 'left'; }
+          tx += 112;
+        });
       }
     }
   }
