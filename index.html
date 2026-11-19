@@ -8064,23 +8064,33 @@ function ufSkGenerate(keepView) {
     });
   });
   if (!ufK()) return ufSkBuildE(runs, fit, sk, keepView);        // EasyFrame: w narożnikach i na stykach stoją słupki
-  // 4. narożniki i styki: ściana przelotowa (dłuższa; przy równych — pozioma) sięga do zewnętrznego lica, dolegająca kończy się na jej licu
+  // 4. narożniki i styki: zaplecze (krótsza ściana; przy równych — pozioma) wchodzi w narożnik aż do zewnętrznego lica, a ściana główna kończy się na jej licu i przesuwa moduły (jak na szkicu)
   const len = r => r.b - r.a;
-  runs.forEach(r => { r.ea = r.a; r.eb = r.b; r.butt = false; });
-  runs.forEach(r => [['ea', r.a, -1], ['eb', r.b, 1]].forEach(([k, v, sg]) => {
-    const q = runs.find(q => q.ori !== r.ori && Math.abs(q.c - v) <= TOL && r.c >= q.a - TOL && r.c <= q.b + TOL); if (!q) return;
-    const interior = r.c > q.a + TOL && r.c < q.b - TOL;
-    const through = interior ? false : (len(r) > len(q) + 1 ? true : len(r) < len(q) - 1 ? false : r.ori === 0);
-    if (through) r[k] = q.c + sg * T / 2; else { r[k] = q.c - sg * T / 2; r.butt = true; }
-    r[k === 'ea' ? 'fixA' : 'fixB'] = true;
-  }));
-  // 5. moduły na odcinku
-  const pieces = []; let nStd = 0, nCus = 0, nDoor = 0;
+  runs.forEach(r => { r.ea = r.a; r.eb = r.b; r.butt = false; r.cuts = []; });
+  const hit = (r, v) => runs.find(q => q.ori !== r.ori && Math.abs(q.c - v) <= TOL && r.c >= q.a - TOL && r.c <= q.b + TOL);
   runs.forEach(r => {
-    const L = r.eb - r.ea; if (L < 100) return;
-    const mods = ufSkMods(L, fit, (r.fixA ? 1 : 0) + (r.fixB ? 1 : 0), UF_KW).map(l => ({ len: l, door: false })), tot = mods.reduce((a2, m) => a2 + m.len, 0), st0 = r.fixB && !r.fixA ? r.eb - tot : r.ea;
+    const qa = hit(r, r.a), qb = hit(r, r.b), closed = !!(qa && qb);          // zamknięta = oba końce opierają się o ściany (bok pokoju / zaplecza)
+    [['ea', r.a, -1, qa], ['eb', r.b, 1, qb]].forEach(([k, v, sg, q]) => {
+      if (!q) return;
+      const interior = r.c > q.a + TOL && r.c < q.b - TOL;
+      // narożnik: krótsza ściana wchodzi do zewnętrznego lica; styk w środku dłuższej ściany: bok zaplecza przecina ją i dzieli na dwie części
+      const through = interior ? (closed && len(r) < len(q) - 1) : (len(r) < len(q) - 1 ? true : len(r) > len(q) + 1 ? false : r.ori === 0);
+      if (through) { r[k] = q.c + sg * T / 2; if (interior) q.cuts.push(r.c); } else { r[k] = q.c - sg * T / 2; r.butt = true; }
+      r[k === 'ea' ? 'fixA' : 'fixB'] = true;
+    });
+  });
+  // 5. moduły na odcinkach (ściana przecięta przez zaplecze = dwa odcinki, moduły liczone od lica zaplecza)
+  const pieces = []; let nStd = 0, nCus = 0, nDoor = 0, parts = [];
+  runs.forEach(r => {
+    let start = r.ea, fa = !!r.fixA;
+    r.cuts.sort((p, q) => p - q).forEach(c => { const end = c - T / 2; if (end - start >= 100) parts.push({ r, a: start, b: end, fa, fb: true }); start = c + T / 2; fa = true; });
+    if (r.eb - start >= 100) parts.push({ r, a: start, b: r.eb, fa, fb: !!r.fixB });
+  });
+  parts.forEach(pt => {
+    const r = pt.r, L = pt.b - pt.a; if (L < 100) return;
+    const mods = ufSkMods(L, fit, (pt.fa ? 1 : 0) + (pt.fb ? 1 : 0), UF_KW).map(l => ({ len: l, door: false })), tot = mods.reduce((a2, m) => a2 + m.len, 0), st0 = pt.fb && !pt.fa ? pt.b - tot : pt.a;
     let pos = st0; const cen = mods.map(m => { const c = pos + m.len / 2; pos += m.len; return c; });
-    r.doors.forEach(dc => {
+    r.doors.filter(dc => dc >= pt.a - 100 && dc <= pt.b + 100).forEach(dc => {
       let bi = -1, bd = Infinity; mods.forEach((m, i) => { if (!m.door && Math.abs(m.len - UF_KW) < 1 && Math.abs(cen[i] - dc) < bd) { bd = Math.abs(cen[i] - dc); bi = i; } });
       if (bi >= 0) mods[bi].door = true;
     });
