@@ -691,11 +691,14 @@
   .hw-tiles { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }
   .hw-t img { width: 58px; height: 58px; object-fit: contain; display: block; }
   .hw-len { margin: 6px 0; font-size: .85rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .hw-len input { width: 90px; padding: 5px 7px; border: 1.5px solid var(--line); }
+  .hw-len input { width: 90px !important; padding: 5px 7px; border: 1.5px solid var(--line); }
   .hw-more { margin-top: 8px; font-size: .84rem; } .hw-more summary { cursor: pointer; font-weight: 600; color: #4a5568; }
-  .hw-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
-  .hw-row img { width: 40px; height: 40px; object-fit: contain; flex: none; } .hw-row > span { flex: 1; min-width: 0; }
-  .hw-row input { width: 62px; padding: 4px 6px; border: 1.5px solid var(--line); } .hw-row small { color: var(--gray); }
+  .hw-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+  .hw-row { display: grid; grid-template-columns: 42px 1fr; gap: 4px 8px; align-items: start; border: 1px solid var(--line); padding: 6px; min-width: 0; }
+  .hw-row img { width: 42px; height: 42px; object-fit: contain; } .hw-row .hw-n { min-width: 0; line-height: 1.25; } .hw-row .hw-n b { display: block; } .hw-row .hw-n span { font-size: .76rem; color: #4a5568; word-break: break-word; }
+  .hw-row .hw-in { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .hw-list .hw-row input[type=number] { width: 66px !important; max-width: 66px; padding: 4px 6px; border: 1.5px solid var(--line); flex: none; } .hw-row small { color: var(--gray); }
+  @media (max-width: 620px) { .hw-list { grid-template-columns: 1fr; } }
   .door-fld { border-left: 3px solid #3182ce; padding-left: 10px; margin-bottom: 12px; }
   .door-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
   .rp-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; font: inherit; cursor: pointer; text-align: left; }
@@ -2109,6 +2112,7 @@ function mergeUsers(dbUsers) {
 }
 const userById = id => S.users.find(u => u.id === id);
 const userLabel = id => { const u = userById(id); return u ? u.login : (id || '?').toUpperCase(); };
+const userFullName = id => { const u = userById(id); return u ? (u.name || u.login) : ''; };
 // kółko awatara: zdjęcie, a gdy go nie ma — inicjały (KG, DM…) na kolorze użytkownika
 function avatarInner(u) {
   return u && u.avatar ? `<img src="${esc(thumbUrl(u.avatar, 160, 160))}" alt="">` : esc((u ? u.login : '?').slice(0, 3));
@@ -2549,7 +2553,7 @@ function hwHtml(el) {
     ${kit ? `<div class="hw-tiles">${kit[2].map(tile).join('')}</div>
       <div class="hw-len">Długość linki <input type="number" id="ed-hwlen" min="0" step="${unitStep()}" value="${esc(hw.len ? fromMM(hw.len) : '')}" placeholder="np. 150"> ${UNIT()} <span class="hint" style="margin:0">(pokaże się pod linką w eksporcie)</span></div>` : ''}
     <details class="hw-more" ${nExtra ? 'open' : ''}><summary>Pojedyncze elementy — dodaj dodatkowo</summary>
-      ${HW_ITEMS.map(([c, n, f, cable]) => { const v = (hw.items || {})[c] || {}; return `<div class="hw-row"><img src="pod/${f}" alt=""><span><b>${c}</b> ${esc(n)}</span><input type="number" min="0" step="1" data-hwq="${c}" value="${v.q || 0}" title="Ilość sztuk">${cable ? `<input type="number" min="0" step="${unitStep()}" data-hwl="${c}" value="${esc(v.len ? fromMM(v.len) : '')}" placeholder="dł." title="Długość linki [${UNIT()}]"><small>${UNIT()}</small>` : ''}</div>`; }).join('')}
+      <div class="hw-list">${HW_ITEMS.map(([c, n, f, cable]) => { const v = (hw.items || {})[c] || {}; return `<div class="hw-row"><img src="pod/${f}" alt=""><div class="hw-n"><b>${c}</b><span>${esc(n)}</span></div><div class="hw-in"><input type="number" min="0" step="1" data-hwq="${c}" value="${v.q || 0}" title="Ilość sztuk"> <small>szt.</small>${cable ? `<input type="number" min="0" step="${unitStep()}" data-hwl="${c}" value="${esc(v.len ? fromMM(v.len) : '')}" placeholder="dł." title="Długość linki [${UNIT()}]"><small>${UNIT()}</small>` : ''}</div></div>`; }).join('')}</div>
     </details>
     ${list.length ? '' : '<div class="hint" style="color:#c53030;font-weight:600">⚠ Wybierz opcję albo dodaj choć jeden element — bez tego podwieszenia nie da się zatwierdzić.</div>'}</div>`;
 }
@@ -9559,10 +9563,10 @@ function exportRows() {
 }
 function exportCsv(name) {
   const u = UNIT();
-  const head = ['Znak', 'Wizka', 'Typ', 'Opis', `Wymiar netto [${u}]`, `Szer. / średnica [${u}]`, `Głęb. [${u}]`, `Wys. netto [${u}]`, `Spad [${u}/str.]`, `Szer. do druku [${u}]`, `Wys. do druku [${u}]`, 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
+  const head = ['Stoisko', 'Targi', 'Miejscowość', 'Znak', 'Wizka', 'Typ', 'Opis', `Wymiar netto [${u}]`, `Szer. / średnica [${u}]`, `Głęb. [${u}]`, `Wys. netto [${u}]`, `Spad [${u}/str.]`, `Szer. do druku [${u}]`, `Wys. do druku [${u}]`, 'Ilość', 'm² do druku', 'Uwagi', 'Kto'];
   const q = v => { const s = String(v == null ? '' : v); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const num = v => v === '' ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
-  const lines = [head.join(';')].concat(exportRows().map(r => [r.znak, r.wizka, r.typ, r.opis, r.net, num(fromMM(r.w)), num(fromMM(r.d)), num(fromMM(r.h)), num(fromMM(r.spad)), num(fromMM(r.bw)), num(fromMM(r.bh)), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
+  const lines = [head.join(';')].concat(exportRows().map(r => [S.project.name, S.project.fair || '', S.project.city || '', r.znak, r.wizka, r.typ, r.opis, r.net, num(fromMM(r.w)), num(fromMM(r.d)), num(fromMM(r.h)), num(fromMM(r.spad)), num(fromMM(r.bw)), num(fromMM(r.bh)), r.qty, r.m2 === '' ? '' : num(r.m2), r.uwagi, r.kto].map(q).join(';')));
   download(name, new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
   addLog(S.project.id, 'Wyeksportowano listę elementów (Excel/CSV)');
 }
@@ -9682,8 +9686,10 @@ function pageHeader(g, PW, PH, logo, sub, stamp, sc) {
   let x = 40 * sc;
   if (logo) { const lh = 58 * sc, lw = logo.width * lh / logo.height; g.drawImage(logo, x, 26 * sc, lw, lh); x += lw + 40 * sc; }
   g.fillStyle = '#fff'; g.font = `700 ${44 * sc}px ${PDF_FONT}`; g.fillText('INDEX', x, 72 * sc); x += g.measureText('INDEX').width + 30 * sc;
-  g.font = `600 ${34 * sc}px ${PDF_FONT}`;
-  g.fillText(fitText(g, p.name + (p.fair ? '  ·  ' + p.fair : '') + (p.city ? ', ' + p.city : ''), PW * 0.5), x, 70 * sc);
+  g.font = `600 ${34 * sc}px ${PDF_FONT}`;       // dwa wiersze: jakie stoisko, na jakie targi, w jakiej miejscowości
+  const where = [p.fair ? TT('Targi', 'Виставка', 'Fair') + ': ' + p.fair : '', p.city ? TT('Miejscowość', 'Місто', 'City') + ': ' + p.city : ''].filter(Boolean).join('   ·   ');
+  g.fillText(fitText(g, TT('Stoisko', 'Стенд', 'Stand') + ': ' + p.name, PW * 0.5), x, (where ? 56 : 70) * sc);
+  if (where) { g.font = `400 ${25 * sc}px ${PDF_FONT}`; g.fillStyle = '#cbd5e0'; g.fillText(fitText(g, where, PW * 0.5), x, 94 * sc); g.fillStyle = '#fff'; }
   g.textAlign = 'right';
   let rx = PW - 40 * sc;
   if (stamp) { // pieczątka wersji jak w indeksach z Corela
@@ -9773,6 +9779,29 @@ async function renderIndexA3(stamp) {
   }
   const hwImgs = {};          // kafelki osprzętu i obrazek użytego profilu (podwieszenia)
   for (const r of rows) if (isHang(r.el) && r.w !== '') for (const sr of ['pod/prof-' + hangProf(r.el)[0] + '.png', ...hwList(r.el).map(i => i.src)]) if (!(sr in hwImgs)) { try { hwImgs[sr] = await loadImg(sr); } catch (e) { hwImgs[sr] = null; } }
+  // osprzęt podwieszenia obok pierwszej wizualizacji danej konstrukcji: profil, kafelki w dwóch kolumnach (o 75 % większe), na końcu kto przygotował rysunek
+  const HWB_T = 175, HWB_GP = 16, HWB_W = 2 * HWB_T + HWB_GP + 40, blkOf = new Map(), vizEls = new Set();
+  imgs.forEach((o, i) => { const he = hangElOfPhoto(o.ph.id); if (he && !vizEls.has(he.id) && rows.some(r => r.el.id === he.id && r.w !== '')) { vizEls.add(he.id); blkOf.set(i, { el: he, ph: o.ph }); } });
+  const extraW = blkOf.size * HWB_W;
+  const drawHwBlock = (bk, x0, y0, Hh) => {
+    const items = hwList(bk.el), pim = hwImgs['pod/prof-' + hangProf(bk.el)[0] + '.png'], inner = 2 * HWB_T + HWB_GP;
+    const prW = pim ? Math.min(inner, pim.width / pim.height * 210) : 0, prH = pim ? 210 : 0, rowsN = Math.ceil(items.length / 2), gridH = rowsN * (HWB_T + 46);
+    const who = userFullName(bk.ph.createdBy || (S.me && S.me.id)); g.font = `600 26px ${PDF_FONT}`;
+    const txt = who ? wrapCanvas(g, TT('Rysunek przygotował', 'Малюнок підготував', 'Drawing prepared by') + ': ' + who, inner, 3) : [];
+    const need = (pim ? prH + 40 : 0) + gridH + (txt.length ? 24 + txt.length * 34 : 0), bs = Math.min(1, Hh / Math.max(1, need));
+    g.save(); g.translate(x0 + 24, y0); g.scale(bs, bs);
+    let cy = 0;
+    if (pim) { g.drawImage(crispCanvas(pim, prW * EXP_Q, prH * EXP_Q) || pim, 0, 0, prW, prH); cy = prH + 14; g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, cy); g.lineTo(inner, cy); g.stroke(); cy += 26; }
+    items.forEach((it, i) => {
+      const tx = (i % 2) * (HWB_T + HWB_GP), ty = cy + Math.floor(i / 2) * (HWB_T + 46), im = hwImgs[it.src];
+      if (im) g.drawImage(im, tx, ty, HWB_T, HWB_T * im.height / im.width);
+      if (it.q > 1) { g.fillStyle = '#1a202c'; g.font = `800 34px ${PDF_FONT}`; g.textAlign = 'right'; g.fillText('×' + it.q, tx + HWB_T - 6, ty + 36); g.textAlign = 'left'; }
+      if (it.cable && it.len) { g.fillStyle = '#2d3748'; g.font = `700 28px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(it.len) + ' ' + UNIT(), tx + HWB_T / 2, ty + HWB_T + 34); g.textAlign = 'left'; }
+    });
+    cy += gridH;
+    if (txt.length) { g.fillStyle = '#4a5568'; g.font = `italic 600 26px ${PDF_FONT}`; txt.forEach((ln, i) => g.fillText(ln, 0, cy + 30 + i * 34)); }
+    g.restore();
+  };
   const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24;
   const withD = rows.filter(r => r.w !== '');
   const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
@@ -9786,7 +9815,7 @@ async function renderIndexA3(stamp) {
     const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0, hpInRows = hpIn.length ? (hpIn.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0;
     const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? (hpIn.length ? FH + 106 + hpRows * 46 + (hpInRows - 1) * 46 : 14 + hpRows * 46) : gb ? 88 : 48;
     const qw = (r.qty || 1) > 1 ? 110 : 0;
-    const hwOn = isHang(r.el) && d, hwL = hwOn ? hwList(r.el) : [], hpim = hwOn ? hwImgs['pod/prof-' + hangProf(r.el)[0] + '.png'] : null, hwH = hwOn ? 168 : 0;
+    const hwOn = isHang(r.el) && d && !vizEls.has(r.el.id), hwL = hwOn ? hwList(r.el) : [], hpim = hwOn ? hwImgs['pod/prof-' + hangProf(r.el)[0] + '.png'] : null, hwH = hwOn ? 168 : 0;
     const hwW = hwOn ? (hpim ? hpim.width / hpim.height * 120 : 60) + 44 + hwL.length * 112 : 0;
     const w = Math.max(LM + FW + 10 + qw, 230, hwW);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
@@ -9794,7 +9823,7 @@ async function renderIndexA3(stamp) {
     g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
     const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
     const head = 20 + title.length * 34;
-    const notes = (!d ? 40 : dimsMode(r.el) !== 'flat' ? 36 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
+    const notes = (!d ? 40 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
     return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes + hwH, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
   };
   // okienka w rzędach (kolejność: alfabetycznie albo od najwyższych — co lepiej wypełnia arkusz)
@@ -9848,14 +9877,14 @@ async function renderIndexA3(stamp) {
   };
   // rozmiar wizek i kolejność okienek: wariant, który najlepiej wypełnia arkusz (wizki + okienka),
   // z lekką premią za większe wizki; wizki mogą zmaleć do ok. 40%, żeby rozpiska była pełna
-  const maxHp = imgs.length ? Math.min(PH * (hasCards ? 0.5 : 0.8), (availW - GAP * (imgs.length - 1)) / sumA) : 0;
+  const maxHp = imgs.length ? Math.min(PH * (hasCards ? 0.5 : 0.8), (availW - GAP * (imgs.length - 1) - extraW) / sumA) : 0;
   const totalH = PH - 70 - top;
   const byHeight = [...rows].sort((a, b) => (b.w !== '' ? b.bh : 0) - (a.w !== '' ? a.bh : 0));
   let Hp = maxHp, k = 0, order = rows, side = null; // side = blok wizek z okienkami obok (zamiast pasa wizek nad okienkami)
-  const photoW = h => h * sumA + GAP * (imgs.length - 1);
+  const photoW = h => h * sumA + extraW + GAP * (imgs.length - 1);
   // rozmiar wizualizacji z suwaka: najlepszy układ dla zadanej wysokości wizek (pas wizek u góry albo wizki z boku, okienka obok i pod nimi);
   // null = okienka się nie mieszczą (przy czytelnej skali)
-  const hFull = imgs.length ? Math.max(40, Math.min((availW - GAP * (imgs.length - 1)) / sumA, totalH - (hasCards ? 50 : 0))) : 0;
+  const hFull = imgs.length ? Math.max(40, Math.min((availW - GAP * (imgs.length - 1) - extraW) / sumA, totalH - (hasCards ? 50 : 0))) : 0;
   const kRef0 = hasCards ? (fitCards(totalH, rows) || 1) : 1, KMIN = 0.25;
   const evalAt = h => {
     let bst = null;
@@ -9896,7 +9925,7 @@ async function renderIndexA3(stamp) {
     }
     // wizki obok okienek: większa wizka u góry z lewej / z prawej / na środku, okienka wypełniają miejsce obok i pod nią
     if (imgs.length) {
-      const maxHs = Math.min(totalH * 0.78, (availW - GAP * (imgs.length - 1)) / sumA);
+      const maxHs = Math.min(totalH * 0.78, (availW - GAP * (imgs.length - 1) - extraW) / sumA);
       for (const f of [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.45]) for (const pos of ['L', 'R', 'C']) {
         const h = maxHs * f, w = photoW(h);
         if (w > availW - 300) continue; // obok wizki musi zostać miejsce na okienka
@@ -9919,6 +9948,7 @@ async function renderIndexA3(stamp) {
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
     if (imgs.length > 1 || S.photos.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + photoNo(o.ph.id), x + 12, top + 29); }
     x += w + GAP;
+    const bk = blkOf.get(i); if (bk) { drawHwBlock(bk, x - GAP, top, Hp); x += HWB_W; }
   });
   if (hasCards) {
     const y0 = top + (side ? 0 : Hp ? Hp + 50 : 0), L = layout(k, order, side);
@@ -10017,11 +10047,10 @@ async function renderIndexA3(stamp) {
           ext(fx, fy + FH, fx, fy + FH + 44); ext(fx + FW, fy + FH, fx + FW, fy + FH + 44); hDim(fx, fx + FW, fy + FH + 40, r.bw);
           ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh);
         }
-        if (dimsMode(r.el) !== 'flat') { g.fillStyle = '#4a5568'; g.font = `400 ${FS * .9}px ${PDF_FONT}`; g.fillText(fitText(g, `${TT('konstrukcja', 'конструкція', 'structure')} ${r.net} ${UNIT()} · ${TT('do druku', 'до друку', 'to print')}: ${planesTxt(r.el)}`, Math.max(FW, 900)), bx, fy + FH + BM + 30); }
       }
       if (cd.nlines.length) {
         g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
-        const ny = fy + FH + BM + (!d ? 72 : dimsMode(r.el) !== 'flat' ? 62 : 30);
+        const ny = fy + FH + BM + (!d ? 72 : 30);
         cd.nlines.forEach((ln, i) => g.fillText(ln, bx, ny + i * 30));
       }
       if (cd.hw) {       // na dole: najpierw rodzaj użytego profilu, obok kafelki osprzętu do podwieszenia (bez numerów i opisów; linka — z długością)
