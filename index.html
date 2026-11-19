@@ -8076,6 +8076,9 @@ function ufSkGenerate(keepView) {
       if (p.ori === q.ori && Math.abs(p.c - q.c) <= 100 && q.a <= p.b + 100 && q.b >= p.a - 100) { p.c = (p.c * p.n + q.c * q.n) / (p.n + q.n); p.n += q.n; p.a = Math.min(p.a, q.a); p.b = Math.max(p.b, q.b); runs.splice(j, 1); ch = true; break outer; }
     }
   }
+  // 2b. ściana narysowana na linii stoiska stoi w polu stoiska: oś przesunięta do wewnątrz o pół grubości (zewnętrzne lico na linii, nie na osi)
+  { const st = UF.d.stand, hT = (ufK() ? T : UF_T) / 2, BT = 150;
+    runs.forEach(r => { const hi = r.ori === 0 ? st.D : st.L; if (r.c <= BT) r.c = hT; else if (r.c >= hi - BT) r.c = hi - hT; }); }
   // 3. drzwi: na odcinku ściany albo samodzielnie
   segs.filter(x => x.t === 'd').forEach(dg => {
     const nd = Math.max(1, Math.round((dg.b - dg.a) / UF_KW)), cs = Array.from({ length: nd }, (_, k) => dg.a + (dg.b - dg.a) * (k + 0.5) / nd);
