@@ -1174,6 +1174,7 @@
               <label class="pchip ue" id="uf-ext-l" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><i class="ti ti-fence"></i><span id="uf-ext-t">wysłony zewn.</span><input type="checkbox" id="uf-ext"></label>
               <label class="pchip" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><i class="ti ti-door"></i><span>wysłona zaplecza</span><input type="checkbox" id="uf-zap"></label>
               <label class="pchip ue" title="Goły koniec ramy (aluminium z otworami) zasłaniamy płytą PCW 3 mm zadrukowaną na kolor ścianki: 8 cm × wysokość systemu — dodawane jako element"><i class="ti ti-square-plus"></i><span>zaślepki PCW</span><input type="checkbox" id="uf-caps"></label>
+              <label class="pchip ue" title="EasyFrame: nadstawki niższe niż moduł 198,4 układane poziomo — leżące moduły 297,6 / 248 / 198,4 na całą długość odcinka ścianki (zamiast pionowych dostawek na każdy moduł)"><i class="ti ti-layout-distribute-horizontal"></i><span>nadstawki poziomo</span><input type="checkbox" id="uf-hb" checked></label>
               <label class="pchip ue" title="Gołe końce ram ELTEX: zaślepka PCW 3 mm o szerokości grubości ramy × wysokość ramy — osobny element"><i class="ti ti-square-plus"></i><span>zaślepki ELTEX</span><input type="checkbox" id="uf-capsx"></label>
             </div>
           </details>
@@ -7322,7 +7323,27 @@ const UF_DOOR_HS = [['h2480', 2480], ['h1984', 1984]];
 const ufPalOp = p => p.op.t === 'door' ? (ufK() ? { ...p.op, mode: (UF.d && UF.d.doorMode) || 'flush', bul: (UF.d && UF.d.doorBul) || 'n' } : { ...p.op, size: (UF.d && UF.d.doorSize) || 'h2480', bul: (UF.d && UF.d.doorBul) || 'n' }) : p.op;
 const UF_HS = [1984, 2480, 2976, 3472, 3968, 4464, 4960];      // wysokości od 198,4 w górę (co 49,6)
 // ramy mają najwyżej 248 cm — wyższa ścianka to rama 248 + niższa rama na niej (np. 347,2 = 248 + 99,2); od dołu do góry
-const ufStack = h => { if (ufK()) { const r0 = Math.round(h); return r0 > UF_KH + 1 ? [UF_KH, r0 - UF_KH] : [r0]; } const out = []; let r = Math.round(h); while (r > 2480 + 1) { out.push(2480); r -= 2480; } if (r > 1) out.push(r); return out; };
+const ufHB = () => !!(UF.d && UF.d.hband !== false);          // EasyFrame: nadstawki niższe niż moduł 198,4 układane poziomo (leżące moduły 198,4 / 248 / 297,6)
+const ufHRow = a => a < 1983;                                  // rząd nadstawki położony poziomo (wysokość = szerokość leżącego modułu: 99,2 albo 49,6)
+function ufHRows(a) { const out = []; let r = Math.round(a); while (r > 992 + 1) { out.push(992); r -= 992; } if (r > 1) out.push(r); return out; }
+// długości leżących modułów na odcinku L: kombinacja 297,6 / 248 / 198,4 bez reszty (jak najmniej sztuk), inaczej 297,6 + reszta niestandardowa
+function ufHBand(L) {
+  L = Math.round(L); if (L <= 1) return []; let best = null;
+  for (let a = 0; a * 2976 <= L + 2; a++) for (let b = 0; a * 2976 + b * 2480 <= L + 2; b++) {
+    const rest = L - a * 2976 - b * 2480, c = Math.round(rest / 1984);
+    if (c >= 0 && Math.abs(rest - c * 1984) <= 2) { const n = a + b + c; if (!best || n < best.n) best = { n, a, b, c }; }
+  }
+  if (best) return [...Array(best.a).fill(2976), ...Array(best.b).fill(2480), ...Array(best.c).fill(1984)];
+  const out = []; let r = L; while (r > 2976 + 1) { out.push(2976); r -= 2976; } if (r > 1) out.push(r); return out;
+}
+const ufStack = h => {
+  if (ufK()) { const r0 = Math.round(h); return r0 > UF_KH + 1 ? [UF_KH, r0 - UF_KH] : [r0]; }
+  let r = Math.round(h); if (r <= 2976 + 1) return [r];
+  const out = [2976]; r -= 2976;
+  while (r > 2976 + 1) { out.push(2976); r -= 2976; }
+  if (r > 1) { if (r < 1983 && ufHB()) out.push(...ufHRows(r)); else out.push(r); }
+  return out;
+};
 const ufStackTxt = h => ufStack(h).length > 1 ? ufStack(h).map(v => lenPL(v)).join(' + ') : '';
 const UF = { open: false, pid: '', d: null, sel: null, rot: false, undo: [], tr: null, tmr: 0, busy: false, ro: null, drag: null, pd: null, geo: null };
 const ufUid = () => Math.random().toString(36).slice(2, 8);
@@ -7878,7 +7899,7 @@ function ufAskHeight(cur) {
 function ufStdPiece(o, r) {
   if (o.t === 'post') return true; if (o.t === 'eltex') return false;
   const K = ufK(), L1 = K ? UF_KW : 992, len = Math.round(o.len * 10) / 10, stk = ufStack(Math.round(r.h)), base = stk[0];
-  if (o.len0 || !(K ? Math.abs(base - UF_KH) < 1 : base === 2480 || base === 1984)) return false;
+  if (o.len0 || !(K ? Math.abs(base - UF_KH) < 1 : base === 2480 || base === 1984 || base === 2976)) return false;
   if (o.t === 'door' ? Math.abs(len - L1) >= 1 : !(Math.abs(len - L1) < 1 || Math.abs(len - L1 / 2) < 1)) return false;
   return stk.slice(1).every(a => K ? Math.abs(a - UF_KADD[0]) < 1 || Math.abs(a - UF_KADD[1]) < 1 : Math.abs(a % 496) < 1 || Math.abs((a % 496) - 496) < 1);
 }
@@ -7894,7 +7915,7 @@ function ufSyncBar() {
   const act = document.activeElement;
   if (act !== $('uf-sl')) $('uf-sl').value = numIn(fromMM(st.L)); if (act !== $('uf-sd')) $('uf-sd').value = numIn(fromMM(st.D));
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
-  ufHOpt($('uf-sh'), d.H); $('uf-ext').checked = !!st.ext; $('uf-extm').value = !st.ext ? '0' : st.extFull ? 'full' : 'top'; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap;
+  ufHOpt($('uf-sh'), d.H); $('uf-ext').checked = !!st.ext; $('uf-extm').value = !st.ext ? '0' : st.extFull ? 'full' : 'top'; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap; $('uf-hb').checked = d.hband !== false;
   $('uf-look').textContent = d.look === 'bare' ? (ufK() ? '▦ 3D: kratownica' : '▦ 3D: gołe ramy') : '▮ 3D: pełne ściany';
   $('uf-sysb').textContent = (ufK() ? 'K-Frame' : 'EasyFrame') + ' ⇄'; $('uf-mount').value = (r && r.mounts[ufPl()]) || d.mount || (ufK() ? 'stretch' : 'seg');
   $('uf-pane').classList.toggle('uf-sel', !!r);
@@ -8980,6 +9001,24 @@ function ufRender3D(o) {
     if (last) { const A1 = Pp(ub, D, ins), B1 = Pp(ub, D, h - ins); g.moveTo(A1[0], A1[1]); g.lineTo(B1[0], B1[1]); }
     g.stroke(); g.restore();
   };
+  // nadstawka EasyFrame położona poziomo: ciągłe moduły 297,6 / 248 / 198,4 na odcinku ścianki; każdy klocek rysuje tylko swój kawałek (przycięcie do jego lica)
+  const hbOn = !KF && ufHB();
+  const segOf = bx => {
+    if (bx.seg !== undefined) return bx.seg;
+    const alongX = (bx.x1 - bx.x0) >= (bx.y1 - bx.y0), ax = alongX ? 'x' : 'y', lo = alongX ? 'x0' : 'y0', hi = alongX ? 'x1' : 'y1', cr = alongX ? 'y0' : 'x0';
+    const g2 = boxes.filter(B => B.p.run === bx.p.run && B.p.op.t !== 'post' && B.p.op.t !== 'eltex' && Math.abs(B.h - bx.h) < 1 && Math.abs(B[cr] - bx[cr]) < 2 && ((B.x1 - B.x0) >= (B.y1 - B.y0)) === alongX).sort((p, q) => p[lo] - q[lo]);
+    let i = g2.indexOf(bx), a = i, b = i; while (a > 0 && Math.abs(g2[a - 1][hi] - g2[a][lo]) < 2) a--; while (b < g2.length - 1 && Math.abs(g2[b + 1][lo] - g2[b][hi]) < 2) b++;
+    let m = g2[a][lo]; const iv = ufHBand(g2[b][hi] - g2[a][lo]).map(l => { const r = [m, m + l]; m += l; return r; });
+    return bx.seg = { ax, iv };
+  };
+  const rowFr = (bx, ax, o, du, dv, U, hh, col, rowI) => {
+    const a0 = ax === 'x' ? bx.x0 : bx.y0, a1 = ax === 'x' ? bx.x1 : bx.y1, sg = hbOn && rowI > 0 && ufHRow(hh) && !KF ? segOf(bx) : null;
+    if (!sg || sg.ax !== ax || !sg.iv.length) return frame(o, du, dv, U, hh, col);
+    const P = (u, v) => [o[0] + du[0] * u + dv[0] * v, o[1] + du[1] * u + dv[1] * v];
+    g.save(); g.beginPath(); [P(0, 0), P(U, 0), P(U, hh), P(0, hh)].forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.clip();
+    sg.iv.forEach(([m0, m1]) => { if (m1 > a0 + 1 && m0 < a1 - 1) frame([o[0] + du[0] * (m0 - a0), o[1] + du[1] * (m0 - a0)], du, dv, m1 - m0, hh, col); });
+    g.restore();
+  };
   order.forEach(i => {
     const bx = boxes[i], post = bx.p.op.t === 'post', h = bx.h, bk = bx.p.run && bx.p.run.backKind;
     if (bare) {
@@ -8992,8 +9031,8 @@ function ufRender3D(o) {
         // ELTEX: jedna rama na całą wysokość, niebieska
         const elx = bx.p.op.t === 'eltex', C = elx ? ['#90cdf4', '#63b3ed', '#4299e1', '#3182ce'] : KF ? ['#cfae75', '#bb9a62', '#d8b980', '#c3a36b'] : ['#a3acb8', '#8f99a7', '#aeb6c1', '#949eab'];
         let z0 = 0; const zs = (elx ? [h] : ufStack(h)).map(hh => { const r = [z0, hh]; z0 += hh; return r; }), at = (x, y, z) => T(x, y, z);
-        zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0]); frame(at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1]); });                     // tył: północ, zachód
-        zs.forEach(([z, hh]) => { frame(at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, C[2]); frame(at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[3]); }); // przód: południe, wschód
+        zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0], elx ? 0 : ri); rowFr(bx, 'y', at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1], elx ? 0 : ri); });                     // tył: północ, zachód
+        zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, C[2], elx ? 0 : ri); rowFr(bx, 'y', at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[3], elx ? 0 : ri); }); // przód: południe, wschód
       }
       poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#68d391' : '#c3cad3');
     } else {
@@ -9016,7 +9055,7 @@ function ufRender3D(o) {
         const top = cv2.length ? Math.max(0, Math.min(...cv2.map(c => c.z0))) : h, U = sd === 's' ? bx.x1 - bx.x0 : bx.y1 - bx.y0, du = sd === 's' ? ux : uy;
         const at = z => sd === 's' ? T(bx.x0, bx.y1, z) : T(bx.x1, bx.y0, z), q = (z, u) => { const p0 = at(z); return [p0[0] + du[0] * u, p0[1] + du[1] * u]; };
         if (post) poly([q(0, 0), q(0, U), q(top, U), q(top, 0)], '#aeb6c1');
-        else { let z = 0; ufStack(h).forEach(hh => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#4a5568'); frame(at(z), du, vZ, U, z1 - z, KF ? '#d2b27a' : '#aeb6c1'); } z += hh; }); }
+        else { let z = 0; ufStack(h).forEach((hh, ri) => { const z1 = Math.min(z + hh, top); if (z1 - z > 1) { poly([q(z, 0), q(z, U), q(z1, U), q(z1, 0)], '#4a5568'); rowFr(bx, sd === 's' ? 'x' : 'y', at(z), du, vZ, U, z1 - z, KF ? '#d2b27a' : '#aeb6c1', ri); } z += hh; }); }
         if (top < h - 1) poly([q(top, 0), q(top, U), q(h, U), q(h, 0)], col);
       };
       // wybór ściany kliknięciem w podglądzie: wielokąty lic zapamiętane w kolejności rysowania; wybrana płaszczyzna zaznaczonej ścianki ma zielony obrys
@@ -9272,7 +9311,8 @@ function ufProduction() {
   const seen = new Set(); let nMod = 0;
   geo.runs.forEach(r => {
     const side = sided(r) ? 'two' : 'one', h = Math.round(r.h), stk = ufStack(h), base = stk[0], adds = stk.slice(1);
-    const baseStd = K ? Math.abs(base - UF_KH) < 1 : base === 2480 || base === 1984;
+    const baseStd = K ? Math.abs(base - UF_KH) < 1 : base === 2480 || base === 1984 || base === 2976;
+    const hRows = K || !ufHB() ? [] : adds.filter(ufHRow);          // nadstawki poziome: liczone na odcinek ścianki (między słupkami), nie na moduł
     r.ops.forEach(o => {
       if (seen.has(o.id)) return; seen.add(o.id);
       const len = Math.round(o.len * 10) / 10;
@@ -9286,13 +9326,27 @@ function ufProduction() {
         if (!K) add(5, 'konektor drzwiowy', 'po 2 szt. na każde drzwi', 'plain', 2);              // EasyFrame: każde drzwi mają 2 konektory drzwiowe
       } else if (std >= 0 && baseStd) add(std === 0 ? 0 : 1, `${ufLen(len)} × ${ufLen(base)}`, '', side);
       else add(9, `ścianka ${ufLen(len)} × ${ufLen(base)}`, cut ? `ucięta z ${ufLen(o.len0)}` : (std >= 0 ? 'inna wysokość' : 'inna długość'), side);
-      adds.forEach(a => {
+      adds.filter(a => !hRows.includes(a) || !ufHRow(a)).forEach(a => {
         const aStd = K ? Math.abs(a - UF_KADD[0]) < 1 || Math.abs(a - UF_KADD[1]) < 1 : Math.abs(a % 496) < 1 || Math.abs((a % 496) - 496) < 1;
         if (std >= 0 && aStd) add(3, `dostawka ${ufLen(len)} × ${ufLen(a)}`, K ? `na module ${ufLen(UF_KH)} → ${lenPL(base + a)}` : '', side);
         else add(9, `dostawka ${ufLen(len)} × ${ufLen(a)}`, 'nietypowa', side);
       });
       if (!K && stk.length > 1) add(5, 'konektor modułów — w pionie', 'po 2 szt. na każde połączenie na wysokość', 'plain', 2 * (stk.length - 1));   // EasyFrame: łączenie na wysokość — zawsze 2 konektory
     });
+    if (hRows.length) {          // odcinki ścianki między słupkami: leżące moduły 297,6 / 248 / 198,4 na całą długość odcinka
+      let seg = 0, first = null; const flush = () => {
+        if (seg > 1 && !seen.has('hb' + first)) {
+          seen.add('hb' + first);
+          hRows.forEach(a => ufHBand(seg).forEach(m => {
+            const std = [1984, 2480, 2976].some(v => Math.abs(m - v) < 2) && (Math.abs(a - 496) < 1 || Math.abs(a - 992) < 1);
+            add(std ? 3 : 9, `dostawka ${ufLen(m)} × ${ufLen(a)}`, std ? 'leży poziomo (moduł ' + ufLen(a) + ' szer.)' : 'nietypowa · leży poziomo', side);
+          }));
+          if (hRows.length) add(5, 'konektor modułów — poziomo', 'po 2 szt. na styk leżących modułów', 'plain', 2 * Math.max(0, ufHBand(seg).length - 1) * hRows.length);
+        }
+        seg = 0; first = null;
+      };
+      r.ops.forEach(o => { if (o.t === 'post') flush(); else { if (first == null) first = o.id; seg += o.len; } }); flush();
+    }
     if (!K) for (let i = 0; i < r.ops.length - 1; i++) if (r.ops[i].t === 'w' && r.ops[i + 1].t === 'w') add(5, 'konektor modułów — poziomo', 'po 2 szt. na każde połączenie', 'plain', 2);   // EasyFrame: łączenie modułów w ściance — zawsze 2 konektory (przy drzwiach są konektory drzwiowe)
   });
   // łuki i zadaszenia: po jednym elemencie na moduł wzdłuż ścianki
@@ -9607,6 +9661,7 @@ async function closeUltraFrame() {
   $('uf-caps').onchange = e => { ufPush(); UF.d.stand.caps = e.target.checked; ufChanged(); };
   $('uf-capsx').onchange = e => { ufPush(); UF.d.stand.capsX = e.target.checked; ufChanged(); };
   $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
+  $('uf-hb').onchange = e => { ufPush(); UF.d.hband = e.target.checked; ufChanged(); };
   $('uf-mount').onchange = e => ufSetMount(e.target.value);
   $('uf-plane').onclick = e => { const b = e.target.closest('[data-pl]'); if (b) { UF.pl = b.dataset.pl; ufSyncBar(); ufDraw(); } };
   $('uf-pv').onclick = e => { if (Date.now() - (UF.pvMoved || 0) < 400) return;                 // klik na ścianie w podglądzie 3D: wybiera ściankę i płaszczyznę (przód / tył); po przeciągnięciu (orbita) — bez wyboru
