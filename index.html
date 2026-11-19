@@ -2328,7 +2328,8 @@ let typesFromDb = false;
 function startTypesSub() {
   DB.sub(C_TYPES, rows => {
     const set = rows.find(r => r.id === EX_SET_ID); exGlobalSec = Math.max(2, Number(set && set.sec) || EX_SEC);   // jedna wartość czasu zmiany zdjęć dla wszystkich (dokument ustawień, nie typ)
-    rows = rows.filter(r => r.id !== EX_SET_ID);
+    const hws = rows.find(r => r.id === HW_SET_ID); HW_CUSTOM = (hws && Array.isArray(hws.items) ? hws.items : []).filter(x => x && x.id);
+    rows = rows.filter(r => r.id !== EX_SET_ID && r.id !== HW_SET_ID);
     typesFromDb = rows.length > 0;
     const merged = clone(DEFAULT_TYPES).map(d => ({ ...d, ...(rows.find(r => r.id === d.id) || {}) }))
       .concat(rows.filter(r => !DEFAULT_TYPES.some(d => d.id === r.id) && !LEGACY_TYPES[r.id]))
@@ -2520,7 +2521,7 @@ const HANG_PROFILES = [['r32', 'Okrągły 32 mm', 0], ['t50', 'T 50 mm', 50], ['
 const hangProf = el => HANG_PROFILES.find(p => p[0] === el.prof) || HANG_PROFILES[0];
 const hangInset = el => hangProf(el)[2];
 // osprzęt do podwieszenia: elementy (numer, nazwa, plik kafelka, czy to linka — wtedy ma długość) i zestawy; domyślnie opcja 2
-const HW_ITEMS = [
+const HW_BASE = [
   ['01.01.24', 'Waleczek z uchem mały', 'hw-01-01-24.png', false],
   ['01.06.24', 'Ogniwo z nakrętką 4mm atestowane', 'hw-01-06-24.png', false],
   ['01.07.24', 'Linka Ø2 pętla', 'hw-01-07-24.png', true],
@@ -2528,32 +2529,35 @@ const HW_ITEMS = [
   ['01.09.24', 'Linka Ø3 pętla z kauszą', 'hw-01-09-24.png', true],
   ['01.10.24', 'Ślizgacz linkowy reutlinger type 30 V Ring 85kg na linę 3mm', 'hw-01-10-24.png', false],
 ];
+const HW_SET_ID = '_hw'; let HW_CUSTOM = [];      // akcesoria dodane w panelu „Typy elementów” (dokument ustawień w kolekcji typów): { id, code, name, img, cable }
+const hwItems = () => HW_BASE.concat(HW_CUSTOM.map((c, i) => [c.code || ('AKC.' + String(i + 1).padStart(2, '0')), c.name || 'Akcesorium', '', !!c.cable, c.img || '']));
+const hwSrc = i => i[4] || 'pod/' + i[2];
 const HW_KITS = [['k1', 'Opcja 1', ['01.01.24', '01.06.24', '01.07.24', '01.08.24']], ['k2', 'Opcja 2', ['01.01.24', '01.06.24', '01.09.24', '01.10.24']]];
-const hwDefault = () => ({ kit: 'k2', len: 0, items: {} });
+const hwDefault = () => ({ kit: 'k2', len: 1000, items: {} });     // domyślna długość linki: 100 cm
 function hwClean(hw) {
   if (!hw) return null;
-  const items = {}; Object.entries(hw.items || {}).forEach(([c, v]) => { const q = Math.max(0, Math.floor(Number(v && v.q) || 0)); if (q > 0 && HW_ITEMS.some(i => i[0] === c)) items[c] = { q, len: Number(v.len) || 0 }; });
+  const items = {}; Object.entries(hw.items || {}).forEach(([c, v]) => { const q = Math.max(0, Math.floor(Number(v && v.q) || 0)); if (q > 0 && hwItems().some(i => i[0] === c)) items[c] = { q, len: Number(v.len) || 0 }; });
   return { kit: HW_KITS.some(k => k[0] === hw.kit) ? hw.kit : '', len: Number(hw.len) || 0, items };
 }
 // lista do eksportu: elementy zestawu (po 1; linka z długością zestawu) + pojedyncze dodatkowe (z ilością i własną długością linki)
 function hwList(el) {
-  const hw = el && el.hw; if (!hw) return [];
+  const hw = el && (el.hw || (isHang(el) ? hwDefault() : null)); if (!hw) return [];      // podwieszenie bez zapisanych akcesoriów: domyślnie opcja 2
   const map = new Map(), add = (c, q, len) => { const k = map.get(c) || { q: 0, len: 0 }; k.q += q; if (len) k.len = len; map.set(c, k); };
   const kit = HW_KITS.find(k => k[0] === hw.kit);
-  if (kit) kit[2].forEach(c => add(c, 1, HW_ITEMS.find(i => i[0] === c)[3] ? Number(hw.len) || 0 : 0));
-  Object.entries(hw.items || {}).forEach(([c, v]) => { const q = Math.max(0, Math.floor(Number(v && v.q) || 0)); if (q > 0 && HW_ITEMS.some(i => i[0] === c)) add(c, q, Number(v.len) || 0); });
-  return HW_ITEMS.filter(i => map.has(i[0])).map(i => ({ code: i[0], name: i[1], src: 'pod/' + i[2], cable: i[3], q: map.get(i[0]).q, len: map.get(i[0]).len }));
+  if (kit) kit[2].forEach(c => add(c, 1, hwItems().find(i => i[0] === c)[3] ? Number(hw.len) || 1000 : 0));
+  Object.entries(hw.items || {}).forEach(([c, v]) => { const q = Math.max(0, Math.floor(Number(v && v.q) || 0)); if (q > 0 && hwItems().some(i => i[0] === c)) add(c, q, hwItems().find(i => i[0] === c)[3] ? Number(v.len) || 1000 : 0); });
+  return hwItems().filter(i => map.has(i[0])).map(i => ({ code: i[0], name: i[1], src: hwSrc(i), cable: i[3], q: map.get(i[0]).q, len: map.get(i[0]).len }));
 }
 const hwOk = el => hwList(el).length > 0;
 function hwHtml(el) {
   const hw = el.hw, kit = HW_KITS.find(k => k[0] === hw.kit), list = hwList(el), nExtra = Object.values(hw.items || {}).filter(v => v && v.q > 0).length;
-  const tile = c => { const it = HW_ITEMS.find(i => i[0] === c); return `<span class="hw-t" title="${esc(c + ' · ' + it[1])}"><img src="pod/${it[2]}" alt=""></span>`; };
-  return `<div class="fld hw-fld" style="margin-top:12px"><label>Osprzęt podwieszenia *</label>
+  const tile = c => { const it = hwItems().find(i => i[0] === c); return it ? `<span class="hw-t" title="${esc(c + ' · ' + it[1])}"><img src="${esc(hwSrc(it))}" alt=""></span>` : ''; };
+  return `<div class="fld hw-fld" style="margin-top:12px"><label>Akcesoria - sposób montażu *</label>
     <div class="var-list">${HW_KITS.map(([id, n]) => `<button type="button" class="type-btn var-btn ${hw.kit === id ? 'on' : ''}" data-hkit="${id}">${n}${id === 'k2' ? ' (domyślna)' : ''}</button>`).join('')}<button type="button" class="type-btn var-btn ${!hw.kit ? 'on' : ''}" data-hkit="">Bez zestawu — same pojedyncze elementy</button></div>
     ${kit ? `<div class="hw-tiles">${kit[2].map(tile).join('')}</div>
-      <div class="hw-len">Długość linki <input type="number" id="ed-hwlen" min="0" step="${unitStep()}" value="${esc(hw.len ? fromMM(hw.len) : '')}" placeholder="np. 150"> ${UNIT()} <span class="hint" style="margin:0">(pokaże się pod linką w eksporcie)</span></div>` : ''}
+      <div class="hw-len">Długość linki <input type="number" id="ed-hwlen" min="0" step="${unitStep()}" value="${esc(fromMM(hw.len || 1000))}"> ${UNIT()}</div>` : ''}
     <details class="hw-more" ${nExtra ? 'open' : ''}><summary>Pojedyncze elementy — dodaj dodatkowo</summary>
-      <div class="hw-list">${HW_ITEMS.map(([c, n, f, cable]) => { const v = (hw.items || {})[c] || {}; return `<div class="hw-row"><img src="pod/${f}" alt=""><div class="hw-n"><b>${c}</b><span>${esc(n)}</span></div><div class="hw-in"><input type="number" min="0" step="1" data-hwq="${c}" value="${v.q || 0}" title="Ilość sztuk"> <small>szt.</small>${cable ? `<input type="number" min="0" step="${unitStep()}" data-hwl="${c}" value="${esc(v.len ? fromMM(v.len) : '')}" placeholder="dł." title="Długość linki [${UNIT()}]"><small>${UNIT()}</small>` : ''}</div></div>`; }).join('')}</div>
+      <div class="hw-list">${hwItems().map(([c, n, f, cable, im]) => { const v = (hw.items || {})[c] || {}; return `<div class="hw-row"><img src="${esc(im || 'pod/' + f)}" alt=""><div class="hw-n"><b>${c}</b><span>${esc(n)}</span></div><div class="hw-in"><input type="number" min="0" step="1" data-hwq="${c}" value="${v.q || 0}" title="Ilość sztuk"> <small>szt.</small>${cable ? `<input type="number" min="0" step="${unitStep()}" data-hwl="${c}" value="${esc(fromMM(v.len || 1000))}" placeholder="dł." title="Długość linki [${UNIT()}]"><small>${UNIT()}</small>` : ''}</div></div>`; }).join('')}</div>
     </details>
     ${list.length ? '' : '<div class="hint" style="color:#c53030;font-weight:600">⚠ Wybierz opcję albo dodaj choć jeden element — bez tego podwieszenia nie da się zatwierdzić.</div>'}</div>`;
 }
@@ -5778,7 +5782,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     if (t && t.id === 'podwieszana') h += `<div class="fld" style="margin-top:12px"><label>Profil konstrukcji</label><div class="var-list">${HANG_PROFILES.map(([id, n]) => `<button type="button" class="type-btn var-btn ${hangProf(el)[0] === id ? 'on' : ''}" data-prof="${id}">${n}</button>`).join('')}</div>
         <div class="hint">${hangInset(el) ? `Wymiar wewnętrzny (zadruk wewnątrz) = zewnętrzny − 2 × ${lenPL(hangInset(el))} ${UNIT()} (grubość profilu) w szerokości i głębokości, wysokość bez zmian. Domyślnie bez spadów.` : 'Profil okrągły 32 mm: zadruk wewnątrz w tym samym wymiarze co zewnętrzny.'}</div></div>`;
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, z takim samym spadem)</span></span></label>`;
-    if (t && t.id === 'podwieszana') { if (!el.hw) el.hw = hwDefault(); h += hwHtml(el); }
+    if (t && t.id === 'podwieszana' && !el.hw) el.hw = hwDefault();
     if (t && t.id === 'podwieszana') {
       if (!el.hbMode) { const k0 = hangBleed(el); el.hbMode = hangBleedAny(k0) ? 'custom' : 'none'; if (el.hbMode === 'custom') el.hbSides = { ...k0 }; }
       hb = `<div class="fld bleed-fld" style="margin-top:12px"><label>Spady (zadruk zewnętrzny)</label><div class="var-list">
@@ -5786,6 +5790,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         ${el.hbMode === 'custom' ? `<div class="bleed-row">${BLEED_SIDES.map(([k2, n]) => `<span class="bl-i">${n} <input type="number" data-hb="${k2}" min="0" step="${unitStep()}" value="${esc(fromMM((el.hbSides || {})[k2] || 0))}"></span>`).join('')} <span>${UNIT()}</span></div>` : ''}
         ${el.hbMode !== 'none' ? '<div class="hint">Spad dotyczy zadruku zewnętrznego i wewnętrznego (te same płaszczyzny).</div>' : ''}</div>`;
     }
+    if (t && t.id === 'podwieszana') { const sp = hb; hb = hwHtml(el); h += sp; }       // zamiana miejscami: spady wyżej, akcesoria (sposób montażu) niżej
     $('ed-opts').innerHTML = h;
     $('ed-bleedopts').innerHTML = hb;
     $('ed-doorslot').innerHTML = hd;
@@ -5821,22 +5826,22 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     $('ed-doorslot').querySelectorAll('input[data-dbl]').forEach(i => i.addEventListener('input', () => { el.door.bleed[i.dataset.dbl] = toMM(i.value); refresh(); }));
     const dds = $('ed-door-dist'); if (dds) dds.addEventListener('input', () => { el.door.dist = toMM(dds.value); refresh(); });
     $('ed-opts').querySelectorAll('.var-btn[data-v]').forEach(b => b.onclick = () => { el.variant = b.dataset.v; renderOpts(); refresh(); });
-    $('ed-opts').querySelectorAll('[data-hkit]').forEach(b => b.onclick = () => { el.hw = el.hw || hwDefault(); el.hw.kit = b.dataset.hkit; renderOpts(); refresh(); });
+    $('ed-bleedopts').querySelectorAll('[data-hkit]').forEach(b => b.onclick = () => { el.hw = el.hw || hwDefault(); el.hw.kit = b.dataset.hkit; renderOpts(); refresh(); });
     const hwl = $('ed-hwlen'); if (hwl) hwl.addEventListener('input', () => { el.hw.len = toMM(hwl.value) || 0; });
-    $('ed-opts').querySelectorAll('input[data-hwq]').forEach(i => i.addEventListener('change', () => { const c = i.dataset.hwq; el.hw.items = el.hw.items || {}; el.hw.items[c] = { ...(el.hw.items[c] || {}), q: Math.max(0, Math.floor(Number(i.value) || 0)) }; renderOpts(); }));
-    $('ed-opts').querySelectorAll('input[data-hwl]').forEach(i => i.addEventListener('input', () => { const c = i.dataset.hwl; el.hw.items = el.hw.items || {}; el.hw.items[c] = { q: 0, ...(el.hw.items[c] || {}), len: toMM(i.value) || 0 }; }));
+    $('ed-bleedopts').querySelectorAll('input[data-hwq]').forEach(i => i.addEventListener('change', () => { const c = i.dataset.hwq; el.hw.items = el.hw.items || {}; el.hw.items[c] = { ...(el.hw.items[c] || {}), q: Math.max(0, Math.floor(Number(i.value) || 0)) }; renderOpts(); }));
+    $('ed-bleedopts').querySelectorAll('input[data-hwl]').forEach(i => i.addEventListener('input', () => { const c = i.dataset.hwl; el.hw.items = el.hw.items || {}; el.hw.items[c] = { q: 0, ...(el.hw.items[c] || {}), len: toMM(i.value) || 0 }; }));
     $('ed-opts').querySelectorAll('[data-prof]').forEach(b => b.onclick = () => {
       el.prof = b.dataset.prof;
       if (hangInset(el)) { el.hbMode = 'none'; el.hbSides = null; }      // T i EF: domyślnie bez spadów (można zmienić niżej)
       renderOpts(); refresh();
     });
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
-    $('ed-bleedopts').querySelectorAll('[data-hmode]').forEach(b => b.onclick = () => {
+    $('ed-opts').querySelectorAll('[data-hmode]').forEach(b => b.onclick = () => {
       const k = hangBleed(el); el.hbMode = b.dataset.hmode;
       if (el.hbMode === 'custom' && !el.hbSides) el.hbSides = { ...k };
       renderOpts(); refresh();
     });
-    $('ed-bleedopts').querySelectorAll('input[data-hb]').forEach(i => i.addEventListener('input', () => { el.hbSides = el.hbSides || { l: 0, r: 0, t: 0, b: 0 }; el.hbSides[i.dataset.hb] = toMM(i.value); refresh(); }));
+    $('ed-opts').querySelectorAll('input[data-hb]').forEach(i => i.addEventListener('input', () => { el.hbSides = el.hbSides || { l: 0, r: 0, t: 0, b: 0 }; el.hbSides[i.dataset.hb] = toMM(i.value); refresh(); }));
     const bla = $('ed-bl-all'); if (bla) bla.addEventListener('input', () => { el.bleedAll = toMM(bla.value); refresh(); });
     $('ed-bleedopts').querySelectorAll('input[data-bl]').forEach(i => i.addEventListener('input', () => { el.bleedSides[i.dataset.bl] = toMM(i.value); refresh(); }));
     const th = $('ed-thick'); if (th) th.addEventListener('input', () => { el.thick = th.value; refresh(); });
@@ -6117,7 +6122,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     // wysłona zamieniona na zwykły element dostaje nową, wolną literę
     if (editing && isWys(editing) && !isWys(d)) d.num = nextNum(editing.id);
     if (!d.typeId) return toast('Wybierz typ elementu', 'error');
-    if (isHang(d) && !hwOk(d)) return toast('Podwieszenie: wybierz opcję osprzętu (Opcja 1 / 2) albo dodaj choć jeden element — bez tego nie można zatwierdzić', 'error', 6000);
+    if (isHang(d) && !hwOk(d)) return toast('Podwieszenie: wybierz akcesoria (Opcja 1 / 2) albo dodaj choć jeden element — bez tego nie można zatwierdzić', 'error', 6000);
     $('ed-ok').disabled = true;
     const pid = S.project.id;
     try {
@@ -9780,26 +9785,22 @@ async function renderIndexA3(stamp) {
   const hwImgs = {};          // kafelki osprzętu i obrazek użytego profilu (podwieszenia)
   for (const r of rows) if (isHang(r.el) && r.w !== '') for (const sr of ['pod/prof-' + hangProf(r.el)[0] + '.png', ...hwList(r.el).map(i => i.src)]) if (!(sr in hwImgs)) { try { hwImgs[sr] = await loadImg(sr); } catch (e) { hwImgs[sr] = null; } }
   // osprzęt podwieszenia obok pierwszej wizualizacji danej konstrukcji: profil, kafelki w dwóch kolumnach (o 75 % większe), na końcu kto przygotował rysunek
-  const HWB_T = 175, HWB_GP = 16, HWB_W = 2 * HWB_T + HWB_GP + 40, blkOf = new Map(), vizEls = new Set();
-  imgs.forEach((o, i) => { const he = hangElOfPhoto(o.ph.id); if (he && !vizEls.has(he.id) && rows.some(r => r.el.id === he.id && r.w !== '')) { vizEls.add(he.id); blkOf.set(i, { el: he, ph: o.ph }); } });
-  const extraW = blkOf.size * HWB_W;
-  const drawHwBlock = (bk, x0, y0, Hh) => {
-    const items = hwList(bk.el), pim = hwImgs['pod/prof-' + hangProf(bk.el)[0] + '.png'], inner = 2 * HWB_T + HWB_GP;
-    const prW = pim ? Math.min(inner, pim.width / pim.height * 210) : 0, prH = pim ? 210 : 0, rowsN = Math.ceil(items.length / 2), gridH = rowsN * (HWB_T + 46);
-    const who = userFullName(bk.ph.createdBy || (S.me && S.me.id)); g.font = `600 26px ${PDF_FONT}`;
-    const txt = who ? wrapCanvas(g, TT('Rysunek przygotował', 'Малюнок підготував', 'Drawing prepared by') + ': ' + who, inner, 3) : [];
-    const need = (pim ? prH + 40 : 0) + gridH + (txt.length ? 24 + txt.length * 34 : 0), bs = Math.min(1, Hh / Math.max(1, need));
+  const HWB_T = 175, HWB_GP = 16, HWB_PH = 420, blkOf = new Map(), vizEls = new Set();
+  const hwProfW = el => { const pim = hwImgs['pod/prof-' + hangProf(el)[0] + '.png']; return pim ? pim.width / pim.height * HWB_PH : 0; };
+  imgs.forEach((o, i) => { const he = hangElOfPhoto(o.ph.id); if (he && !vizEls.has(he.id) && rows.some(r => r.el.id === he.id && r.w !== '')) { vizEls.add(he.id); const pw = hwProfW(he); blkOf.set(i, { el: he, ph: o.ph, w: pw + (pw ? 30 : 0) + 2 * HWB_T + HWB_GP + 40 }); } });
+  const extraW = [...blkOf.values()].reduce((a2, b2) => a2 + b2.w, 0);
+  const drawHwBlock = (bk, x0, y0, Hh) => {        // obok wizualizacji: rodzaj konstrukcji (profil, 2× większy) i akcesoria (kafelki w dwóch kolumnach)
+    const items = hwList(bk.el), pim = hwImgs['pod/prof-' + hangProf(bk.el)[0] + '.png'], prW = hwProfW(bk.el), rowsN = Math.ceil(items.length / 2), gridH = rowsN * (HWB_T + 46);
+    const need = Math.max(pim ? HWB_PH : 0, gridH), bs = Math.min(1, Hh / Math.max(1, need));
     g.save(); g.translate(x0 + 24, y0); g.scale(bs, bs);
-    let cy = 0;
-    if (pim) { g.drawImage(crispCanvas(pim, prW * EXP_Q, prH * EXP_Q) || pim, 0, 0, prW, prH); cy = prH + 14; g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, cy); g.lineTo(inner, cy); g.stroke(); cy += 26; }
+    let gx = 0;
+    if (pim) { g.drawImage(crispCanvas(pim, prW * EXP_Q, HWB_PH * EXP_Q) || pim, 0, 0, prW, HWB_PH); g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.beginPath(); g.moveTo(prW + 15, 4); g.lineTo(prW + 15, need - 4); g.stroke(); gx = prW + 30; }
     items.forEach((it, i) => {
-      const tx = (i % 2) * (HWB_T + HWB_GP), ty = cy + Math.floor(i / 2) * (HWB_T + 46), im = hwImgs[it.src];
+      const tx = gx + (i % 2) * (HWB_T + HWB_GP), ty = Math.floor(i / 2) * (HWB_T + 46), im = hwImgs[it.src];
       if (im) g.drawImage(im, tx, ty, HWB_T, HWB_T * im.height / im.width);
       if (it.q > 1) { g.fillStyle = '#1a202c'; g.font = `800 34px ${PDF_FONT}`; g.textAlign = 'right'; g.fillText('×' + it.q, tx + HWB_T - 6, ty + 36); g.textAlign = 'left'; }
-      if (it.cable && it.len) { g.fillStyle = '#2d3748'; g.font = `700 28px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(it.len) + ' ' + UNIT(), tx + HWB_T / 2, ty + HWB_T + 34); g.textAlign = 'left'; }
+      if (it.cable && it.len) { g.fillStyle = '#2d3748'; g.font = `700 28px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText('L=' + lenPL(it.len) + ' ' + UNIT(), tx + HWB_T / 2, ty + HWB_T + 34); g.textAlign = 'left'; }
     });
-    cy += gridH;
-    if (txt.length) { g.fillStyle = '#4a5568'; g.font = `italic 600 26px ${PDF_FONT}`; txt.forEach((ln, i) => g.fillText(ln, 0, cy + 30 + i * 34)); }
     g.restore();
   };
   const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24;
@@ -9948,7 +9949,7 @@ async function renderIndexA3(stamp) {
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
     if (imgs.length > 1 || S.photos.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + photoNo(o.ph.id), x + 12, top + 29); }
     x += w + GAP;
-    const bk = blkOf.get(i); if (bk) { drawHwBlock(bk, x - GAP, top, Hp); x += HWB_W; }
+    const bk = blkOf.get(i); if (bk) { drawHwBlock(bk, x - GAP, top, Hp); x += bk.w; }
   });
   if (hasCards) {
     const y0 = top + (side ? 0 : Hp ? Hp + 50 : 0), L = layout(k, order, side);
@@ -10061,7 +10062,7 @@ async function renderIndexA3(stamp) {
           const im = hwImgs[it.src];
           if (im) g.drawImage(im, tx, ty, 100, 100 * im.height / im.width);
           if (it.q > 1) { g.fillStyle = '#1a202c'; g.font = `800 ${FS}px ${PDF_FONT}`; g.textAlign = 'right'; g.fillText('×' + it.q, tx + 100, ty + 24); g.textAlign = 'left'; }
-          if (it.cable && it.len) { g.fillStyle = '#2d3748'; g.font = `700 ${FS * .85}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText(lenPL(it.len) + ' ' + UNIT(), tx + 50, ty + 128); g.textAlign = 'left'; }
+          if (it.cable && it.len) { g.fillStyle = '#2d3748'; g.font = `700 ${FS * .85}px ${PDF_FONT}`; g.textAlign = 'center'; g.fillText('L=' + lenPL(it.len) + ' ' + UNIT(), tx + 50, ty + 128); g.textAlign = 'left'; }
           tx += 112;
         });
       }
@@ -10508,6 +10509,33 @@ async function reloadUsers() {
   try { S.users = mergeUsers(await DB.list(C_USERS)); } catch (e) { S.users = mergeUsers([]); toast('Nie udało się wczytać użytkowników: ' + e.message, 'error'); }
 }
 
+// sekcja panelu „Typy elementów”: akcesoria do podwieszeń — wbudowane (podgląd) i własne (numer, nazwa, kafelek, czy to linka)
+function hwPanelHtml() {
+  const base = HW_BASE.map(([c, n, f, cable]) => `<tr class="hw-b"><td><img src="pod/${f}" alt="" style="width:48px;height:48px;object-fit:contain"></td><td>${esc(c)}</td><td>${esc(n)}</td><td>${cable ? 'tak' : ''}</td><td style="color:var(--gray);font-size:.78rem">wbudowane</td></tr>`).join('');
+  const own = HW_CUSTOM.map(x => `<tr data-hwid="${esc(x.id)}"><td><div class="ex-thumb${x.img ? '' : ' ex-svg'}" data-hwimg title="Wgraj / zmień kafelek" style="width:56px;height:56px;${x.img ? `background-image:url('${esc(x.img)}');background-size:contain;background-repeat:no-repeat;background-position:center` : ''}">${x.img ? '' : '<span>+ kafelek</span>'}</div></td>
+    <td style="width:110px"><input type="text" data-hf="code" value="${esc(x.code || '')}" placeholder="np. 01.11.24"></td><td style="min-width:260px"><input type="text" data-hf="name" value="${esc(x.name || '')}"></td>
+    <td style="text-align:center"><input type="checkbox" data-hf="cable" ${x.cable ? 'checked' : ''} title="Linka: przy wyborze pojawia się pole długości, a w eksporcie L=… pod kafelkiem"></td>
+    <td style="white-space:nowrap"><button class="btn btn-sm btn-green" data-hwsave>Zapisz</button> <button class="btn btn-sm btn-red" data-hwdel>✕</button></td></tr>`).join('');
+  return `<div style="margin-top:26px"><div style="font-weight:800;font-size:.95rem;margin-bottom:4px">Akcesoria do podwieszeń</div>
+    <div class="hint" style="font-size:.78rem;color:var(--gray);margin-bottom:8px">Akcesoria wybiera się w oknie podwieszenia (Akcesoria - sposób montażu): zestawy Opcja 1 i Opcja 2 są wbudowane, a każde dodane tutaj akcesorium pojawia się na liście „Pojedyncze elementy” i w eksporcie jako kafelek.</div>
+    <table class="adm-t"><thead><tr><th>Kafelek</th><th>Numer</th><th>Nazwa</th><th>Linka</th><th></th></tr></thead><tbody>${base}${own}</tbody></table>
+    <button class="btn btn-sm" id="hw-add" style="margin-top:10px">+ Nowe akcesorium</button></div>`;
+}
+function hwPanelWire(root, again) {
+  const cur = () => HW_CUSTOM.map(x => ({ ...x }));
+  const save = async items => { await DB.set(C_TYPES, HW_SET_ID, { items }, true); HW_CUSTOM = items; again(); };
+  root.querySelector('#hw-add').onclick = async () => { const a = cur(); a.push({ id: 'hw-' + uid(), code: 'AKC.' + String(a.length + 1).padStart(2, '0'), name: 'Nowe akcesorium', img: '', cable: false }); await save(a); toast('Dodano akcesorium — uzupełnij numer i nazwę oraz wgraj kafelek', 'success', 4500); };
+  root.querySelectorAll('tr[data-hwid]').forEach(tr => {
+    const id = tr.dataset.hwid, rd = () => ({ code: tr.querySelector('[data-hf="code"]').value.trim(), name: tr.querySelector('[data-hf="name"]').value.trim(), cable: tr.querySelector('[data-hf="cable"]').checked });
+    tr.querySelector('[data-hwsave]').onclick = async () => { await save(cur().map(x => x.id === id ? { ...x, ...rd() } : x)); toast('Zapisano akcesorium', 'success'); };
+    tr.querySelector('[data-hwdel]').onclick = async () => { if (!await confirmBox('Usunąć to akcesorium z listy? Podwieszenia, które je wybrały, przestaną je pokazywać.', 'Usuń')) return; await save(cur().filter(x => x.id !== id)); };
+    tr.querySelector('[data-hwimg]').onclick = () => {
+      const fi = $('file-generic');
+      fi.onchange = async () => { const f = fi.files[0]; fi.value = ''; if (!f) return; const tt = toast('Wgrywanie kafelka…', '', 60000); try { const { url } = await storeImage(f, 400); await save(cur().map(x => x.id === id ? { ...x, ...rd(), img: url } : x)); } catch (e) { toast('Błąd: ' + e.message, 'error'); } tt.remove(); };
+      fi.click();
+    };
+  });
+}
 function openTypesPanel() {
   const m = openModal({ title: '🏷️ Typy elementów', wide: true, body: '<div id="tp-body"></div>',
     footer: '<button class="btn" id="tp-add" style="margin-right:auto">+ Nowy typ</button><button class="btn" data-c>Zamknij</button>' });
@@ -10534,7 +10562,7 @@ function openTypesPanel() {
           ${t.id === 'nie-wiem' ? '' : '<button class="btn btn-sm btn-red" data-del>✕</button>'}</td></tr>`
         + (t.variants || []).map(v => `<tr class="tp-var" data-vt="${t.id}" data-vid="${v.id}"><td></td>
         <td colspan="2" style="color:var(--gray);font-size:.8rem">↳ <b style="color:var(--dark)">${esc(t.name)} — ${esc(v.name)}</b><br>${esc(v.desc || '')}</td><td></td>
-        <td>${exCell(v, exampleSvg({ ...t, icon: v.icon || t.icon }), t.id, v.id)}</td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>`;
+        <td>${exCell(v, exampleSvg({ ...t, icon: v.icon || t.icon }), t.id, v.id)}</td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>${hwPanelHtml()}`;
     // wgrywanie / zmiana zdjęcia przykładowego (typ albo wykonanie)
     const pickEx = save => {
       const fi = $('file-generic');
@@ -10591,6 +10619,7 @@ function openTypesPanel() {
         await ensureTypesSeeded(); await DB.del(C_TYPES, id); setTimeout(render, 100);
       };
     });
+    hwPanelWire($('tp-body'), () => setTimeout(render, 150));
   };
   $('tp-add').onclick = async () => {
     await ensureTypesSeeded();
