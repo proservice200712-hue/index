@@ -8143,7 +8143,8 @@ async function ufSkRegen() {
   ufSkGenerate(true);
 }
 function ufSkContext(e) {       // prawy klawisz na kresce usuwa ją
-  e.preventDefault(); const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 14 / UF.tr.s, sk = ufSkData(); let bi = -1, bd = tol;
+  e.preventDefault(); if (UF.skDraft) { UF.skDraft = null; ufDraw(true); return; }      // prawy klawisz w trakcie rysowania anuluje kreskę
+  const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 14 / UF.tr.s, sk = ufSkData(); let bi = -1, bd = tol;
   sk.lines.forEach((l, i) => { const [a, b] = l.p, dx = b[0] - a[0], dy = b[1] - a[1], t = clamp(((wx - a[0]) * dx + (wy - a[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1), dd = Math.hypot(wx - (a[0] + t * dx), wy - (a[1] + t * dy)); if (dd < bd) { bd = dd; bi = i; } });
   if (bi >= 0) { sk.lines.splice(bi, 1); ufChanged(); toast('Usunięto kreskę', '', 1500); }
 }
@@ -8154,7 +8155,12 @@ function ufSkInit() {
     if (e.button === 1) { e.preventDefault(); e.stopImmediatePropagation(); panDr = { x: e.clientX, y: e.clientY, ox: UF.tr.ox, oy: UF.tr.oy, s: UF.tr.s }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} return; }
     if (e.button !== 0) return;
     e.preventDefault(); e.stopImmediatePropagation();
-    const a = ufSkSnap(ufWorld(...ufCanvasPos(e)), null); UF.skDraft = { a, b: a }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} ufDraw(true);
+    // klik–klik: pierwszy klik zaczyna kreskę (nitka śledzi kursor), drugi ją kończy
+    const dr = UF.skDraft;
+    if (!dr) { const a = ufSkSnap(ufWorld(...ufCanvasPos(e)), null); UF.skDraft = { a, b: a }; ufDraw(true); return; }
+    dr.b = ufSkSnap(ufWorld(...ufCanvasPos(e)), dr.a);
+    if (Math.hypot(dr.b[0] - dr.a[0], dr.b[1] - dr.a[1]) < 200) { toast('Kreska zbyt krótka — kliknij dalej albo Esc / prawy klawisz, by anulować', '', 1800); ufDraw(true); return; }
+    UF.skDraft = null; ufSkData().lines.push({ t: UF.skTool || 'w', p: [dr.a, dr.b] }); ufChanged();
   }, true);
   cv.addEventListener('pointermove', e => {
     if (!UF.skOn) return;
@@ -8163,11 +8169,7 @@ function ufSkInit() {
     if (UF.skDraft) UF.skDraft.b = ufSkSnap(w, UF.skDraft.a);
     UF.skHover = UF.skDraft ? UF.skDraft.b : ufSkSnap(w, null); ufDraw(true);
   });
-  const up = () => {
-    if (!UF.skOn) return; if (panDr) { panDr = null; return; }
-    const dr = UF.skDraft; if (!dr) return; UF.skDraft = null;
-    if (Math.hypot(dr.b[0] - dr.a[0], dr.b[1] - dr.a[1]) >= 200) { ufSkData().lines.push({ t: UF.skTool || 'w', p: [dr.a, dr.b] }); ufChanged(); } else ufDraw(true);
-  };
+  const up = () => { if (UF.skOn && panDr) panDr = null; };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   $('uf-sketch').onclick = () => { const sk = ufSkData(); if (UF.skOn) ufSkOff(); else if (sk.gen && UF.d.pieces.length) { sk.bar = sk.bar === false; ufSkSync(); ufSkBtn(); } else ufSkOn(); };
   $('uf-sk').querySelectorAll('[data-skt]').forEach(b => b.onclick = () => { UF.skTool = b.dataset.skt; ufSkSync(); });
@@ -9679,7 +9681,7 @@ async function closeUltraFrame() {
     const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (e.key === 'Escape') t.blur(); return; }
     const k = e.key; let h = true;
     if (UF.skOn) {      // tryb rysowania kreską
-      if (k === 'Escape') ufSkOff();
+      if (k === 'Escape') { if (UF.skDraft) { UF.skDraft = null; ufDraw(true); } else ufSkOff(); }
       else if (k === 'Backspace' || k === 'Delete' || (e.ctrlKey && (k === 'z' || k === 'Z'))) ufSkUndo();
       else if (k === '1') { UF.skTool = 'w'; ufSkSync(); } else if (k === '2') { UF.skTool = 'd'; ufSkSync(); }
       else if (k === 'Enter') ufSkGenerate();
