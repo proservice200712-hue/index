@@ -273,7 +273,7 @@
   #viewer.t-poly #overlay .shp { pointer-events: none; }
   #overlay .hdl { cursor: pointer; }
   #overlay .plab { pointer-events: none; }
-  #overlay .pdel, #overlay .pvm, #overlay .pexp { cursor: pointer; }
+  #overlay .pdel, #overlay .pvm, #overlay .pexp, #overlay .pvo { cursor: pointer; }
   #overlay .pvm:hover rect { fill: rgba(56,161,105,.85); }
   #viewer-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--gray); gap: 14px; text-align: center; padding: 20px; pointer-events: none; }
   #viewer-empty .big { font-size: 1.15rem; font-weight: 700; color: var(--dark); }
@@ -802,9 +802,10 @@
   .pl-srow > span { flex: 1 1 220px; }
   .pl-srow.drag { background: #f0fbe8; outline: 2px dashed var(--accent); outline-offset: -2px; }
   .pl-comb { background: #fffaf0; }
-  .viz-set { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: center; font-size: .8rem; margin-top: 12px; padding-top: 8px; border-top: 1px dotted var(--line); }
-  .viz-set label { display: inline-flex; align-items: center; gap: 5px; }
-  .viz-set input { width: 64px; padding: 3px 5px; }
+  .viz-set { display: flex; gap: 6px 12px; flex-wrap: nowrap; overflow-x: auto; align-items: center; font-size: .8rem; margin-top: 12px; padding-top: 8px; border-top: 1px dotted var(--line); }
+  .viz-set label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex: none; }
+  .viz-set input { width: 64px !important; padding: 3px 5px; flex: none; }
+  .viz-set select { width: auto !important; flex: none; padding: 3px 4px; }
   .pl-drop-h { font-size: .72rem; color: var(--gray); margin: 2px 0 4px; }
   .pl-th { height: 34px; max-width: 90px; object-fit: contain; border: 1px solid var(--line); background: #fff; }
   .pl-total { display: flex; gap: 10px; padding: 8px 0 2px; font-size: .88rem; border-top: 2px solid var(--dark); margin-top: 4px; flex-wrap: wrap; }
@@ -822,7 +823,7 @@
   /* konto tylko do podgladu (Gesuto): bez przyciskow edycji */
   body.no-uf #btn-uf, body.no-uf .uf-entry { display: none !important; }
   body.viewer #toolbar [data-tool], body.viewer #toolbar [onclick^="pickPhotos"], body.viewer #toolbar [onclick^="pasteFromClipboard"], body.viewer #btn-align, body.viewer #btn-uf,
-  body.viewer #toolbar .sep, body.viewer #viewer-empty .btn, body.viewer .pdel, body.viewer .pvm, body.viewer .pexp, body.viewer #btn-turbo, body.viewer [onclick^="newElementWithoutShape"],
+  body.viewer #toolbar .sep, body.viewer #viewer-empty .btn, body.viewer .pdel, body.viewer .pvm, body.viewer .pexp, body.viewer .pvo, body.viewer #btn-turbo, body.viewer [onclick^="newElementWithoutShape"],
   body.viewer #gc-tools button:not([onclick^="graphFit"]), body.viewer .row-act, body.viewer #side-acts, body.viewer .fair-row .add, body.viewer .fair-row .ed, body.viewer .stand-row .ed,
   body.viewer #side-foot, body.viewer #assign-bar, body.viewer #drop-hint { display: none !important; }
   body.viewer #hdr-pname { cursor: default; }
@@ -2609,7 +2610,7 @@ const planeName = p => p.label + (p.side ? ' ' + p.side : '');
 const qtyOf = e => isHang(e) && e.variant === 'inny' ? 1 : Math.max(1, Number(e.qty) || 1);
 // pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
 const hangFields = d => isHang(d)
-  ? { prof: hangProf(d)[0], hw: hwClean(d.hw), viz: d.viz ? { strut: Number(d.viz.strut) || 1000, cabMode: d.viz.cabMode || 'point', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
+  ? { prof: hangProf(d)[0], hw: hwClean(d.hw), vw: d.vw && d.vw.yaw != null ? { yaw: Number(d.vw.yaw), pitch: Number(d.vw.pitch) || 35.264 } : null, viz: d.viz ? { strut: Number(d.viz.strut) || 1500, cabMode: d.viz.cabMode || 'point', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
       pthumbs: (d.pthumbs || []).slice(0, (planesOf(d) || []).length) }
   : { hbMode: '', hbSides: null, pthumbs: [] };
 // obrazek ze schowka (null, gdy brak / brak zgody)
@@ -4333,8 +4334,9 @@ function renderOverlay() {
     if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#67b437" stroke-width="${3 * s}"/>`;
     out += `<g class="plab"><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/>
       <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text>${p.noExp ? `<rect x="${b.x + 44 * s}" y="0" width="${96 * s}" height="${24 * s}" fill="rgba(197,48,48,.92)"/><text x="${b.x + 92 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial">poza eksportem</text>` : ''}</g>
-      ${(() => { const hel = hangElOfPhoto(p.id); if (!hel) return ''; const cm = hangViewMode(p, hel), bs = [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']]; let bx = b.x + b.w - 52 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
-        return bs.map(([k, lab, w, tt]) => { const x0 = bx; bx += w * s; return `<g class="pvm" data-pid="${p.id}" data-mode="${k}"><title>${tt}</title><rect x="${x0}" y="0" width="${w * s}" height="${24 * s}" fill="${cm === k ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + w * s / 2}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${lab}</text></g>`; }).join(''); })()}
+      ${(() => { const hel = hangElOfPhoto(p.id); if (!hel) return ''; const cm = hangViewMode(p, hel), bs = [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']]; let bx = b.x + b.w - 52 * s - 6 * s - 64 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
+        const orb = `<g class="pvo" data-pid="${p.id}"><title>Orbita: obracaj wizualizację myszą i zapisz widok</title><rect x="${b.x + b.w - 52 * s - 6 * s - 64 * s}" y="0" width="${64 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/><text x="${b.x + b.w - 52 * s - 6 * s - 32 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">↻ orbita</text></g>`;
+        return orb + bs.map(([k, lab, w, tt]) => { const x0 = bx; bx += w * s; return `<g class="pvm" data-pid="${p.id}" data-mode="${k}"><title>${tt}</title><rect x="${x0}" y="0" width="${w * s}" height="${24 * s}" fill="${cm === k ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + w * s / 2}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${lab}</text></g>`; }).join(''); })()}
       ${(() => { const off = !!p.noExp, x0 = b.x + b.w - 52 * s; return `<g class="pexp" data-pid="${p.id}"><title>${off ? 'Wizka jest poza eksportem — kliknij, aby ją włączyć' : 'Wyłącz tę wizkę z eksportu'}</title><rect x="${x0}" y="0" width="${24 * s}" height="${24 * s}" fill="${off ? 'rgba(197,48,48,.92)' : 'rgba(26,32,44,.8)'}"/>${eyeIcon(!off).replace('<svg ', `<svg x="${x0 + 3 * s}" y="${3 * s}" style="color:#fff;pointer-events:none" `).replace('width="17" height="17"', `width="${18 * s}" height="${18 * s}"`)}</g>`; })()}
       <g class="pdel" data-pid="${p.id}"><title>Usuń wizkę #${i + 1}</title><rect x="${b.x + b.w - 24 * s}" y="0" width="${24 * s}" height="${24 * s}" fill="rgba(229,62,62,.9)"/>
       <text x="${b.x + b.w - 12 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${14 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">✕</text></g>`;
@@ -4457,6 +4459,7 @@ viewer.addEventListener('pointerdown', e => {
     selectElement(el0.id, false, loc0); setCurrentPhoto(pid0); act = null; return;
   }
   const pxo = !draft && e.target.closest('.pexp'); if (pxo) { const ph = S.photos.find(x => x.id === pxo.dataset.pid); if (ph && S.project && !isViewer()) DB.update(pPhotos(S.project.id), ph.id, { noExp: !ph.noExp }); return; }     // oczko: wizka poza eksportem
+  const vo2 = !draft && e.target.closest('.pvo'); if (vo2) { hangOrbit(vo2.dataset.pid); return; }
   const vm = !draft && e.target.closest('.pvm'); if (vm) { hangSetView(vm.dataset.pid, vm.dataset.mode); return; }     // przełącznik widoku wizualizacji konstrukcji
   const del = !draft && e.target.closest('.pdel'); // w trakcie rysowania wielokąta ✕ nie przeszkadza
   if (del) { deletePhoto(del.dataset.pid); return; }
@@ -5422,20 +5425,24 @@ document.addEventListener('pointerdown', ev => {
 // =====================================================================
 //  WIZUALIZACJA KONSTRUKCJI PODWIESZANEJ (koło / kwadrat): profile, rozpórki, linki, grafiki płaszczyzn i wymiary → obraz do wizki
 // =====================================================================
-async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teksturą (grafiki płaszczyzn), 'frame' = sam szkielet (profile, rozpórki, linki)
+// bufor obrazków wizualizacji (orbita odświeża rysunek wielokrotnie) i tkanina domyślna, gdy płaszczyzna nie ma grafiki
+const _hangImgs = new Map(), HANG_TEX = 'pod/tkanina-domyslna.png';
+function hangImg(src) { let p = _hangImgs.get(src); if (!p) { p = loadImg(src); _hangImgs.set(src, p); p.catch(() => _hangImgs.delete(src)); } return p; }
+async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'tex' = z teksturą (grafiki płaszczyzn), 'frame' = sam szkielet (profile, rozpórki, linki)
   const tex = mode !== 'frame', ghost = mode === 'ghost';      // ghost = tkanina półprzezroczysta, szkielet widać przez nią
-  const vo = el.viz || {}, strutStep = Math.max(50, Number(vo.strut) || 1000), cabMode = ['point', 'vertical', 'none'].includes(vo.cabMode) ? vo.cabMode : 'point';
+  const vo = el.viz || {}, strutStep = Math.max(50, Number(vo.strut) || 1500), cabMode = ['point', 'vertical', 'none'].includes(vo.cabMode) ? vo.cabMode : 'point';
   const cabStep = Math.max(100, Number(vo.cabStep) || 1500), cabH = Math.max(50, Number(vo.cabH) || 1000);      // rozpórki / linki: odstęp i wysokość [mm]
   const m = dimsMode(el); if (m !== 'box' && m !== 'ring') return null;
   const W = Number(el.w), H = Number(el.h), D = m === 'box' ? depthOf(el) : W;
   if (!(W > 0 && H > 0 && D > 0)) return null;
   const allP = planesOf(el) || [], pls = allP.filter(q => q.side !== 'inside'), insP = allP.filter(q => q.side === 'inside'), imgs = [], imgsIn = [];
-  for (const q of pls) { let im = null; if (tex && q.thumb) { try { im = await loadImg(q.thumb); } catch (e) { /* bez grafiki */ } } imgs.push(im); }
-  for (const q of insP) { let im = null; if (tex && q.thumb) { try { im = await loadImg(q.thumb); } catch (e) { /* bez grafiki */ } } imgsIn.push(im); }
+  for (const q of pls) { let im = null; if (tex) { try { im = await hangImg(q.thumb || HANG_TEX); } catch (e) { /* bez grafiki */ } } imgs.push(im); }
+  for (const q of insP) { let im = null; if (tex) { try { im = await hangImg(q.thumb || HANG_TEX); } catch (e) { /* bez grafiki */ } } imgsIn.push(im); }
   const hasIn = tex && !!el.inside;                       // zadruk wewnątrz: tylne lica od środka są pełne (zakrywają rozpórki)
   const pt = { r32: 32, t50: 50, ef80: 80 }[hangProf(el)[0]] || 32, col = typeById('podwieszana').color || '#8e44ad';
-  const ang = 36 * Math.PI / 180, ca = Math.cos(ang), sa = Math.sin(ang);
-  const P = (x, y, z) => [1.2247449 * (x * ca - y * sa), 0.7071068 * (x * sa + y * ca) - z];
+  const vw0 = opts.view || el.vw || {}, ang = (vw0.yaw != null ? Number(vw0.yaw) : 36) * Math.PI / 180, ca = Math.cos(ang), sa = Math.sin(ang);      // widok: obrót (yaw) i wysokość kamery (pitch) — orbita
+  const pit = clamp(vw0.pitch != null ? Number(vw0.pitch) : 35.264, 8, 85) * Math.PI / 180, kx = 1 / Math.cos(pit), ky = Math.tan(pit);
+  const P = (x, y, z) => [kx * (x * ca - y * sa), ky * (x * sa + y * ca) - z];
   const cab = cabMode === 'none' ? 0 : cabH, cx = W / 2, cy = D / 2, R = W / 2, DEG = Math.PI / 180;
   const ext = [];
   if (m === 'box') { for (const x of [0, W]) for (const y of [0, D]) for (const z of [0, H]) ext.push(P(x, y, z)); }
@@ -5487,33 +5494,32 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
     const back = posts.filter(q => depth(q.p) <= mid - 1), front = posts.filter(q => depth(q.p) > mid - 1);
     const rail = (z, i) => railSeg(T(...C[i], z), T(...C[(i + 1) % 4], z));
     const post = q => q.corner ? cornerPost(q.p) : flatStrut(q.p, q.dir);
-    // lica: 0 = południe (y = D, A1), 1 = wschód (x = W, A2), 2 = północ (A3), 3 = zachód (A4)
+    // lica: 0 = południe (y = D, A1), 1 = wschód (x = W, A2), 2 = północ (A3), 3 = zachód (A4); oglądane z zewnątrz czytają się od a do b
+    const NRM = [[0, 1], [1, 0], [0, -1], [-1, 0]], fv = i => NRM[i][0] * sa + NRM[i][1] * ca > 0;       // lico zwrócone do widza (orbita: dowolny kąt)
+    const frontF = [0, 1, 2, 3].filter(fv), backF = [0, 1, 2, 3].filter(i => !fv(i)), RF = [2, 1, 0, 3];
+    const frontE = [0, 1, 2, 3].filter(i => fv(RF[i])), backE = [0, 1, 2, 3].filter(i => !fv(RF[i]));     // krawędzie (szyny): 0 = północ, 1 = wschód, 2 = południe, 3 = zachód
+    const ends = i => i === 0 ? [[0, D], [W, D]] : i === 1 ? [[W, D], [W, 0]] : i === 2 ? [[W, 0], [0, 0]] : [[0, 0], [0, D]];
+    const quad = (a, b) => [T(a[0], a[1], H), T(b[0], b[1], H), T(b[0], b[1], 0), T(a[0], a[1], 0)];
     const face = (i, withImg) => {
-      const a = i === 0 ? [0, D] : i === 1 ? [W, D] : i === 2 ? [W, 0] : [0, 0], b = i === 0 ? [W, D] : i === 1 ? [W, 0] : i === 2 ? [0, 0] : [0, D];
-      const TL = T(a[0], a[1], H), TR = T(b[0], b[1], H), BL = T(a[0], a[1], 0), BR = T(b[0], b[1], 0), q = [TL, TR, BR, BL], im = withImg ? imgs[i] : null;
-      if (im) { image(im, TL, TR, BL, 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, tint(withImg ? 0.3 : 0.2), tint(0.7));
+      const [a, b] = ends(i), q = quad(a, b), im = withImg ? imgs[i] : null;
+      if (im) { image(im, q[0], q[1], q[3], 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, tint(withImg ? 0.3 : 0.2), tint(0.7));
     };
-    // tylne lica oglądane od środka (zadruk wewnątrz): 2 = północ (od lewej: x rośnie), 3 = zachód (od lewej: y maleje)
-    const faceIn = i => {
-      const a = i === 2 ? [0, 0] : [0, D], b = i === 2 ? [W, 0] : [0, 0];
-      const TL = T(a[0], a[1], H), TR = T(b[0], b[1], H), BL = T(a[0], a[1], 0), BR = T(b[0], b[1], 0), q = [TL, TR, BR, BL], im = imgsIn[i];
-      if (im) { image(im, TL, TR, BL, 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, lite(0.78), tint(0.7));
+    const faceIn = i => {            // lico od środka (zadruk wewnątrz): czytane odwrotnie niż z zewnątrz
+      const [oa, ob] = ends(i), q = quad(ob, oa), im = imgsIn[i];
+      if (im) { image(im, q[0], q[1], q[3], 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, lite(0.78), tint(0.7));
     };
+    const backFace = i => hasIn ? faceIn(i) : face(i, false);
     if (ghost) {      // lica z grafiką w połowie przezroczyste, szkielet (profile, rozpórki) na wierzchu
-      g.save(); g.globalAlpha = 0.5; if (hasIn) { faceIn(2); faceIn(3); } else { face(2, false); face(3, false); } face(0, true); face(1, true); g.restore();
-      [0, 3, 1, 2].forEach(i => rail(0, i)); posts.forEach(post); [0, 3, 1, 2].forEach(i => rail(H, i)); capPost();
+      g.save(); g.globalAlpha = 0.5; backF.forEach(backFace); frontF.forEach(i => face(i, true)); g.restore();
+      [...backE, ...frontE].forEach(i => rail(0, i)); posts.forEach(post); [...backE, ...frontE].forEach(i => rail(H, i)); capPost();
     } else {
-    if (!tex) [0, 3].forEach(i => rail(0, i));                    // dół: tylne krawędzie (północ i zachód) — przy tkaninie niewidoczne
-    if (tex) {
-      posts.forEach(post);                                        // rozpórki są za licami — widać je tylko tam, gdzie lico jest półprzezroczyste
-      if (hasIn) { faceIn(2); faceIn(3); } else { face(2, false); face(3, false); }
-      face(0, true); face(1, true);                               // przednie lica z grafiką
-      if (sty === 'ef80') C.forEach(c => cornerPost(c));          // EF 80: słupki 80 × 80 na narożnikach wyeksponowane na wierzchu tkaniny
-    } else back.forEach(post);                                    // szkielet — bez lic
-    if (!tex) [1, 2].forEach(i => rail(0, i));                    // dół: przednie krawędzie — przy tkaninie zasłonięte nią
-    if (!tex) front.forEach(post);
-    [0, 3, 1, 2].forEach(i => rail(H, i));                        // góra: tylne, potem przednie
-    capPost();
+      if (!tex) backE.forEach(i => rail(0, i));                   // dół: tylne krawędzie — przy tkaninie niewidoczne
+      if (tex) { posts.forEach(post); backF.forEach(backFace); frontF.forEach(i => face(i, true)); if (sty === 'ef80') C.forEach(c => cornerPost(c)); }   // EF 80: słupki 80 × 80 na narożnikach na wierzchu tkaniny
+      else back.forEach(post);                                    // szkielet — bez lic
+      if (!tex) frontE.forEach(i => rail(0, i));                  // dół: przednie krawędzie — przy tkaninie zasłonięte nią
+      if (!tex) front.forEach(post);
+      backE.forEach(i => rail(H, i)); frontE.forEach(i => rail(H, i));        // góra: tylne, potem przednie
+      capPost();
     }
   } else {
     const N = 120, th = i => i * 2 * Math.PI / N, nd = a => Math.sin(a + ang), pt3 = (a, z) => T(cx + R * Math.cos(a), cy + R * Math.sin(a), z);
@@ -5527,12 +5533,13 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
     const struts = Array.from({ length: nStr }, (_, k) => k * 2 * Math.PI / nStr + 0.12);
     const seg = (i, front) => {
       const a0 = th(i), a1 = th(i + 1), am = (a0 + a1) / 2; if ((nd(am) > 0) !== front) return;
-      const TLq = pt3(a1, H), TRq = pt3(a0, H), BLq = pt3(a1, 0), BRq = pt3(a0, 0), q = [pt3(a0, H), pt3(a1, H), pt3(a1, 0), pt3(a0, 0)], im = front ? imgs[0] : (hasIn ? imgsIn[0] : null);
+      const q = [pt3(a0, H), pt3(a1, H), pt3(a1, 0), pt3(a0, 0)], im = front ? imgs[0] : (hasIn ? imgsIn[0] : null);
+      let base = (a0 + ang) % (2 * Math.PI); if (base < 0) base += 2 * Math.PI; const vAt = a => base + (a - a0);       // kąt względem widza (bez zawinięcia w obrębie odcinka)
       if (im && front) {
-        const u = a => 0.5 + (Math.PI / 2 - (a + ang)) / (2 * Math.PI), uL = u(a1), uR = u(a0);
-        image(im, TLq, TRq, BLq, Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q.map(([x, y]) => [x, y]));
+        const u = a => 0.5 + (Math.PI / 2 - vAt(a)) / (2 * Math.PI), uL = u(a1), uR = u(a0);
+        image(im, pt3(a1, H), pt3(a0, H), pt3(a1, 0), Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q.map(([x, y]) => [x, y]));
       } else if (im) {                                           // tylna połowa od środka: czytane od lewej w stronę rosnącego kąta
-        const u = a => 0.5 + ((a + ang) - 1.5 * Math.PI) / (2 * Math.PI), uL = u(a0), uR = u(a1);
+        const u = a => 0.5 + (vAt(a) - 1.5 * Math.PI) / (2 * Math.PI), uL = u(a0), uR = u(a1);
         image(im, pt3(a0, H), pt3(a1, H), pt3(a0, 0), Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q.map(([x, y]) => [x, y]));
       } else if (!front && hasIn) poly(q, lite(0.78));
       else poly(q, tint(front ? 0.3 : 0.2));
@@ -5579,13 +5586,18 @@ async function hangRender(el, mark, mode = 'tex') {      // mode: 'tex' = z teks
     const mx = (A2[0] + B2[0]) / 2, my = (A2[1] + B2[1]) / 2; g.font = `700 30px ${F}`; const tw = g.measureText(txt).width;
     g.fillStyle = '#fff'; g.fillRect(mx - tw / 2 - 8, my - 20, tw + 16, 40); g.fillStyle = '#276749'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, mx, my + 1);
   };
+  const sOff = (nx, ny, px) => { const a0 = T(0, 0, 0), b0 = T(nx * 100, ny * 100, 0), dx = b0[0] - a0[0], dy = b0[1] - a0[1], l = Math.hypot(dx, dy); return l < 1e-6 ? [0, px] : [dx / l * px, dy / l * px]; };
   if (m === 'box') {
-    dim(T(0, D, 0), T(W, D, 0), [-34, 52], lenPL(W) + U);
-    dim(T(W, D, 0), T(W, 0, 0), [40, 36], lenPL(D) + U);
-    dim(T(0, D, 0), T(0, D, H), [-64, 0], lenPL(H) + U);
+    const southFront = sa * 0 + ca > 0, eastFront = sa > 0;
+    const yE = southFront ? D : 0, xE = eastFront ? W : 0;
+    dim(T(0, yE, 0), T(W, yE, 0), sOff(0, southFront ? 1 : -1, 64), lenPL(W) + U);
+    dim(T(xE, D, 0), T(xE, 0, 0), sOff(eastFront ? 1 : -1, 0, 64), lenPL(D) + U);
+    const lc = [[0, 0], [W, 0], [W, D], [0, D]].reduce((b2, c2) => P(c2[0], c2[1], 0)[0] < P(b2[0], b2[1], 0)[0] ? c2 : b2);
+    dim(T(lc[0], lc[1], 0), T(lc[0], lc[1], H), [-70, 0], lenPL(H) + U);
   } else {
-    dim(T(cx - R * ca, cy + R * sa, 0), T(cx + R * ca, cy - R * sa, 0), [0, 70], 'Ø ' + lenPL(W) + U);
-    dim(T(cx - R * sa, cy - R * ca, 0), T(cx - R * sa, cy - R * ca, H), [-70, 0], lenPL(H) + U);
+    const c0 = T(cx, cy, 0), rx = kx * R * s, rb = ky * R * s;       // średnica pod konstrukcją (poza rysunkiem), wysokość z lewej strony
+    dim([c0[0] - rx, c0[1]], [c0[0] + rx, c0[1]], [0, rb + 56], 'Ø ' + lenPL(W) + U);
+    dim(T(cx - R * ca, cy + R * sa, 0), T(cx - R * ca, cy + R * sa, H), [-70, 0], lenPL(H) + U);
   }
   const cap = `${mark || ''} · ${typeLabel(el)} · ${netTxt(el)}${U}${ghost ? ' · tkanina półprzezroczysta' : tex ? '' : ' · szkielet'}`;
   g.fillStyle = '#2d3748'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -5612,6 +5624,39 @@ async function hangSetView(photoId, mode) {
     await DB.update(pPhotos(pid), photoId, { url: alts[mode], alts, vmode: mode });
   } catch (e) { toast('Nie udało się przełączyć widoku: ' + e.message, 'error', 6000); }
   finally { t.remove(); }
+}
+// orbita: wizka z wizualizacją konstrukcji w oknie z obrotem myszą (poziomo — obrót, pionowo — wysokość kamery); „Zapisz widok” podmienia obraz wizki i zapamiętuje widok dla kolejnych wizualizacji
+async function hangOrbit(photoId) {
+  const p = S.photos.find(x => x.id === photoId), el0 = p && hangElOfPhoto(photoId); if (!p || !el0 || isViewer() || !S.project) return;
+  const el = clone(el0), mode = hangViewMode(p, el0), mark = markOf(el0), pid = S.project.id, V0 = { yaw: 36, pitch: 35.264 };
+  let yaw = el.vw && el.vw.yaw != null ? Number(el.vw.yaw) : V0.yaw, pitch = el.vw && el.vw.pitch != null ? Number(el.vw.pitch) : V0.pitch, busy = false, again = false, dr = null;
+  const m = openModal({ title: '↻ Orbita — ' + esc(mark || 'podwieszenie'), wide: true,
+    body: '<canvas id="ho-cv" style="width:100%;max-height:72vh;object-fit:contain;cursor:grab;touch-action:none;background:#f8fafc;border:1px solid var(--line)"></canvas><div class="hint" style="margin-top:6px">Przeciągnij myszą: poziomo — obrót wokół konstrukcji, pionowo — wysokość kamery. „Zapisz widok” zmienia tę wizkę i zapamiętuje widok dla kolejnych wizualizacji tej konstrukcji.</div>',
+    footer: '<button class="btn" id="ho-reset" style="margin-right:auto">↺ Widok domyślny</button><button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ho-ok">Zapisz widok</button>' });
+  const draw = async () => {
+    if (busy) { again = true; return; } busy = true;
+    try { const cv = await hangRender(el, mark, mode, { view: { yaw, pitch } }), t = $('ho-cv'); if (cv && t) { t.width = cv.width; t.height = cv.height; t.getContext('2d').drawImage(cv, 0, 0); } } catch (e) { console.warn(e); }
+    busy = false; if (again) { again = false; draw(); }
+  };
+  const c = $('ho-cv');
+  c.onpointerdown = e => { dr = { x: e.clientX, y: e.clientY, yaw, pitch }; try { c.setPointerCapture(e.pointerId); } catch (er) {} c.style.cursor = 'grabbing'; };
+  c.onpointermove = e => { if (!dr) return; yaw = ((dr.yaw - (e.clientX - dr.x) * 0.5) % 360 + 360) % 360; pitch = clamp(dr.pitch + (e.clientY - dr.y) * 0.3, 8, 85); draw(); };
+  c.onpointerup = c.onpointercancel = () => { dr = null; c.style.cursor = 'grab'; };
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('ho-reset').onclick = () => { yaw = V0.yaw; pitch = V0.pitch; draw(); };
+  $('ho-ok').onclick = async () => {
+    $('ho-ok').disabled = true; const tt = toast('Zapisuję widok…', '', 60000);
+    try {
+      const cv = await hangRender(el, mark, mode, { view: { yaw, pitch } }); if (!cv) throw new Error('brak rysunku');
+      const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+      const up = await storeImage(new File([blob], 'podwieszenie-' + (mark || 'A') + '-' + mode + '.png', { type: 'image/png' }), 3200, { png: true });
+      await DB.update(pPhotos(pid), photoId, { url: up.url, w: up.w, h: up.h, alts: { [mode]: up.url }, vmode: mode });
+      await DB.update(pElements(pid), el0.id, { vw: { yaw: Math.round(yaw * 10) / 10, pitch: Math.round(pitch * 10) / 10 }, updatedAt: nowIso(), updatedBy: S.me.id });
+      m.close();
+    } catch (e) { toast('Nie udało się zapisać widoku: ' + e.message, 'error', 6000); $('ho-ok').disabled = false; }
+    tt.remove();
+  };
+  draw();
 }
 async function hangMakeViz(el, mark, eid, mode = 'tex') {
   const key = mode === 'frame' ? 'vizFramePhotoId' : mode === 'ghost' ? 'vizGhostPhotoId' : 'vizPhotoId', what = mode === 'frame' ? 'szkielet konstrukcji' : mode === 'ghost' ? 'konstrukcja z półprzezroczystą tkaniną' : 'wizualizacja konstrukcji';
@@ -5903,12 +5948,12 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         return row(st.thumb, false) + (cur.inside ? row(st.thumbIn, true) : '');
       })() +
       (['box', 'ring'].includes(dimsMode(cur)) ? (() => {
-        const vz = { strut: 1000, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) }, num = k => `<input type="number" data-vz="${k}" min="1" step="${unitStep()}" value="${esc(fromMM(vz[k]))}">`;
+        const vz = { strut: 1500, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) }, num = k => `<input type="number" data-vz="${k}" min="1" step="${unitStep()}" value="${esc(fromMM(vz[k]))}">`;
         return `<div class="viz-set"><b>Wizualizacja:</b> <label>rozpórki co ${num('strut')} ${UNIT()}</label>
           <label>linki <select data-vz="cabMode"><option value="point" ${vz.cabMode === 'point' ? 'selected' : ''}>w jeden punkt</option><option value="vertical" ${vz.cabMode === 'vertical' ? 'selected' : ''}>pionowo</option><option value="none" ${vz.cabMode === 'none' ? 'selected' : ''}>bez linek</option></select></label>
           <label>co ${num('cabStep')} ${UNIT()}</label><label>wysokość ${num('cabH')} ${UNIT()}</label></div>`;
       })() : '') +
-      (['box', 'ring'].includes(dimsMode(cur)) ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="ed-hviz" title="Rysunek konstrukcji z teksturą (grafiki płaszczyzn), profilami, rozpórkami co ok. 1 m, linkami i wymiarami — dodawany jako nowa wizka w górnym panelu">🖼 Wizualizacja z teksturą</button><button type="button" class="btn" id="ed-hviz2" title="Sam szkielet: profile, rozpórki co ok. 1 m, linki i wymiary (bez grafik) — dodawany jako nowa wizka w górnym panelu">▦ Szkielet (sam profil)</button><button type="button" class="btn" id="ed-hviz3" title="Tkanina z grafiką w połowie przezroczysta, szkielet widać przez nią — dodawana jako nowa wizka w górnym panelu">◫ Tkanina półprzezroczysta</button></div>` : '') +
+      (['box', 'ring'].includes(dimsMode(cur)) ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="ed-hviz" title="Rysunek konstrukcji z teksturą (grafiki płaszczyzn; bez grafik — tkanina domyślna), profilami, rozpórkami, linkami i wymiarami — dodawany jako nowa wizka w górnym panelu. Widok (pełny / szkielet / półprzezroczysta tkanina) i orbitę zmienisz na gotowej wizce.">🖼 Wizualizacja</button></div>` : '') +
       `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
     // podgląd płaszczyzn: wklejony ze schowka, wybrany albo upuszczony (także kilka plików naraz, po kolei od wskazanej płaszczyzny)
     const putPlaneFiles = async (start, files) => {
@@ -5929,7 +5974,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       if (file) putPlaneFiles(+b.dataset.ptb, [file]);
     });
     box.querySelectorAll('[data-vz]').forEach(i => i.addEventListener(i.tagName === 'SELECT' ? 'change' : 'input', () => {
-      el.viz = { strut: 1000, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) };
+      el.viz = { strut: 1500, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) };
       el.viz[i.dataset.vz] = i.tagName === 'SELECT' ? i.value : (toMM(i.value) || el.viz[i.dataset.vz]);
     }));
     [['ed-hviz', 'tex', 'vizPhotoId'], ['ed-hviz2', 'frame', 'vizFramePhotoId'], ['ed-hviz3', 'ghost', 'vizGhostPhotoId']].forEach(([bid, mode, key]) => { const hv = $(bid); if (hv) hv.onclick = async () => { hv.disabled = true; const c2 = read(); await hangMakeViz(c2, $('ed-badge').textContent.trim(), editing && editing.id, mode); el[key] = c2[key]; hv.disabled = false; }; });
