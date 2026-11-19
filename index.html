@@ -1199,7 +1199,6 @@
             <button type="button" data-skt="w" class="on" title="Kreska zielona: proste ściany, zaplecze, pokoje [1]">▬ Ściany</button>
             <button type="button" data-skt="d" title="Kreska żółta przerywana: drzwi [2]">┅ Drzwi</button>
             <button type="button" id="uf-sk-go" class="go" title="Ułóż ściany z modułów K-Frame [Enter]">⚙ Generuj</button>
-            <label title="Jak mocno dopasować rysunek do gotowych modułów 99,5 i 49,75: dokładny = tak jak narysowano (ścianki niestandardowe na końcach), ekonomiczny = prawie same gotowe moduły, optymalny = pośrednio"><span>Dopasowanie:</span><input type="range" id="uf-sk-fit" min="0" max="2" step="1"><b id="uf-sk-fitv" style="min-width:86px"></b></label>
             <label id="uf-sk-mag-l" title="Przyciąganie do końców i linii innych kresek, krawędzi stoiska i siatki 5 cm"><input type="checkbox" id="uf-sk-mag" checked> magnes</label>
             <span id="uf-sk-info"></span><button type="button" id="uf-sk-edit" title="Wróć do rysowania (moduły zostaną usunięte, rysunek zostaje)">✎ Edytuj rysunek</button>
             <button type="button" id="uf-sk-undo" title="Cofnij ostatnią kreskę [Backspace] — prawy klawisz na kresce usuwa ją">↶</button><button type="button" id="uf-sk-clr" title="Wyczyść wszystkie kreski">🗑</button><button type="button" id="uf-sk-x" title="Zamknij rysowanie [Esc]">✕</button>
@@ -8000,8 +7999,7 @@ function ufSkSync() {
   const sk = ufSkData(), gen = !!(sk.gen && UF.d.pieces.length && !UF.skOn);
   bar.classList.toggle('hidden', !(UF.skOn || (gen && sk.bar !== false))); bar.classList.toggle('gen', gen);
   bar.querySelectorAll('[data-skt]').forEach(b => b.classList.toggle('on', b.dataset.skt === (UF.skTool || 'w')));
-  if (document.activeElement !== $('uf-sk-fit')) $('uf-sk-fit').value = sk.fit == null ? 1 : sk.fit;
-  $('uf-sk-fitv').textContent = UF_SK_FITS[sk.fit == null ? 1 : sk.fit]; $('uf-sk-mag').checked = sk.magnet !== false;
+  $('uf-sk-mag').checked = sk.magnet !== false;
   $('uf-sk-info').textContent = gen ? (sk.info || '') : '';
   $('uf-cv').style.cursor = UF.skOn ? 'crosshair' : '';
 }
@@ -8063,7 +8061,7 @@ function ufSkMods(L, fit, nFixed, W = UF_KW) {
 }
 function ufSkGenerate(keepView) {
   const sk = ufSkData(); if (!sk.lines.length) return toast('Najpierw narysuj ściany (zielona kreska)', 'error');
-  const T = UF_KT + 3, fit = sk.fit == null ? 1 : sk.fit, TOL = 400;       // oś ściany; grubość ścianki obitej z obu stron (6,6 cm)
+  const T = UF_KT + 3, fit = 0, TOL = 400;          // zawsze dokładnie: moduły + przycięta końcówka na wolnym końcu ściany       // oś ściany; grubość ścianki obitej z obu stron (6,6 cm)
   // 1. kreski → osie poziome / pionowe
   const segs = sk.lines.map(l => { const [a, b] = l.p, hor = Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]); return hor ? { t: l.t, ori: 0, c: (a[1] + b[1]) / 2, a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]) } : { t: l.t, ori: 1, c: (a[0] + b[0]) / 2, a: Math.min(a[1], b[1]), b: Math.max(a[1], b[1]) }; }).filter(x => x.b - x.a >= 150);
   // 2. współliniowe ściany → jeden odcinek
@@ -8088,6 +8086,7 @@ function ufSkGenerate(keepView) {
     });
   });
   if (!ufK()) return ufSkBuildE(runs, fit, sk, keepView);        // EasyFrame: w narożnikach i na stykach stoją słupki
+  ufSkSnapPosts(runs, ufSkJunc(runs, TOL), TOL, T, UF_KW);        // K-Frame: zaplecze (światło między ścianami) na pełne moduły 99,5
   // 4. narożniki i styki: zaplecze (krótsza ściana; przy równych — pozioma) wchodzi w narożnik aż do zewnętrznego lica, a ściana główna kończy się na jej licu i przesuwa moduły (jak na szkicu)
   const len = r => r.b - r.a;
   runs.forEach(r => { r.ea = r.a; r.eb = r.b; r.butt = false; r.cuts = []; });
@@ -8130,8 +8129,13 @@ function ufSkGenerate(keepView) {
 }
 // EasyFrame: odcinek między dwoma słupkami ma mieć długość pełnych modułów (n × 49,6 w świetle); słupki (i ściany do nich prostopadłe) przesuwamy,
 // a wszystko za nimi przesuwa się razem — przycięta zostaje dopiero końcówka ściany (wolny koniec), nie środek
-function ufSkSnapPosts(runs, junc, TOL) {
-  const PW = UF_T, snap = g => Math.max(496, Math.round((g - PW) / 496) * 496) + PW;
+function ufSkJunc(runs, TOL) {
+  const jj = []; runs.filter(r => r.ori === 0).forEach(h => runs.filter(v => v.ori === 1).forEach(v => {
+    if (h.c >= v.a - TOL && h.c <= v.b + TOL && v.c >= h.a - TOL && v.c <= h.b + TOL) { const x = v.c, y = h.c; if (!jj.some(j => Math.hypot(j.x - x, j.y - y) < 100)) jj.push({ x, y }); }
+  })); return jj;
+}
+function ufSkSnapPosts(runs, junc, TOL, PW, MOD) {
+  const snap = g => Math.max(MOD, Math.round((g - PW) / MOD) * MOD) + PW;      // światło między słupkami / ścianami = całe moduły
   const build = k => {          // k = 'x': pionowe ściany stoją na x, sąsiednie słupki leżą na poziomych ścianach
     const rk = k === 'x' ? 0 : 1, vals = [...new Set(junc.map(j => Math.round(j[k])))].sort((p, q) => p - q);
     if (vals.length < 2) return null;
@@ -8139,7 +8143,9 @@ function ufSkSnapPosts(runs, junc, TOL) {
     runs.filter(r => r.ori === rk).forEach(r => { const on = vals.filter(v => junc.some(j => Math.round(j[k]) === v && Math.abs((k === 'x' ? j.y : j.x) - r.c) <= TOL)); for (let i = 1; i < on.length; i++) adj.add(on[i - 1] + '|' + on[i]); });
     const nv = [vals[0]];
     for (let i = 1; i < vals.length; i++) { const g = vals[i] - vals[i - 1]; nv.push(nv[i - 1] + (adj.has(vals[i - 1] + '|' + vals[i]) && g - PW >= 300 ? snap(g) : g)); }
-    return v => { let b = -1, bd = TOL + 1; vals.forEach((q, i) => { if (Math.abs(q - v) < bd) { bd = Math.abs(q - v); b = i; } }); if (b < 0) vals.forEach((q, i) => { if (q <= v) b = i; }); return b < 0 ? v : v + (nv[b] - vals[b]); };
+    return v => { let b = -1, bd = TOL + 1; vals.forEach((q, i) => { if (Math.abs(q - v) < bd) { bd = Math.abs(q - v); b = i; } }); if (b >= 0) return v + (nv[b] - vals[b]);
+      for (let i = 0; i < vals.length - 1; i++) if (v > vals[i] && v < vals[i + 1]) { const t = (v - vals[i]) / (vals[i + 1] - vals[i]); return v + (nv[i] - vals[i]) * (1 - t) + (nv[i + 1] - vals[i + 1]) * t; }
+      return v; };      // za ostatnim słupkiem i przed pierwszym: końce ścian stoją w miejscu — przycina się końcówka
   };
   const mx = build('x') || (v => v), my = build('y') || (v => v);
   runs.forEach(r => { const ma = r.ori === 0 ? mx : my, mc = r.ori === 0 ? my : mx; r.c = mc(r.c); r.a = ma(r.a); r.b = ma(r.b); r.doors = r.doors.map(ma); });
@@ -8147,11 +8153,8 @@ function ufSkSnapPosts(runs, junc, TOL) {
 // EasyFrame: słupek 80 × 80 w każdym narożniku i styku (T / L / +); ściany kończą się na licu słupka, przelotowa jest przecięta słupkiem
 function ufSkBuildE(runs, fit, sk, keepView) {
   const P = UF_T / 2, TOL = 400, W1 = 992, pieces = [];
-  const calcJ = () => { const jj = []; runs.filter(r => r.ori === 0).forEach(h => runs.filter(v => v.ori === 1).forEach(v => {
-    if (h.c >= v.a - TOL && h.c <= v.b + TOL && v.c >= h.a - TOL && v.c <= h.b + TOL) { const x = v.c, y = h.c; if (!jj.some(j => Math.hypot(j.x - x, j.y - y) < 100)) jj.push({ x, y }); }
-  })); return jj; };
-  let junc = calcJ();
-  if (fit !== 0) { ufSkSnapPosts(runs, junc, TOL); junc = calcJ(); }       // słupki wewnątrz ściany: odstęp na pełne moduły, resztę (przycięcie) zbiera wolny koniec ściany
+  ufSkSnapPosts(runs, ufSkJunc(runs, TOL), TOL, UF_T, W1);       // słupki wewnątrz ściany: odstęp na pełne moduły, resztę (przycięcie) zbiera wolny koniec ściany
+  const junc = ufSkJunc(runs, TOL);
   const parts = [];
   runs.forEach(r => {
     const cuts = junc.filter(j => r.ori === 0 ? Math.abs(j.y - r.c) <= TOL && j.x >= r.a - TOL && j.x <= r.b + TOL : Math.abs(j.x - r.c) <= TOL && j.y >= r.a - TOL && j.y <= r.b + TOL).map(j => r.ori === 0 ? j.x : j.y).sort((p, q) => p - q);
@@ -8187,7 +8190,7 @@ function ufSkApply(pieces, st, fit, keepView) {
   sk.info = `${pieces.length - st.nPost} modułów · ${st.nStd} stand. · ${st.nDoor} drzwi · ${st.nCus} niestand.` + (st.nPost ? ` · ${st.nPost} słupków` : '');
   UF.skOn = false; UF.skDraft = null; UF.skHover = null; UF.sel = null; if (!keepView) UF.vw = null;
   ufChanged();
-  if (!keepView) toast(`Wygenerowano: ${sk.info} — dopasowanie „${UF_SK_FITS[fit]}”. Suwak „Dopasowanie” nad stoiskiem przelicza układ od nowa.`, 'success', 8000);
+  if (!keepView) toast(`Wygenerowano: ${sk.info} — układ dokładny, przycięte tylko końcówki ścian.`, 'success', 8000);
 }
 async function ufSkRegen() {
   const sk = ufSkData(); if (!sk.gen || !sk.lines.length || !UF.d.pieces.length) return;
@@ -8226,7 +8229,6 @@ function ufSkInit() {
   $('uf-sketch').onclick = () => { const sk = ufSkData(); if (UF.skOn) ufSkOff(); else if (sk.gen && UF.d.pieces.length) { sk.bar = sk.bar === false; ufSkSync(); ufSkBtn(); } else ufSkOn(); };
   $('uf-sk').querySelectorAll('[data-skt]').forEach(b => b.onclick = () => { UF.skTool = b.dataset.skt; ufSkSync(); });
   $('uf-sk-go').onclick = ufSkGenerate;
-  $('uf-sk-fit').oninput = e => { const sk = ufSkData(); sk.fit = +e.target.value; ufSkSync(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800); if (sk.gen && UF.d.pieces.length) { clearTimeout(UF.skT); UF.skT = setTimeout(ufSkRegen, 220); } };
   $('uf-sk-mag').onchange = e => { ufSkData().magnet = e.target.checked; clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800); };
   $('uf-sk-undo').onclick = ufSkUndo;
   $('uf-sk-clr').onclick = async () => { const sk = ufSkData(); if (!sk.lines.length) return; if (await confirmBox('Wyczyścić wszystkie narysowane kreski?', 'Wyczyść')) { sk.lines = []; ufChanged(); } };
@@ -8248,7 +8250,7 @@ function ufDraw(light) {
   const geo = ufGeom(d); UF.geo = geo;
   const pul = 0.5 + 0.5 * Math.sin(Date.now() / 260); UF.hasNS = ufNonStdAny(geo);
   let b = geo.bounds || { x0: 0, y0: 0, x1: st.L, y1: st.D };
-  const mg = 650; b = { x0: b.x0 - mg, y0: b.y0 - mg, x1: b.x1 + mg, y1: b.y1 + mg };
+  const mg = 650; b = { x0: b.x0 - mg, y0: b.y0 - mg, x1: b.x1 + mg, y1: b.y1 + mg + 350 };      // dodatkowe miejsce pod stoiskiem na jego wymiar
   const bw = Math.max(b.x1 - b.x0, 3000), bh = Math.max(b.y1 - b.y0, 1800);
   const s0 = Math.min(0.5, (W - 24) / bw, (H - 24) / bh), ox0 = W / 2 - (b.x0 + b.x1) / 2 * s0, oy0 = H / 2 - (b.y0 + b.y1) / 2 * s0;
   const vw = UF.vw || { s: s0, ox: ox0, oy: oy0 }, s = vw.s, ox = vw.ox, oy = vw.oy;      // ręczne przybliżenie / przesunięcie albo dopasowanie do okna
@@ -8293,8 +8295,8 @@ function ufDraw(light) {
     g.beginPath(); g.arc(ax, ay, 14, 0, Math.PI * 2); g.fillStyle = open ? '#38a169' : '#fff'; g.fill(); g.strokeStyle = open ? '#2f855a' : '#a0aec0'; g.lineWidth = 2; g.stroke();
     g.fillStyle = open ? '#fff' : '#a0aec0'; g.font = `700 14px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(gl, ax, ay + 1);
   });
-  g.fillStyle = '#cbd5e0'; g.font = `700 ${Math.max(14, Math.min(34, st.L * s / 9))}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(`${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} · ${numPL(st.L * st.D / 1e6)} m²`, X(st.L / 2), Y(st.D / 2));
+  g.fillStyle = '#718096'; g.font = `700 15px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';      // wymiar stoiska pod stoiskiem (nie na jego powierzchni)
+  g.fillText(`${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} · ${numPL(st.L * st.D / 1e6)} m²`, X(st.L / 2), Y(st.D) + Math.min(60, Math.max(26, 1000 * s - 10)));
   // klocki
   const sel = UF.sel;
   geo.parts.forEach(p => {
