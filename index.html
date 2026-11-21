@@ -8103,45 +8103,52 @@ function ufSkGenerate(keepView) {
     });
   });
   if (!ufK()) return ufSkBuildE(runs, fit, sk, keepView);        // EasyFrame: w narożnikach i na stykach stoją słupki
-  ufSkSnapPosts(runs, ufSkJunc(runs, TOL), TOL, T, UF_KW);        // K-Frame: zaplecze (światło między ścianami) na pełne moduły 99,5
-  // 4. narożniki i styki: zaplecze (krótsza ściana; przy równych — pozioma) wchodzi w narożnik aż do zewnętrznego lica, a ściana główna kończy się na jej licu i przesuwa moduły (jak na szkicu)
-  const len = r => r.b - r.a;
-  runs.forEach(r => { r.ea = r.a; r.eb = r.b; r.butt = false; r.cuts = []; });
-  const hit = (r, v) => runs.find(q => q.ori !== r.ori && Math.abs(q.c - v) <= TOL && r.c >= q.a - TOL && r.c <= q.b + TOL);
-  runs.forEach(r => {
-    const qa = hit(r, r.a), qb = hit(r, r.b), closed = !!(qa && qb);          // zamknięta = oba końce opierają się o ściany (bok pokoju / zaplecza)
-    [['ea', r.a, -1, qa], ['eb', r.b, 1, qb]].forEach(([k, v, sg, q]) => {
-      if (!q) return;
-      const interior = r.c > q.a + TOL && r.c < q.b - TOL;
-      // narożnik: krótsza ściana wchodzi do zewnętrznego lica; styk w środku dłuższej ściany: bok zaplecza przecina ją i dzieli na dwie części
-      const through = interior ? (closed && len(r) < len(q) - 1) : (len(r) < len(q) - 1 ? true : len(r) > len(q) + 1 ? false : r.ori === 0);
-      if (through) { r[k] = q.c + sg * T / 2; if (interior) q.cuts.push(r.c); } else { r[k] = q.c - sg * T / 2; r.butt = true; }
-      r[k === 'ea' ? 'fixA' : 'fixB'] = true;
-    });
+  // K-Frame: ściana dochodząca do środka innej ściany (bok zaplecza) zawsze kończy się na jej licu — ściana główna biegnie dalej bez przecięcia.
+  // W narożniku jedna ze ścian idzie do zewnętrznego lica drugiej; sprawdzamy oba warianty każdego narożnika i bierzemy układ
+  // z najmniejszą liczbą ścianek niestandardowych (przy remisie: krótsza ściana w narożnik, jak dotąd).
+  const len = r => r.b - r.a, base = JSON.parse(JSON.stringify(runs));
+  const hitI = (rs, i, v) => rs.findIndex((q, j) => j !== i && q.ori !== rs[i].ori && Math.abs(q.c - v) <= TOL && rs[i].c >= q.a - TOL && rs[i].c <= q.b + TOL);
+  const ends = [];
+  base.forEach((r, i) => [['A', r.a, -1], ['B', r.b, 1]].forEach(([k, v, sg]) => { const j = hitI(base, i, v); if (j >= 0) ends.push({ i, k, sg, j, interior: r.c > base[j].a + TOL && r.c < base[j].b - TOL }); }));
+  const corners = [];
+  ends.filter(e => !e.interior).forEach(e => {
+    if (corners.some(c => c.f === e)) return;
+    const f = ends.find(x => x !== e && x.i === e.j && x.j === e.i && !x.interior) || null, r = base[e.i], q = base[e.j];
+    corners.push({ e, f, def: len(r) < len(q) - 1 ? true : len(r) > len(q) + 1 ? false : r.ori === 0 });      // def: czy ściana e idzie w narożnik
   });
-  // 5. moduły na odcinkach (ściana przecięta przez zaplecze = dwa odcinki, moduły liczone od lica zaplecza)
-  const pieces = []; let nStd = 0, nCus = 0, nDoor = 0, parts = [];
-  runs.forEach(r => {
-    let start = r.ea, fa = !!r.fixA;
-    r.cuts.sort((p, q) => p - q).forEach(c => { const end = c - T / 2; if (end - start >= 100) parts.push({ r, a: start, b: end, fa, fb: true }); start = c + T / 2; fa = true; });
-    if (r.eb - start >= 100) parts.push({ r, a: start, b: r.eb, fa, fb: !!r.fixB });
-  });
-  parts.forEach(pt => {
-    const r = pt.r, L = pt.b - pt.a; if (L < 100) return;
-    const mods = ufSkMods(L, fit, (pt.fa ? 1 : 0) + (pt.fb ? 1 : 0), UF_KW).map(l => ({ len: l, door: false })), tot = mods.reduce((a2, m) => a2 + m.len, 0), st0 = pt.fb && !pt.fa ? pt.b - tot : pt.a;
-    let pos = st0; const cen = mods.map(m => { const c = pos + m.len / 2; pos += m.len; return c; });
-    r.doors.filter(dc => dc >= pt.a - 100 && dc <= pt.b + 100).forEach(dc => {
-      let bi = -1, bd = Infinity; mods.forEach((m, i) => { if (!m.door && Math.abs(m.len - UF_KW) < 1 && Math.abs(cen[i] - dc) < bd) { bd = Math.abs(cen[i] - dc); bi = i; } });
-      if (bi >= 0) mods[bi].door = true;
+  const trial = bits => {
+    const rs = JSON.parse(JSON.stringify(base));
+    ends.forEach(e => { rs[e.i]['thr' + e.k] = false; });
+    corners.forEach((c, b) => { const thr = ((bits >> b) & 1) ? !c.def : c.def; rs[c.e.i]['thr' + c.e.k] = thr; if (c.f) rs[c.f.i]['thr' + c.f.k] = !thr; });
+    // zaplecze na pełne moduły: odstęp między osiami ścian liczony dla ściany zamkniętej między nimi (długość = odstęp − grubość + grubość za każdy koniec w narożniku)
+    const gapPW = (r, va, vb) => r.thrA === undefined || r.thrB === undefined || Math.abs(r.a - va) > TOL || Math.abs(r.b - vb) > TOL ? null : T - T * ((r.thrA ? 1 : 0) + (r.thrB ? 1 : 0));
+    ufSkSnapPosts(rs, ufSkJunc(rs, TOL), TOL, T, UF_KW, gapPW);
+    rs.forEach(r => { r.ea = r.a; r.eb = r.b; });
+    ends.forEach(e => { const r = rs[e.i], q = rs[e.j], thr = r['thr' + e.k]; r[e.k === 'A' ? 'ea' : 'eb'] = q.c + e.sg * (thr ? 1 : -1) * T / 2; r['fix' + e.k] = true; });
+    const pieces = []; let nStd = 0, nCus = 0, nDoor = 0;
+    rs.forEach(r => {
+      const L = r.eb - r.ea; if (L < 100) return;
+      const fa = !!r.fixA, fb = !!r.fixB;
+      const mods = ufSkMods(L, fit, (fa ? 1 : 0) + (fb ? 1 : 0), UF_KW).map(l => ({ len: l, door: false })), tot = mods.reduce((a2, m) => a2 + m.len, 0), st0 = fb && !fa ? r.eb - tot : r.ea;
+      let pos = st0; const cen = mods.map(m => { const c = pos + m.len / 2; pos += m.len; return c; });
+      r.doors.filter(dc => dc >= r.ea - 100 && dc <= r.eb + 100).forEach(dc => {
+        let bi = -1, bd = Infinity; mods.forEach((m, i) => { if (!m.door && Math.abs(m.len - UF_KW) < 1 && Math.abs(cen[i] - dc) < bd) { bd = Math.abs(cen[i] - dc); bi = i; } });
+        if (bi >= 0) mods[bi].door = true;
+      });
+      pos = st0;
+      mods.forEach(m => {
+        const x = r.ori === 0 ? pos : r.c, y = r.ori === 0 ? r.c : pos, op = { id: ufUid(), t: m.door ? 'door' : 'w', len: m.len, x, y, dir: r.ori === 0 ? 0 : 1 };
+        if (m.door) { op.mode = UF.d.doorMode || 'flush'; op.bul = UF.d.doorBul || 'n'; op.hinge = 'l'; op.swing = 'in'; nDoor++; }
+        else if (Math.abs(m.len - UF_KW) < 1 || Math.abs(m.len - UF_KW / 2) < 1) nStd++; else nCus++;
+        pieces.push(op); pos += m.len;
+      });
     });
-    pos = st0;
-    mods.forEach(m => {
-      const x = r.ori === 0 ? pos : r.c, y = r.ori === 0 ? r.c : pos, op = { id: ufUid(), t: m.door ? 'door' : 'w', len: m.len, x, y, dir: r.ori === 0 ? 0 : 1 };
-      if (m.door) { op.mode = UF.d.doorMode || 'flush'; op.bul = UF.d.doorBul || 'n'; op.hinge = 'l'; op.swing = 'in'; nDoor++; }
-      else if (Math.abs(m.len - UF_KW) < 1 || Math.abs(m.len - UF_KW / 2) < 1) nStd++; else nCus++;
-      pieces.push(op); pos += m.len;
-    });
-  });
+    let dev = 0; for (let b = bits; b; b >>= 1) dev += b & 1;
+    return { pieces, nStd, nCus, nDoor, score: nCus * 1000 + dev };
+  };
+  const nb = Math.min(corners.length, 10); let best = null;
+  for (let bits = 0; bits < (1 << nb); bits++) { const t = trial(bits); if (!best || t.score < best.score) best = t; }
+  const { pieces, nStd, nCus, nDoor } = best;
   return ufSkApply(pieces, { nStd, nCus, nDoor, nPost: 0 }, fit, keepView);
 }
 // EasyFrame: odcinek między dwoma słupkami ma mieć długość pełnych modułów (n × 49,6 w świetle); słupki (i ściany do nich prostopadłe) przesuwamy,
@@ -8151,15 +8158,20 @@ function ufSkJunc(runs, TOL) {
     if (h.c >= v.a - TOL && h.c <= v.b + TOL && v.c >= h.a - TOL && v.c <= h.b + TOL) { const x = v.c, y = h.c; if (!jj.some(j => Math.hypot(j.x - x, j.y - y) < 100)) jj.push({ x, y }); }
   })); return jj;
 }
-function ufSkSnapPosts(runs, junc, TOL, PW, MOD) {
-  const snap = g => Math.max(MOD, Math.round((g - PW) / MOD) * MOD) + PW;      // światło między słupkami / ścianami = całe moduły
+function ufSkSnapPosts(runs, junc, TOL, PW, MOD, gapPW) {
+  // gapPW (K-Frame): dla ściany zamkniętej między dwiema osiami — o ile odstęp osi jest dłuższy od ściany; bez niego: światło między słupkami / ścianami = całe moduły
+  const snapW = (g, pw) => Math.max(MOD, Math.round((g - pw) / MOD) * MOD) + pw;
   const build = k => {          // k = 'x': pionowe ściany stoją na x, sąsiednie słupki leżą na poziomych ścianach
     const rk = k === 'x' ? 0 : 1, vals = [...new Set(junc.map(j => Math.round(j[k])))].sort((p, q) => p - q);
     if (vals.length < 2) return null;
     const adj = new Set();       // pary słupków kolejnych na tej samej ścianie
     const adjN = new Map();       // ile ścian biegnie między tymi słupkami / ścianami (tyle ścianek zostanie przyciętych, gdy odstęp nie będzie na pełne moduły)
-    runs.filter(r => r.ori === rk).forEach(r => { const on = vals.filter(v => junc.some(j => Math.round(j[k]) === v && Math.abs((k === 'x' ? j.y : j.x) - r.c) <= TOL)); for (let i = 1; i < on.length; i++) { const key = on[i - 1] + '|' + on[i]; adj.add(key); adjN.set(key, (adjN.get(key) || 0) + 1); } });
-    const nv = ufSkFitGaps(vals, i => adj.has(vals[i - 1] + '|' + vals[i]) && vals[i] - vals[i - 1] - PW >= 300, i => adjN.get(vals[i - 1] + '|' + vals[i]) || 0, snap, PW, MOD, k === 'x' ? UF.d.stand.L : UF.d.stand.D);
+    const adjW = new Map();       // K-Frame: ściany zamknięte dokładnie między tymi osiami i ich „grubość” odstępu
+    runs.filter(r => r.ori === rk).forEach(r => { const on = vals.filter(v => junc.some(j => Math.round(j[k]) === v && Math.abs((k === 'x' ? j.y : j.x) - r.c) <= TOL)); for (let i = 1; i < on.length; i++) { const key = on[i - 1] + '|' + on[i]; adj.add(key); adjN.set(key, (adjN.get(key) || 0) + 1);
+      if (gapPW) { const pw = gapPW(r, on[i - 1], on[i]); if (pw != null) adjW.set(key, (adjW.get(key) || []).concat([pw])); } } });
+    const key = i => vals[i - 1] + '|' + vals[i], pwAt = i => gapPW ? ((adjW.get(key(i)) || [])[0] ?? PW) : PW;
+    const nv = ufSkFitGaps(vals, i => (gapPW ? (adjW.get(key(i)) || []).length > 0 : adj.has(key(i))) && vals[i] - vals[i - 1] - pwAt(i) >= 300,
+      i => gapPW ? (adjW.get(key(i)) || []).length : adjN.get(key(i)) || 0, (g, i) => snapW(g, pwAt(i)), PW, MOD, k === 'x' ? UF.d.stand.L : UF.d.stand.D, pwAt);
     return v => { let b = -1, bd = TOL + 1; vals.forEach((q, i) => { if (Math.abs(q - v) < bd) { bd = Math.abs(q - v); b = i; } }); if (b >= 0) return v + (nv[b] - vals[b]);
       for (let i = 0; i < vals.length - 1; i++) if (v > vals[i] && v < vals[i + 1]) { const t = (v - vals[i]) / (vals[i + 1] - vals[i]); return v + (nv[i] - vals[i]) * (1 - t) + (nv[i + 1] - vals[i + 1]) * t; }
       return v; };      // za ostatnim słupkiem i przed pierwszym: końce ścian stoją w miejscu — przycina się końcówka
@@ -8170,11 +8182,11 @@ function ufSkSnapPosts(runs, junc, TOL, PW, MOD) {
 // nowe położenia ścian (vals: osie po kolei): ściany na krawędzi stoiska stoją w miejscu; między nimi odstępy ze ścianami na pełne moduły,
 // a jeden odstęp bierze resztę — wybieramy ten, przy którym najmniej ścian ma przyciętą ściankę (bez ścian: 0), potem najmniejsze przesunięcia;
 // gdy reszta nie mieści się (stoisko za krótkie), inne odstępy (zaplecza) skracamy o moduł
-function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk) {
+function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk, pwAt = () => PW) {
   const n = vals.length, g = i => vals[i] - vals[i - 1], E = PW / 2 + 25;
   const anch = vals.map((v, i) => v <= E || v >= Lk - E ? i : -1).filter(i => i >= 0);
-  const gap = vals.map((v, i) => i === 0 ? 0 : snappable(i) ? snap(g(i)) : g(i));
-  const isMod = L => { const q = (L - PW) / (MOD / 2); return Math.abs(q - Math.round(q)) < 0.01; };
+  const gap = vals.map((v, i) => i === 0 ? 0 : snappable(i) ? snap(g(i), i) : g(i));
+  const isMod = (L, i) => { const q = (L - pwAt(i)) / (MOD / 2); return Math.abs(q - Math.round(q)) < 0.01; };
   for (let s = 0; s + 1 < anch.length; s++) {
     const ia = anch[s], ib = anch[s + 1], ids = []; for (let i = ia + 1; i <= ib; i++) ids.push(i);
     if (!ids.some(i => snappable(i))) { ids.forEach(i => { gap[i] = g(i); }); continue; }
@@ -8182,12 +8194,12 @@ function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk) {
     ids.forEach(c => {
       const t = {}; ids.forEach(i => { t[i] = i === c ? 0 : gap[i]; });
       let rem = total - ids.reduce((a, i) => a + t[i], 0);
-      while (rem - PW < (snappable(c) ? 300 : 100)) {          // reszta za mała: skracamy o moduł odstęp najbardziej zaokrąglony w górę
-        const cand = ids.filter(i => i !== c && snappable(i) && t[i] - MOD - PW >= MOD - 1).sort((p, q) => (t[q] - g(q)) - (t[p] - g(p)))[0];
+      while (rem - pwAt(c) < (snappable(c) ? 300 : 100)) {          // reszta za mała: skracamy o moduł odstęp najbardziej zaokrąglony w górę
+        const cand = ids.filter(i => i !== c && snappable(i) && t[i] - MOD - pwAt(i) >= MOD - 1).sort((p, q) => (t[q] - g(q)) - (t[p] - g(p)))[0];
         if (cand == null) return; t[cand] -= MOD; rem += MOD;
       }
       t[c] = rem;
-      const cost = (isMod(rem) ? 0 : walls(c)) * 1e6 + ids.filter(i => i !== c && !isMod(t[i]) && snappable(i)).length * 1e6 + ids.reduce((a, i) => a + Math.abs(t[i] - g(i)), 0);
+      const cost = (isMod(rem, c) ? 0 : walls(c)) * 1e6 + ids.filter(i => i !== c && !isMod(t[i], i) && snappable(i)).length * 1e6 + ids.reduce((a, i) => a + Math.abs(t[i] - g(i)), 0);
       if (!best || cost < best.cost) best = { cost, t };
     });
     if (best) ids.forEach(i => { gap[i] = best.t[i]; }); else ids.forEach(i => { gap[i] = g(i); });
