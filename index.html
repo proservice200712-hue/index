@@ -7673,10 +7673,14 @@ function ufChanged() {
   ufDraw(); ufSyncBar();
   clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800);
 }
+// Firestore nie przyjmuje tablic w tablicach (np. kreski rysunku: p = [[x, y], [x, y]]) — w zapisie tablica wewnętrzna staje się { _a: [...] }
+const ufFsEnc = v => Array.isArray(v) ? v.map(x => Array.isArray(x) ? { _a: ufFsEnc(x) } : ufFsEnc(x)) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, ufFsEnc(x)])) : v;
+const ufFsDec = v => Array.isArray(v) ? v.map(ufFsDec) : v && typeof v === 'object' ? (Object.keys(v).length === 1 && Array.isArray(v._a) ? ufFsDec(v._a) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, ufFsDec(x)]))) : v;
 async function ufSave() {
   clearTimeout(UF.tmr); UF.tmr = 0;
   if (!UF.d || !UF.pid || !S.project || S.project.id !== UF.pid) return;
-  try { await DB.update(C_PROJECTS, UF.pid, { ultraFrame: JSON.parse(JSON.stringify(UF.d)) }); } catch (e) { console.warn('ultra frame', e); }
+  try { await DB.update(C_PROJECTS, UF.pid, { ultraFrame: ufFsEnc(JSON.parse(JSON.stringify(UF.d))) }); UF.saveErr = false; }
+  catch (e) { console.warn('ultra frame', e); if (!UF.saveErr) { UF.saveErr = true; toast('Nie udało się zapisać układu ścianek: ' + e.message, 'error', 8000); } }
 }
 const ufFind = id => UF.d.pieces.find(p => p.id === id);
 function ufSelRun() {
@@ -9680,7 +9684,7 @@ function ufInitUi() {
 }
 async function openUltraFrame() { if (isViewer() || !featOn('uf')) return;
   if (!S.project || UF.open) return;
-  const saved = S.project.ultraFrame, has = !!(saved && ((saved.pieces && saved.pieces.length) || (saved.chains && saved.chains.length)));
+  const saved = ufFsDec(S.project.ultraFrame), has = !!(saved && ((saved.pieces && saved.pieces.length) || (saved.chains && saved.chains.length)));
   let sys = has ? (saved.sys || 'e') : await ufAskSystem();       // układ już narysowany — otwiera się w swoim systemie; pusty — pytamy
   if (!sys) return;
   if (!S.project) return;
