@@ -680,13 +680,14 @@ function warstwyFrontlit(p, m) {
   if (cyf.front.length) podstawa.push({ z0: cyf.zDna, z1: cyf.zDna + CYF_UP, reg: cyf.front });
   podstawa.push(...zat.pod, ...mag.pod); W.zatUw = zat.uw; W.magUw = mag.uw;
   // podwyższony rant podstawy (magnesy, Frontlit): pasek ranta wyżej o rz, ale nie tam, gdzie siedzi uszko klosza z magnesem
-  const gm = magWl() && W.mags.length ? magWym() : null;
+  const gm = magWl() && W.mags.length ? magWym() : null; let rantRz = 0;
   if (gm && !gm.screw && gm.rz > 0 && mag.lugZ.length) {
     const zMax = p.st + gz + p.wk - p.gp - 0.5, rz = Math.min(gm.rz, zMax - top);     // pod pleksą zostaje 0,5 mm
+    if (rz > 0.05) rantRz = rz;
     if (rz > 0.05) { const rim = kiesz.length ? diff(Rp2, kiesz) : diff(Rp2, offsetPolys(W.base, m.p2 - 1.2)); podstawa.push({ z0: top, z1: top + rz, reg: diff(diff(rim, holes), mag.lugZ) }); }
     if (rz < gm.rz - 0.05) mag.uw.push(`podwyższenie ranta ograniczone do ${fmt(Math.max(0, rz), 1)} mm (pod pleksą musi zostać 0,5 mm)`);
   }
-  return { magKl: mag.kl, stozki: mag.stozki, lugi: mag.lugi, klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
+  return { rantRz, magKl: mag.kl, stozki: mag.stozki, lugi: mag.lugi, klosz, podstawa, pleksa: [{ z0: p.st + gz + p.wk - p.gp, z1: p.st + gz + p.wk, reg: R(0) }], opis: `ścianka klosza ${fmt(p.wk, 1)}, stopka ${fmt(p.ws, 1)}, podstawa ${fmt(top, 1)} (stopień ${fmt(p.st, 1)} + płyta ${fmt(p.pl, 1)}), pleksa ${fmt(p.gp, 1)}` + (kiesz.length ? `, kieszeń ${fmt(p.gw, 1)} → dno ${fmt(top - p.gw, 1)}` : '') };
 }
 function warstwySidelit(p) {
   const R = d => offsetPolys(W.base, d), R0 = R(0), holes = otworyReg(p), zK = p.sh - p.kCalk;
@@ -866,9 +867,11 @@ async function build3D() {
       if (q.type === 'K' && !(tops.hK > 0)) { nKpom++; return; }
       const pl = W.pr, zB = p.st + p.pl, zF = p.wgl && p.gw > 0 ? tops.zP : zB;
       // wspólny plasterek (U): dno z rowkiem na LED, ścianka przy kieszeni do wierzchu podstawy, przejście po rancie, ścianki przy klosz od wierzchu podstawy w górę
+      const zR = zB + (plan.rantRz || 0);
       const warstwy = q.type === 'W' ? [
         { z0: zF, z1: zF + pl.plFloor, reg: diff(q.floor, holes2) }, { z0: zF + pl.plFloor, z1: zF + pl.plH, reg: diff(diff(q.floor, q.groove), holes2) },
-        { z0: zF, z1: zB, reg: diff(q.pw, holes2) }, { z0: zB, z1: zB + pl.plTK, reg: diff(q.rim, holes2) }, { z0: zB, z1: tops.zK0 + tops.hK, reg: q.kw },
+        // podniesiony rant podstawy (magnesy): przejście po rancie i ścianki przy kloszu od wierzchu rantu, ścianka przy kieszeni aż do niego — plasterek nie wchodzi w rant
+        { z0: zF, z1: zR, reg: diff(q.pw, holes2) }, { z0: zR, z1: zR + pl.plTK, reg: diff(q.rim, holes2) }, { z0: zR, z1: Math.max(zR + pl.plTK, tops.zK0 + tops.hK), reg: q.kw },
       ].filter(l => l.reg.length && l.z1 - l.z0 > 1e-6) : q.type === 'K' ? [{ z0: tops.zK0, z1: tops.zK0 + tops.hK, reg: q.polys }] : q.groove.length ? [{ z0: tops.zP, z1: tops.zP + pl.plFloor, reg: diff(q.polys, holes2) }, { z0: tops.zP + pl.plFloor, z1: tops.zP + pl.plH, reg: diff(diff(q.polys, q.groove), holes2) }] : [{ z0: tops.zP, z1: tops.zP + pl.plH, reg: diff(q.polys, holes2) }];
       const s = stos(warstwy, ndel); if (!s) return;
       s.decompose().map(ndel).forEach(b => { const tag = `Plaster_${q.type}_${String(q.li + 1).padStart(2, '0')}`; cntPl[tag] = (cntPl[tag] || 0) + 1; const mesh = b.getMesh(), bb = b.boundingBox(); bodies.push({ part: 'plaster', plType: q.type, plate: { id: q.c.id, key: q.key }, name: `${tag}_${cntPl[tag]}`, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(b), bb }); });
