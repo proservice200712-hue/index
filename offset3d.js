@@ -633,14 +633,16 @@ function kloszObszar(c, skos, filtr) {
     const l = Math.hypot(ex, ey); let nx = -ey / l, ny = ex / l; if (nx * dx + ny * dy < 0) { nx = -nx; ny = -ny; }
     const th = Math.atan2(cross(nx, ny, dx, dy), nx * dx + ny * dy); if (Math.abs(th) >= sg - 0.035) continue;      // już dość skośnie
     const t2 = (th >= 0 ? 1 : -1) * sg, d2 = [Math.cos(t2) * nx - Math.sin(t2) * ny, Math.sin(t2) * nx + Math.cos(t2) * ny];
-    pts.push({ x: X, y: Y, an: Math.atan2(d2[1], d2[0]), sOut: wewn(X + dx * 1.2, Y + dy * 1.2) ? -1 : 1 });     // sOut: w którą stronę wzdłuż linii jest na zewnątrz klosza
+    const sOut = wewn(X + dx * 1.2, Y + dy * 1.2) ? -1 : 1; pts.push({ x: X, y: Y, an: Math.atan2(d2[1], d2[0]), sOut, nOut: Math.atan2(ny * sOut, nx * sOut) });     // sOut: w którą stronę wzdłuż linii jest na zewnątrz klosza
   } });
   if (!pts.length) return { A: A0, G: A0, n: 0 };
   const circ = pts.map(t => circlePoly(t.x, t.y, RC)), wedges = pts.map((t, i) => {
     // na zewnątrz (poza wewnętrzną powierzchnią ścianki): półpłaszczyzna obrócona; do środka klosza: prosta jak linia cięcia
     const F = frame(t.x, t.y, t.an), Fa = frame(t.x, t.y, a), H = [[F(-BIG, 0), F(BIG, 0), F(BIG, BIG), F(-BIG, BIG)]], H0 = [[Fa(-BIG, 0), Fa(BIG, 0), Fa(BIG, BIG), Fa(-BIG, BIG)]];
-    const half = so => so > 0 ? [[Fa(0, -BIG), Fa(BIG, -BIG), Fa(BIG, BIG), Fa(0, BIG)]] : [[Fa(0, -BIG), Fa(0, BIG), Fa(-BIG, BIG), Fa(-BIG, -BIG)]];
-    return inter(clip('ctUnion', inter(H, half(t.sOut)).concat(inter(H0, half(-t.sOut)))), [circ[i]]);
+    // podział na stronę ścianki i stronę wnętrza wzdłuż wewnętrznej powierzchni ścianki (a nie prostopadle do linii cięcia): obie granice
+    // spotykają się w punkcie obrotu na tej powierzchni, więc w materiale ścianki nie ma uskoku („V” przy dużym skosie i ściance pod kątem)
+    const Fw = frame(t.x, t.y, t.nOut - Math.PI / 2), Hzew = [[Fw(-BIG, 0), Fw(BIG, 0), Fw(BIG, BIG), Fw(-BIG, BIG)]], Hwew = [[Fw(-BIG, -BIG), Fw(BIG, -BIG), Fw(BIG, 0), Fw(-BIG, 0)]];
+    return inter(clip('ctUnion', inter(H, Hzew).concat(inter(H0, Hwew))), [circ[i]]);
   }).flat();
   const A = clip('ctUnion', diff(A0, clip('ctUnion', circ)).concat(wedges));
   return { A, G: A, n: pts.length, okna: clip('ctUnion', pts.map(t => circlePoly(t.x, t.y, RC + 1))) };
