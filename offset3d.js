@@ -496,10 +496,19 @@ function magReg(p, Rbaza, Rkl, o) {
     const klin = rog ? inter([toCl(hullOf(fromCl(usz[0]).concat([rog])))], kaw) : [], zasieg = (rog ? rd : Ru) + 3 * g.f;
     const nb = [circlePoly(m.x, m.y, 2 * (zasieg + 2 * g.f))], sciana = inter(diff(Rkl, kaw), nb);
     const led = W.led ? rowekLED(nb, LED_W + 2) : [], klinOk = diff(klin, led);     // klin do rogu nie wchodzi nad pasek LED (nie zasłania światła)
-    // zaokrąglenia styków uszka ze ścianką: tylko po stronie ścianki, do której uszko przylega — inaczej w wąskiej kresce domknięcie zalewa szczelinę do przeciwnej ścianki (blok z łukami w poprzek kreski)
-    const A = clip('ctUnion', usz.concat(klinOk, sciana)), wp = najblizszyPunkt(kaw, m.x, m.y), wl = Math.hypot(wp[0] - m.x, wp[1] - m.y) || 1, nx = (wp[0] - m.x) / wl, ny = (wp[1] - m.y) / wl, RR = 2000;
-    let strona = toCl([[m.x - ny * RR, m.y + nx * RR], [m.x + ny * RR, m.y - nx * RR], [m.x + ny * RR + nx * RR, m.y - nx * RR + ny * RR], [m.x - ny * RR + nx * RR, m.y + nx * RR + ny * RR]]); if (area(strona) < 0) strona = strona.reverse();
-    const zaokr = g.f > 0 ? clip('ctUnion', A.concat(inter(diff(offRound(offRound(A, g.f), -g.f), A), [strona]))) : A;     // zaokrąglenia styków zawsze (są za małe, by zasłonić światło)
+    // zaokrąglenia styków uszka ze ścianką: tylko po stronie ścianek, do których uszko przylega (w narożniku — obu) — inaczej w wąskiej kresce domknięcie zalewa szczelinę do przeciwnej ścianki (blok z łukami w poprzek kreski)
+    // strona każdej ścianki, której uszko dotyka (np. w narożniku dwie): półpłaszczyzna od linii przez środek magnesu równoległej do ścianki, w stronę ścianki
+    const A = clip('ctUnion', usz.concat(klinOk, sciana)), RR = 2000;
+    const polPl = (px, py) => { const wl = Math.hypot(px - m.x, py - m.y) || 1, nx = (px - m.x) / wl, ny = (py - m.y) / wl;
+      const q = toCl([[m.x - ny * RR, m.y + nx * RR], [m.x + ny * RR, m.y - nx * RR], [m.x + ny * RR + nx * RR, m.y - nx * RR + ny * RR], [m.x - ny * RR + nx * RR, m.y + nx * RR + ny * RR]]); return area(q) < 0 ? q.reverse() : q; };
+    const wp = najblizszyPunkt(kaw, m.x, m.y), strony = [polPl(wp[0], wp[1])];
+    kaw.forEach(ring => { for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, L = dx * dx + dy * dy; if (L < 0.25) continue;      // krótkie odcinki (łuki) pomijamy
+      const t = Math.max(0, Math.min(1, ((m.x - ax) * dx + (m.y - ay) * dy) / L)), px = ax + t * dx, py = ay + t * dy;
+      if (Math.hypot(px - m.x, py - m.y) < Ru - 0.05 && Math.hypot(px - wp[0], py - wp[1]) > 0.3) strony.push(polPl(px, py));
+    } });
+    const strona = clip('ctUnion', strony);
+    const zaokr = g.f > 0 ? clip('ctUnion', A.concat(inter(diff(offRound(offRound(A, g.f), -g.f), A), strona))) : A;     // zaokrąglenia styków zawsze (są za małe, by zasłonić światło)
     const uszko = inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw).concat(inter(usz, Rkl));
     if (g.screw) {   // uszko siedzi w wycięciu kołnierza, na stopniu podstawy (kosztem kołnierza); śruba od spodu przez stopień wchodzi w otwór ślepy uszka
       const stopien = o.st != null ? o.st : top, b0 = stopien + g.lz, b1 = b0 + g.h, st = clip('ctUnion', uszko), pil = [circlePoly(m.x, m.y, g.dp)];
