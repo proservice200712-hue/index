@@ -465,6 +465,12 @@ function autoMagnets() {
 // bryły: pogrubienie kołnierza z gniazdem w podstawie (od z0 do wierzchu kołnierza), uszko z gniazdem w kloszu sięgające jego wewnętrznej ścianki (offset sc).
 // Uszko wypełnia klin między sobą a najbliższym rogiem wnętrza klosza (styczne od rogu do uszka), a jego styki ze ścianką są zaokrąglone promieniem z pola (domyślnie 2 mm).
 // Gniazdo w uszku jest na wylot (bez sufitu nad magnesem), więc klosz drukuje się bez podpór w gnieździe.
+// najbliższy punkt brzegu obszaru (ścieżki Clippera) od punktu (x, y) [mm]
+function najblizszyPunkt(polys, x, y) {
+  let best = null, bd = Infinity;
+  polys.forEach(r => { for (let i = 0; i < r.length; i++) { const a = r[i], b = r[(i + 1) % r.length], ax = a.X / S, ay = a.Y / S, dx = b.X / S - ax, dy = b.Y / S - ay, L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L)) : 0, px = ax + t * dx, py = ay + t * dy, d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = [px, py]; } } });
+  return best || [x + 1, y];
+}
 function magReg(p, Rbaza, Rkl, o) {
   const out = { pod: [], kl: [], pocket: [], zDno: -1, stozki: { pod: [], kl: [] }, uw: [], sHoles: [], sCut: [], sWrap: [], lugZ: [], lugi: [] }; if (!magWl() || !W.mags.length) return out;
   const g = magWym(), top = o.top, zD = top - g.h, Ru = Math.max(g.rp + g.s, o.sc - (magBrzeg() - g.rp - g.o) + 0.6); out.zDno = zD;
@@ -490,7 +496,10 @@ function magReg(p, Rbaza, Rkl, o) {
     const klin = rog ? inter([toCl(hullOf(fromCl(usz[0]).concat([rog])))], kaw) : [], zasieg = (rog ? rd : Ru) + 3 * g.f;
     const nb = [circlePoly(m.x, m.y, 2 * (zasieg + 2 * g.f))], sciana = inter(diff(Rkl, kaw), nb);
     const led = W.led ? rowekLED(nb, LED_W + 2) : [], klinOk = diff(klin, led);     // klin do rogu nie wchodzi nad pasek LED (nie zasłania światła)
-    const A = clip('ctUnion', usz.concat(klinOk, sciana)), zaokr = g.f > 0 ? offRound(offRound(A, g.f), -g.f) : A;     // zaokrąglenia styków zawsze (są za małe, by zasłonić światło)
+    // zaokrąglenia styków uszka ze ścianką: tylko po stronie ścianki, do której uszko przylega — inaczej w wąskiej kresce domknięcie zalewa szczelinę do przeciwnej ścianki (blok z łukami w poprzek kreski)
+    const A = clip('ctUnion', usz.concat(klinOk, sciana)), wp = najblizszyPunkt(kaw, m.x, m.y), wl = Math.hypot(wp[0] - m.x, wp[1] - m.y) || 1, nx = (wp[0] - m.x) / wl, ny = (wp[1] - m.y) / wl, RR = 2000;
+    let strona = toCl([[m.x - ny * RR, m.y + nx * RR], [m.x + ny * RR, m.y - nx * RR], [m.x + ny * RR + nx * RR, m.y - nx * RR + ny * RR], [m.x - ny * RR + nx * RR, m.y + nx * RR + ny * RR]]); if (area(strona) < 0) strona = strona.reverse();
+    const zaokr = g.f > 0 ? clip('ctUnion', A.concat(inter(diff(offRound(offRound(A, g.f), -g.f), A), [strona]))) : A;     // zaokrąglenia styków zawsze (są za małe, by zasłonić światło)
     const uszko = inter(inter(zaokr, [circlePoly(m.x, m.y, 2 * zasieg)]), kaw).concat(inter(usz, Rkl));
     if (g.screw) {   // uszko siedzi w wycięciu kołnierza, na stopniu podstawy (kosztem kołnierza); śruba od spodu przez stopień wchodzi w otwór ślepy uszka
       const stopien = o.st != null ? o.st : top, b0 = stopien + g.lz, b1 = b0 + g.h, st = clip('ctUnion', uszko), pil = [circlePoly(m.x, m.y, g.dp)];
