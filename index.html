@@ -7495,7 +7495,7 @@ function ufGeom0(d) {
     const back = inn !== inn0; if (back && (!st || r.manual)) return;   // tył z wysłoną ręczną — bez grafiki SEG
     const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + inn * (r.th || UF_T) / 2;
     const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
-    const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + inn && q.y1 >= f + inn : q.x0 <= f + inn && q.x1 >= f + inn))
+    const cut = parts.filter(q => !r.parts.includes(q) && ufTouch(q, r.ori, f, inn))
       .map(q => [q[k0 + '0'], q[k0 + '1']]).filter(([a, b]) => b > lo && a < hi).sort((p, q) => p[0] - q[0]);
     const segs = []; let a = lo;
     cut.forEach(([c0, c1]) => { if (c0 > a) segs.push([a, c0]); a = Math.max(a, c1); });
@@ -7507,7 +7507,7 @@ function ufGeom0(d) {
       if (!vis(px, py) || (back && !(px > 0 && px < st.L && py > 0 && py < st.D))) return;       // tył poza stoiskiem (sąsiad) — bez grafiki
       const items = r.parts.map(q => ({ op: q.op, len: Math.min(sb, q[k0 + '1']) - Math.max(sa, q[k0 + '0']) })).filter(it => it.len > 1);
       const w0 = items.find(it => it.op.t !== 'post'); if (!w0) return;
-      faces.push({ key: 'uf:' + w0.op.id + (back ? ':b' : ''), run: r, ori: r.ori, inn, back, f, a: sa, b: sb, h: r.h, items });
+      faces.push({ key: 'uf:' + w0.op.id + (back ? ':b' : ''), run: r, ori: r.ori, inn, back, f, a: sa, b: sb, h: r.h, items, rg: pub(px, py) ? 0 : pub.region(px, py) });
     });
   }); });
   // wysłony zaplecza (opcja): każde lico ścianki zwrócone do zamkniętego pomieszczenia wewnątrz stoiska (niewidoczne od alejki) —
@@ -7516,7 +7516,7 @@ function ufGeom0(d) {
   if (st && (st.zap || ufK())) runs.forEach(r => [-1, 1].forEach(sd => {      // K-Frame: lica od zaplecza liczymy zawsze (płyta w środku, bez grafik); elementy wysłon tylko z opcją „wysłona zaplecza”
     const k0 = r.ori === 0 ? 'x' : 'y', f = r.line + sd * (r.th || UF_T) / 2;
     const lo = Math.min(...r.parts.map(q => q[k0 + '0'])), hi = Math.max(...r.parts.map(q => q[k0 + '1']));
-    const cut = parts.filter(q => !r.parts.includes(q) && (r.ori === 0 ? q.y0 <= f + sd && q.y1 >= f + sd : q.x0 <= f + sd && q.x1 >= f + sd))
+    const cut = parts.filter(q => !r.parts.includes(q) && ufTouch(q, r.ori, f, sd))
       .map(q => [q[k0 + '0'], q[k0 + '1']]).filter(([a, b]) => b > lo && a < hi).sort((p, q) => p[0] - q[0]);
     const segs = []; let a = lo;
     cut.forEach(([c0, c1]) => { if (c0 > a) segs.push([a, c0]); a = Math.max(a, c1); });
@@ -7546,7 +7546,11 @@ function ufGeom0(d) {
     const out = [];
     for (const fc of faces) {
       const A = out[out.length - 1];
-      if (A && A.ori === fc.ori && A.inn === fc.inn && Math.abs(A.f - fc.f) < 15 && Math.abs(A.h - fc.h) < 1 && A.extR && fc.extL && A.extR === fc.extL) {
+      if (A && A.ori === fc.ori && A.inn === fc.inn && Math.abs(A.f - fc.f) < 15 && Math.abs(A.h - fc.h) < 1 && A.extR && fc.extL && A.extR === fc.extL && A.rg !== fc.rg) {
+        // ścianka oddziela dwa obszary (np. alejkę i pokój rozmów MT): osobne grafiki; jej koniec zakrywa grafika od alejki
+        if (fc.rg === 0) A.extR = null; else fc.extL = null;
+        out.push(fc);
+      } else if (A && A.ori === fc.ori && A.inn === fc.inn && Math.abs(A.f - fc.f) < 15 && Math.abs(A.h - fc.h) < 1 && A.extR && fc.extL && A.extR === fc.extL) {
         const k0 = fc.ori === 0 ? 'x' : 'y', q = A.extR;
         out[out.length - 1] = { ...A, b: fc.b, items: A.items.concat([{ op: q.op, len: q[k0 + '1'] - q[k0 + '0'] }], fc.items), runs2: [...(A.runs2 || [A.run]), fc.run], extR: fc.extR };
       } else out.push(fc);
@@ -7563,7 +7567,7 @@ function ufGeom0(d) {
   faces.sort((p, q) => p.ori - q.ori || p.inn - q.inn || p.f - q.f || p.a - q.a);
   for (let i = faces.length - 1; i > 0; i--) {
     const A = faces[i - 1], B = faces[i];
-    if (A.ori === B.ori && A.inn === B.inn && Math.abs(A.f - B.f) < 3 && Math.abs(A.h - B.h) < 1 && A.run !== B.run && Math.abs(B.a - A.b) < 15) {
+    if (A.ori === B.ori && A.inn === B.inn && Math.abs(A.f - B.f) < 3 && Math.abs(A.h - B.h) < 1 && A.run !== B.run && Math.abs(B.a - A.b) < 15 && A.rg === B.rg) {
       faces[i - 1] = { ...A, b: B.b, items: A.items.concat(B.items), runs2: [A.run, B.run] }; faces.splice(i, 1);
     }
   }
@@ -7576,6 +7580,11 @@ function ufGeom0(d) {
     if (r.manual || (sd.has(1) && sd.has(-1)) || r.ops.some(o => o.t === 'door')) r.ops.forEach(o => dbl.push(o.id));   // ścianka z drzwiami — zawsze płyta po obu stronach
   });
   return { parts, runs, ext, ends, caps, faces, zap: st && st.zap ? zap : [], inner: zap, dbl, pub, rooms, bounds: isFinite(x0) ? { x0, y0, x1, y1 } : null };
+}
+// ścianka q dochodzi do lica (płaszczyzna f, strona inn) albo przez nie przechodzi — luz do 6 mm też się liczy
+function ufTouch(q, ori, f, inn) {
+  const lo = Math.min(f + inn, f + inn * 6), hi = Math.max(f + inn, f + inn * 6);
+  return ori === 0 ? q.y0 <= hi && q.y1 >= lo : q.x0 <= hi && q.x1 >= lo;
 }
 // część stoiska widoczna od alejki: siatka zalewana od otwartych boków, ścianki (także z drzwiami) są przegrodą
 function ufPublic(st, parts) {
