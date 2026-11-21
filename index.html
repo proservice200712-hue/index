@@ -5449,6 +5449,7 @@ document.addEventListener('pointerdown', ev => {
 // bufor obrazków wizualizacji (orbita odświeża rysunek wielokrotnie) i tkanina domyślna, gdy płaszczyzna nie ma grafiki
 const _hangImgs = new Map(), HANG_TEX = 'pod/tkanina-domyslna.png';
 function hangImg(src) { let p = _hangImgs.get(src); if (!p) { p = loadImg(src); _hangImgs.set(src, p); p.catch(() => _hangImgs.delete(src)); } return p; }
+const HANG_YAW0 = 36;      // domyślny obrót widoku konstrukcji podwieszanej [°]
 async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'tex' = z teksturą (grafiki płaszczyzn), 'frame' = sam szkielet (profile, rozpórki, linki)
   const tex = mode !== 'frame', ghost = mode === 'ghost';      // ghost = tkanina półprzezroczysta, szkielet widać przez nią
   const vo = el.viz || {}, strutStep = Math.max(50, Number(vo.strut) || 1500), cabMode = ['point', 'vertical', 'none'].includes(vo.cabMode) ? vo.cabMode : 'point';
@@ -5461,7 +5462,7 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
   for (const q of insP) { let im = null; if (tex) { try { im = await hangImg(q.thumb || HANG_TEX); } catch (e) { /* bez grafiki */ } } imgsIn.push(im); }
   const hasIn = tex && !!el.inside;                       // zadruk wewnątrz: tylne lica od środka są pełne (zakrywają rozpórki)
   const pt = { r32: 32, t50: 50, ef80: 80 }[hangProf(el)[0]] || 32, col = typeById('podwieszana').color || '#8e44ad';
-  const vw0 = opts.view || el.vw || {}, ang = (vw0.yaw != null ? Number(vw0.yaw) : 36) * Math.PI / 180, ca = Math.cos(ang), sa = Math.sin(ang);      // widok: obrót (yaw) i wysokość kamery (pitch) — orbita
+  const vw0 = opts.view || el.vw || {}, ang = (vw0.yaw != null ? Number(vw0.yaw) : HANG_YAW0) * Math.PI / 180, ca = Math.cos(ang), sa = Math.sin(ang);      // widok: obrót (yaw) i wysokość kamery (pitch) — orbita
   const pit = clamp(vw0.pitch != null ? Number(vw0.pitch) : 35.264, 8, 85) * Math.PI / 180, kx = 1 / Math.cos(pit), ky = Math.tan(pit);
   const P = (x, y, z) => [kx * (x * ca - y * sa), ky * (x * sa + y * ca) - z];
   const cab = cabMode === 'none' ? 0 : cabH, cx = W / 2, cy = D / 2, R = W / 2, DEG = Math.PI / 180;
@@ -5559,12 +5560,14 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
     const seg = (i, front) => {
       const a0 = th(i), a1 = th(i + 1), am = (a0 + a1) / 2; if ((nd(am) > 0) !== front) return;
       const q = [pt3(a0, H), pt3(a1, H), pt3(a1, 0), pt3(a0, 0)], im = front ? imgs[0] : (hasIn ? imgsIn[0] : null);
-      let base = (a0 + ang) % (2 * Math.PI); if (base < 0) base += 2 * Math.PI; const vAt = a => base + (a - a0);       // kąt względem widza (bez zawinięcia w obrębie odcinka)
+      // tekstura przyklejona do konstrukcji (obraca się razem z nią przy orbicie): w widoku domyślnym (36°) środek grafiki jest na wprost, łączenie pasa z tyłu
+      let base = (a0 + HANG_YAW0 * DEG) % (2 * Math.PI); if (base < 0) base += 2 * Math.PI; const vAt = a => base + (a - a0);
+      const fr = (uL, uR) => { const k = Math.floor(uL); uL -= k; uR -= k; if (uR > 1) { if (1 - uL >= uR - 1) uR = 1; else { uL = 0; uR -= 1; } } return [uL, uR]; };      // odcinek na łączeniu pasa: bierze większą część
       if (im && front) {
-        const u = a => 0.5 + (Math.PI / 2 - vAt(a)) / (2 * Math.PI), uL = u(a1), uR = u(a0);
+        const u = a => 0.5 + (Math.PI / 2 - vAt(a)) / (2 * Math.PI), [uL, uR] = fr(u(a1), u(a0));
         image(im, pt3(a1, H), pt3(a0, H), pt3(a1, 0), Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q.map(([x, y]) => [x, y]));
       } else if (im) {                                           // tylna połowa od środka: czytane od lewej w stronę rosnącego kąta
-        const u = a => 0.5 + (vAt(a) - 1.5 * Math.PI) / (2 * Math.PI), uL = u(a0), uR = u(a1);
+        const u = a => 0.5 + (vAt(a) - 1.5 * Math.PI) / (2 * Math.PI), [uL, uR] = fr(u(a0), u(a1));
         image(im, pt3(a0, H), pt3(a1, H), pt3(a0, 0), Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q.map(([x, y]) => [x, y]));
       } else if (!front && hasIn) poly(q, lite(0.78));
       else poly(q, tint(front ? 0.3 : 0.2));
