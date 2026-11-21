@@ -2614,7 +2614,8 @@ function planesOf(el) {
   if (!isHang(el)) return null;
   const k = hangBleed(el), mark = markOf(el), base = planeBase(el), th = el.pthumbs || [], zero = { l: 0, r: 0, t: 0, b: 0 };
   // „inny kształt”: płaszczyzny dolegają do siebie, a spad dotyczy sumy wszystkich płaszczyzn — boczny tylko z zewnątrz (pierwsza: lewy, ostatnia: prawy), góra i dół przy każdej
-  const joined = dimsMode(el) === 'flat' && base.length > 1;
+  // kwadratowa też: boki to jeden pas tkaniny, np. 300×200: 1,5 + (300 + 200 + 300 + 200) + 1,5 (góra i dół przy każdym boku)
+  const joined = (dimsMode(el) === 'flat' || dimsMode(el) === 'box') && base.length > 1;
   const out = base.map(([w, h], i) => {
     const bb = joined ? { l: i === 0 ? k.l : 0, r: i === base.length - 1 ? k.r : 0, t: k.t, b: k.b } : k;
     return { label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb, gw: w + bb.l + bb.r, gh: h + bb.t + bb.b, thumb: th[i] || '' };
@@ -4210,6 +4211,8 @@ function renderStage(refit) {
     stageImgs.innerHTML = S.photos.map(p => { const b = L.map[p.id];
       return `<img src="${esc(p.url)}" alt="" draggable="false" style="left:${b.x}px;width:${b.w}px;height:${b.h}px">`; }).join('');
   }
+  // wizka wyłączona okiem (poza eksportem): bardziej przezroczysta, z zielonym znakiem wodnym oka (niżej, w nakładce)
+  [...stageImgs.children].forEach((im, i) => { const ph = S.photos[i]; im.style.opacity = ph && ph.noExp ? '.35' : ''; });
   stage.style.width = L.W + 'px'; stage.style.height = H0 + 'px';
   overlay.setAttribute('width', L.W); overlay.setAttribute('height', H0);
   overlay.setAttribute('viewBox', `0 0 ${L.W} ${H0}`);
@@ -4348,6 +4351,7 @@ function renderOverlay() {
   // numery wizek i przycisk usuwania
   S.photos.forEach((p, i) => {
     const b = L.map[p.id], cur = p.id === S.photoId && S.photos.length > 1;
+    if (p.noExp) { const z = Math.min(b.w, H0) * 0.42; out += eyeIcon(false).replace('<svg ', `<svg x="${b.x + (b.w - z) / 2}" y="${(H0 - z) / 2}" style="color:#2f9e5b;opacity:.5;pointer-events:none" `).replace('width="17" height="17"', `width="${z}" height="${z}"`); }
     if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#67b437" stroke-width="${3 * s}"/>`;
     out += `<g class="plab"><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/>
       <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text>${p.noExp ? `<rect x="${b.x + 44 * s}" y="0" width="${96 * s}" height="${24 * s}" fill="rgba(197,48,48,.92)"/><text x="${b.x + 92 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial">poza eksportem</text>` : ''}</g>
@@ -5470,7 +5474,7 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
   const T = (x, y, z) => { const [X, Y] = P(x, y, z); return [M + (X - minX) * s, M + (Y - minY) * s]; };
   const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
   const g = cv.getContext('2d'); g.lineJoin = 'round'; g.lineCap = 'round';
-  const bg = g.createLinearGradient(0, 0, 0, CH); bg.addColorStop(0, '#f8fafc'); bg.addColorStop(1, '#e2e8f0'); g.fillStyle = bg; g.fillRect(0, 0, CW, CH);
+  g.fillStyle = '#fff'; g.fillRect(0, 0, CW, CH);      // białe tło (wizka idzie też do eksportu PDF)
   const lw = Math.max(5, Math.min(18, pt * s)), lw2 = lw * 0.62;
   const line = (a, b, w) => {                         // profil: ciemny obrys + metaliczny środek + połysk
     g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]);
@@ -5480,11 +5484,14 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
   };
   const poly = (pts, fill, stroke) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke(); } };
   const tint = a => { const n = parseInt(col.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
-  const image = (im, TL, TR, BL, sx, sw, clipPts) => {   // fragment obrazka na równoległoboku (lico konstrukcji)
+  const image = (im, TL, TR, BL, sx, sw, clipPts, sy = 0, sh = im.height) => {   // fragment obrazka na równoległoboku (lico konstrukcji)
     g.save(); poly(clipPts); g.clip();
-    g.transform((TR[0] - TL[0]) / sw, (TR[1] - TL[1]) / sw, (BL[0] - TL[0]) / im.height, (BL[1] - TL[1]) / im.height, TL[0], TL[1]);
-    g.drawImage(im, sx, 0, sw, im.height, 0, 0, sw, im.height); g.restore();
+    g.transform((TR[0] - TL[0]) / sw, (TR[1] - TL[1]) / sw, (BL[0] - TL[0]) / sh, (BL[1] - TL[1]) / sh, TL[0], TL[1]);
+    g.drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh); g.restore();
   };
+  // wycinek netto obrazka płaszczyzny (obrazek = wymiar do druku ze spadami); domyślna tkanina — cała
+  const netCrop = (im, pl) => { if (!pl || !pl.bb || !(pl.gw > 0 && pl.gh > 0) || !pl.thumb) return { sx: 0, sw: im.width, sy: 0, sh: im.height }; const k = pl.bb;
+    return { sx: im.width * k.l / pl.gw, sw: im.width * pl.w / pl.gw, sy: im.height * k.t / pl.gh, sh: im.height * pl.h / pl.gh }; };
   const sty = hangProf(el)[0];                                     // r32 | t50 | ef80
   const bar = (a, b, w) => {                                      // profil płaski (T, EF): kwadratowe końce; T — rowek na materiał, EF — otwory montażowe
     g.save(); g.lineCap = 'butt'; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]);
@@ -5519,11 +5526,12 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
     const quad = (a, b) => [T(a[0], a[1], H), T(b[0], b[1], H), T(b[0], b[1], 0), T(a[0], a[1], 0)];
     const face = (i, withImg) => {
       const [a, b] = ends(i), q = quad(a, b), im = withImg ? imgs[i] : null;
-      if (im) { image(im, q[0], q[1], q[3], 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, tint(withImg ? 0.3 : 0.2), tint(0.7));
+      // grafika boku: na licu tylko część netto (spady zawijają się za profil) — bez białych naddatków, gdy plik boku nie ma treści w spadzie
+      if (im) { const c = netCrop(im, pls[i]); image(im, q[0], q[1], q[3], c.sx, c.sw, q, c.sy, c.sh); poly(q, null, tint(0.9)); } else poly(q, tint(withImg ? 0.3 : 0.2), tint(0.7));
     };
     const faceIn = i => {            // lico od środka (zadruk wewnątrz): czytane odwrotnie niż z zewnątrz
       const [oa, ob] = ends(i), q = quad(ob, oa), im = imgsIn[i];
-      if (im) { image(im, q[0], q[1], q[3], 0, im.width, q); poly(q, null, tint(0.9)); } else poly(q, lite(0.78), tint(0.7));
+      if (im) { const c = netCrop(im, insP[i]); image(im, q[0], q[1], q[3], c.sx, c.sw, q, c.sy, c.sh); poly(q, null, tint(0.9)); } else poly(q, lite(0.78), tint(0.7));
     };
     const backFace = i => hasIn ? faceIn(i) : face(i, false);
     if (ghost) {      // lica z grafiką w połowie przezroczyste, szkielet (profile, rozpórki) na wierzchu
@@ -5697,7 +5705,7 @@ async function hangMakeViz(el, mark, eid, mode = 'tex') {
   finally { t.remove(); }
 }
 // wizualizacja konstrukcji podwieszanej powstaje sama przy zapisie elementu; zmiana wymiarów / ustawień odświeża istniejącą wizkę (w jej bieżącym widoku)
-const hangSig = e => JSON.stringify([e.variant, e.w, e.h, e.d, hangProf(e)[0], !!e.inside, e.hbMode, e.hbSides, e.viz, e.vw, (e.pthumbs || []).join('|')]);
+const hangSig = e => JSON.stringify(['tlo-biale', e.variant, e.w, e.h, e.d, hangProf(e)[0], !!e.inside, e.hbMode, e.hbSides, e.viz, e.vw, (e.pthumbs || []).join('|')]);
 const hangVizPhoto = e => { const id = [e.vizPhotoId, e.vizFramePhotoId, e.vizGhostPhotoId].find(x => x && S.photos.some(p => p.id === x)); return id ? S.photos.find(p => p.id === id) : null; };
 async function hangAutoViz(el) {
   if (!el || !el.id || !isHang(el) || isViewer() || !S.project || !['box', 'ring'].includes(dimsMode(el))) return;
