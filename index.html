@@ -3992,7 +3992,7 @@ const blobToDataUrl = b => new Promise(res => { const fr = new FileReader(); fr.
 async function storeImage(file, maxSide, opts = {}) {
   if (isViewer()) throw new Error('konto tylko do podglądu');
   const { blob, w, h } = await prepareImage(file, DEMO ? Math.min(maxSide, 1400) : maxSide, opts.q || (DEMO ? 0.8 : 0.9), !!opts.png && !DEMO);
-  const url = DEMO ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, (file.name || 'wizka').replace(/\.\w+$/, '') + (blob.type === 'image/png' ? '.png' : '.jpg'));
+  const url = DEMO || (S.tour && S.tour.show) ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, (file.name || 'wizka').replace(/\.\w+$/, '') + (blob.type === 'image/png' ? '.png' : '.jpg'));
   return { url, w, h };
 }
 // miniatury grafik (element, płaszczyzna): zachowujemy jakość wklejonego obrazka
@@ -11564,6 +11564,9 @@ const SHOW_UI = {
   practiceReset: TT('Zacznij od nowa', 'Почати знову', 'Start over'),
   practiceEnd: TT('Zakończ', 'Завершити', 'Finish'),
   menuTour: TT('Prezentacja ekranu', 'Презентація екрана', 'Screen tour'),
+  menuKf: TT('Samouczek K-Frame', 'Посібник K-Frame', 'K-Frame tutorial'),
+  menuKfSub: TT('stoisko narożne 6 × 3 z zapleczem, na końcu rysowanie kreską', 'кутовий стенд 6 × 3 з підсобкою, наприкінці малювання лінією', 'a 6 × 3 corner stand with a backroom, then drawing with lines'),
+  titleKf: TT('Samouczek K-Frame', 'Посібник K-Frame', 'K-Frame tutorial'),
   menuPro: TT('PRO — dla administratora', 'PRO — для адміністратора', 'PRO — for administrators'),
   menuProSub: TT('Turbo, drzwi, konstrukcje, Zlecenie, Corel i jeszcze coś', 'Турбо, двері, конструкції, Замовлення, Corel і ще дещо', 'Turbo, doors, structures, Order, Corel and more'),
   menuTourSub: TT('omówienie przycisków i paneli', 'огляд кнопок і панелей', 'buttons and panels explained'),
@@ -11578,9 +11581,10 @@ function openTourMenu(ev) {
   m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, innerWidth - r.right) + 'px';
   m.innerHTML = `<div class="mi" data-a="show"><div><b>▶ ${SHOW_UI.menuShow}</b><br><small>${SHOW_UI.menuShowSub}</small></div></div>
     <div class="mi" data-a="practice"><div><b>🎓 ${SHOW_UI.menuPractice}</b><br><small>${SHOW_UI.menuPracticeSub}</small></div></div>
+    ${!isViewer() && featOn('uf') ? `<div class="mi" data-a="kf"><div><b>▦ ${SHOW_UI.menuKf}</b><br><small>${SHOW_UI.menuKfSub}</small></div></div>` : ''}
     ${isAdmin() ? `<div class="mi" data-a="prolive"><div><b>★ ${SHOW_UI.menuProLive}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>` : ''}`;
   document.body.appendChild(m);
-  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'show' ? startShow() : a === 'practice' ? startPractice() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
+  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'kf' ? startShow(false, true) : a === 'show' ? startShow() : a === 'practice' ? startPractice() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
   setTimeout(() => document.addEventListener('click', function f() { m.remove(); document.removeEventListener('click', f); }), 0);
 }
 
@@ -11826,27 +11830,30 @@ async function shAddElement(e, talk, first) {
   }
 }
 
-async function startShow(pro = false) {
+async function startShow(pro = false, kf = false) {
   if (S.tour || !S.me) return;
   if (pro && !isAdmin()) return;
+  if (kf && (isViewer() || !featOn('uf'))) return;
   const byName = n => S.projects.find(x => String(x.name || '').trim().toLowerCase() === n);
-  const src = (pro && (S.projects.find(x => x.id === PRO_PID) || byName(PRO_NAME))) || S.projects.find(x => x.id === TOUR_PID) || byName(TOUR_NAME);
+  const src = kf ? { name: SHOW_UI.titleKf, createdAt: nowIso() } : (pro && (S.projects.find(x => x.id === PRO_PID) || byName(PRO_NAME))) || S.projects.find(x => x.id === TOUR_PID) || byName(TOUR_NAME);
   if (!src) { toast(TOUR_UI.missing, 'error'); return; }
   document.querySelectorAll('.menu').forEach(m => m.remove());
   while (modalStack.length) modalStack[modalStack.length - 1].close();
   // materiał pokazu: wizki i elementy prawdziwego stoiska (tylko odczyt)
-  let photos, els;
-  try { photos = await DB.list(pPhotos(src.id)); els = (await DB.list(pElements(src.id))).map(normalizeEl); }
-  catch (e) { toast('Błąd bazy: ' + e.message, 'error'); return; }
+  let photos = [], els = [];
+  if (!kf) {
+    try { photos = await DB.list(pPhotos(src.id)); els = (await DB.list(pElements(src.id))).map(normalizeEl); }
+    catch (e) { toast('Błąd bazy: ' + e.message, 'error'); return; }
+  }
   const allEls = clone(els); // PRO: całe stoisko 1:1 (drzwi, miniatury, odsunięte znaki)
   els = els.filter(e => e.shape && e.photoId && photos.some(p => p.id === e.photoId) && !e.doorFor)
     .sort((a, b) => (isWys(a) - isWys(b)) || (a.num || 0) - (b.num || 0));
-  if (!photos.length || !els.length) { toast(TOUR_UI.missing, 'error'); return; }
-  const proj = { ...clone(src), id: undefined, users: [S.me.id], photosCount: 0, elementsCount: 0, cover: '' };
+  if (!kf && (!photos.length || !els.length)) { toast(TOUR_UI.missing, 'error'); return; }
+  const proj = { ...clone(src), id: undefined, users: [S.me.id], photosCount: 0, elementsCount: 0, cover: '', ultraFrame: null };
   delete proj.id;
   const mem = createMemDB({ [C_PROJECTS]: { [SHOW_PID]: proj } });
   try { localStorage.removeItem(`INDEX_SEEN_${S.me.id}_${SHOW_PID}`); } catch (e) {}
-  S.tour = { show: true, pro, allEls, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
+  S.tour = { show: true, pro, kf, allEls, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
   DB = mem;
   // zdarzenia kursora pokazu nie mają prawdziwego wskaźnika — przechwycenie nie może rzucać błędem
   S.tour.spc = Element.prototype.setPointerCapture;
@@ -11906,6 +11913,7 @@ async function startShow(pro = false) {
   }
   if (!T.voice) toast(SHOW_UI.novoice, '', 5000);
   if (pro) cap.querySelector('.sc-h').firstChild.nextSibling.textContent = SHOW_UI.titlePro;
+  if (kf) cap.querySelector('.sc-h').firstChild.nextSibling.textContent = SHOW_UI.titleKf;
   try { await runShow(photos, els); }
   catch (e) { if (!(e instanceof ShowStop)) { console.error(e); toast('Pokaz przerwany: ' + e.message, 'error'); } }
   endShow();
@@ -12553,9 +12561,254 @@ function proChapters(photos, all) {
       } },
   ];
 }
+// =====================================================================
+//  SAMOUCZEK K-FRAME (z lektorką): stoisko narożne 6 × 3 m (dwa boki otwarte), w narożniku zaplecze 2 × 1 m z drzwiami;
+//  na końcu to samo szybciej — rysowanie kreską. Wszystko w pamięci (stoisko pokazowe), nic nie trafia do bazy.
+// =====================================================================
+const KF_LINES = [{ t: 'w', p: [[0, 0], [6000, 0]] }, { t: 'w', p: [[0, 0], [0, 3000]] }, { t: 'w', p: [[2000, 0], [2000, 1000]] }, { t: 'w', p: [[0, 1000], [2000, 1000]] }, { t: 'd', p: [[500, 1000], [1500, 1000]] }];
+const KF_OPEN = { n: false, e: true, s: true, w: false };
+// docelowy układ modułów — ten sam, który da rysowanie kreską (liczony raz, na kopii planu)
+function kfLayout() {
+  const keep = JSON.stringify(UF.d), undo = UF.undo.slice();
+  UF.d.pieces = []; UF.d.sk = { lines: clone(KF_LINES), fit: 1, magnet: true }; UF.d.stand = { ...UF.d.stand, L: 6000, D: 3000, open: { ...KF_OPEN } };
+  ufSkGenerate(true);
+  const ps = clone(UF.d.pieces);
+  UF.d = JSON.parse(keep); UF.undo = undo; UF.sel = null; ufChanged();
+  const c = p => { const r = ufRect(p); return [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2]; };
+  const back = ps.filter(p => p.dir === 0 && c(p)[1] < 200).sort((a, b) => c(a)[0] - c(b)[0]);
+  const left = ps.filter(p => p.dir === 1 && c(p)[0] < 200).sort((a, b) => c(a)[1] - c(b)[1]);
+  const zap = ps.filter(p => !back.includes(p) && !left.includes(p)).sort((a, b) => a.dir - b.dir || c(a)[0] - c(b)[0] || c(a)[1] - c(b)[1]);
+  return { back, left, zap };
+}
+const kfL = () => { const T = SH(); if (!T.kfL) T.kfL = kfLayout(); return T.kfL; };
+// punkt planu (mm) → punkt ekranu
+const kfPt = (x, y) => { const r = $('uf-cv').getBoundingClientRect(), t = UF.tr || { s: 0.1, ox: 0, oy: 0 }; return [r.left + t.ox + x * t.s, r.top + t.oy + y * t.s]; };
+const kfMid = p => { const r = ufRect(p); return kfPt((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2); };
+const kfVis = el => !!(el && el.offsetParent && el.getBoundingClientRect().width > 0);
+// edytor Ultra Frame w systemie K-Frame (z wyborem systemu w okienku, gdy plan jest pusty)
+async function kfOpen(anim) {
+  if (UF.open) return;
+  const btn = [...document.querySelectorAll('#btn-uf, .uf-entry')].find(kfVis);
+  if (anim && btn) { await shMove(...shCenter(btn), 800); await shWait(120); shRipple(); }
+  const pr = openUltraFrame();
+  await plainUntil(() => document.querySelector('[data-sys="k"]') || UF.open, 3000);
+  const kb = document.querySelector('[data-sys="k"]');
+  if (kb) {
+    if (anim) {
+      await shWait(400);
+      await shSay(TT('Program pyta o system ram. Wybieram K-Frame: moduły 99,5 na 279,5 centymetra, bez słupków, ścianki prostopadłe w dowolnym miejscu.',
+        'Програма питає про систему рам. Обираю K-Frame: модулі 99,5 на 279,5 сантиметра, без стійок, перпендикулярні стінки в будь-якому місці.',
+        'The program asks for the frame system. I choose K-Frame: modules 99.5 by 279.5 centimetres, no posts, perpendicular walls anywhere.'));
+      await shMove(...shCenter(kb), 800); await shWait(150); shRipple();
+    }
+    kb.click();
+  }
+  await pr; await plainWait(250);
+  if ($('uf-pane').classList.contains('uf-side-off')) $('uf-sidet').click();      // panel ustawień rozsunięty
+}
+// klocek z palety na plan: wciśnięcie na palecie, przeciągnięcie na miejsce, puszczenie
+async function kfPlace(p, anim) {
+  if (anim) {
+    const pal = p.t === 'door' ? 'kdoor' : Math.abs(p.len - UF_KW) < 1 ? 'k99' : Math.abs(p.len - UF_KW / 2) < 1 ? 'k49' : '';
+    const src = pal ? document.querySelector(`[data-pal="${pal}"]`) : $('uf-cus');
+    if (kfVis(src)) {
+      await shMove(...shCenter(src), 420); await shWait(60); shRipple();
+      if (!pal) { src.value = numIn(fromMM(p.len)); await shWait(250); }
+    }
+    await shMove(...kfMid(p), 520); await shWait(60); shRipple();
+  }
+  UF.d.pieces.push(clone(p)); UF.sel = p.id; ufChanged();
+  if (anim) await shWait(160);
+}
+// kreska (klik — nitka za kursorem — klik)
+async function kfDrawLine(l) {
+  const T = SH(), [a, b] = l.p;
+  await shMove(...kfPt(...a), 650); await shWait(100); shRipple();
+  UF.skDraft = { a: a.slice(), b: a.slice() }; ufDraw(true);
+  T.onMove = (x, y) => { if (!UF.skDraft) return; const r = $('uf-cv').getBoundingClientRect(); UF.skDraft.b = ufSkSnap(ufWorld(x - r.left, y - r.top), UF.skDraft.a); UF.skHover = UF.skDraft.b; ufDraw(true); };
+  await shMove(...kfPt(...b), 1100); T.onMove = null; await shWait(100); shRipple();
+  UF.skDraft = null; ufSkData().lines.push({ t: l.t, p: [a.slice(), b.slice()] }); ufChanged();
+  await shWait(250);
+}
+async function kfCloseTopModal() {
+  const m = modalStack[modalStack.length - 1]; if (!m) return;
+  const x = m.el.querySelector('[data-c], .modal-x, .mx, .x, [data-x]');
+  if (kfVis(x)) { await shMove(...shCenter(x), 700); await shWait(120); shRipple(); }
+  m.close(); await shWait(300);
+}
+function kfChapters() {
+  return [
+    { est: 14, name: TT('Start', 'Старт', 'Start'),
+      run: async () => {
+        await shMove(innerWidth / 2, innerHeight / 2 - 60, 700);
+        await shSay(TT('Cześć! Pokażę, jak w INDEX narysować stoisko w systemie K-Frame. Przykład: stoisko narożne 6 na 3 metry, z dwoma bokami otwartymi na alejkę i zapleczem 2 na 1 metr w narożniku, z drzwiami.',
+          'Привіт! Покажу, як в INDEX намалювати стенд у системі K-Frame. Приклад: кутовий стенд 6 на 3 метри, з двома боками, відкритими на алею, і підсобкою 2 на 1 метр у куті, з дверима.',
+          'Hi! Let me show you how to draw a K-Frame stand in INDEX. Example: a 6 by 3 metre corner stand with two sides open to the aisle and a 2 by 1 metre backroom with a door in the corner.'));
+      } },
+    { est: 22, name: TT('Edytor', 'Редактор', 'Editor'),
+      instant: async () => { await kfOpen(false); },
+      run: async () => {
+        await shSay(TT('Edytor ścianek otwieramy przyciskiem Ultra Frame.', 'Редактор стінок відкриваємо кнопкою Ultra Frame.', 'The wall editor opens with the Ultra Frame button.'));
+        await kfOpen(true);
+        await shSay(TT('Po lewej jest panel ustawień, w środku plan stoiska z góry, a po prawej podgląd 3D.',
+          'Ліворуч панель налаштувань, посередині план стенду згори, а праворуч перегляд 3D.',
+          'On the left is the settings panel, in the middle the top view of the stand, and on the right the 3D preview.'));
+      } },
+    { est: 16, name: TT('Wymiar stoiska', 'Розмір стенду', 'Stand size'),
+      instant: async () => { UF.d.stand.L = 6000; UF.d.stand.D = 3000; ufChanged(); },
+      run: async () => {
+        await shSay(TT('Najpierw wymiar stoiska: długość 600 i głębokość 300 centymetrów. Pole liczy się samo.',
+          'Спершу розмір стенду: довжина 600 і глибина 300 сантиметрів. Площа рахується сама.',
+          'First the stand size: length 600 and depth 300 centimetres. The area is calculated automatically.'));
+        for (const [id, v] of [['uf-sl', 6000], ['uf-sd', 3000]]) {
+          const inp = $(id); if (!kfVis(inp)) continue;
+          await shType(inp, numInput(v)); inp.dispatchEvent(new Event('change', { bubbles: true })); await shWait(300);
+        }
+        UF.d.stand.L = 6000; UF.d.stand.D = 3000; ufChanged();
+      } },
+    { est: 20, name: TT('Boki otwarte', 'Відкриті боки', 'Open sides'),
+      instant: async () => { UF.d.stand.open = { ...KF_OPEN }; ufChanged(); },
+      run: async () => {
+        await shSay(TT('Strzałki wokół obrysu ustawiają, które boki są otwarte na alejkę. Zielony bok to alejka, szary to sąsiad.',
+          'Стрілки навколо контуру задають, які боки відкриті на алею. Зелений бік — це алея, сірий — сусід.',
+          'The arrows around the outline set which sides are open to the aisle. A green side is the aisle, a grey one is the neighbour.'));
+        const ar = k => (UF.arrows || []).find(a => a.k === k), cv = () => $('uf-cv').getBoundingClientRect();
+        const s = ar('s'); if (s) { await shMove(cv().left + s.x, cv().top + s.y, 800); await shWait(500); }
+        await shSay(TT('Stoisko narożne ma dwa boki otwarte: dolny już jest, klikam jeszcze prawy.',
+          'Кутовий стенд має два відкриті боки: нижній уже є, клацаю ще правий.',
+          'A corner stand has two open sides: the bottom one is already set, so I click the right one too.'));
+        const e = ar('e'); if (e) { await shMove(cv().left + e.x, cv().top + e.y, 800); await shWait(120); shRipple(); }
+        UF.d.stand.open = { ...KF_OPEN }; ufChanged(); await shWait(500);
+      } },
+    { est: 40, name: TT('Ściany z modułów', 'Стіни з модулів', 'Walls from modules'),
+      instant: async () => { const L = kfL(); UF.d.pieces.push(...clone(L.back), ...clone(L.left)); UF.sel = null; ufChanged(); },
+      run: async () => {
+        const L = kfL();
+        const pal = document.querySelector('[data-pal="k99"]'); if (kfVis(pal)) await shMove(...shCenter(pal), 800);
+        await shSay(TT('Ściany układamy z modułów z palety: pełny moduł 99,5, połówka 49,75 i drzwi. Przeciągasz moduł na plan, a kolejne same dosuwają się do końca poprzedniego. Zaczynam od tylnej ściany.',
+          'Стіни складаємо з модулів із палітри: повний модуль 99,5, половинка 49,75 і двері. Перетягуєш модуль на план, а наступні самі присуваються до кінця попереднього. Починаю із задньої стіни.',
+          'Walls are built from palette modules: a full 99.5 module, a 49.75 half and a door. Drag a module onto the plan and the next ones snap to the end of the previous one. I start with the back wall.'));
+        for (const p of L.back) await kfPlace(p, true);
+        await shSay(TT('Ostatni kawałek przy alejce jest krótszy: to ścianka niestandardowa, przycięta na wymiar. Na planie pulsuje na żółto.',
+          'Останній шматок біля алеї коротший: це нестандартна стінка, підрізана під розмір. На плані вона пульсує жовтим.',
+          'The last piece by the aisle is shorter: a non-standard wall cut to size. It pulses yellow on the plan.'));
+        await shSay(TT('Teraz lewa ściana, od narożnika do alejki.', 'Тепер ліва стіна, від кута до алеї.', 'Now the left wall, from the corner to the aisle.'));
+        for (const p of L.left) await kfPlace(p, true);
+        UF.sel = null; ufChanged();
+      } },
+    { est: 40, name: TT('Zaplecze z drzwiami', 'Підсобка з дверима', 'Backroom with door'),
+      instant: async () => { UF.d.pieces.push(...clone(kfL().zap)); UF.sel = null; ufChanged(); },
+      run: async () => {
+        const L = kfL();
+        await shSay(TT('W lewym tylnym narożniku stawiam zaplecze 2 na 1 metr: bok zaplecza i front z drzwiami. Drzwi to osobny klocek w palecie.',
+          'У лівому задньому куті ставлю підсобку 2 на 1 метр: бічну стінку і фронт із дверима. Двері — це окремий блок у палітрі.',
+          'In the back left corner I put a 2 by 1 metre backroom: the side wall and the front with a door. The door is a separate block in the palette.'));
+        for (const p of L.zap) await kfPlace(p, true);
+        UF.sel = null; ufChanged(); await shWait(300);
+        await shSay(TT('Zamknięte pomieszczenie bez znacznika jest zapleczem: od środka nie ma grafik, tylko płyta.',
+          'Закрите приміщення без позначки — це підсобка: всередині немає графіки, лише плита.',
+          'A closed room without a marker is a backroom: no graphics inside, just board.'));
+        const mt = document.querySelector('[data-room="mt"]'); if (kfVis(mt)) await shMove(...shCenter(mt), 800);
+        await shSay(TT('Gdyby to miał być pokój rozmów, przeciągasz do środka znacznik MT. Wtedy ściany w środku też dostaną grafiki.',
+          'Якби це мала бути кімната для переговорів, перетягуєш усередину позначку MT. Тоді стіни всередині теж отримають графіку.',
+          'If it were a meeting room, you would drag the MT marker inside. Then the walls inside get graphics too.'));
+      } },
+    { est: 26, name: TT('Ustawienia ścianki', 'Налаштування стінки', 'Wall settings'),
+      run: async () => {
+        const p = kfL().back[3] || kfL().back[0];
+        if (p) { await shMove(...kfMid(p), 800); await shWait(120); shRipple(); UF.sel = p.id; ufSyncBar(); ufDraw(); }
+        await shSay(TT('Kliknięcie w ściankę zaznacza ją. W panelu po lewej zmieniasz jej wysokość i górę: łuk albo daszek.',
+          'Клік по стінці виділяє її. На панелі ліворуч змінюєш її висоту і верх: арку або дашок.',
+          'Clicking a wall selects it. In the left panel you change its height and top: an arch or a canopy.'));
+        for (const id of ['uf-h', 'uf-roof']) { const x = $(id); if (kfVis(x)) { await shMove(...shCenter(x), 600); await shWait(300); } }
+        const pl = $('uf-plane'); if (kfVis(pl)) await shMove(...shCenter(pl), 600);
+        await shSay(TT('Każda płaszczyzna, przód albo tył, ma swój sposób montażu grafiki albo kolor malowania.',
+          'Кожна площина, перед або зад, має свій спосіб монтажу графіки або колір фарбування.',
+          'Each face, front or back, has its own graphic mounting method or paint colour.'));
+        for (const id of ['uf-mount', 'uf-pbtn']) { const x = $(id); if (kfVis(x)) { await shMove(...shCenter(x), 600); await shWait(300); } }
+        UF.sel = null; ufSyncBar(); ufDraw();
+      } },
+    { est: 14, name: TT('Podgląd 3D', 'Перегляд 3D', '3D preview'),
+      run: async () => {
+        const pv = $('uf-pv'); if (kfVis(pv)) await shMove(...shCenter(pv), 900);
+        await shSay(TT('Po prawej jest podgląd 3D. Przeciągając go obracasz stoisko, kółkiem przybliżasz, a kliknięcie w ścianę w podglądzie też ją zaznacza.',
+          'Праворуч перегляд 3D. Перетягуючи його, обертаєш стенд, коліщатком наближаєш, а клік по стіні в перегляді теж її виділяє.',
+          'On the right is the 3D preview. Drag it to turn the stand, use the wheel to zoom, and clicking a wall in the preview selects it too.'));
+      } },
+    { est: 18, name: TT('Produkcja', 'Виробництво', 'Production'),
+      run: async () => {
+        await shClick('#uf-prod', 800); await shWait(500);
+        await shSay(TT('Produkcja to zestawienie ścianek: moduły standardowe, połówki, drzwi i ścianki nietypowe, z podziałem na obite z jednej i z dwóch stron.',
+          'Виробництво — це перелік стінок: стандартні модулі, половинки, двері й нетипові стінки, з поділом на обшиті з одного і з двох боків.',
+          'Production is the list of walls: standard modules, halves, doors and non-standard walls, split into one-sided and two-sided boarding.'));
+        await kfCloseTopModal();
+      } },
+    { est: 32, name: TT('Widok 3D i elementy', 'Вигляд 3D і елементи', '3D view and elements'),
+      run: async () => {
+        if (!UF.open) await kfOpen(false);
+        await shSay(TT('Gdy układ jest gotowy, klikam Zrób widok 3D. INDEX tworzy wizualizację i od razu elementy: grafikę na każde lico widoczne od alejki, z wymiarami i drzwiami.',
+          'Коли план готовий, клацаю «Зробити вигляд 3D». INDEX створює візуалізацію і одразу елементи: графіку на кожну площину, видиму з алеї, з розмірами і дверима.',
+          'When the layout is ready, I click Make 3D view. INDEX creates the visual and the elements right away: a graphic for every face seen from the aisle, with sizes and doors.'));
+        await shClick('#uf-go', 800);
+        const t0 = Date.now(); while (UF.busy && Date.now() - t0 < 60000) await shWait(200);
+        await shWait(900);
+        await shSay(TT('Na planie są znaczniki grafik. Zamykam edytor.', 'На плані з’явилися позначки графіки. Закриваю редактор.', 'The graphic markers are on the plan. I close the editor.'));
+        await shClick('#uf-x', 700); await shWait(900); fitView();
+        await shSay(TT('Jest nowa wizka stoiska, a w tabeli gotowe elementy z wymiarami do druku.',
+          'Є нова візуалізація стенду, а в таблиці готові елементи з розмірами для друку.',
+          'There is a new visual of the stand, and the table has the elements ready, with print sizes.'));
+      } },
+    { est: 50, name: TT('Rysowanie kreską', 'Малювання лінією', 'Drawing with lines'),
+      run: async () => {
+        await shSay(TT('Na koniec szybszy sposób: rysowanie kreską. Otwieram edytor i czyszczę plan, bo przycisk Rysowanie jest dostępny, gdy na planie nie ma jeszcze ścianek.',
+          'Наостанок швидший спосіб: малювання лінією. Відкриваю редактор і очищаю план, бо кнопка «Малювання» доступна, коли на плані ще немає стінок.',
+          'Finally, a faster way: drawing with lines. I open the editor and clear the plan, because the Drawing button is available while the plan has no walls yet.'));
+        if (!UF.open) await kfOpen(true);
+        ufPush(); UF.d.pieces = []; UF.d.rooms = []; UF.sel = null; const sk = ufSkData(); sk.lines = []; sk.gen = false; ufChanged(); await shWait(400);
+        await shClick('#uf-sketch', 800); if (!UF.skOn) ufSkOn(); await shWait(300);
+        await shSay(TT('Zieloną kreską rysuję ściany: pierwszy klik zaczyna kreskę, drugi ją kończy. Magnes przyciąga do krawędzi stoiska i końców innych kresek.',
+          'Зеленою лінією малюю стіни: перший клік починає лінію, другий її завершує. Магніт притягує до країв стенду й кінців інших ліній.',
+          'With the green line I draw the walls: the first click starts a line, the second ends it. The magnet snaps to the stand edges and other line ends.'));
+        for (const l of KF_LINES.filter(q => q.t === 'w')) await kfDrawLine(l);
+        await shSay(TT('Żółtą kreską zaznaczam drzwi w ścianie zaplecza.', 'Жовтою лінією позначаю двері в стіні підсобки.', 'With the yellow line I mark the door in the backroom wall.'));
+        await shClick('[data-skt="d"]', 700);
+        for (const l of KF_LINES.filter(q => q.t === 'd')) await kfDrawLine(l);
+        await shSay(TT('Teraz Generuj.', 'Тепер «Генерувати».', 'Now Generate.'));
+        await shClick('#uf-sk-go', 800); await shWait(800);
+        await shSay(TT('Gotowe: program sam ułożył moduły. Zaplecze ma pełne moduły, stoisko mieści się w obrysie, a przycięte są tylko końcówki ścian przy alejce.',
+          'Готово: програма сама розклала модулі. Підсобка має повні модулі, стенд вміщається в контур, а підрізані лише кінці стін біля алеї.',
+          'Done: the program laid out the modules itself. The backroom has full modules, the stand fits its outline, and only the wall ends by the aisle are cut.'));
+      } },
+    { est: 10, name: TT('Koniec', 'Кінець', 'End'),
+      run: async () => {
+        await shMove(innerWidth / 2, innerHeight / 2 - 60, 800);
+        await shSay(TT('To wszystko. Ten samouczek niczego nie zapisał. Powodzenia przy własnych stoiskach!',
+          'Це все. Цей посібник нічого не зберіг. Успіхів із власними стендами!',
+          'That’s all. This tutorial saved nothing. Good luck with your own stands!'));
+        await shWait(400);
+      } },
+  ];
+}
+// przeskok w samouczku K-Frame: pusty edytor, potem błyskawicznie stan po wcześniejszych etapach
+function kfHide() {
+  if (!UF.open) return;
+  clearTimeout(UF.tmr); UF.tmr = 0; UF.open = false; UF.skOn = false; UF.skDraft = null; UF.skHover = null;
+  $('uf-pane').classList.add('hidden'); $('viewer').classList.remove('uf-on');
+}
+async function kfRebuildTo(k) {
+  const T = SH(); if (!T) return;
+  shCleanup(); kfHide();
+  T.mem.wipe(C_PROJECTS);
+  await T.mem.update(C_PROJECTS, SHOW_PID, { ultraFrame: null }); if (S.project) S.project.ultraFrame = null;
+  setElView('table');
+  await plainUntil(() => !S.photos.length && !S.elements.length, 3000);
+  for (let j = 0; j < k; j++) if (T.chapters[j].instant) await T.chapters[j].instant();
+  await plainWait(200);
+}
 // przeskok: puste stoisko, potem błyskawicznie wszystkie wcześniejsze etapy, dalej normalnie
 async function shRebuildTo(k) {
   const T = SH(); if (!T) return;
+  if (T.kf) return kfRebuildTo(k);
   shCleanup();
   T.inst = { num: 0, w: 0 };
   T.mem.wipe(C_PROJECTS);
@@ -12572,7 +12825,7 @@ async function shRebuildTo(k) {
 }
 async function runShow(photos, els) {
   const T = S.tour;
-  T.chapters = T.pro ? proChapters(photos, T.allEls) : showChapters(photos, els); T.cur = 0;
+  T.chapters = T.kf ? kfChapters() : T.pro ? proChapters(photos, T.allEls) : showChapters(photos, els); T.cur = 0;
   await openProject(SHOW_PID);
   setElView('table');
   if (T.setup) { await T.setup(); await shSettle(); }
@@ -12660,6 +12913,7 @@ function endShow() {
   if (S.turbo) endTurbo();
   document.querySelectorAll('.menu').forEach(m => m.remove());
   try { localStorage.removeItem(`INDEX_SEEN_${S.me.id}_${SHOW_PID}`); } catch (e) {}
+  if (T.kf) kfHide();
   DB = T.realDB;
   S.tour = null;
   if (S.elView !== T.prevView) setElView(T.prevView);
