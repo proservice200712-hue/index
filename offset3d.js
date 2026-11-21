@@ -584,24 +584,27 @@ function nazwaCzesci(k, li, mesh, cache) {
 function mostkiBryla(zK0, zKmax, ndel, uw) {
   const { Manifold } = V3.wasm, t = mostekT(), zB = zK0 + Math.max(0, num($('b3-kmd').value) || 0), zT = zKmax - Math.max(0, num($('b3-kmg').value) || 0), H = zT - zB;
   if (H < 3) { uw.push(`mostki w kloszu pominięte: między odstępem od dołu a odstępem od pleksy zostaje ${fmt(Math.max(0, H), 1)} mm (potrzeba co najmniej 3 mm)`); return null; }
+  // słupki przy ściankach: przy każdej ściance mostek idzie w górę aż pod półkę pleksy (zKmax), więc końce ścianek są sklejone na całej wysokości —
+  // bez nich górne kilka mm ścianek (nad mostkiem, przy kieszeni na pleksę) zostaje wolne, rozchodzi się i przez szczelinę ucieka światło
+  const zP = Math.max(zT, zKmax - 0.05);
   const ribs = W.mostki.map(mk => {
-    const { u0, u1, ln } = mk, ua = u0 - 3, ub = u1 + 3, um = (u0 + u1) / 2, hw = (u1 - u0) / 2;
-    // łuk: na końcach (przy ściankach) pełna wysokość, w środku niżej — najwyżej do 40 % wysokości (min. 3 mm), nie głębiej niż 0,35 długości
+    const { u0, u1, ln } = mk, ua = u0 - 3, ub = u1 + 3, dS = Math.min(3, 0.25 * (u1 - u0)), s0 = u0 + dS, s1 = u1 - dS, um = (s0 + s1) / 2, hw = (s1 - s0) / 2;
+    // łuk między słupkami: na końcach pełna wysokość mostka, w środku niżej
     // krzywizna łuku z panelu: 0 % = prosta góra, 100 % = najgłębszy łuk (w środku zostają 3 mm, najwyżej półkole)
     const kmk = Math.max(0, Math.min(100, $('b3-kmk') && $('b3-kmk').value.trim() !== '' ? num($('b3-kmk').value) : 60)) / 100;
-    const sag = kmk * Math.max(0, Math.min(H - 3, 0.5 * (u1 - u0))), R = sag > 0.01 ? (hw * hw + sag * sag) / (2 * sag) : 0, cz = zT - sag + R;
-    const top = u => sag > 0.01 && Math.abs(u - um) < hw ? cz - Math.sqrt(Math.max(0, R * R - (u - um) ** 2)) : zT, N = 48, ring = [[ua, zB - 20], [ub, zB - 20], [ub, zT]];
-    for (let i = N; i >= 0; i--) { const u = u0 + (u1 - u0) * i / N; ring.push([u, top(u)]); }
-    ring.push([ua, zT]);
+    const sag = kmk * Math.max(0, Math.min(H - 3, 0.5 * (s1 - s0))), R = sag > 0.01 ? (hw * hw + sag * sag) / (2 * sag) : 0, cz = zT - sag + R;
+    const top = u => sag > 0.01 && Math.abs(u - um) < hw ? cz - Math.sqrt(Math.max(0, R * R - (u - um) ** 2)) : zT, N = 48, ring = [[ua, zB - 20], [ub, zB - 20], [ub, zP], [s1, zP]];
+    for (let i = N; i >= 0; i--) { const u = s0 + (s1 - s0) * i / N; ring.push([u, top(u)]); }
+    ring.push([s0, zP], [ua, zP]);
     // lokalnie: x = wzdłuż linii, y = wysokość, z = w poprzek; daszek fazy = część wspólna dwóch pochylonych (45°) kopii profilu
     const pr = ndel(ndel(Manifold.extrude([ring], 2 * (t + 2))).translate([0, 0, -(t + 2)]));
     const a1 = ndel(pr.warp(v => { v[1] -= v[2]; })), a2 = ndel(pr.warp(v => { v[1] += v[2]; }));
-    const slab = ndel(ndel(Manifold.cube([ub - ua, zT - zB + 5, 2 * t], false)).translate([ua, zB, -t]));
+    const slab = ndel(ndel(Manifold.cube([ub - ua, zP - zB + 5, 2 * t], false)).translate([ua, zB, -t]));
     const rib = ndel(Manifold.intersection(ndel(Manifold.intersection(a1, a2)), slab)), a = ln.ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
     return ndel(rib.warp(v => { const u = v[0], z = v[1], w = -v[2]; v[0] = ln.x + u * dx + w * nx; v[1] = ln.y + u * dy + w * ny; v[2] = z; }));
   });
   // tylko we wnętrzu klosza (+0,6 mm w ściankę, żeby się z nią zrosły)
-  const wn = stos([{ z0: zB - 1, z1: zT + 1, reg: offsetPolys(W.base, plateRegs().dK + 0.6) }], ndel);
+  const wn = stos([{ z0: zB - 1, z1: zP + 1, reg: offsetPolys(W.base, plateRegs().dK + 0.6) }], ndel);
   return wn ? ndel(Manifold.intersection(ndel(Manifold.union(ribs)), wn)) : null;
 }
 // cięcia promieniowe jednej litery: obszary między promieniami (prostokąt wokół litery minus szczeliny), każdy powiększony o pół szczeliny;
