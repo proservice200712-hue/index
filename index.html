@@ -1129,7 +1129,7 @@
       <div id="drop-hint" class="hidden">Upuść, aby dodać wizki</div>
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
-          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta przerywana = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,75; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
+          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,75; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
           <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
@@ -1197,7 +1197,7 @@
         <div class="uf-main"><canvas id="uf-cv"></canvas>
           <div id="uf-sk" class="hidden">
             <button type="button" data-skt="w" class="on" title="Kreska zielona: proste ściany, zaplecze, pokoje [1]">▬ Ściany</button>
-            <button type="button" data-skt="d" title="Kreska żółta przerywana: drzwi [2]">┅ Drzwi</button>
+            <button type="button" data-skt="d" title="Kreska żółta: drzwi [2]">▬ Drzwi</button>
             <button type="button" id="uf-sk-go" class="go" title="Ułóż ściany z modułów K-Frame [Enter]">⚙ Generuj</button>
             <label id="uf-sk-mag-l" title="Przyciąganie do końców i linii innych kresek, krawędzi stoiska i siatki 5 cm"><input type="checkbox" id="uf-sk-mag" checked> magnes</label>
             <span id="uf-sk-info"></span><button type="button" id="uf-sk-edit" title="Wróć do rysowania (moduły zostaną usunięte, rysunek zostaje)">✎ Edytuj rysunek</button>
@@ -7999,7 +7999,7 @@ async function ufSetFloor(file) {
   } catch (e) { tt.remove(); toast('Nie udało się wczytać obrazka: ' + e.message, 'error', 5000); }
 }
 // =====================================================================
-//  RYSOWANIE KRESKĄ (K-Frame, na początku, gdy nie ma jeszcze ścianek): zielona kreska = ściany / zaplecze / pokoje, żółta przerywana = drzwi.
+//  RYSOWANIE KRESKĄ (K-Frame, na początku, gdy nie ma jeszcze ścianek): zielona kreska = ściany / zaplecze / pokoje, żółta = drzwi.
 //  „Generuj” składa z kresek moduły 99,5 i 49,75 (na końcach — ścianki niestandardowe); ściany prostopadłe dolegają licem do ściany przelotowej.
 // =====================================================================
 const UF_SK_FITS = ['dokładny', 'optymalny', 'ekonomiczny'];
@@ -8045,7 +8045,7 @@ function ufSkPaint(g, X, Y, s, F) {
   const sk = UF.d.sk; if (!sk || (UF.d.pieces.length && !sk.gen)) return;
   const ghost = !!(sk.gen && UF.d.pieces.length && !UF.skOn);       // po wygenerowaniu rysunek zostaje jako blady podkład
   const paint = (l, al) => {
-    const [a, b] = l.p; g.save(); g.globalAlpha = al; g.lineCap = 'round'; g.lineWidth = ghost ? 4 : 7; g.strokeStyle = l.t === 'd' ? '#e0a800' : '#2f9e44'; g.setLineDash(l.t === 'd' ? [14, 9] : []);
+    const [a, b] = l.p; g.save(); g.globalAlpha = al; g.lineCap = 'round'; g.lineWidth = ghost ? 4 : 7; g.strokeStyle = l.t === 'd' ? '#e0a800' : '#2f9e44'; g.setLineDash([]);
     g.beginPath(); g.moveTo(X(a[0]), Y(a[1])); g.lineTo(X(b[0]), Y(b[1])); g.stroke(); g.restore();
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 150 || ghost) return;
     const mx = X((a[0] + b[0]) / 2), my = Y((a[1] + b[1]) / 2), txt = lenPL(Math.round(len));
@@ -8060,9 +8060,9 @@ function ufSkMods(L, fit, nFixed, W = UF_KW) {
   const Hh = W / 2, out = [];
   if (nFixed >= 2) {          // oba końce stałe (słupek, lico innej ściany): wypełniamy dokładnie, resztę robi ścianka niestandardowa
     let n = Math.floor(L / W + 1e-6), r = L - n * W;
-    if (fit === 1 && r > 5 && r < 150 && n >= 1) { n--; r += W; }          // zbyt mała ścianka niestandardowa — łączymy z modułem
+    if ((fit === 1 ? r < 150 : r < 100) && r > 5 && n >= 1) { n--; r += W; }          // zbyt mała ścianka niestandardowa — łączymy z modułem
     for (let i = 0; i < n; i++) out.push(W);
-    if (Math.abs(r - Hh) < 5 || (fit === 2 && r >= Hh - 5)) { out.push(Hh); r -= Hh; }
+    if (Math.abs(r - Hh) < 5 || (fit === 2 && r >= Hh - 5) || r > W + 1) { out.push(Hh); r -= Hh; }
     if (r > 5) out.push(Math.round(r));
     if (!out.length) out.push(Math.max(100, Math.round(L)));
     return out;
@@ -8070,7 +8070,7 @@ function ufSkMods(L, fit, nFixed, W = UF_KW) {
   if (fit === 2) { const K = Math.max(1, Math.round(L / Hh)); for (let i = 0; i < Math.floor(K / 2); i++) out.push(W); if (K % 2) out.push(Hh); return out; }   // ekonomiczny: długość do 49,75 (wolny koniec)
   const n = Math.floor(L / W + 1e-6), r = L - n * W, tol = fit === 1 ? 150 : 5;
   for (let i = 0; i < n; i++) out.push(W);
-  if (r <= tol) { if (!out.length) out.push(Math.max(100, Math.round(r))); }
+  if (r <= tol || (fit === 0 && r < 100 && n >= 1)) { if (!out.length) out.push(Math.max(100, Math.round(r))); }      // wolny koniec: końcówka < 10 cm — ściana trochę krótsza
   else if (Math.abs(r - Hh) <= tol) out.push(Hh);
   else if (fit === 1 && W - r <= tol) out.push(W);
   else out.push(Math.round(r));
@@ -8157,15 +8157,46 @@ function ufSkSnapPosts(runs, junc, TOL, PW, MOD) {
     const rk = k === 'x' ? 0 : 1, vals = [...new Set(junc.map(j => Math.round(j[k])))].sort((p, q) => p - q);
     if (vals.length < 2) return null;
     const adj = new Set();       // pary słupków kolejnych na tej samej ścianie
-    runs.filter(r => r.ori === rk).forEach(r => { const on = vals.filter(v => junc.some(j => Math.round(j[k]) === v && Math.abs((k === 'x' ? j.y : j.x) - r.c) <= TOL)); for (let i = 1; i < on.length; i++) adj.add(on[i - 1] + '|' + on[i]); });
-    const nv = [vals[0]];
-    for (let i = 1; i < vals.length; i++) { const g = vals[i] - vals[i - 1]; nv.push(nv[i - 1] + (adj.has(vals[i - 1] + '|' + vals[i]) && g - PW >= 300 ? snap(g) : g)); }
+    const adjN = new Map();       // ile ścian biegnie między tymi słupkami / ścianami (tyle ścianek zostanie przyciętych, gdy odstęp nie będzie na pełne moduły)
+    runs.filter(r => r.ori === rk).forEach(r => { const on = vals.filter(v => junc.some(j => Math.round(j[k]) === v && Math.abs((k === 'x' ? j.y : j.x) - r.c) <= TOL)); for (let i = 1; i < on.length; i++) { const key = on[i - 1] + '|' + on[i]; adj.add(key); adjN.set(key, (adjN.get(key) || 0) + 1); } });
+    const nv = ufSkFitGaps(vals, i => adj.has(vals[i - 1] + '|' + vals[i]) && vals[i] - vals[i - 1] - PW >= 300, i => adjN.get(vals[i - 1] + '|' + vals[i]) || 0, snap, PW, MOD, k === 'x' ? UF.d.stand.L : UF.d.stand.D);
     return v => { let b = -1, bd = TOL + 1; vals.forEach((q, i) => { if (Math.abs(q - v) < bd) { bd = Math.abs(q - v); b = i; } }); if (b >= 0) return v + (nv[b] - vals[b]);
       for (let i = 0; i < vals.length - 1; i++) if (v > vals[i] && v < vals[i + 1]) { const t = (v - vals[i]) / (vals[i + 1] - vals[i]); return v + (nv[i] - vals[i]) * (1 - t) + (nv[i + 1] - vals[i + 1]) * t; }
       return v; };      // za ostatnim słupkiem i przed pierwszym: końce ścian stoją w miejscu — przycina się końcówka
   };
   const mx = build('x') || (v => v), my = build('y') || (v => v);
   runs.forEach(r => { const ma = r.ori === 0 ? mx : my, mc = r.ori === 0 ? my : mx; r.c = mc(r.c); r.a = ma(r.a); r.b = ma(r.b); r.doors = r.doors.map(ma); });
+}
+// nowe położenia ścian (vals: osie po kolei): ściany na krawędzi stoiska stoją w miejscu; między nimi odstępy ze ścianami na pełne moduły,
+// a jeden odstęp bierze resztę — wybieramy ten, przy którym najmniej ścian ma przyciętą ściankę (bez ścian: 0), potem najmniejsze przesunięcia;
+// gdy reszta nie mieści się (stoisko za krótkie), inne odstępy (zaplecza) skracamy o moduł
+function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk) {
+  const n = vals.length, g = i => vals[i] - vals[i - 1], E = PW / 2 + 25;
+  const anch = vals.map((v, i) => v <= E || v >= Lk - E ? i : -1).filter(i => i >= 0);
+  const gap = vals.map((v, i) => i === 0 ? 0 : snappable(i) ? snap(g(i)) : g(i));
+  const isMod = L => { const q = (L - PW) / (MOD / 2); return Math.abs(q - Math.round(q)) < 0.01; };
+  for (let s = 0; s + 1 < anch.length; s++) {
+    const ia = anch[s], ib = anch[s + 1], ids = []; for (let i = ia + 1; i <= ib; i++) ids.push(i);
+    if (!ids.some(i => snappable(i))) { ids.forEach(i => { gap[i] = g(i); }); continue; }
+    const total = vals[ib] - vals[ia]; let best = null;
+    ids.forEach(c => {
+      const t = {}; ids.forEach(i => { t[i] = i === c ? 0 : gap[i]; });
+      let rem = total - ids.reduce((a, i) => a + t[i], 0);
+      while (rem - PW < (snappable(c) ? 300 : 100)) {          // reszta za mała: skracamy o moduł odstęp najbardziej zaokrąglony w górę
+        const cand = ids.filter(i => i !== c && snappable(i) && t[i] - MOD - PW >= MOD - 1).sort((p, q) => (t[q] - g(q)) - (t[p] - g(p)))[0];
+        if (cand == null) return; t[cand] -= MOD; rem += MOD;
+      }
+      t[c] = rem;
+      const cost = (isMod(rem) ? 0 : walls(c)) * 1e6 + ids.filter(i => i !== c && !isMod(t[i]) && snappable(i)).length * 1e6 + ids.reduce((a, i) => a + Math.abs(t[i] - g(i)), 0);
+      if (!best || cost < best.cost) best = { cost, t };
+    });
+    if (best) ids.forEach(i => { gap[i] = best.t[i]; }); else ids.forEach(i => { gap[i] = g(i); });
+  }
+  const nv = [vals[0]];
+  for (let i = 1; i < n; i++) nv.push(nv[i - 1] + gap[i]);
+  // za ostatnią ścianą na krawędzi (bez kotwicy): nie wychodzimy poza stoisko
+  for (let i = 1; i < n; i++) if (nv[i] > Lk - PW / 2 && vals[i] <= Lk - PW / 2) { const d = nv[i] - Math.max(vals[i], Lk - PW / 2); for (let j = i; j < n; j++) nv[j] -= d; }
+  return nv;
 }
 // EasyFrame: słupek 80 × 80 w każdym narożniku i styku (T / L / +); ściany kończą się na licu słupka, przelotowa jest przecięta słupkiem
 function ufSkBuildE(runs, fit, sk, keepView) {
