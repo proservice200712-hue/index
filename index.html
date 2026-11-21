@@ -8160,7 +8160,8 @@ function ufSkJunc(runs, TOL) {
 }
 function ufSkSnapPosts(runs, junc, TOL, PW, MOD, gapPW) {
   // gapPW (K-Frame): dla ściany zamkniętej między dwiema osiami — o ile odstęp osi jest dłuższy od ściany; bez niego: światło między słupkami / ścianami = całe moduły
-  const snapW = (g, pw) => Math.max(MOD, Math.round((g - pw) / MOD) * MOD) + pw;
+  const ST = gapPW ? MOD / 2 : MOD;      // K-Frame: krok pół modułu (połówka jest standardowa)
+  const snapW = (g, pw) => Math.max(ST, Math.round((g - pw) / ST) * ST) + pw;
   const build = k => {          // k = 'x': pionowe ściany stoją na x, sąsiednie słupki leżą na poziomych ścianach
     const rk = k === 'x' ? 0 : 1, vals = [...new Set(junc.map(j => Math.round(j[k])))].sort((p, q) => p - q);
     if (vals.length < 2) return null;
@@ -8171,7 +8172,7 @@ function ufSkSnapPosts(runs, junc, TOL, PW, MOD, gapPW) {
       if (gapPW) { const pw = gapPW(r, on[i - 1], on[i]); if (pw != null) adjW.set(key, (adjW.get(key) || []).concat([pw])); } } });
     const key = i => vals[i - 1] + '|' + vals[i], pwAt = i => gapPW ? ((adjW.get(key(i)) || [])[0] ?? PW) : PW;
     const nv = ufSkFitGaps(vals, i => (gapPW ? (adjW.get(key(i)) || []).length > 0 : adj.has(key(i))) && vals[i] - vals[i - 1] - pwAt(i) >= 300,
-      i => gapPW ? (adjW.get(key(i)) || []).length : adjN.get(key(i)) || 0, (g, i) => snapW(g, pwAt(i)), PW, MOD, k === 'x' ? UF.d.stand.L : UF.d.stand.D, pwAt);
+      i => gapPW ? (adjW.get(key(i)) || []).length : adjN.get(key(i)) || 0, (g, i) => snapW(g, pwAt(i)), PW, MOD, k === 'x' ? UF.d.stand.L : UF.d.stand.D, pwAt, ST);
     return v => { let b = -1, bd = TOL + 1; vals.forEach((q, i) => { if (Math.abs(q - v) < bd) { bd = Math.abs(q - v); b = i; } }); if (b >= 0) return v + (nv[b] - vals[b]);
       for (let i = 0; i < vals.length - 1; i++) if (v > vals[i] && v < vals[i + 1]) { const t = (v - vals[i]) / (vals[i + 1] - vals[i]); return v + (nv[i] - vals[i]) * (1 - t) + (nv[i + 1] - vals[i + 1]) * t; }
       return v; };      // za ostatnim słupkiem i przed pierwszym: końce ścian stoją w miejscu — przycina się końcówka
@@ -8182,7 +8183,7 @@ function ufSkSnapPosts(runs, junc, TOL, PW, MOD, gapPW) {
 // nowe położenia ścian (vals: osie po kolei): ściany na krawędzi stoiska stoją w miejscu; między nimi odstępy ze ścianami na pełne moduły,
 // a jeden odstęp bierze resztę — wybieramy ten, przy którym najmniej ścian ma przyciętą ściankę (bez ścian: 0), potem najmniejsze przesunięcia;
 // gdy reszta nie mieści się (stoisko za krótkie), inne odstępy (zaplecza) skracamy o moduł
-function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk, pwAt = () => PW) {
+function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk, pwAt = () => PW, ST = MOD) {
   const n = vals.length, g = i => vals[i] - vals[i - 1], E = PW / 2 + 25;
   const anch = vals.map((v, i) => v <= E || v >= Lk - E ? i : -1).filter(i => i >= 0);
   const gap = vals.map((v, i) => i === 0 ? 0 : snappable(i) ? snap(g(i), i) : g(i));
@@ -8195,8 +8196,8 @@ function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk, pwAt = () => PW)
       const t = {}; ids.forEach(i => { t[i] = i === c ? 0 : gap[i]; });
       let rem = total - ids.reduce((a, i) => a + t[i], 0);
       while (rem - pwAt(c) < (snappable(c) ? 300 : 100)) {          // reszta za mała: skracamy o moduł odstęp najbardziej zaokrąglony w górę
-        const cand = ids.filter(i => i !== c && snappable(i) && t[i] - MOD - pwAt(i) >= MOD - 1).sort((p, q) => (t[q] - g(q)) - (t[p] - g(p)))[0];
-        if (cand == null) return; t[cand] -= MOD; rem += MOD;
+        const cand = ids.filter(i => i !== c && snappable(i) && t[i] - ST - pwAt(i) >= ST - 1).sort((p, q) => (t[q] - g(q)) - (t[p] - g(p)))[0];
+        if (cand == null) return; t[cand] -= ST; rem += ST;
       }
       t[c] = rem;
       const cost = (isMod(rem, c) ? 0 : walls(c)) * 1e6 + ids.filter(i => i !== c && !isMod(t[i], i) && snappable(i)).length * 1e6 + ids.reduce((a, i) => a + Math.abs(t[i] - g(i)), 0);
@@ -8863,16 +8864,40 @@ function ufEltexDialog(p, fresh) {
   m.el.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } }));
 }
 // prawy klawisz na ściance: zamiana modułu na drzwi (po wybraniu wariantu)
+// szerokość ścianki wpisana ręcznie: początek ścianki (lewy / górny koniec na planie) stoi, kolejne ścianki tej samej ściany przesuwają się razem z jej końcem
+function ufSetLen(o, len) {
+  if (!(len >= 50 && len <= 4000)) return toast(`Szerokość od ${lenPL(50)} do ${lenPL(4000)} ${UNIT()}`, 'error', 3500);
+  const d = len - o.len; if (Math.abs(d) < 0.05) return;
+  const hz = (o.dir & 1) === 0, r0 = ufRect(o), k1 = hz ? r0.x1 : r0.y1;
+  const run = ufGeom(UF.d).runs.find(r => r.ops.includes(o));
+  const after = run ? run.ops.filter(q => q !== o && (hz ? ufRect(q).x0 : ufRect(q).y0) >= k1 - 1) : [];
+  ufPush(); const sv = [o, ...after].map(q => [q, q.x, q.y, q.len, q.len0]);
+  if (o.dir === 2) o.x += d; if (o.dir === 3) o.y += d;
+  o.len = len; delete o.len0;
+  after.forEach(q => { if (hz) q.x += d; else q.y += d; ufFit(q); });      // wystające poza stoisko — ucięte jak przy przeciąganiu
+  const grp = new Set([o.id, ...after.map(q => q.id)]);
+  if ([o, ...after].some(q => ufOverlaps(q, grp))) {
+    sv.forEach(([q, x, y, l, l0]) => { q.x = x; q.y = y; q.len = l; if (l0) q.len0 = l0; else delete q.len0; }); UF.undo.pop();
+    return toast(UF_OVL_MSG + ' — po zmianie szerokości ściana wjechałaby na inną ściankę', 'error', 4000);
+  }
+  ufChanged();
+  if (after.length) toast(`Szerokość ${lenPL(len)} ${UNIT()} — kolejne ścianki tej ściany przesunięte o ${lenPL(Math.round(Math.abs(d) * 10) / 10)} ${UNIT()}`, '', 3500);
+}
 function ufWallMenu(e, wx, wy, tol) {
   const q = (UF.geo || ufGeom(UF.d)).parts.find(q => q.op.t === 'w' && wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol);
   if (!q) return;
   const o = q.op; UF.sel = o.id; UF.rot = false; ufDraw(); ufSyncBar();
-  const full = o.len0 || o.len, K = ufK();
-  if (K ? full < UF_KDW + 40 : Math.abs(full - 992) > 1) { return toast(K ? `Za wąski moduł na drzwi (min. ${lenPL(UF_KDW + 40)} ${UNIT()})` : `Drzwi zrobisz tylko z modułu ${lenPL(992)} ${UNIT()}`, 'error', 3500); }
+  const full = o.len0 || o.len, K = ufK(), drzwiOk = !(K ? full < UF_KDW + 40 : Math.abs(full - 992) > 1);
   const m = document.createElement('div'); m.className = 'menu mark-menu';
-  const opts = K ? [['flush', 'drzwi zlicowane z płytą'], ['proud', 'drzwi wpuszczone (w głąb ścianki)']] : UF_DOOR_HS.map(([k, v]) => [k, 'drzwi wysokość ' + lenPL(v)]);
-  m.innerHTML = `<div class="mm-h">Ścianka ${lenPL(o.len)} — zamień na:</div>` + opts.map(([k, v]) => `<button type="button" data-wd="${k}">🚪 ${v}</button>`).join('');
+  const opts = !drzwiOk ? [] : K ? [['flush', 'drzwi zlicowane z płytą'], ['proud', 'drzwi wpuszczone (w głąb ścianki)']] : UF_DOOR_HS.map(([k, v]) => [k, 'drzwi wysokość ' + lenPL(v)]);
+  m.innerHTML = `<div class="mm-h">Ścianka ${lenPL(o.len)} ${UNIT()}</div>
+    <div style="display:flex;align-items:center;gap:6px;padding:4px 10px 6px"><span>szerokość</span><input type="text" inputmode="decimal" data-wl value="${numIn(fromMM(o.len))}" style="width:72px;padding:3px 6px;font-weight:700;text-align:center" title="Nowa szerokość ścianki — Enter zatwierdza. Początek ścianki stoi, kolejne ścianki tej ściany przesuwają się."><span>${UNIT()}</span><button type="button" data-wlok class="btn btn-sm">OK</button></div>`
+    + (opts.length ? '<div class="mm-sep"></div><div class="mm-h">zamień na:</div>' + opts.map(([k, v]) => `<button type="button" data-wd="${k}">🚪 ${v}</button>`).join('') : `<div class="hint" style="padding:2px 10px 6px">${K ? `drzwi: moduł min. ${lenPL(UF_KDW + 40)} ${UNIT()}` : `drzwi tylko z modułu ${lenPL(992)} ${UNIT()}`}</div>`);
   document.body.appendChild(m);
+  const wl = m.querySelector('[data-wl]'), wlOk = () => { const v = toMM(wl.value); closeMarkMenu(); if (Number.isFinite(v)) ufSetLen(o, v); };
+  m.querySelector('[data-wlok]').onclick = wlOk;
+  wl.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); wlOk(); } else if (ev.key === 'Escape') { ev.preventDefault(); closeMarkMenu(); } });
+  setTimeout(() => { wl.focus(); wl.select(); }, 0);
   const rc = m.getBoundingClientRect();
   m.style.left = clamp(e.clientX, 6, innerWidth - rc.width - 6) + 'px'; m.style.top = clamp(e.clientY, 6, innerHeight - rc.height - 6) + 'px';
   setTimeout(() => document.addEventListener('pointerdown', ev => { if (!m.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
