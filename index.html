@@ -1136,7 +1136,7 @@
           <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl+klik = 10×, Shift+klik albo Shift+strzałka = cała ścianka)">Krok strzałek <input type="number" id="uf-step" value="10" min="1" step="1"> mm</label></span>
           <span class="uf-sp"></span>
           <button type="button" id="uf-look" title="Widok 3D: pełne ściany (z grafiką, bez podziału) albo gołe ramy z widocznym podziałem na moduły">▮ 3D: pełne ściany</button>
-          <button type="button" id="uf-go" class="uf-go" title="Zrób widok 3D jako nową wizkę, ze znacznikami i elementami (SEG + wysłony)">◈ Zrób widok 3D</button>
+          <button type="button" id="uf-go" class="uf-go" title="Generuj 3D: widok 3D ze znacznikami i elementami (SEG + wysłony) oraz wizualizacja z przełącznikiem pełny / szkielet i orbitą">◈ Generuj 3D</button>
           <button type="button" id="uf-x" title="Zamknij (Esc)">✕</button>
         </div>
         <div class="uf-body">
@@ -3823,6 +3823,7 @@ async function openProject(pid) {
     if (S.selId && !S.elements.find(e => e.id === S.selId)) S.selId = null;
     renderOverlay(); renderElements(); syncProjectStats(); updateHint();
     autoDoorThumbs();
+    vizAutoTex();
     axVerifyLinks(rows, pid);
   }));
   S.unsubProject.push(DB.sub(pLog(pid), rows => {
@@ -4355,7 +4356,7 @@ function renderOverlay() {
     if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#67b437" stroke-width="${3 * s}"/>`;
     out += `<g class="plab"><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/>
       <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text>${p.noExp ? `<rect x="${b.x + 44 * s}" y="0" width="${96 * s}" height="${24 * s}" fill="rgba(197,48,48,.92)"/><text x="${b.x + 92 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial">poza eksportem</text>` : ''}</g>
-      ${(() => { const hel = hangElOfPhoto(p.id); if (!hel) return ''; const cm = hangViewMode(p, hel), bs = [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']]; let bx = b.x + b.w - 52 * s - 6 * s - 64 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
+      ${(() => { const hel = hangElOfPhoto(p.id), ufv = !hel && p.ufViz; if (!hel && !ufv) return ''; const cm = hel ? hangViewMode(p, hel) : (p.vmode || 'tex'), bs = hel ? [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']] : [['tex', 'pełny', 46, 'Widok pełny: ścianki z grafikami elementów'], ['frame', 'szkielet', 56, 'Kratownica / gołe ramy z wymiarami']]; let bx = b.x + b.w - 52 * s - 6 * s - 64 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
         const orb = `<g class="pvo" data-pid="${p.id}"><title>Orbita: obracaj wizualizację myszą i zapisz widok</title><rect x="${b.x + b.w - 52 * s - 6 * s - 64 * s}" y="0" width="${64 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/><text x="${b.x + b.w - 52 * s - 6 * s - 32 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">↻ orbita</text></g>`;
         return orb + bs.map(([k, lab, w, tt]) => { const x0 = bx; bx += w * s; return `<g class="pvm" data-pid="${p.id}" data-mode="${k}"><title>${tt}</title><rect x="${x0}" y="0" width="${w * s}" height="${24 * s}" fill="${cm === k ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + w * s / 2}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${lab}</text></g>`; }).join(''); })()}
       ${(() => { const off = !!p.noExp, x0 = b.x + b.w - 52 * s; return `<g class="pexp" data-pid="${p.id}"><title>${off ? 'Wizka jest poza eksportem — kliknij, aby ją włączyć' : 'Wyłącz tę wizkę z eksportu'}</title><rect x="${x0}" y="0" width="${24 * s}" height="${24 * s}" fill="${off ? 'rgba(197,48,48,.92)' : 'rgba(26,32,44,.8)'}"/>${eyeIcon(!off).replace('<svg ', `<svg x="${x0 + 3 * s}" y="${3 * s}" style="color:#fff;pointer-events:none" `).replace('width="17" height="17"', `width="${18 * s}" height="${18 * s}"`)}</g>`; })()}
@@ -5485,8 +5486,16 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
   const W = Number(el.w), H = Number(el.h), D = m === 'box' ? depthOf(el) : W;
   if (!(W > 0 && H > 0 && D > 0)) return null;
   const allP = planesOf(el) || [], pls = allP.filter(q => q.side !== 'inside'), insP = allP.filter(q => q.side === 'inside'), imgs = [], imgsIn = [];
-  for (const q of pls) { let im = null; if (tex) { try { im = await hangImg(q.thumb || HANG_TEX); } catch (e) { /* bez grafiki */ } } imgs.push(im); }
-  for (const q of insP) { let im = null; if (tex) { try { im = await hangImg(q.thumb || HANG_TEX); } catch (e) { /* bez grafiki */ } } imgsIn.push(im); }
+  // grafika na cały pas (miniatura elementu / zadruku wewnątrz), gdy płaszczyzny nie mają własnych: dzielona na płaszczyzny według szerokości do druku
+  const pasem = async (list, url) => {
+    if (!tex || !url || list.some(q => q.thumb) || !list.length) return null;
+    let big; try { big = await hangImg(url); } catch (e) { return null; }
+    const tot = list.reduce((a, q) => a + (q.gw || q.w), 0) || 1; let x = 0;
+    return list.map((q, i) => { const w = (q.gw || q.w) / tot * big.width, c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = big.height; c.getContext('2d').drawImage(big, x, 0, w, big.height, 0, 0, c.width, c.height); x += w; list[i] = { ...q, thumb: 'pas' }; return c; });
+  };
+  const pasOut = await pasem(pls, el.thumb), pasIn = await pasem(insP, el.thumbIn);
+  for (const [i, q] of pls.entries()) { let im = pasOut ? pasOut[i] : null; if (tex && !im) { try { im = await hangImg(q.thumb || HANG_TEX); } catch (e) { /* bez grafiki */ } } imgs.push(im); }
+  for (const [i, q] of insP.entries()) { let im = pasIn ? pasIn[i] : null; if (tex && !im) { try { im = await hangImg(q.thumb || HANG_TEX); } catch (e) { /* bez grafiki */ } } imgsIn.push(im); }
   const hasIn = tex && !!el.inside;                       // zadruk wewnątrz: tylne lica od środka są pełne (zakrywają rozpórki)
   const pt = { r32: 32, t50: 50, ef80: 80 }[hangProf(el)[0]] || 32, col = typeById('podwieszana').color || '#8e44ad';
   const vw0 = opts.view || el.vw || {}, ang = (vw0.yaw != null ? Number(vw0.yaw) : HANG_YAW0) * Math.PI / 180, ca = Math.cos(ang), sa = Math.sin(ang);      // widok: obrót (yaw) i wysokość kamery (pitch) — orbita
@@ -5664,7 +5673,95 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
 // wizka z wizualizacją konstrukcji podwieszanej: element, do którego należy, i bieżący widok (pełny / szkielet / półprzezroczysta tkanina)
 const hangElOfPhoto = pid => S.elements.find(e => e.vizPhotoId === pid || e.vizFramePhotoId === pid || e.vizGhostPhotoId === pid);
 const hangViewMode = (p, el) => p.vmode || (el.vizFramePhotoId === p.id ? 'frame' : el.vizGhostPhotoId === p.id ? 'ghost' : 'tex');
+// wizualizacja ramek: mode 'tex' = pełne ścianki z grafikami elementów, 'frame' = kratownica / gołe ramy z wymiarami; view = { yaw, pitch } (orbita)
+async function ufVizRender(mode, view) {
+  const own = !UF.open, keepD = UF.d;
+  if (own) { let doc = null; try { doc = S.project && await DB.get(C_PROJECTS, S.project.id); } catch (e) { /* zostaje kopia w pamięci */ } const sv = S.project && ufFsDec((doc && doc.ultraFrame) || S.project.ultraFrame); if (!sv || !(sv.pieces || []).length) return null; UF.d = ufMigrate(JSON.parse(JSON.stringify(sv))); if (!UF.d.sys) UF.d.sys = 'e'; if (!UF.d.H) UF.d.H = UF.d.sys === 'k' ? UF_KH : 2480; }
+  const d = UF.d, y0 = d.yaw, p0 = d.pitch;
+  try {
+    if (view && view.yaw != null) { d.yaw = Number(view.yaw); d.pitch = Number(view.pitch); }
+    if (mode !== 'frame') await ufTexPreload();
+    const r = mode === 'frame' ? ufRender3D({ W: 1700, dims: true, look: 'bare' }) : ufRender3D({ W: 1700, tex: true, look: 'full', vis: true });
+    return r ? r.cv : null;
+  } finally { d.yaw = y0; d.pitch = p0; if (own) UF.d = keepD; }
+}
+async function ufVizSave(photoId, mode, view, keepAlts) {
+  const p = S.photos.find(x => x.id === photoId); if (!p || !S.project) return;
+  const cv = await ufVizRender(mode, view); if (!cv) throw new Error('brak zapisanego układu ścianek');
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  const up = await storeImage(new File([blob], 'ultra-frame-' + mode + '.png', { type: 'image/png' }), 3200, { png: true });
+  await DB.update(pPhotos(S.project.id), photoId, { url: up.url, w: up.w, h: up.h, alts: { ...(keepAlts || {}), [mode]: up.url }, vmode: mode, ...(view ? { vw: view } : {}) });
+}
+async function ufVizSetView(photoId, mode) {
+  const p = S.photos.find(x => x.id === photoId); if (!p || isViewer() || !S.project) return;
+  const cur = p.vmode || 'tex'; if (cur === mode) return;
+  const t = toast('Przełączam widok…', '', 60000);
+  try {
+    const alts = { ...(p.alts || {}) }; if (!alts[cur]) alts[cur] = p.url;
+    if (alts[mode]) await DB.update(pPhotos(S.project.id), photoId, { url: alts[mode], alts, vmode: mode });
+    else await ufVizSave(photoId, mode, p.vw, alts);
+  } catch (e) { toast('Nie udało się przełączyć widoku: ' + e.message, 'error', 6000); }
+  finally { t.remove(); }
+}
+async function ufVizOrbit(photoId) {
+  const p = S.photos.find(x => x.id === photoId); if (!p || isViewer() || !S.project) return;
+  let doc = null; try { doc = await DB.get(C_PROJECTS, S.project.id); } catch (e) { /* kopia w pamięci */ }
+  const sv = ufFsDec((doc && doc.ultraFrame) || S.project.ultraFrame) || {}, V0 = { yaw: sv.yaw != null ? Number(sv.yaw) : 45, pitch: sv.pitch != null ? Number(sv.pitch) : 35.264 }, mode = p.vmode || 'tex';
+  let yaw = p.vw && p.vw.yaw != null ? Number(p.vw.yaw) : V0.yaw, pitch = p.vw && p.vw.pitch != null ? Number(p.vw.pitch) : V0.pitch, busy = false, again = false, dr = null;
+  const m = openModal({ title: '↻ Orbita — ' + esc(p.name || 'wizualizacja'), wide: true,
+    body: '<canvas id="ho-cv" style="width:100%;max-height:72vh;object-fit:contain;cursor:grab;touch-action:none;background:#f8fafc;border:1px solid var(--line)"></canvas><div class="hint" style="margin-top:6px">Przeciągnij myszą: poziomo — obrót wokół stoiska, pionowo — wysokość kamery. „Zapisz widok” podmienia obraz tej wizualizacji (oba widoki: pełny i szkielet).</div>',
+    footer: '<button class="btn" id="ho-reset" style="margin-right:auto">↺ Widok domyślny</button><button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ho-ok">Zapisz widok</button>' });
+  const draw = async () => {
+    if (busy) { again = true; return; } busy = true;
+    try { const cv = await ufVizRender(mode, { yaw, pitch }), t = $('ho-cv'); if (cv && t) { t.width = cv.width; t.height = cv.height; t.getContext('2d').drawImage(cv, 0, 0); } } catch (e) { console.warn(e); }
+    busy = false; if (again) { again = false; draw(); }
+  };
+  const c = $('ho-cv');
+  c.onpointerdown = e => { dr = { x: e.clientX, y: e.clientY, yaw, pitch }; try { c.setPointerCapture(e.pointerId); } catch (er) {} c.style.cursor = 'grabbing'; };
+  c.onpointermove = e => { if (!dr) return; yaw = ((dr.yaw - (e.clientX - dr.x) * 0.5) % 360 + 360) % 360; pitch = clamp(dr.pitch + (e.clientY - dr.y) * 0.3, 8, 85); draw(); };
+  c.onpointerup = c.onpointercancel = () => { dr = null; c.style.cursor = 'grab'; };
+  m.el.querySelector('[data-c]').onclick = () => m.close();
+  $('ho-reset').onclick = () => { yaw = V0.yaw; pitch = V0.pitch; draw(); };
+  $('ho-ok').onclick = async () => {
+    $('ho-ok').disabled = true; const tt = toast('Zapisuję widok…', '', 60000);
+    try { await ufVizSave(photoId, mode, { yaw: Math.round(yaw * 10) / 10, pitch: Math.round(pitch * 10) / 10 }, {}); m.close(); }
+    catch (e) { toast('Nie udało się zapisać widoku: ' + e.message, 'error', 6000); $('ho-ok').disabled = false; }
+    tt.remove();
+  };
+  draw();
+}
+// grafika dodana do elementu ścianki: wizualizacja ramek odświeża się sama (w bieżącym widoku; szkielet bez grafik — tylko zapomina stary widok pełny)
+async function ufVizRefresh() {
+  const p = S.photos.find(x => x.ufViz); if (!p || isViewer() || !S.project) return;
+  const mode = p.vmode || 'tex';
+  if (mode !== 'tex') { const alts = { ...(p.alts || {}) }; delete alts.tex; await DB.update(pPhotos(S.project.id), p.id, { alts }); return; }
+  const t = toast('Odświeżam wizualizację z grafikami…', '', 60000);
+  try { await ufVizSave(p.id, 'tex', p.vw, { ...(p.alts || {}) }); toast('Wizualizacja zaktualizowana', 'success', 3000); }
+  catch (e) { toast('Nie udało się odświeżyć wizualizacji: ' + e.message, 'error', 6000); }
+  finally { t.remove(); }
+}
+// po zmianie grafik elementów (miniatura, płaszczyzny podwieszenia, zadruk wewnątrz): odśwież wizualizacje, na których je widać
+const _texSeen = new Map(), _texHang = new Set(); let _texPid = null, _texUf = false, _texTmr = 0;
+const texKey = e => [e.thumb || '', (e.pthumbs || []).join('|'), e.thumbIn || ''].join('#');
+function vizAutoTex() {
+  if (!S.project || isViewer() || (S.tour && S.tour.show)) return;
+  if (_texPid !== S.project.id) { _texPid = S.project.id; _texSeen.clear(); _texHang.clear(); _texUf = false; S.elements.forEach(e => _texSeen.set(e.id, texKey(e))); return; }
+  let any = false;
+  S.elements.forEach(e => {
+    const k = texKey(e), was = _texSeen.get(e.id); _texSeen.set(e.id, k); if (was === undefined || was === k) return;
+    if (e.ufKey && e.ufRole === 'front' && !e.doorFor) { _texUf = true; any = true; }
+    if (isHang(e) && hangVizPhoto(e)) { _texHang.add(e.id); any = true; }
+  });
+  if (!any) return;
+  clearTimeout(_texTmr); _texTmr = setTimeout(async () => {
+    const pidNow = S.project && S.project.id; if (pidNow !== _texPid) return;
+    const hs = [..._texHang]; _texHang.clear(); const uf = _texUf; _texUf = false;
+    for (const id of hs) { const e = S.elements.find(x => x.id === id); if (e) await hangAutoViz(e).catch(er => console.warn('wizualizacja:', er)); }
+    if (uf) await ufVizRefresh().catch(er => console.warn('wizualizacja ramek:', er));
+  }, 1200);
+}
 async function hangSetView(photoId, mode) {
+  { const pp = S.photos.find(x => x.id === photoId); if (pp && pp.ufViz && !hangElOfPhoto(photoId)) return ufVizSetView(photoId, mode); }
   const p = S.photos.find(x => x.id === photoId), el = p && hangElOfPhoto(photoId); if (!p || !el || isViewer() || !S.project) return;
   const cur = hangViewMode(p, el); if (cur === mode) return;
   const pid = S.project.id, t = toast('Przełączam widok…', '', 60000);
@@ -5682,6 +5779,7 @@ async function hangSetView(photoId, mode) {
 }
 // orbita: wizka z wizualizacją konstrukcji w oknie z obrotem myszą (poziomo — obrót, pionowo — wysokość kamery); „Zapisz widok” podmienia obraz wizki i zapamiętuje widok dla kolejnych wizualizacji
 async function hangOrbit(photoId) {
+  { const pp = S.photos.find(x => x.id === photoId); if (pp && pp.ufViz && !hangElOfPhoto(photoId)) return ufVizOrbit(photoId); }
   const p = S.photos.find(x => x.id === photoId), el0 = p && hangElOfPhoto(photoId); if (!p || !el0 || isViewer() || !S.project) return;
   const el = clone(el0), mode = hangViewMode(p, el0), mark = markOf(el0), pid = S.project.id, V0 = { yaw: 36, pitch: 35.264 };
   let yaw = el.vw && el.vw.yaw != null ? Number(el.vw.yaw) : V0.yaw, pitch = el.vw && el.vw.pitch != null ? Number(el.vw.pitch) : V0.pitch, busy = false, again = false, dr = null;
@@ -5735,7 +5833,7 @@ async function hangMakeViz(el, mark, eid, mode = 'tex') {
   finally { t.remove(); }
 }
 // wizualizacja konstrukcji podwieszanej powstaje sama przy zapisie elementu; zmiana wymiarów / ustawień odświeża istniejącą wizkę (w jej bieżącym widoku)
-const hangSig = e => JSON.stringify(['tlo-biale', e.variant, e.w, e.h, e.d, hangProf(e)[0], !!e.inside, e.hbMode, e.hbSides, e.viz, e.vw, (e.pthumbs || []).join('|')]);
+const hangSig = e => JSON.stringify(['tlo-biale', e.thumb || '', e.thumbIn || '', e.variant, e.w, e.h, e.d, hangProf(e)[0], !!e.inside, e.hbMode, e.hbSides, e.viz, e.vw, (e.pthumbs || []).join('|')]);
 const hangVizPhoto = e => { const id = [e.vizPhotoId, e.vizFramePhotoId, e.vizGhostPhotoId].find(x => x && S.photos.some(p => p.id === x)); return id ? S.photos.find(p => p.id === id) : null; };
 async function hangAutoViz(el) {
   if (!el || !el.id || !isHang(el) || isViewer() || !S.project || !['box', 'ring'].includes(dimsMode(el))) return;
@@ -9604,20 +9702,9 @@ async function ufGenerate() {
       photoId = await DB.add(pPhotos(pid), { url: up.url, w: up.w, h: up.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — widok 3D', order, createdAt: nowIso(), createdBy: S.me.id });
       addLog(pid, `Ultra Frame: dodano wizkę #${order} (widok 3D)`);
     }
-    // druga wizka: przezroczysty podgląd (gołe ramy) z wymiarami stoiska i ścianek — bez znaczników
-    const imgB = ufRender3D({ W: 1700, dims: true, look: 'bare' });
-    if (imgB) {
-      const blobB = await new Promise(res => imgB.cv.toBlob(res, 'image/png'));
-      const upB = await storeImage(new File([blobB], 'ultra-frame-ramy.png', { type: 'image/png' }), 3200, { png: true });
-      let pB = UF.d.photoId2 && S.photos.some(p => p.id === UF.d.photoId2) ? UF.d.photoId2 : '';
-      if (pB) await DB.update(pPhotos(pid), pB, { url: upB.url, w: upB.w, h: upB.h });
-      else {
-        const order = ++ordMax;
-        pB = await DB.add(pPhotos(pid), { url: upB.url, w: upB.w, h: upB.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — ' + (ufK() ? 'kratownica z wymiarami' : 'gołe ramy z wymiarami'), order, createdAt: nowIso(), createdBy: S.me.id });
-        addLog(pid, `Ultra Frame: dodano wizkę #${order} (gołe ramy z wymiarami)`);
-      }
-      UF.d.photoId2 = pB;
-    }
+    // dawna osobna wizka z gołymi ramami — teraz to widok „szkielet” wizualizacji (przełącznik na niej)
+    if (UF.d.photoId2 && S.photos.some(p => p.id === UF.d.photoId2)) { await DB.del(pPhotos(pid), UF.d.photoId2); addLog(pid, 'Ultra Frame: usunięto osobną wizkę z gołymi ramami (jest teraz widokiem „szkielet” wizualizacji)'); }
+    UF.d.photoId2 = '';
     let nNew = 0, nUpd = 0;
     for (const j of jobs) {
       const at = img.pos.get(j.run.key + '|' + j.role) || [0.5, 0.5], shape = { kind: 'point', pts: [at] };
@@ -9632,28 +9719,28 @@ async function ufGenerate() {
       if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], photoId, shape });
     }
     addLog(pid, `Ultra Frame: ${nNew} nowych elementów, ${nUpd} zaktualizowanych`);
-    // trzecia wizka: wizualizacja bez znaczników, z grafikami elementów nałożonymi na ścianki (pełne ściany)
+    // druga wizka: wizualizacja bez znaczników z przełącznikiem pełny (grafiki na ściankach) / szkielet (kratownica, gołe ramy z wymiarami) i orbitą
     try {
-      await ufTexPreload();
-      const imgC = ufRender3D({ W: 1700, tex: true, look: 'full', vis: true });
-      if (imgC) {
-        const blobC = await new Promise(res => imgC.cv.toBlob(res, 'image/png'));
+      const pC0 = UF.d.photoId3 && S.photos.find(p => p.id === UF.d.photoId3), mode = (pC0 && pC0.ufViz && pC0.vmode) || 'tex', cvC = await ufVizRender(mode, pC0 && pC0.vw);
+      if (cvC) {
+        const blobC = await new Promise(res => cvC.toBlob(res, 'image/png'));
         const upC = await storeImage(new File([blobC], 'ultra-frame-wizualizacja.png', { type: 'image/png' }), 3200, { png: true });
-        let pC = UF.d.photoId3 && S.photos.some(p => p.id === UF.d.photoId3) ? UF.d.photoId3 : '';
-        if (pC) await DB.update(pPhotos(pid), pC, { url: upC.url, w: upC.w, h: upC.h });
+        const rec = { url: upC.url, w: upC.w, h: upC.h, alts: { [mode]: upC.url }, vmode: mode, ufViz: true, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — wizualizacja' };
+        let pC = pC0 ? pC0.id : '';
+        if (pC) await DB.update(pPhotos(pid), pC, rec);
         else {
           const order = ++ordMax;
-          pC = await DB.add(pPhotos(pid), { url: upC.url, w: upC.w, h: upC.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — wizualizacja z grafikami', order, createdAt: nowIso(), createdBy: S.me.id });
-          addLog(pid, `Ultra Frame: dodano wizkę #${order} (wizualizacja z grafikami)`);
+          pC = await DB.add(pPhotos(pid), { ...rec, order, createdAt: nowIso(), createdBy: S.me.id });
+          addLog(pid, `Ultra Frame: dodano wizkę #${order} (wizualizacja)`);
         }
         UF.d.photoId3 = pC;
       }
-    } catch (e) { console.warn('Ultra Frame: wizualizacja z grafikami', e); toast('Wizualizacja z grafikami się nie udała: ' + e.message, 'error', 6000); }
+    } catch (e) { console.warn('Ultra Frame: wizualizacja', e); toast('Wizualizacja się nie udała: ' + e.message, 'error', 6000); }
     const keep = new Set(jobs.map(j => j.run.key + '|' + j.role));
     const orphans = S.elements.filter(e => e.ufKey && !e.doorFor && !keep.has(e.ufKey + '|' + e.ufRole));
     UF.d.photoId = photoId; await ufSave();
     tt.remove();
-    toast(`Widok 3D gotowy: ${nNew} nowych elementów, ${nUpd} zaktualizowanych — znaczniki widać na planie; zamknij edytor (✕), aby zobaczyć nową wizkę${multiDoor ? ' · w ściance z kilkoma drzwiami uwzględniono pierwsze' : ''}`, 'success', 8000);
+    toast(`Gotowe: ${nNew} nowych elementów, ${nUpd} zaktualizowanych — znaczniki widać na planie; zamknij edytor (✕), aby zobaczyć nową wizkę${multiDoor ? ' · w ściance z kilkoma drzwiami uwzględniono pierwsze' : ''}`, 'success', 8000);
     setTimeout(() => { setCurrentPhoto(photoId); fitView(); ufDraw(); }, 600);
     if (orphans.length) {
       const ok = await confirmBox(`W ramce nie ma już ${orphans.length} elementów utworzonych wcześniej przez Ultra Frame: <b>${orphans.map(e => esc(markOf(e))).join(', ')}</b>. Usunąć je razem z drzwiami?`, 'Usuń');
@@ -12667,9 +12754,7 @@ async function kfOpen(anim) {
   if (kb) {
     if (anim) {
       await shWait(400);
-      await shSay(TT('Program pyta o system ram. Wybieram K-Frame: moduły 99,5 na 279,5 centymetra, bez słupków, ścianki prostopadłe w dowolnym miejscu.',
-        'Програма питає про систему рам. Обираю K-Frame: модулі 99,5 на 279,5 сантиметра, без стійок, перпендикулярні стінки в будь-якому місці.',
-        'The program asks for the frame system. I choose K-Frame: modules 99.5 by 279.5 centimetres, no posts, perpendicular walls anywhere.'));
+      await shSay(TT('Program pyta o system ram — wybieram K-Frame.', 'Програма питає про систему рам — обираю K-Frame.', 'The program asks for the frame system — I choose K-Frame.'));
       await shMove(...shCenter(kb), 800); await shWait(150); shRipple();
     }
     kb.click();
@@ -12784,6 +12869,22 @@ function kfChapters() {
           'Якби це мала бути кімната для переговорів, перетягуєш усередину позначку MT. Тоді стіни всередині теж отримають графіку.',
           'If it were a meeting room, you would drag the MT marker inside. Then the walls inside get graphics too.'));
       } },
+    { est: 24, name: TT('Kopiowanie', 'Копіювання', 'Copying'),
+      run: async () => {
+        const src = kfL().back[1] || kfL().back[0]; if (!src) return;
+        await shSay(TT('Ścianki kopiujesz jak w Corelu: chwytasz ściankę lewym klawiszem, przesuwasz i w trakcie naciskasz prawy. Oryginał zostaje, a kopia jedzie za kursorem.',
+          'Стінки копіюєш як у Corel: хапаєш стінку лівою кнопкою, пересуваєш і під час руху натискаєш праву. Оригінал лишається, а копія їде за курсором.',
+          'You copy walls like in Corel: grab a wall with the left button, move it and press the right button while dragging. The original stays and the copy follows the cursor.'));
+        const T = SH(), cp = { ...clone(src), id: ufUid() }, r0 = ufRect(src), w0 = [(r0.x0 + r0.x1) / 2, (r0.y0 + r0.y1) / 2], dst = [w0[0] + 1500, 1900];
+        await shMove(...kfMid(src), 700); await shWait(120); shRipple(); UF.sel = src.id; ufDraw();
+        await shMove(...kfPt(w0[0] + 300, w0[1] + 400), 600); shKey(TT('+ prawy klawisz', '+ права кнопка', '+ right button')); shRipple();
+        UF.d.pieces.push(cp); UF.sel = cp.id;
+        T.onMove = (x, y) => { const r = $('uf-cv').getBoundingClientRect(), [wx, wy] = ufWorld(x - r.left, y - r.top); cp.x = wx - (w0[0] - src.x); cp.y = wy - (w0[1] - src.y); ufDraw(); };
+        await shMove(...kfPt(...dst), 1200); T.onMove = null; await shWait(100); shRipple();
+        cp.x = dst[0] - (w0[0] - src.x); cp.y = dst[1] - (w0[1] - src.y); ufChanged(); await shWait(700);
+        await shSay(TT('Kopia stoi w nowym miejscu. Tutaj jej nie potrzebuję, więc ją cofam.', 'Копія стоїть на новому місці. Тут вона не потрібна, тож скасовую.', 'The copy is in its new place. I don\'t need it here, so I undo it.'));
+        shKey('Ctrl+Z'); UF.d.pieces = UF.d.pieces.filter(p => p.id !== cp.id); UF.sel = null; ufChanged(); await shWait(500);
+      } },
     { est: 26, name: TT('Ustawienia ścianki', 'Налаштування стінки', 'Wall settings'),
       run: async () => {
         const p = kfL().back[3] || kfL().back[0];
@@ -12814,20 +12915,47 @@ function kfChapters() {
           'Production is the list of walls: standard modules, halves, doors and non-standard walls, split into one-sided and two-sided boarding.'));
         await kfCloseTopModal();
       } },
-    { est: 32, name: TT('Widok 3D i elementy', 'Вигляд 3D і елементи', '3D view and elements'),
+    { est: 60, name: TT('Generuj 3D', 'Генерувати 3D', 'Generate 3D'),
       run: async () => {
         if (!UF.open) await kfOpen(false);
-        await shSay(TT('Gdy układ jest gotowy, klikam Zrób widok 3D. INDEX tworzy wizualizację i od razu elementy: grafikę na każde lico widoczne od alejki, z wymiarami i drzwiami.',
-          'Коли план готовий, клацаю «Зробити вигляд 3D». INDEX створює візуалізацію і одразу елементи: графіку на кожну площину, видиму з алеї, з розмірами і дверима.',
-          'When the layout is ready, I click Make 3D view. INDEX creates the visual and the elements right away: a graphic for every face seen from the aisle, with sizes and doors.'));
+        await shSay(TT('Gdy układ jest gotowy, klikam Generuj 3D. Powstają dwie wizualizacje i od razu elementy: grafika na każde lico widoczne od alejki, z wymiarami i drzwiami.',
+          'Коли план готовий, клацаю «Генерувати 3D». З’являються дві візуалізації і одразу елементи: графіка на кожну площину, видиму з алеї, з розмірами і дверима.',
+          'When the layout is ready, I click Generate 3D. Two visualizations appear together with the elements: a graphic for every face seen from the aisle, with sizes and doors.'));
         await shClick('#uf-go', 800);
         const t0 = Date.now(); while (UF.busy && Date.now() - t0 < 60000) await shWait(200);
         await shWait(900);
-        await shSay(TT('Na planie są znaczniki grafik. Zamykam edytor.', 'На плані з’явилися позначки графіки. Закриваю редактор.', 'The graphic markers are on the plan. I close the editor.'));
-        await shClick('#uf-x', 700); await shWait(900); fitView();
-        await shSay(TT('Jest nowa wizka stoiska, a w tabeli gotowe elementy z wymiarami do druku.',
-          'Є нова візуалізація стенду, а в таблиці готові елементи з розмірами для друку.',
-          'There is a new visual of the stand, and the table has the elements ready, with print sizes.'));
+        await shSay(TT('Zamykam edytor.', 'Закриваю редактор.', 'I close the editor.'));
+        await shClick('#uf-x', 700); await shWait(900); fitView(); await shWait(400);
+        const pA = S.photos.find(p => !p.ufViz), pV = S.photos.find(p => p.ufViz), lab = pid => document.querySelector(`#overlay .plab text`) && L.map[pid] ? stageToClient(pid, [0.5, 0.45]) : null;
+        if (pA && lab(pA.id)) await shMove(...lab(pA.id), 900);
+        await shSay(TT('Pierwsza wizualizacja ma znaczniki elementów i wymiary ścianek. W tabeli są gotowe elementy z wymiarami do druku.',
+          'Перша візуалізація має позначки елементів і розміри стінок. У таблиці готові елементи з розмірами для друку.',
+          'The first visualization has the element markers and wall sizes. The table has the elements ready, with print sizes.'));
+        if (pV) {
+          if (lab(pV.id)) await shMove(...lab(pV.id), 900);
+          await shSay(TT('Druga to wizualizacja z przełącznikiem, jak przy konstrukcji podwieszanej. Szkielet pokazuje kratownicę z wymiarami.',
+            'Друга — це візуалізація з перемикачем, як у підвісній конструкції. Каркас показує ферму з розмірами.',
+            'The second one is a visualization with a switch, like for a hanging structure. Skeleton shows the frame with dimensions.'));
+          const btn = mode => document.querySelector(`#overlay .pvm[data-pid="${pV.id}"][data-mode="${mode}"]`), orb = () => document.querySelector(`#overlay .pvo[data-pid="${pV.id}"]`);
+          const press = async (el, fn) => { if (el) { await shMove(...shCenter(el), 700); await shWait(120); shRipple(); } await fn(); await shWait(900); };
+          await press(btn('frame'), () => hangSetView(pV.id, 'frame'));
+          await shSay(TT('Pełny pokazuje ścianki z grafikami elementów.', 'Повний показує стінки з графікою елементів.', 'Full shows the walls with the element graphics.'));
+          await press(btn('tex'), () => hangSetView(pV.id, 'tex'));
+          await shSay(TT('Orbita obraca stoisko myszą: poziomo wokół stoiska, pionowo wysokość kamery. Zapisz widok podmienia obraz wizualizacji.',
+            'Орбіта обертає стенд мишею: горизонтально навколо стенду, вертикально висота камери. «Зберегти вигляд» замінює зображення візуалізації.',
+            'Orbit turns the stand with the mouse: horizontally around the stand, vertically the camera height. Save view replaces the visualization image.'));
+          await press(orb(), () => { hangOrbit(pV.id); });
+          const cv = await shWaitFor(() => $('ho-cv'), 3000);
+          if (cv) {
+            await shWait(800); const [cx, cy] = shCenter(cv); await shMove(cx, cy, 600); shRipple(); shPtr('pointerdown', cv, cx, cy);
+            const T = SH(); T.onMove = (x, y) => shPtr('pointermove', cv, x, y); await shMove(cx - 160, cy + 30, 1600); T.onMove = null; shPtr('pointerup', cv, cx - 160, cy + 30);
+            await shWait(900); await shClick('#ho-ok', 700);
+            await shWaitFor(() => !$('ho-cv'), 15000); if ($('ho-cv')) { const mm = modalStack[modalStack.length - 1]; if (mm) mm.close(); } await shWait(900);
+          }
+          await shSay(TT('Gdy dodasz grafikę do elementu, wizualizacja odświeży się sama — tak samo przy konstrukcjach podwieszanych.',
+            'Коли додаси графіку до елемента, візуалізація оновиться сама — так само для підвісних конструкцій.',
+            'When you add a graphic to an element, the visualization refreshes by itself — the same for hanging structures.'));
+        }
       } },
     { est: 50, name: TT('Rysowanie kreską', 'Малювання лінією', 'Drawing with lines'),
       run: async () => {
