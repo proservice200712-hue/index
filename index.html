@@ -12900,6 +12900,28 @@ function kfChapters() {
         for (const id of ['uf-mount', 'uf-pbtn']) { const x = $(id); if (kfVis(x)) { await shMove(...shCenter(x), 600); await shWait(300); } }
         UF.sel = null; ufSyncBar(); ufDraw();
       } },
+    { est: 26, name: TT('Wymiar ścianki', 'Розмір стінки', 'Wall width'),
+      run: async () => {
+        const L = kfL(), p = L.back[L.back.length - 1]; if (!p) return;
+        const cvs = $('uf-cv'), [x, y] = kfMid(p);
+        await shSay(TT('Prawy klawisz na ściance otwiera menu. Wpisujesz w nim szerokość ścianki ręcznie, a kolejne ścianki tej ściany przesuwają się same.',
+          'Права кнопка на стінці відкриває меню. У ньому вручну вписуєш ширину стінки, а наступні стінки цієї стіни зсуваються самі.',
+          'Right-clicking a wall opens a menu. There you type the wall width by hand, and the next walls of that wall move along by themselves.'));
+        await shMove(x, y, 800); await shWait(120); shRipple(); shKey(TT('prawy klawisz', 'права кнопка', 'right button'));
+        cvs.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 2 }));
+        const inp = await shWaitFor(() => document.querySelector('.mark-menu [data-wl]'), 2000);
+        if (inp) {
+          await shWait(500);
+          await shType(inp, numInput(UF_KW / 2));
+          await shSay(TT('Wpisuję wymiar połówki modułu i zatwierdzam.', 'Вписую розмір половинки модуля і підтверджую.', 'I type the size of a half module and confirm.'));
+          const ok = document.querySelector('.mark-menu [data-wlok]'); if (ok) await shClick(ok, 600); else closeMarkMenu();
+          await shWait(900);
+          await shSay(TT('Ścianka ma nowy wymiar. W tym samym menu zamienisz też ściankę na drzwi. Tutaj zostawiam poprzedni wymiar, więc cofam.',
+            'Стінка має новий розмір. У цьому ж меню заміниш стінку на двері. Тут лишаю попередній розмір, тож скасовую.',
+            'The wall has its new size. The same menu also turns a wall into a door. Here I keep the previous size, so I undo.'));
+          shKey('Ctrl+Z'); const q = UF.d.pieces.find(z => z.id === p.id); if (q && Math.abs(q.len - p.len) > 0.05) ufUndo(); await shWait(600);
+        } else closeMarkMenu();
+      } },
     { est: 14, name: TT('Podgląd 3D', 'Перегляд 3D', '3D preview'),
       run: async () => {
         const pv = $('uf-pv'); if (kfVis(pv)) await shMove(...shCenter(pv), 900);
