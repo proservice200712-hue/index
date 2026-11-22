@@ -4678,6 +4678,8 @@ viewer.addEventListener('dblclick', e => {
   if (g) openElementDialog({ id: g.dataset.eid });
 });
 viewer.addEventListener('contextmenu', e => {
+  const onMark = e.target.closest && e.target.closest('#overlay [data-eid]');
+  if ((isViewer() || !onMark) && S.project && !draft && !act && !suppressCtx) { const [sx, sy] = toStage(e), pid = photoAt(sx, sy); if (pid) { e.preventDefault(); openPhotoMenu(e.clientX, e.clientY, pid); return; } }
   if (isViewer()) { e.preventDefault(); return; }
   if (suppressCtx || act) { e.preventDefault(); suppressCtx = false; return; } // PPM jako „kopiuj” przy przeciąganiu
   if (draft) { e.preventDefault(); cancelDraft(); return; }
@@ -4693,6 +4695,31 @@ const shiftShape = (sh, dx, dy) => {
   return c;
 };
 function closeMarkMenu() { document.querySelectorAll('.mark-menu').forEach(m => m.remove()); }
+// prawy klawisz na wizce (zwykła, Ultra / K-Frame, wizualizacja podwieszenia): menu z drukiem
+function openPhotoMenu(x, y, pid) {
+  const ph = S.photos.find(p => p.id === pid); if (!ph || !ph.url) return;
+  closeMarkMenu();
+  const m = document.createElement('div'); m.className = 'menu mark-menu';
+  m.innerHTML = `<div class="mm-h">Wizka ${esc(ph.name || '#' + (S.photos.indexOf(ph) + 1))}</div><button type="button" data-pr>🖨 Drukuj wizkę</button>`;
+  document.body.appendChild(m);
+  const rc = m.getBoundingClientRect();
+  m.style.left = clamp(x, 6, innerWidth - rc.width - 6) + 'px'; m.style.top = clamp(y, 6, innerHeight - rc.height - 6) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', ev => { if (!m.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
+  m.querySelector('[data-pr]').onclick = () => { closeMarkMenu(); printPhoto(ph); };
+}
+// druk wizki: sama grafika na całą stronę A4 (pozioma albo pionowa jak wizka), od razu okno drukowania
+function printPhoto(ph) {
+  const land = (Number(ph.w) || 4) >= (Number(ph.h) || 3), title = esc(((S.project && S.project.name) || 'INDEX') + (ph.name ? ' — ' + ph.name : ''));
+  const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  fr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 ${land ? 'landscape' : 'portrait'};margin:8mm}html,body{margin:0;background:#fff}body{display:flex;align-items:center;justify-content:center;height:100vh}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="${esc(ph.url)}"></body></html>`;
+  const t = toast('Przygotowuję wizkę do druku…', '', 20000);
+  fr.onload = () => {
+    const im = fr.contentDocument && fr.contentDocument.querySelector('img'); if (!im) { t.remove(); fr.remove(); return; }
+    const go = () => { t.remove(); try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { window.open(ph.url, '_blank'); } setTimeout(() => fr.remove(), 1500); };
+    if (im.complete && im.naturalWidth) go(); else { im.onload = go; im.onerror = () => { t.remove(); fr.remove(); toast('Nie udało się wczytać wizki do druku', 'error', 5000); }; }
+  };
+  document.body.appendChild(fr);
+}
 function openMarkMenu(x, y, eid, loc) { if (isViewer()) return;
   const el = S.elements.find(e => e.id === eid); if (!el) return;
   closeMarkMenu();
@@ -9020,12 +9047,12 @@ function ufRender3D(o) {
     g.strokeStyle = '#1a202c'; g.lineWidth = LW; g.beginPath();
     pts.forEach((a, k) => { if (hide[k]) return; const b = pts[(k + 1) % pts.length]; g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }); g.stroke();
   };
-  // K-Frame: kratownica z kantówek — obrzeże i przegrody (kantówka 45 mm), w oczkach pusto
+  // K-Frame: kratownica z kantówek — obrzeże modułu 4 cm (kantówka 4 × 6), przegrody w środku cieńsze (2 cm), w oczkach pusto
   const lattice = (o, du, dv, U, V, fill) => {
-    const q = (u, v) => [o[0] + du[0] * u + dv[0] * v, o[1] + du[1] * u + dv[1] * v], k = Math.min(45, U / 4, V / 4), nu = Math.max(1, Math.round(U / 330)), nv = Math.max(1, Math.round(V / 470));
+    const q = (u, v) => [o[0] + du[0] * u + dv[0] * v, o[1] + du[1] * u + dv[1] * v], k = Math.min(40, U / 4, V / 4), ki = Math.min(20, k / 2), nu = Math.max(1, Math.round(U / 330)), nv = Math.max(1, Math.round(V / 470));
     g.beginPath(); [q(0, 0), q(U, 0), q(U, V), q(0, V)].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
     for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
-      const u0 = i === 0 ? k : i * U / nu + k / 2, u1 = i === nu - 1 ? U - k : (i + 1) * U / nu - k / 2, v0 = j === 0 ? k : j * V / nv + k / 2, v1 = j === nv - 1 ? V - k : (j + 1) * V / nv - k / 2;
+      const u0 = i === 0 ? k : i * U / nu + ki / 2, u1 = i === nu - 1 ? U - k : (i + 1) * U / nu - ki / 2, v0 = j === 0 ? k : j * V / nv + ki / 2, v1 = j === nv - 1 ? V - k : (j + 1) * V / nv - ki / 2;
       if (u1 - u0 < 2 || v1 - v0 < 2) continue;
       [q(u0, v0), q(u1, v0), q(u1, v1), q(u0, v1)].forEach(([x, y], n) => n ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
     }
@@ -9149,7 +9176,7 @@ function ufRender3D(o) {
         // ELTEX: jedna rama na całą wysokość, niebieska
         const elx = bx.p.op.t === 'eltex', C = elx ? ['#90cdf4', '#63b3ed', '#4299e1', '#3182ce'] : KF ? ['#cfae75', '#bb9a62', '#d8b980', '#c3a36b'] : ['#a3acb8', '#8f99a7', '#aeb6c1', '#949eab'];
         let z0 = 0; const zs = (elx ? [h] : ufStack(h)).map(hh => { const r = [z0, hh]; z0 += hh; return r; }), at = (x, y, z) => T(x, y, z);
-        zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0], elx ? 0 : ri, bx.y0); rowFr(bx, 'y', at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1], elx ? 0 : ri, bx.x0); });                     // tył: północ, zachód
+        if (!KF || elx) zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y0, z), ux, vZ, bx.x1 - bx.x0, hh, C[0], elx ? 0 : ri, bx.y0); rowFr(bx, 'y', at(bx.x0, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[1], elx ? 0 : ri, bx.x0); });                     // tył: północ, zachód (K-Frame: jedna warstwa kratki — bez tylnej)
         zs.forEach(([z, hh], ri) => { rowFr(bx, 'x', at(bx.x0, bx.y1, z), ux, vZ, bx.x1 - bx.x0, hh, C[2], elx ? 0 : ri, bx.y1); rowFr(bx, 'y', at(bx.x1, bx.y0, z), uy, vZ, bx.y1 - bx.y0, hh, C[3], elx ? 0 : ri, bx.x1); }); // przód: południe, wschód
       }
       poly([T(bx.x0, bx.y0, h), T(bx.x1, bx.y0, h), T(bx.x1, bx.y1, h), T(bx.x0, bx.y1, h)], post ? '#68d391' : '#c3cad3');
