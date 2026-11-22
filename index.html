@@ -1129,7 +1129,7 @@
       <div id="drop-hint" class="hidden">Upuść, aby dodać wizki</div>
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
-          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,75; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
+          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,7; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
           <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
@@ -7407,14 +7407,16 @@ const UF_ELTEX_COL = '#3182ce';
 const UF_KT = 63, UF_KW = 995, UF_KH = 2795, UF_KDW = 800;              // grubość, szerokość i wysokość modułu, szerokość skrzydła drzwi w module [mm]
 const ufK = () => !!(UF.d && UF.d.sys === 'k');
 const UF_KADD = [205, 1105];                                  // dostawki na module: do 300 cm (20,5) albo do 390 cm (110,5)
-// długość w cm z dokładnością do 2 miejsc (połówka modułu = 49,75)
+// długość w cm z dokładnością do 2 miejsc
 const ufLen = mm => UNIT() === 'cm' ? (Math.round(Number(mm) * 10) / 100).toLocaleString('pl-PL', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : Number(mm).toLocaleString('pl-PL', { maximumFractionDigits: 1 });
+const UF_KH2 = 497;      // K-Frame: połówka modułu 49,7 cm
 const UF_PAL_K = [
   { id: 'k99', key: '1', op: { t: 'w', len: UF_KW } },
-  { id: 'k49', key: '2', op: { t: 'w', len: UF_KW / 2 } },                    // połówka modułu: 49,75 cm
+  { id: 'k49', key: '2', op: { t: 'w', len: UF_KH2 } },                        // połówka modułu: 49,7 cm
   { id: 'kdoor', key: '3', op: { t: 'door', len: UF_KW, mode: 'flush' } },   // drzwi w jednym module: zlicowane z płytą albo wpuszczone
 ];
 const ufPal = () => ufK() ? UF_PAL_K : UF_PAL_E;
+const ufIsHalfK = len => Math.abs(len - UF_KH2) < 1 || Math.abs(len - UF_KW / 2) < 0.6;     // połówka 49,7 (dawne 49,75 też)
 const ufHs = () => ufK() ? [UF_KH, UF_KH + UF_KADD[0], UF_KH + UF_KADD[1]] : UF_HS;
 // montaż grafiki na K-Frame: [id, nazwa, typ elementu, SEG?]
 // malowanie ścianki K-Frame: podstawowa paleta [nazwa, RAL, kolor]
@@ -8132,7 +8134,7 @@ async function ufSetFloor(file) {
 }
 // =====================================================================
 //  RYSOWANIE KRESKĄ (K-Frame, na początku, gdy nie ma jeszcze ścianek): zielona kreska = ściany / zaplecze / pokoje, żółta = drzwi.
-//  „Generuj” składa z kresek moduły 99,5 i 49,75 (na końcach — ścianki niestandardowe); ściany prostopadłe dolegają licem do ściany przelotowej.
+//  „Generuj” składa z kresek moduły 99,5 i 49,7 (na końcach — ścianki niestandardowe); ściany prostopadłe dolegają licem do ściany przelotowej.
 // =====================================================================
 const UF_SK_FITS = ['dokładny', 'optymalny', 'ekonomiczny'];
 const ufSkData = () => { const dd = UF.d; if (!dd.sk) dd.sk = { lines: [], fit: 1, magnet: true }; return dd.sk; };
@@ -8187,9 +8189,9 @@ function ufSkPaint(g, X, Y, s, F) {
   if (UF.skDraft) paint({ t: UF.skTool || 'w', p: [UF.skDraft.a, UF.skDraft.b] }, .6);
   if (UF.skOn && UF.skHover) { g.save(); g.beginPath(); g.arc(X(UF.skHover[0]), Y(UF.skHover[1]), 8, 0, Math.PI * 2); g.strokeStyle = '#2b6cb0'; g.lineWidth = 2.5; g.stroke(); g.restore(); }
 }
-// moduły dla odcinka ściany o długości L: fit 0 = dokładny (moduły 99,5 + 49,75 + ścianka niestandardowa na końcu), 1 = optymalny (resztę ≤ 15 cm pomijamy / dopełniamy), 2 = ekonomiczny (same gotowe moduły, długość do 49,75)
+// moduły dla odcinka ściany o długości L: fit 0 = dokładny (moduły 99,5 + 49,7 + ścianka niestandardowa na końcu), 1 = optymalny (resztę ≤ 15 cm pomijamy / dopełniamy), 2 = ekonomiczny (same gotowe moduły, długość do 49,75)
 function ufSkMods(L, fit, nFixed, W = UF_KW) {
-  const Hh = W / 2, out = [];
+  const Hh = W === UF_KW ? UF_KH2 : W / 2, out = [];
   if (nFixed >= 2) {          // oba końce stałe (słupek, lico innej ściany): wypełniamy dokładnie, resztę robi ścianka niestandardowa
     let n = Math.floor(L / W + 1e-6), r = L - n * W;
     if ((fit === 1 ? r < 150 : r < 100) && r > 5 && n >= 1) { n--; r += W; }          // zbyt mała ścianka niestandardowa — łączymy z modułem
@@ -8199,7 +8201,7 @@ function ufSkMods(L, fit, nFixed, W = UF_KW) {
     if (!out.length) out.push(Math.max(100, Math.round(L)));
     return out;
   }
-  if (fit === 2) { const K = Math.max(1, Math.round(L / Hh)); for (let i = 0; i < Math.floor(K / 2); i++) out.push(W); if (K % 2) out.push(Hh); return out; }   // ekonomiczny: długość do 49,75 (wolny koniec)
+  if (fit === 2) { const K = Math.max(1, Math.round(L / Hh)); for (let i = 0; i < Math.floor(K / 2); i++) out.push(W); if (K % 2) out.push(Hh); return out; }   // ekonomiczny: długość do połówki (wolny koniec)
   const n = Math.floor(L / W + 1e-6), r = L - n * W, tol = fit === 1 ? 150 : 5;
   for (let i = 0; i < n; i++) out.push(W);
   if (r <= tol || (fit === 0 && r < 100 && n >= 1)) { if (!out.length) out.push(Math.max(100, Math.round(r))); }      // wolny koniec: końcówka < 10 cm — ściana trochę krótsza
@@ -8271,7 +8273,7 @@ function ufSkGenerate(keepView) {
       mods.forEach(m => {
         const x = r.ori === 0 ? pos : r.c, y = r.ori === 0 ? r.c : pos, op = { id: ufUid(), t: m.door ? 'door' : 'w', len: m.len, x, y, dir: r.ori === 0 ? 0 : 1 };
         if (m.door) { op.mode = UF.d.doorMode || 'flush'; op.bul = UF.d.doorBul || 'n'; op.hinge = 'l'; op.swing = 'in'; nDoor++; }
-        else if (Math.abs(m.len - UF_KW) < 1 || Math.abs(m.len - UF_KW / 2) < 1) nStd++; else nCus++;
+        else if (Math.abs(m.len - UF_KW) < 1 || ufIsHalfK(m.len)) nStd++; else nCus++;
         pieces.push(op); pos += m.len;
       });
     });
@@ -8292,8 +8294,11 @@ function ufSkJunc(runs, TOL) {
 }
 function ufSkSnapPosts(runs, junc, TOL, PW, MOD, gapPW) {
   // gapPW (K-Frame): dla ściany zamkniętej między dwiema osiami — o ile odstęp osi jest dłuższy od ściany; bez niego: światło między słupkami / ścianami = całe moduły
-  const ST = gapPW ? MOD / 2 : MOD;      // K-Frame: krok pół modułu (połówka jest standardowa)
-  const snapW = (g, pw) => Math.max(ST, Math.round((g - pw) / ST) * ST) + pw;
+  const ST = gapPW ? MOD / 2 : MOD, HK = gapPW ? UF_KH2 : 0;      // K-Frame: pełne moduły i połówka 49,7 (standardowa)
+  // dozwolone światło: EasyFrame — całe moduły; K-Frame — k × 99,5 albo k × 99,5 + 49,7
+  const near = L => { if (!HK) return Math.max(ST, Math.round(L / ST) * ST); const k = Math.floor(L / MOD); let best = null; for (let i = Math.max(0, k - 1); i <= k + 1; i++) for (const j of [0, 1]) { const v = i * MOD + j * HK; if (v < HK) continue; if (best == null || Math.abs(v - L) < Math.abs(best - L)) best = v; } return best; };
+  const down = L => { if (!HK) return L - ST; let best = -1; for (let i = Math.floor(L / MOD); i >= 0; i--) for (const j of [1, 0]) { const v = i * MOD + j * HK; if (v >= HK && v < L - 1 && v > best) best = v; } return best; };
+  const snapW = (g, pw) => near(g - pw) + pw;
   const build = k => {          // k = 'x': pionowe ściany stoją na x, sąsiednie słupki leżą na poziomych ścianach
     const rk = k === 'x' ? 0 : 1, vals = [...new Set(junc.map(j => Math.round(j[k])))].sort((p, q) => p - q);
     if (vals.length < 2) return null;
@@ -8304,7 +8309,7 @@ function ufSkSnapPosts(runs, junc, TOL, PW, MOD, gapPW) {
       if (gapPW) { const pw = gapPW(r, on[i - 1], on[i]); if (pw != null) adjW.set(key, (adjW.get(key) || []).concat([pw])); } } });
     const key = i => vals[i - 1] + '|' + vals[i], pwAt = i => gapPW ? ((adjW.get(key(i)) || [])[0] ?? PW) : PW;
     const nv = ufSkFitGaps(vals, i => (gapPW ? (adjW.get(key(i)) || []).length > 0 : adj.has(key(i))) && vals[i] - vals[i - 1] - pwAt(i) >= 300,
-      i => gapPW ? (adjW.get(key(i)) || []).length : adjN.get(key(i)) || 0, (g, i) => snapW(g, pwAt(i)), PW, MOD, k === 'x' ? UF.d.stand.L : UF.d.stand.D, pwAt, ST);
+      i => gapPW ? (adjW.get(key(i)) || []).length : adjN.get(key(i)) || 0, (g, i) => snapW(g, pwAt(i)), PW, MOD, k === 'x' ? UF.d.stand.L : UF.d.stand.D, pwAt, ST, HK ? { near, down } : null);
     return v => { let b = -1, bd = TOL + 1; vals.forEach((q, i) => { if (Math.abs(q - v) < bd) { bd = Math.abs(q - v); b = i; } }); if (b >= 0) return v + (nv[b] - vals[b]);
       for (let i = 0; i < vals.length - 1; i++) if (v > vals[i] && v < vals[i + 1]) { const t = (v - vals[i]) / (vals[i + 1] - vals[i]); return v + (nv[i] - vals[i]) * (1 - t) + (nv[i + 1] - vals[i + 1]) * t; }
       return v; };      // za ostatnim słupkiem i przed pierwszym: końce ścian stoją w miejscu — przycina się końcówka
@@ -8315,11 +8320,12 @@ function ufSkSnapPosts(runs, junc, TOL, PW, MOD, gapPW) {
 // nowe położenia ścian (vals: osie po kolei): ściany na krawędzi stoiska stoją w miejscu; między nimi odstępy ze ścianami na pełne moduły,
 // a jeden odstęp bierze resztę — wybieramy ten, przy którym najmniej ścian ma przyciętą ściankę (bez ścian: 0), potem najmniejsze przesunięcia;
 // gdy reszta nie mieści się (stoisko za krótkie), inne odstępy (zaplecza) skracamy o moduł
-function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk, pwAt = () => PW, ST = MOD) {
+function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk, pwAt = () => PW, ST = MOD, lk = null) {
   const n = vals.length, g = i => vals[i] - vals[i - 1], E = PW / 2 + 25;
   const anch = vals.map((v, i) => v <= E || v >= Lk - E ? i : -1).filter(i => i >= 0);
   const gap = vals.map((v, i) => i === 0 ? 0 : snappable(i) ? snap(g(i), i) : g(i));
-  const isMod = (L, i) => { const q = (L - pwAt(i)) / (MOD / 2); return Math.abs(q - Math.round(q)) < 0.01; };
+  const isMod = (L, i) => { if (lk) { const q = L - pwAt(i); return Math.abs(lk.near(q) - q) < 2; } const q = (L - pwAt(i)) / (MOD / 2); return Math.abs(q - Math.round(q)) < 0.01; };
+  const dn = (L, i) => lk ? lk.down(L - pwAt(i)) + pwAt(i) : L - ST;      // o krok krócej (zaplecze skrócone)
   for (let s = 0; s + 1 < anch.length; s++) {
     const ia = anch[s], ib = anch[s + 1], ids = []; for (let i = ia + 1; i <= ib; i++) ids.push(i);
     if (!ids.some(i => snappable(i))) { ids.forEach(i => { gap[i] = g(i); }); continue; }
@@ -8328,8 +8334,8 @@ function ufSkFitGaps(vals, snappable, walls, snap, PW, MOD, Lk, pwAt = () => PW,
       const t = {}; ids.forEach(i => { t[i] = i === c ? 0 : gap[i]; });
       let rem = total - ids.reduce((a, i) => a + t[i], 0);
       while (rem - pwAt(c) < (snappable(c) ? 300 : 100)) {          // reszta za mała: skracamy o moduł odstęp najbardziej zaokrąglony w górę
-        const cand = ids.filter(i => i !== c && snappable(i) && t[i] - ST - pwAt(i) >= ST - 1).sort((p, q) => (t[q] - g(q)) - (t[p] - g(p)))[0];
-        if (cand == null) return; t[cand] -= ST; rem += ST;
+        const cand = ids.filter(i => i !== c && snappable(i) && dn(t[i], i) - pwAt(i) >= (lk ? UF_KH2 : ST) - 1).sort((p, q) => (t[q] - g(q)) - (t[p] - g(p)))[0];
+        if (cand == null) return; const nt = dn(t[cand], cand); rem += t[cand] - nt; t[cand] = nt;
       }
       t[c] = rem;
       const cost = (isMod(rem, c) ? 0 : walls(c)) * 1e6 + ids.filter(i => i !== c && !isMod(t[i], i) && snappable(i)).length * 1e6 + ids.reduce((a, i) => a + Math.abs(t[i] - g(i)), 0);
@@ -12791,7 +12797,7 @@ async function kfOpen(anim) {
 // klocek z palety na plan: wciśnięcie na palecie, przeciągnięcie na miejsce, puszczenie
 async function kfPlace(p, anim) {
   if (anim) {
-    const pal = p.t === 'door' ? 'kdoor' : Math.abs(p.len - UF_KW) < 1 ? 'k99' : Math.abs(p.len - UF_KW / 2) < 1 ? 'k49' : '';
+    const pal = p.t === 'door' ? 'kdoor' : Math.abs(p.len - UF_KW) < 1 ? 'k99' : ufIsHalfK(p.len) ? 'k49' : '';
     const src = pal ? document.querySelector(`[data-pal="${pal}"]`) : $('uf-cus');
     if (kfVis(src)) {
       await shMove(...shCenter(src), 420); await shWait(60); shRipple();
@@ -12867,9 +12873,9 @@ function kfChapters() {
       run: async () => {
         const L = kfL();
         const pal = document.querySelector('[data-pal="k99"]'); if (kfVis(pal)) await shMove(...shCenter(pal), 800);
-        await shSay(TT('Ściany układamy z modułów z palety: pełny moduł 99,5, połówka 49,75 i drzwi. Przeciągasz moduł na plan, a kolejne same dosuwają się do końca poprzedniego. Zaczynam od tylnej ściany.',
-          'Стіни складаємо з модулів із палітри: повний модуль 99,5, половинка 49,75 і двері. Перетягуєш модуль на план, а наступні самі присуваються до кінця попереднього. Починаю із задньої стіни.',
-          'Walls are built from palette modules: a full 99.5 module, a 49.75 half and a door. Drag a module onto the plan and the next ones snap to the end of the previous one. I start with the back wall.'));
+        await shSay(TT('Ściany układamy z modułów z palety: pełny moduł 99,5, połówka 49,7 i drzwi. Przeciągasz moduł na plan, a kolejne same dosuwają się do końca poprzedniego. Zaczynam od tylnej ściany.',
+          'Стіни складаємо з модулів із палітри: повний модуль 99,5, половинка 49,7 і двері. Перетягуєш модуль на план, а наступні самі присуваються до кінця попереднього. Починаю із задньої стіни.',
+          'Walls are built from palette modules: a full 99.5 module, a 49.7 half and a door. Drag a module onto the plan and the next ones snap to the end of the previous one. I start with the back wall.'));
         for (const p of L.back) await kfPlace(p, true);
         await shSay(TT('Ostatni kawałek przy alejce jest krótszy: to ścianka niestandardowa, przycięta na wymiar. Na planie pulsuje na żółto.',
           'Останній шматок біля алеї коротший: це нестандартна стінка, підрізана під розмір. На плані вона пульсує жовтим.',
@@ -12938,7 +12944,7 @@ function kfChapters() {
         const inp = await shWaitFor(() => document.querySelector('.mark-menu [data-wl]'), 2000);
         if (inp) {
           await shWait(500);
-          await shType(inp, numInput(UF_KW / 2));
+          await shType(inp, numInput(UF_KH2));
           await shSay(TT('Wpisuję wymiar połówki modułu i zatwierdzam.', 'Вписую розмір половинки модуля і підтверджую.', 'I type the size of a half module and confirm.'));
           const ok = document.querySelector('.mark-menu [data-wlok]'); if (ok) await shClick(ok, 600); else closeMarkMenu();
           await shWait(900);
