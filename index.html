@@ -8445,7 +8445,11 @@ function ufDraw(light) {
   let b = geo.bounds || { x0: 0, y0: 0, x1: st.L, y1: st.D };
   const mg = 650; b = { x0: b.x0 - mg, y0: b.y0 - mg, x1: b.x1 + mg, y1: b.y1 + mg + 350 };      // dodatkowe miejsce pod stoiskiem na jego wymiar
   const bw = Math.max(b.x1 - b.x0, 3000), bh = Math.max(b.y1 - b.y0, 1800);
-  const s0 = Math.min(0.5, (W - 24) / bw, (H - 24) / bh), ox0 = W / 2 - (b.x0 + b.x1) / 2 * s0, oy0 = H / 2 - (b.y0 + b.y1) / 2 * s0;
+  // dopasowanie do okna z ominięciem podglądu 3D (prawy górny róg): plan obok podglądu albo pod nim — gdzie wyjdzie większy; gdy oba za ciasne, jak dotąd na całym oknie
+  const pvEl = $('uf-pvw'), pvOn = pvEl && !pvEl.classList.contains('hidden') && pvEl.offsetWidth > 0, pW = pvOn ? pvEl.offsetWidth + 16 : 0, pH = pvOn ? pvEl.offsetHeight + 16 : 0;
+  const sFull = Math.min(0.5, (W - 24) / bw, (H - 24) / bh), sL = Math.min(0.5, (W - pW - 24) / bw, (H - 24) / bh), sB = Math.min(0.5, (W - 24) / bw, (H - pH - 24) / bh);
+  const fitM = !pvOn || Math.max(sL, sB) < sFull * 0.6 ? 'full' : sL >= sB ? 'left' : 'below', s0 = fitM === 'left' ? sL : fitM === 'below' ? sB : sFull;
+  const ox0 = (fitM === 'left' ? (W - pW) / 2 : W / 2) - (b.x0 + b.x1) / 2 * s0, oy0 = (fitM === 'below' ? pH + (H - pH) / 2 : H / 2) - (b.y0 + b.y1) / 2 * s0;
   const vw = UF.vw || { s: s0, ox: ox0, oy: oy0 }, s = vw.s, ox = vw.ox, oy = vw.oy;      // ręczne przybliżenie / przesunięcie albo dopasowanie do okna
   UF.tr = { s, ox, oy }; UF.fitS = s0;
   $('uf-zl').textContent = Math.round(s / s0 * 100) + '%';
