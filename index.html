@@ -8125,7 +8125,7 @@ async function ufSetFloor(file) {
     const k = Math.min(1, 1600 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.width * k)); c.height = Math.max(1, Math.round(im.height * k));
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
     const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.8));
-    const url = DEMO ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, 'podklad.jpg');
+    const url = DEMO || (S.tour && S.tour.show) ? await blobToDataUrl(blob) : await uploadToCloudinary(blob, 'podklad.jpg');
     ufPush(); const fl = { url, ar: c.width / c.height, w: 1000, x: 0, y: 0, t: 0.5, rot: 0 }; ufFloorFit(fl); UF.d.floor = fl;
     tt.remove(); ufChanged(); toast('Podkład leży na podłodze — dopasuj skalę (✥ przesuń / skaluj) i rysuj ścianki', 'success', 5000);
   } catch (e) { tt.remove(); toast('Nie udało się wczytać obrazka: ' + e.message, 'error', 5000); }
@@ -12738,6 +12738,28 @@ function kfLayout() {
   const zap = ps.filter(p => !back.includes(p) && !left.includes(p)).sort((a, b) => a.dir - b.dir || c(a)[0] - c(b)[0] || c(a)[1] - c(b)[1]);
   return { back, left, zap };
 }
+// przykładowy widok stoiska z góry (6 × 3 m, narożne, zaplecze 2 × 1 m z drzwiami, lada, stolik, ekran) — podkład do obrysowania kreską
+async function kfFloorFile() {
+  const s = 0.2, W = 6000 * s, H = 3000 * s, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const R = (x, y, w, hh, col) => { g.fillStyle = col; g.fillRect(x * s, y * s, w * s, hh * s); };
+  g.fillStyle = '#dfe6ee'; g.fillRect(0, 0, W, H);                                                      // wykładzina
+  g.strokeStyle = 'rgba(120,140,160,.25)'; g.lineWidth = 1; for (let x = 0; x <= W; x += 20) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  R(0, 0, 2000, 1000, '#eef1f4');                                                                       // zaplecze — jaśniej
+  const wl = '#4a5568', T = 66;
+  R(0, 0, 6000, T, wl); R(0, 0, T, 3000, wl);                                                           // ściany od sąsiadów: tył i lewa
+  R(2000 - T / 2, 0, T, 1000, wl); R(0, 1000 - T / 2, 500, T, wl); R(1500, 1000 - T / 2, 500 + T / 2, T, wl);   // zaplecze, w froncie przerwa na drzwi
+  g.strokeStyle = wl; g.lineWidth = 2; g.beginPath(); g.moveTo(500 * s, 1000 * s); g.arc(500 * s, 1000 * s, 800 * s, 0, Math.PI / 2); g.closePath(); g.stroke();   // skrzydło drzwi
+  R(4200, 2300, 1400, 500, '#8a5a3c'); R(4250, 2350, 1300, 400, '#a8744f');                            // lada
+  g.fillStyle = '#c9d3de'; g.beginPath(); g.arc(3000 * s, 1800 * s, 380 * s, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#8796a8'; g.lineWidth = 2; g.stroke();   // stolik
+  [[3000, 1300], [3000, 2300], [2500, 1800], [3500, 1800]].forEach(([x, y]) => { g.fillStyle = '#2d3748'; g.beginPath(); g.arc(x * s, y * s, 150 * s, 0, Math.PI * 2); g.fill(); });   // krzesła
+  R(3200, T, 1600, 120, '#1a202c');                                                                     // ekran na tylnej ścianie
+  g.fillStyle = '#3f8f4f'; [[5700, 400], [300, 2650]].forEach(([x, y]) => { g.beginPath(); g.arc(x * s, y * s, 220 * s, 0, Math.PI * 2); g.fill(); });   // rośliny
+  g.fillStyle = '#2f855a'; g.font = '700 22px Segoe UI, Arial'; g.textAlign = 'center'; g.fillText('ALEJKA', W / 2, H - 12);
+  g.save(); g.translate(W - 14, H / 2); g.rotate(Math.PI / 2); g.fillText('ALEJKA', 0, 0); g.restore();
+  g.fillStyle = '#4a5568'; g.font = '600 18px Segoe UI, Arial'; g.fillText('zaplecze', 1000 * s, 520 * s);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  return new File([blob], 'stoisko-z-gory.png', { type: 'image/png' });
+}
 const kfL = () => { const T = SH(); if (!T.kfL) T.kfL = kfLayout(); return T.kfL; };
 // punkt planu (mm) → punkt ekranu
 const kfPt = (x, y) => { const r = $('uf-cv').getBoundingClientRect(), t = UF.tr || { s: 0.1, ox: 0, oy: 0 }; return [r.left + t.ox + x * t.s, r.top + t.oy + y * t.s]; };
@@ -12979,17 +13001,28 @@ function kfChapters() {
             'When you add a graphic to an element, the visualization refreshes by itself — the same for hanging structures.'));
         }
       } },
-    { est: 50, name: TT('Rysowanie kreską', 'Малювання лінією', 'Drawing with lines'),
+    { est: 75, name: TT('Rysowanie kreską', 'Малювання лінією', 'Drawing with lines'),
       run: async () => {
         await shSay(TT('Na koniec szybszy sposób: rysowanie kreską. Otwieram edytor i czyszczę plan, bo przycisk Rysowanie jest dostępny, gdy na planie nie ma jeszcze ścianek.',
           'Наостанок швидший спосіб: малювання лінією. Відкриваю редактор і очищаю план, бо кнопка «Малювання» доступна, коли на плані ще немає стінок.',
           'Finally, a faster way: drawing with lines. I open the editor and clear the plan, because the Drawing button is available while the plan has no walls yet.'));
         if (!UF.open) await kfOpen(true);
         ufPush(); UF.d.pieces = []; UF.d.rooms = []; UF.sel = null; const sk = ufSkData(); sk.lines = []; sk.gen = false; ufChanged(); await shWait(400);
+        // podkład: widok stoiska z góry (np. zrzut z projektu klienta) — kreski rysuje się po nim
+        const flDet = document.querySelector('#uf-side details[data-k="floor"]'); if (flDet) { flDet.open = true; flDet.scrollIntoView({ block: 'nearest' }); await shWait(300); }
+        await shSay(TT('Najwygodniej rysuje się po podkładzie: wklejasz zrzut stoiska z góry, na przykład z projektu klienta, i obrysowujesz go kreską.',
+          'Найзручніше малювати по підкладці: вставляєш знімок стенду згори, наприклад з проєкту клієнта, і обводиш його лінією.',
+          'It is easiest to draw over an underlay: paste a top-view screenshot of the stand, for example from the client\'s design, and trace it with lines.'));
+        const flBtn = $('uf-fl-paste'); if (kfVis(flBtn)) { await shMove(...shCenter(flBtn), 800); await shWait(120); shRipple(); shKey('Ctrl+V'); }
+        await ufSetFloor(await kfFloorFile()); await shWait(700);
+        const flT = $('uf-fl-t'); if (kfVis(flT)) { await shMove(...shCenter(flT), 700); shRipple(); }
+        await shSay(TT('Obraz leży na podłodze stoiska. Suwakiem ustawiasz przezroczystość, a przyciskiem przesuń i skaluj dopasowujesz skalę.',
+          'Зображення лежить на підлозі стенду. Повзунком задаєш прозорість, а кнопкою «пересунь і масштабуй» підганяєш масштаб.',
+          'The image lies on the stand floor. The slider sets the transparency, and the move and scale button adjusts the scale.'));
         await shClick('#uf-sketch', 800); if (!UF.skOn) ufSkOn(); await shWait(300);
-        await shSay(TT('Zieloną kreską rysuję ściany: pierwszy klik zaczyna kreskę, drugi ją kończy. Magnes przyciąga do krawędzi stoiska i końców innych kresek.',
-          'Зеленою лінією малюю стіни: перший клік починає лінію, другий її завершує. Магніт притягує до країв стенду й кінців інших ліній.',
-          'With the green line I draw the walls: the first click starts a line, the second ends it. The magnet snaps to the stand edges and other line ends.'));
+        await shSay(TT('Zieloną kreską obrysowuję ściany z podkładu: pierwszy klik zaczyna kreskę, drugi ją kończy. Magnes przyciąga do krawędzi stoiska i końców innych kresek.',
+          'Зеленою лінією обводжу стіни з підкладки: перший клік починає лінію, другий її завершує. Магніт притягує до країв стенду й кінців інших ліній.',
+          'With the green line I trace the walls from the underlay: the first click starts a line, the second ends it. The magnet snaps to the stand edges and other line ends.'));
         for (const l of KF_LINES.filter(q => q.t === 'w')) await kfDrawLine(l);
         await shSay(TT('Żółtą kreską zaznaczam drzwi w ścianie zaplecza.', 'Жовтою лінією позначаю двері в стіні підсобки.', 'With the yellow line I mark the door in the backroom wall.'));
         await shClick('[data-skt="d"]', 700);
