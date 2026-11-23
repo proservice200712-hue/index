@@ -8163,7 +8163,8 @@ function ufFpPack(pieces, bw, bh, rot) {        // pakowanie kawałków w płyty
 let ufFpMemo = null;
 function ufFloorPlan(L, D, dir) {
   const grain = ufFpGrain(); if (grain) dir = grain === 'h' ? 'x' : 'y';          // usłojenie wymusza kierunek płyt i zabrania obracania kawałków
-  const key = L + '|' + D + '|' + (dir || '') + '|' + grain; if (ufFpMemo && ufFpMemo.key === key) return ufFpMemo.v;
+  const op = (UF.d && UF.d.stand && UF.d.stand.open) || {}, flipX = !!op.e && !op.w, flipY = !!op.s && !op.n;          // niestandardowe odcinki zawsze na tyle stoiska (od sąsiada): płyty całe układam od strony alejki
+  const key = L + '|' + D + '|' + (dir || '') + '|' + grain + '|' + (flipX ? 'x' : '') + (flipY ? 'y' : ''); if (ufFpMemo && ufFpMemo.key === key) return ufFpMemo.v;
   let best = null;
   [[2000, 900], [900, 2000]].forEach(([bw, bh]) => {
     if ((dir === 'x' && bw !== 2000) || (dir === 'y' && bw !== 900)) return;
@@ -8180,6 +8181,7 @@ function ufFloorPlan(L, D, dir) {
   // kawałek ↔ płyta, z której go wycięto (kolor na planie)
   best.boards.forEach((b, bi) => b.pieces.forEach(p => { rects0(best.pieces, p.i, bi); }));
   function rects0(arr, i, bi) { arr[i].b = bi; }
+  if (flipX || flipY) [...best.full, ...best.pieces].forEach(t => { if (flipX) t.x = L - t.x - t.w; if (flipY) t.y = D - t.y - t.h; });
   ufFpMemo = { key, v: best }; return best;
 }
 const ufFpOn = () => !!(UF.d && (!UF.d.fp || UF.d.fp.on !== false));
