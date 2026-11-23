@@ -4714,12 +4714,63 @@ function openPhotoMenu(x, y, pid) {
   const ph = S.photos.find(p => p.id === pid); if (!ph || !ph.url) return;
   closeMarkMenu();
   const m = document.createElement('div'); m.className = 'menu mark-menu';
-  m.innerHTML = `<div class="mm-h">Wizka ${esc(ph.name || '#' + (S.photos.indexOf(ph) + 1))}</div><button type="button" data-pr>🖨 Drukuj wizkę</button>`;
+  m.innerHTML = `<div class="mm-h">Wizka ${esc(ph.name || '#' + (S.photos.indexOf(ph) + 1))}</div><button type="button" data-pr>🖨 Drukuj wizkę</button><button type="button" data-cp>📋 Skopiuj obraz</button><button type="button" data-ex>💾 Wyeksportuj<small>na pulpit — nazwa: stoisko, targi, data</small></button><button type="button" data-ex2>📁 Wyeksportuj do innego folderu…</button>`;
   document.body.appendChild(m);
   const rc = m.getBoundingClientRect();
   m.style.left = clamp(x, 6, innerWidth - rc.width - 6) + 'px'; m.style.top = clamp(y, 6, innerHeight - rc.height - 6) + 'px';
   setTimeout(() => document.addEventListener('pointerdown', ev => { if (!m.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
   m.querySelector('[data-pr]').onclick = () => { closeMarkMenu(); printPhoto(ph); };
+  m.querySelector('[data-cp]').onclick = () => { closeMarkMenu(); copyPhoto(ph); };
+  m.querySelector('[data-ex]').onclick = () => { closeMarkMenu(); exportPhoto(ph, false); };
+  m.querySelector('[data-ex2]').onclick = () => { closeMarkMenu(); exportPhoto(ph, true); };
+}
+// wizka → PNG (data: albo adres z magazynu; przez canvas, żeby schowek dostał PNG)
+async function photoBlob(ph) {
+  const im = await loadImg(ph.url), c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+  c.getContext('2d').drawImage(im, 0, 0); return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('Nie udało się odczytać obrazu')), 'image/png'));
+}
+async function copyPhoto(ph) {
+  try {
+    if (!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)) return toast('Ta przeglądarka nie pozwala kopiować obrazów do schowka — użyj „Wyeksportuj”', 'error', 5000);
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': photoBlob(ph) })]);
+    toast('Obraz wizki skopiowany do schowka', 'success', 2500);
+  } catch (e) { toast('Nie udało się skopiować obrazu: ' + e.message, 'error', 5000); }
+}
+// eksport wizki: plik „stoisko_targi_data.png”, od razu do zapamiętanego folderu (pulpit); „do innego folderu” — pyta o miejsce
+const EXP_IDB = { db: null };
+function expIdb() { return EXP_IDB.db || (EXP_IDB.db = new Promise((res, rej) => { const r = indexedDB.open('index-export', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); }
+async function expDirGet() { try { const db = await expIdb(); return await new Promise(res => { const r = db.transaction('h').objectStore('h').get('dir'); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); } catch (e) { return null; } }
+async function expDirSet(h) { try { const db = await expIdb(); await new Promise(res => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(h, 'dir'); t.oncomplete = () => res(); t.onerror = () => res(); }); } catch (e) { } }
+function exportPhotoName(ph) {
+  const p = S.project || {}, f = p.fairId ? fairById(p.fairId) : null;
+  return [p.name || 'stoisko', (f && f.name) || p.fair || '', dateStamp()].filter(Boolean).map(x => safeName(x)).join('_');
+}
+async function exportPhoto(ph, ask) {
+  const base = exportPhotoName(ph), t = toast('Eksportuję wizkę…', '', 20000);
+  try {
+    const blob = await photoBlob(ph); t.remove();
+    const saved = async dir => {          // zapis do folderu; istniejący plik nie jest nadpisywany (dopisek (2), (3)…)
+      let name = base + '.png', n = 1;
+      for (;;) { try { await dir.getFileHandle(name); n++; name = `${base} (${n}).png`; } catch (e) { break; } }
+      const fh = await dir.getFileHandle(name, { create: true }), w = await fh.createWritable(); await w.write(blob); await w.close(); return name;
+    };
+    if (window.showDirectoryPicker) {
+      let dir = ask ? null : await expDirGet();
+      if (dir) { try { if ((await dir.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await dir.requestPermission({ mode: 'readwrite' })) !== 'granted') dir = null; } catch (e) { dir = null; } }
+      if (!dir) {
+        toast(ask ? 'Wskaż folder docelowy' : 'Wskaż pulpit (tylko ten jeden raz) — kolejne eksporty pójdą tam od razu', '', 4000);
+        try { dir = await window.showDirectoryPicker({ id: 'index-wizki', mode: 'readwrite', startIn: 'desktop' }); }
+        catch (e) { if (e && e.name === 'AbortError') return; dir = null; }
+        if (dir && !ask) await expDirSet(dir);
+      }
+      if (dir) { const name = await saved(dir); return toast(`Zapisano: ${dir.name} → ${name}`, 'success', 5000); }
+    }
+    if (window.showSaveFilePicker) {          // folder niedostępny dla przeglądarki (np. zablokowany pulpit) — zwykłe okno zapisu
+      try { const fh = await window.showSaveFilePicker({ suggestedName: base + '.png', startIn: 'desktop', types: [{ description: 'PNG', accept: { 'image/png': ['.png'] } }] }); const w = await fh.createWritable(); await w.write(blob); await w.close(); return toast('Zapisano: ' + fh.name, 'success', 4000); }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    download(base + '.png', blob); toast('Zapisano w folderze pobranych plików: ' + base + '.png', 'success', 5000);
+  } catch (e) { t.remove(); toast('Eksport się nie udał: ' + e.message, 'error', 6000); }
 }
 // druk wizki: sama grafika na całą stronę A4 (pozioma albo pionowa jak wizka), od razu okno drukowania
 function printPhoto(ph) {
@@ -8144,7 +8195,8 @@ function ufFpText(fp) {
 function ufFpKinds(fp, grain) {
   const dk = p => grain ? Math.round(p.w) + 'x' + Math.round(p.h) : Math.round(Math.max(p.w, p.h)) + 'x' + Math.round(Math.min(p.w, p.h)), kinds = [];
   fp.pieces.slice().sort((a, b) => b.w * b.h - a.w * a.h).forEach(p => { const k = dk(p); if (!kinds.includes(k)) kinds.push(k); });
-  return { dk, kinds, hue: [28, 205, 130, 285, 340, 55, 175] };
+  const off = fp.full.length ? 2 : 1, letter = p => { const i = kinds.indexOf(dk(p)); return i < 0 ? '' : letterOf(i + off); };          // A = całe płyty, kolejne litery = kolejne wymiary kawałków
+  return { dk, kinds, letter, hue: [28, 205, 130, 285, 340, 55, 175] };
 }
 const ufFpDimTxt = (w, h, grain) => grain === 'v' ? `${lenPL(h)} × ${lenPL(w)}` : `${lenPL(w)} × ${lenPL(h)}`;     // wzdłuż usłojenia × w poprzek
 function ufFpWave(g, x, y, w, h, dir, s, seed) {          // delikatne fale usłojenia w prostokącie [px]: dir 'h' = słoje biegną poziomo, 'v' = pionowo
@@ -8165,7 +8217,7 @@ function ufFpWave(g, x, y, w, h, dir, s, seed) {          // delikatne fale usł
 }
 // płyty 200 × 90 na planie: całe jasne, przycięte kolorowe z opisem wymiaru; z usłojeniem — delikatne fale słojów
 function ufFpPaint(g, X, Y, s, st, F, o) {
-  const fp = ufFloorPlan(st.L, st.D, ufFpDir()), grain = ufFpGrain(), { dk, kinds, hue } = ufFpKinds(fp, grain), fs = (o && o.fs) || Math.max(8, Math.min(12, s * 260));
+  const fp = ufFloorPlan(st.L, st.D, ufFpDir()), grain = ufFpGrain(), kk = ufFpKinds(fp, grain), { dk, kinds, hue } = kk, fs = (o && o.fs) || Math.max(11, Math.min(18, s * 380));
   g.save(); g.lineWidth = 1;
   fp.full.forEach(t => {
     g.fillStyle = 'rgba(222,190,140,.30)'; g.fillRect(X(t.x), Y(t.y), t.w * s, t.h * s);
@@ -8176,9 +8228,9 @@ function ufFpPaint(g, X, Y, s, st, F, o) {
     const hu = hue[kinds.indexOf(dk(p)) % hue.length]; g.fillStyle = `hsla(${hu},85%,58%,.34)`; g.fillRect(X(p.x), Y(p.y), p.w * s, p.h * s);
     if (grain) ufFpWave(g, X(p.x), Y(p.y), p.w * s, p.h * s, grain, s, (p.x * 0.011 + p.y * 0.017) % 6.28);
     g.strokeStyle = `hsla(${hu},70%,38%,.9)`; g.setLineDash([5, 3]); g.strokeRect(X(p.x) + .5, Y(p.y) + .5, p.w * s - 1, p.h * s - 1); g.setLineDash([]);
-    if (p.w * s > 34 && p.h * s > 14) { g.fillStyle = `hsl(${hu},70%,26%)`; g.font = `600 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ufFpDimTxt(p.w, p.h, grain), X(p.x + p.w / 2), Y(p.y + p.h / 2)); }
+    if (p.w * s > 14 && p.h * s > 14) { g.fillStyle = `hsl(${hu},70%,26%)`; g.font = `700 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(kk.letter(p), X(p.x + p.w / 2), Y(p.y + p.h / 2)); }
   });
-  if (s * UF_FPB[1] > 26) { g.fillStyle = 'rgba(120,90,50,.7)'; g.font = `600 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; fp.full.forEach(t => { if (t.w * s > 60) g.fillText(ufFpDimTxt(t.w, t.h, grain), X(t.x + t.w / 2), Y(t.y + t.h / 2)); }); }
+  if (s * UF_FPB[1] > 14) { g.fillStyle = 'rgba(120,90,50,.75)'; g.font = `700 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; fp.full.forEach(t => { g.fillText('A', X(t.x + t.w / 2), Y(t.y + t.h / 2)); }); }
   g.restore();
   return { fp, grain, kinds, dk, hue };
 }
@@ -8192,7 +8244,7 @@ function ufRenderTop(W) {
   g.fillStyle = '#1a202c'; g.font = `700 44px ${F}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(`${sys} — rozrys podłogi, widok z góry`, M, 78);
   g.fillStyle = '#4a5568'; g.font = `400 24px ${F}`; g.fillText(`płyty ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}${grain ? ' · ' + UF_GRAIN_TXT[grain] : ''}`, M, 114);
   g.fillStyle = '#fff'; g.fillRect(X(0), Y(0), st.L * s, st.D * s);
-  ufFpPaint(g, X, Y, s, st, F, { fs: 20 });
+  ufFpPaint(g, X, Y, s, st, F, { fs: 30 });
   geo.parts.forEach(q => { g.fillStyle = q.op && q.op.t === 'door' ? '#ecc94b' : '#2d3748'; g.fillRect(X(q.x0), Y(q.y0), (q.x1 - q.x0) * s, (q.y1 - q.y0) * s); });
   [['n', 0, 0, st.L, 0], ['e', st.L, 0, st.L, st.D], ['s', 0, st.D, st.L, st.D], ['w', 0, 0, 0, st.D]].forEach(([k, x1, y1, x2, y2]) => {
     const open = !!st.open[k]; g.strokeStyle = open ? '#38a169' : '#718096'; g.lineWidth = open ? 5 : 2; g.setLineDash(open ? [14, 8] : []); g.beginPath(); g.moveTo(X(x1), Y(y1)); g.lineTo(X(x2), Y(y2)); g.stroke(); g.setLineDash([]);
@@ -8203,15 +8255,22 @@ function ufRenderTop(W) {
   // legenda: ile czego wyciąć
   let y = yL; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `500 26px ${F}`;
   const item = (fill, stroke, txt) => { g.fillStyle = fill; g.fillRect(M, y - 14, 44, 28); g.strokeStyle = stroke; g.lineWidth = 1.5; g.strokeRect(M, y - 14, 44, 28); g.fillStyle = '#1a202c'; g.fillText(txt, M + 62, y); y += 40; };
-  if (fp.full.length) item('rgba(222,190,140,.45)', 'rgba(160,120,70,.9)', `${ufFpDimTxt(UF_FPB[0], UF_FPB[1], '')} — całe płyty: ${fp.full.length} szt.`);
-  kk.kinds.forEach(k => { const r = cnt.get(k), hu = kk.hue[kk.kinds.indexOf(k) % kk.hue.length]; item(`hsla(${hu},85%,58%,.45)`, `hsla(${hu},70%,38%,.9)`, `${ufFpDimTxt(r.w, r.h, grain)} — kawałki: ${r.n} szt.`); });
+  if (fp.full.length) item('rgba(222,190,140,.45)', 'rgba(160,120,70,.9)', `A — ${ufFpDimTxt(UF_FPB[0], UF_FPB[1], '')} — całe płyty: ${fp.full.length} szt.`);
+  kk.kinds.forEach(k => { const r = cnt.get(k), hu = kk.hue[kk.kinds.indexOf(k) % kk.hue.length]; item(`hsla(${hu},85%,58%,.45)`, `hsla(${hu},70%,38%,.9)`, `${kk.letter({ w: r.w, h: r.h })} — ${ufFpDimTxt(r.w, r.h, grain)} — kawałki: ${r.n} szt.`); });
   const edge = [...fp.full, ...fp.pieces].reduce((a, t) => a + 2 * (t.w + t.h), 0);
   g.fillStyle = '#2d3748'; g.font = `700 26px ${F}`; g.fillText(`Razem płyt: ${fp.total} · cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² · okleina: ${numPL(edge / 1000)} m`, M, y + 14);
   return cv;
 }
+function ufFpLegend(fp) {          // legenda liter formatek: kolorowy znaczek, litera, wymiar, ilość
+  const grain = fp.grain, kk = ufFpKinds(fp, grain), cnt = new Map(); fp.pieces.forEach(p => { const k = kk.dk(p), r = cnt.get(k) || { n: 0, w: p.w, h: p.h }; r.n++; cnt.set(k, r); });
+  const chip = (bg, bd, l, txt) => `<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 8px 0 0;white-space:nowrap"><i style="display:inline-block;width:12px;height:12px;background:${bg};border:1px solid ${bd}"></i><b>${l}</b> ${txt}</span>`;
+  let h = fp.full.length ? chip('rgba(222,190,140,.55)', 'rgba(160,120,70,.9)', 'A', `${ufFpDimTxt(UF_FPB[0], UF_FPB[1], '')} × ${fp.full.length}`) : '';
+  kk.kinds.forEach((k, i) => { const r = cnt.get(k), hu = kk.hue[i % kk.hue.length]; h += chip(`hsla(${hu},85%,58%,.5)`, `hsla(${hu},70%,38%,.9)`, kk.letter({ w: r.w, h: r.h }), `${ufFpDimTxt(r.w, r.h, grain)} × ${r.n}`); });
+  return h ? `<div style="margin-top:5px;line-height:1.5">${h}</div>` : '';
+}
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
-  { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); if (document.activeElement !== $('uf-fp-grain')) $('uf-fp-grain').value = ufFpGrain(); $('uf-fp-dir').disabled = !!ufFpGrain(); $('uf-fp-info').innerHTML = ufFpText(fp); }
+  { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); if (document.activeElement !== $('uf-fp-grain')) $('uf-fp-grain').value = ufFpGrain(); $('uf-fp-dir').disabled = !!ufFpGrain(); $('uf-fp-info').innerHTML = ufFpText(fp) + ufFpLegend(fp); }
   { const fl = ufFloor(); $('uf-fl-ctl').classList.toggle('hidden', !fl); if (!fl) UF.floorEdit = false;
     if (fl) { $('uf-fl-on').checked = !fl.off; if (fl.off) UF.floorEdit = false; const tv = Math.round((fl.t == null ? 0.5 : fl.t) * 100); if (document.activeElement !== $('uf-fl-t')) $('uf-fl-t').value = tv; $('uf-fl-tv').textContent = tv + '%'; if (document.activeElement !== $('uf-fl-w')) $('uf-fl-w').value = numIn(fromMM(fl.w)); }
     $('uf-fl-ed').classList.toggle('on', !!UF.floorEdit); $('uf-cv').style.cursor = UF.floorEdit ? 'move' : ''; }
@@ -9759,10 +9818,10 @@ function ufProduction() {
   // lightbox: wspólna ramka na całej szerokości lica
   geo.faces.forEach(fc => { if (fc.run.mounts[ufPlOf(fc.run, fc.inn)] === 'lightbox') add(9, `ramka lightbox 6 cm ${ufLen(fc.b - fc.a)} × ${ufLen(fc.h)}`, 'pasek LED po obwodzie wewnętrznym', 'plain'); });
   { // podłoga: płyty 200 × 90 cm — całe, pocięte (z wzorem cięcia) i podsumowanie
-    const fp = ufFloorPlan(d.stand.L, d.stand.D, ufFpDir()), bn = `płyta ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])}`, gr = fp.grain, grTxt = gr ? ` · ${UF_GRAIN_TXT[gr]}, płyt nie obracano` : '', pd = p => gr === 'v' ? [p.ph, p.pw] : gr === 'h' ? [p.pw, p.ph] : [Math.max(p.pw, p.ph), Math.min(p.pw, p.ph)];
-    if (fp.full.length) add(6, `${bn} — cała`, 'bez cięcia', 'plain', fp.full.length);
+    const fp = ufFloorPlan(d.stand.L, d.stand.D, ufFpDir()), bn = `płyta ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])}`, kk = ufFpKinds(fp, fp.grain), gr = fp.grain, grTxt = gr ? ` · ${UF_GRAIN_TXT[gr]}, płyt nie obracano` : '', pd = p => gr === 'v' ? [p.ph, p.pw] : gr === 'h' ? [p.pw, p.ph] : [Math.max(p.pw, p.ph), Math.min(p.pw, p.ph)];
+    if (fp.full.length) add(6, `A · ${bn} — cała`, 'bez cięcia', 'plain', fp.full.length);
     const pat = new Map();
-    fp.boards.forEach(b => { const ps = b.pieces.slice().sort((x, y) => y.pw * y.ph - x.pw * x.ph).map(p => `${ufLen(pd(p)[0])} × ${ufLen(pd(p)[1])}`).join(' + '), k = ps + '|' + b.pieces.length; const r = pat.get(k) || { ps, n: 0 }; r.n++; pat.set(k, r); });
+    fp.boards.forEach(b => { const ps = b.pieces.slice().sort((x, y) => y.pw * y.ph - x.pw * x.ph).map(p => `${kk.letter(p)}: ${ufLen(pd(p)[0])} × ${ufLen(pd(p)[1])}`).join(' + '), k = ps + '|' + b.pieces.length; const r = pat.get(k) || { ps, n: 0 }; r.n++; pat.set(k, r); });
     pat.forEach(r => add(6, `${bn} — do pocięcia`, `kawałki: ${r.ps}`, 'plain', r.n));
     if (fp.total) {     // okleina: zsumowany obwód każdej formatki (całe płyty + pocięte kawałki)
       const per = t => 2 * (t.w + t.h), mFull = fp.full.reduce((a, t) => a + per(t), 0), mCut = fp.pieces.reduce((a, t) => a + per(t), 0);
