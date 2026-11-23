@@ -984,6 +984,10 @@
   .split-line { margin-top: 4px; color: #c53030; font-weight: 600; }
   /* POKAZ Z LEKTOREM: kursor, napisy, sterowanie */
   #show-block { position: fixed; inset: 0; z-index: 2600; background: transparent; cursor: default; }
+  #kb-chips { position: fixed; z-index: 2601; left: 50%; top: 66px; transform: translateX(-50%); display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: min(900px, calc(100vw - 32px)); pointer-events: none; }
+  #kb-chips span { background: rgba(16,20,28,.9); color: #fff; font-weight: 700; font-size: .92rem; padding: 7px 14px; border-radius: 999px !important; border: 1px solid rgba(255,255,255,.22); box-shadow: 0 6px 18px rgba(0,0,0,.35); opacity: 0; animation: kbChip .5s ease-out forwards; }
+  #kb-chips span::before { content: '✓ '; color: #67b437; }
+  @keyframes kbChip { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
   #show-cursor { position: fixed; z-index: 2603; width: 30px; height: 30px; margin: -3px 0 0 -5px; pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); transition: transform .12s; }
   #show-cursor.down { transform: scale(.82); }
   .show-ripple { position: fixed; z-index: 2602; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50% !important; border: 3px solid #67b437; pointer-events: none; animation: showRip .55s ease-out forwards; }
@@ -11823,6 +11827,9 @@ const SHOW_UI = {
   menuKf: TT('Samouczek K-Frame', 'Посібник K-Frame', 'K-Frame tutorial'),
   menuKfSub: TT('stoisko narożne 6 × 3 z zapleczem, na końcu rysowanie kreską', 'кутовий стенд 6 × 3 з підсобкою, наприкінці малювання лінією', 'a 6 × 3 corner stand with a backroom, then drawing with lines'),
   titleKf: TT('Samouczek K-Frame', 'Посібник K-Frame', 'K-Frame tutorial'),
+  titleKb: TT('K-Frame — możliwości', 'K-Frame — можливості', 'K-Frame — capabilities'),
+  menuKb: TT('K-Frame — prezentacja dla zarządu', 'K-Frame — презентація для керівництва', 'K-Frame — board presentation'),
+  menuKbSub: TT('same możliwości i przykłady, bez instruktażu, ok. 3 minuty', 'лише можливості й приклади, без інструкцій, близько 3 хвилин', 'capabilities and examples only, no how-to, about 3 minutes'),
   menuPro: TT('PRO — dla administratora', 'PRO — для адміністратора', 'PRO — for administrators'),
   menuProSub: TT('Turbo, drzwi, konstrukcje, Zlecenie, Corel i jeszcze coś', 'Турбо, двері, конструкції, Замовлення, Corel і ще дещо', 'Turbo, doors, structures, Order, Corel and more'),
   menuTourSub: TT('omówienie przycisków i paneli', 'огляд кнопок і панелей', 'buttons and panels explained'),
@@ -11837,10 +11844,10 @@ function openTourMenu(ev) {
   m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, innerWidth - r.right) + 'px';
   m.innerHTML = `<div class="mi" data-a="show"><div><b>▶ ${SHOW_UI.menuShow}</b><br><small>${SHOW_UI.menuShowSub}</small></div></div>
     <div class="mi" data-a="practice"><div><b>🎓 ${SHOW_UI.menuPractice}</b><br><small>${SHOW_UI.menuPracticeSub}</small></div></div>
-    ${!isViewer() && featOn('uf') ? `<div class="mi" data-a="kf"><div><b>▦ ${SHOW_UI.menuKf}</b><br><small>${SHOW_UI.menuKfSub}</small></div></div>` : ''}
+    ${!isViewer() && featOn('uf') ? `<div class="mi" data-a="kf"><div><b>▦ ${SHOW_UI.menuKf}</b><br><small>${SHOW_UI.menuKfSub}</small></div></div><div class="mi" data-a="kb"><div><b>◆ ${SHOW_UI.menuKb}</b><br><small>${SHOW_UI.menuKbSub}</small></div></div>` : ''}
     ${isAdmin() ? `<div class="mi" data-a="prolive"><div><b>★ ${SHOW_UI.menuProLive}</b><br><small>${SHOW_UI.menuProSub}</small></div></div>` : ''}`;
   document.body.appendChild(m);
-  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'kf' ? startShow(false, true) : a === 'show' ? startShow() : a === 'practice' ? startPractice() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
+  m.querySelectorAll('.mi').forEach(x => x.onclick = () => { m.remove(); const a = x.dataset.a; a === 'kb' ? startShow(false, true, true) : a === 'kf' ? startShow(false, true) : a === 'show' ? startShow() : a === 'practice' ? startPractice() : a === 'prolive' ? startShow(true) : startTour(a === 'pro'); });
   setTimeout(() => document.addEventListener('click', function f() { m.remove(); document.removeEventListener('click', f); }), 0);
 }
 
@@ -12086,12 +12093,12 @@ async function shAddElement(e, talk, first) {
   }
 }
 
-async function startShow(pro = false, kf = false) {
+async function startShow(pro = false, kf = false, board = false) {
   if (S.tour || !S.me) return;
   if (pro && !isAdmin()) return;
   if (kf && (isViewer() || !featOn('uf'))) return;
   const byName = n => S.projects.find(x => String(x.name || '').trim().toLowerCase() === n);
-  const src = kf ? { name: SHOW_UI.titleKf, createdAt: nowIso() } : (pro && (S.projects.find(x => x.id === PRO_PID) || byName(PRO_NAME))) || S.projects.find(x => x.id === TOUR_PID) || byName(TOUR_NAME);
+  const src = kf ? { name: board ? SHOW_UI.titleKb : SHOW_UI.titleKf, createdAt: nowIso() } : (pro && (S.projects.find(x => x.id === PRO_PID) || byName(PRO_NAME))) || S.projects.find(x => x.id === TOUR_PID) || byName(TOUR_NAME);
   if (!src) { toast(TOUR_UI.missing, 'error'); return; }
   document.querySelectorAll('.menu').forEach(m => m.remove());
   while (modalStack.length) modalStack[modalStack.length - 1].close();
@@ -12109,7 +12116,7 @@ async function startShow(pro = false, kf = false) {
   delete proj.id;
   const mem = createMemDB({ [C_PROJECTS]: { [SHOW_PID]: proj } });
   try { localStorage.removeItem(`INDEX_SEEN_${S.me.id}_${SHOW_PID}`); } catch (e) {}
-  S.tour = { show: true, pro, kf, allEls, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
+  S.tour = { show: true, pro, kf, board, allEls, pid: SHOW_PID, mem, prevPid: S.project ? S.project.id : null, prevView: S.elView, prevSide: S.sideSel, realDB: guardShowDB(DB), cx: innerWidth / 2, cy: innerHeight / 2 };
   DB = mem;
   // zdarzenia kursora pokazu nie mają prawdziwego wskaźnika — przechwycenie nie może rzucać błędem
   S.tour.spc = Element.prototype.setPointerCapture;
@@ -12169,7 +12176,7 @@ async function startShow(pro = false, kf = false) {
   }
   if (!T.voice) toast(SHOW_UI.novoice, '', 5000);
   if (pro) cap.querySelector('.sc-h').firstChild.nextSibling.textContent = SHOW_UI.titlePro;
-  if (kf) cap.querySelector('.sc-h').firstChild.nextSibling.textContent = SHOW_UI.titleKf;
+  if (kf) cap.querySelector('.sc-h').firstChild.nextSibling.textContent = board ? SHOW_UI.titleKb : SHOW_UI.titleKf;
   try { await runShow(photos, els); }
   catch (e) { if (!(e instanceof ShowStop)) { console.error(e); toast('Pokaz przerwany: ' + e.message, 'error'); } }
   endShow();
@@ -12265,7 +12272,7 @@ function shCleanup() {
   S.graphBusy = false;
   toggleSide(false); toggleLog(false);
   $('clock-pane').classList.remove('show-hl');
-  document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove());
+  document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove()); kbChips([]);
   if ('speechSynthesis' in window) speechSynthesis.cancel();
 }
 const plainWait = ms => new Promise(r => setTimeout(r, ms));
@@ -13141,6 +13148,160 @@ function kfChapters() {
       } },
   ];
 }
+// =====================================================================
+//  PREZENTACJA K-FRAME DLA ZARZĄDU (z lektorką): same możliwości i przykłady, bez instruktażu, szybko; z rozrysem podłogi.
+//  Przykładowe stoiska budują się same (rysunek → układ modułów), wszystko w pamięci — nic nie trafia do bazy.
+// =====================================================================
+const KB_EX = {
+  corner: { L: 6000, D: 3000, open: KF_OPEN, lines: KF_LINES },
+  row: { L: 4000, D: 3000, open: { n: false, e: false, s: true, w: false },
+    lines: [{ t: 'w', p: [[0, 0], [4000, 0]] }, { t: 'w', p: [[0, 0], [0, 3000]] }, { t: 'w', p: [[4000, 0], [4000, 3000]] }],
+    extra: () => ufRuns().forEach(r => r.ops.forEach(o => {
+      if (o.t === 'post') return;
+      if (r.ori === 0 && r.line < 300) { o.h = 3900; o.arc = { r: 1105 }; o.pm = { f: 'lightbox' }; }                 // tył: dostawka 110,5 → 390 cm, łuk, lightbox
+      else if (r.ori === 1) { o.pm = { f: 'paint' }; o.pp = { f: '#1f6f8b' }; o.pn = { f: 'RAL 5001' }; }             // boki: malowanie w kolorze marki
+    })) },
+  island: { L: 6000, D: 5000, open: { n: true, e: true, s: true, w: true },
+    lines: [{ t: 'w', p: [[1000, 1500], [3000, 1500]] }, { t: 'w', p: [[1000, 1500], [1000, 3500]] }, { t: 'w', p: [[3000, 1500], [3000, 3500]] }, { t: 'w', p: [[1000, 3500], [3000, 3500]] }, { t: 'd', p: [[1500, 3500], [2500, 3500]] },
+      { t: 'w', p: [[3800, 1500], [5800, 1500]] }],
+    extra: () => {
+      UF.d.pieces.filter(p => p.t === 'door').forEach(p => { p.bul = 'y'; p.mode = 'proud'; });                          // drzwi wpuszczone z bulajem
+      ufRuns().forEach(r => { if (r.ori === 0 && ufRange(r)[0] > 3500) r.ops.forEach(o => { if (o.t !== 'post') o.pm = { f: 'lightbox' }; }); });   // ścianka ekspozycyjna: lightbox
+    } },
+};
+// stoisko przykładowe: czysty plan → rysunek → układ modułów + dodatki (bez animacji kursora)
+async function kbApply(id) {
+  const ex = KB_EX[id]; if (!ex) return;
+  if (!UF.open) await kfOpen(false);
+  UF.d.pieces = []; UF.d.rooms = []; UF.sel = null; delete UF.d.floor; UF.d.look = 'full'; UF.d.fp = { on: false }; UF.d.yaw = 45; UF.d.pitch = 35.264;
+  UF.d.stand = { ...UF.d.stand, L: ex.L, D: ex.D, open: { ...ex.open } };
+  const sk = ufSkData(); sk.lines = clone(ex.lines); sk.gen = false; sk.fit = 0;
+  ufSkGenerate(true);
+  if (ex.extra) ex.extra();
+  sk.bar = false; ufSkSync(); ufSkBtn(); ufChanged();
+}
+// etykiety możliwości u góry ekranu (pojawiają się po kolei); pusta lista = zdejmij
+function kbChips(list) {
+  let box = $('kb-chips');
+  if (!list || !list.length) { if (box) box.remove(); return; }
+  if (!box) { box = document.createElement('div'); box.id = 'kb-chips'; box.setAttribute('data-noi18n', ''); document.body.appendChild(box); }
+  box.innerHTML = list.map((t, i) => `<span style="animation-delay:${i * 0.18}s">${esc(t)}</span>`).join('');
+}
+// obrót widoku 3D o deg stopni w czasie ms
+async function kbSpin(deg, ms) {
+  const n = Math.max(2, Math.round(ms / 120)), y0 = UF.d.yaw != null ? UF.d.yaw : 45;
+  for (let i = 1; i <= n; i++) { UF.d.yaw = ((y0 + deg * i / n) % 360 + 360) % 360; ufDraw(); await shWait(120); }
+}
+function kbChapters() {
+  const say = (pl, uk, en) => shSay(TT(pl, uk, en)), chips = (...l) => kbChips(l.map(a => TT(...a)));
+  return [
+    { est: 12, name: TT('Start', 'Старт', 'Start'),
+      run: async () => {
+        kbChips([]); await shMove(innerWidth / 2, innerHeight / 2 - 60, 700);
+        await say('K-Frame w INDEX: od rysunku do gotowej listy produkcyjnej w kilka minut. Pokażę, co ten program potrafi i jak wyglądają przykładowe stoiska.',
+          'K-Frame в INDEX: від малюнка до готового виробничого переліку за кілька хвилин. Покажу, що вміє ця програма і як виглядають приклади стендів.',
+          'K-Frame in INDEX: from a sketch to a ready production list in minutes. I will show what the program can do and what example stands look like.');
+      } },
+    { est: 28, name: TT('Z rysunku do stoiska', 'Від малюнка до стенду', 'From sketch to stand'),
+      instant: async () => { await kbApply('corner'); },
+      run: async () => {
+        kbChips([]);
+        await say('Stoisko powstaje z rysunku. Kreską zaznaczam ściany, zaplecze i drzwi.', 'Стенд створюється з малюнка. Лінією позначаю стіни, підсобку і двері.', 'The stand is created from a sketch. I mark the walls, the backroom and the door with a line.');
+        await kfOpen(false);
+        ufPush(); UF.d.pieces = []; UF.d.rooms = []; UF.sel = null; UF.d.fp = { on: false }; UF.d.look = 'full'; const sk = ufSkData(); sk.lines = []; sk.gen = false;
+        UF.d.stand = { ...UF.d.stand, L: KB_EX.corner.L, D: KB_EX.corner.D, open: { ...KF_OPEN } }; ufChanged(); await shWait(400);
+        await shClick('#uf-sketch', 600); if (!UF.skOn) ufSkOn();
+        const T = SH(); T.fast = true;
+        for (const l of KF_LINES.filter(q => q.t === 'w')) await kfDrawLine(l);
+        await shClick('[data-skt="d"]', 400);
+        for (const l of KF_LINES.filter(q => q.t === 'd')) await kfDrawLine(l);
+        T.fast = false;
+        await shClick('#uf-sk-go', 600); await shWait(500);
+        sk.bar = false; ufSkSync(); ufSkBtn(); ufChanged();
+        await say('Jedno kliknięcie i program sam układa moduły, drzwi i zaplecze. Przycina tylko końcówki ścian. Stoisko narożne sześć na trzy metry gotowe w kilkanaście sekund.',
+          'Один клік — і програма сама розкладає модулі, двері й підсобку. Підрізає лише кінці стін. Кутовий стенд шість на три метри готовий за кілька секунд.',
+          'One click and the program lays out the modules, the door and the backroom itself, cutting only the wall ends. A six by three metre corner stand is ready in seconds.');
+      } },
+    { est: 24, name: TT('Przykład: szereg', 'Приклад: рядовий', 'Example: row stand'),
+      instant: async () => { await kbApply('row'); },
+      run: async () => {
+        kbChips([]); await kbApply('row'); await shWait(500);
+        chips(['Łuk nad ścianą', 'Лук над стіною', 'Arch above the wall'], ['Lightbox z podświetleniem LED', 'Лайтбокс із LED-підсвіткою', 'Lightbox with LED backlight'], ['Wysokość do 390 cm', 'Висота до 390 см', 'Height up to 390 cm'], ['Malowanie w kolorze marki', 'Фарбування в кольорі бренду', 'Painted in brand colour']);
+        await Promise.all([say('Stoisko szeregowe cztery na trzy metry. Ściana tylna ma łuk i podświetlany lightbox, wysokość sięga prawie czterech metrów, a boki są pomalowane w kolorze marki.',
+          'Рядовий стенд чотири на три метри. Задня стіна має арку й підсвічений лайтбокс, висота майже чотири метри, а боки пофарбовані в кольорі бренду.',
+          'A four by three metre row stand. The back wall has an arch and a backlit lightbox, the height is almost four metres, and the sides are painted in the brand colour.'), kbSpin(70, 8000)]);
+      } },
+    { est: 24, name: TT('Przykład: wyspa', 'Приклад: острів', 'Example: island'),
+      instant: async () => { await kbApply('island'); },
+      run: async () => {
+        kbChips([]); await kbApply('island'); await shWait(500);
+        chips(['Wszystkie boki otwarte', 'Усі боки відкриті', 'All sides open'], ['Pokój rozmów z drzwiami', 'Кімната для переговорів із дверима', 'Meeting room with a door'], ['Drzwi wpuszczone z bulajem', 'Двері з ілюмінатором', 'Recessed door with porthole'], ['Ścianka ekspozycyjna z lightboxem', 'Експозиційна стінка з лайтбоксом', 'Display wall with a lightbox']);
+        await Promise.all([say('Wyspa sześć na pięć metrów, otwarta z każdej strony. W środku pokój rozmów z drzwiami z bulajem i osobna ścianka ekspozycyjna z lightboxem.',
+          'Острів шість на п’ять метрів, відкритий з усіх боків. Усередині кімната для переговорів із дверима з ілюмінатором і окрема експозиційна стінка з лайтбоксом.',
+          'A six by five metre island open on every side. Inside is a meeting room with a porthole door and a separate display wall with a lightbox.'), kbSpin(-90, 8000)]);
+      } },
+    { est: 18, name: TT('Co jeszcze', 'Що ще', 'And more'),
+      instant: async () => { await kbApply('corner'); },
+      run: async () => {
+        kbChips([]); await kbApply('corner'); await shWait(400);
+        chips(['Drzwi zlicowane lub wpuszczone', 'Двері врівень або заглиблені', 'Flush or recessed doors'], ['Łuki i daszki', 'Арки й дашки', 'Arches and canopies'], ['Tkanina, folia, płyta PCW, malowanie RAL', 'Тканина, плівка, плита ПВХ, фарбування RAL', 'Fabric, film, PVC board, RAL paint'], ['Wysłony z tyłu stoiska', 'Задники на тильній стороні', 'Back covers'], ['Zmiana wymiaru przelicza wszystko', 'Зміна розміру перераховує все', 'Changing the size recalculates everything']);
+        await say('Do tego drzwi zlicowane albo wpuszczone, łuki i daszki, grafika na tkaninie, folii, płycie lub malowanie w dowolnym kolorze. Zmiana wymiaru przelicza cały układ od razu.',
+          'До цього двері врівень або заглиблені, арки й дашки, графіка на тканині, плівці, плиті або фарбування в будь-якому кольорі. Зміна розміру одразу перераховує весь план.',
+          'Plus flush or recessed doors, arches and canopies, graphics on fabric, film or board, or paint in any colour. Changing the size recalculates the whole layout at once.');
+      } },
+    { est: 32, name: TT('Rozrys podłogi', 'Розкрій підлоги', 'Floor layout'),
+      instant: async () => { await kbApply('corner'); UF.d.fp = { on: true, dir: '' }; ufChanged(); },
+      run: async () => {
+        kbChips([]); await kbApply('corner');
+        const det = document.querySelector('#uf-side details[data-k="fplan"]'); if (det) { det.open = true; det.scrollIntoView({ block: 'nearest' }); }
+        UF.d.fp = { on: true, dir: '' }; ufChanged(); await shWait(700);
+        const fp = ufFloorPlan(UF.d.stand.L, UF.d.stand.D, ''), wm = numPL(Math.max(0, fp.waste) / 1e6);
+        await say('Nowość: rozrys podłogi. Program układa płyty dwieście na dziewięćdziesiąt na całej powierzchni stoiska tak, żeby cięć było jak najmniej, a resztki wykorzystuje ponownie.',
+          'Новинка: розкрій підлоги. Програма розкладає плити двісті на дев’яносто на всій площі стенду так, щоб різів було якнайменше, а залишки використовує повторно.',
+          'New: floor layout. The program lays 200 by 90 boards over the whole stand with as few cuts as possible, and reuses the offcuts.');
+        const info = $('uf-fp-info'); if (kfVis(info)) await shMove(...shCenter(info), 900);
+        await say(`Tutaj: ${fp.total} płyt, cięć: ${fp.cuts}, odpad ${wm} metra kwadratowego. Całe płyty są jasne, przycięte kolorowe, z wymiarem kawałka.`,
+          `Тут: ${fp.total} плит, різів: ${fp.cuts}, відходів ${wm} квадратного метра. Цілі плити світлі, підрізані кольорові, з розміром шматка.`,
+          `Here: ${fp.total} boards, ${fp.cuts} cuts, ${wm} square metres of waste. Whole boards are light, cut ones coloured, with the piece size.`);
+        const cv = $('uf-cv'); if (cv) { const r = cv.getBoundingClientRect(); await shMove(r.left + r.width * 0.5, r.top + r.height * 0.55, 900); }
+        await say('Zestawienie płyt trafia od razu do produkcji.', 'Перелік плит одразу потрапляє у виробництво.', 'The list of boards goes straight into production.');
+      } },
+    { est: 22, name: TT('Produkcja', 'Виробництво', 'Production'),
+      instant: async () => { await kbApply('corner'); },
+      run: async () => {
+        kbChips([]); if (!UF.open || !UF.d.pieces.length) await kbApply('corner');
+        await shClick('#uf-prod', 700); await shWait(600);
+        await say('Z układu powstaje zestawienie do produkcji: moduły standardowe, połówki, drzwi, dostawki i ścianki nietypowe, z liczbą sztuk.',
+          'З плану створюється виробничий перелік: стандартні модулі, половинки, двері, надбудови й нетипові стінки, з кількістю штук.',
+          'The layout produces the production list: standard modules, halves, doors, extensions and non-standard walls, with piece counts.');
+        const m = modalStack[modalStack.length - 1], tr = m && [...m.el.querySelectorAll('tr.sec')].find(t => /Podłoga/.test(t.textContent));
+        if (tr) { tr.scrollIntoView({ block: 'center', behavior: 'smooth' }); tr.style.outline = '3px solid #67b437'; await shWait(900);
+          await say('Na końcu sekcja podłogi: ile płyt zamówić i jak je pociąć.', 'Наприкінці секція підлоги: скільки плит замовити і як їх розрізати.', 'At the end the floor section: how many boards to order and how to cut them.'); }
+        await kfCloseTopModal();
+      } },
+    { est: 26, name: TT('Wizualizacje', 'Візуалізації', 'Visuals'),
+      instant: async () => { await kbApply('row'); },
+      run: async () => {
+        kbChips([]); await kbApply('row'); UF.d.look = 'full'; ufChanged();
+        await Promise.all([say('Każde stoisko widać w trzech wymiarach: z grafiką albo jako szkielet z podziałem na moduły. Obracasz je dowolnie.',
+          'Кожен стенд видно в 3D: з графікою або як каркас із поділом на модулі. Його можна вільно обертати.',
+          'Every stand is seen in 3D: with graphics or as a frame split into modules. It can be turned freely.'), kbSpin(100, 6000)]);
+        UF.d.look = 'bare'; ufChanged(); await kbSpin(-100, 4500);
+        UF.d.look = 'full'; ufChanged();
+        await say('Jednym kliknięciem powstają wizualizacje i elementy do druku z wymiarami. Dalej jest już zlecenie dla drukarni i Corel.',
+          'Одним кліком створюються візуалізації й елементи для друку з розмірами. Далі — замовлення для друкарні та Corel.',
+          'One click creates the visuals and the print elements with sizes. Then comes the order for the print shop and Corel.');
+      } },
+    { est: 12, name: TT('Koniec', 'Кінець', 'End'),
+      run: async () => {
+        kbChips([]); await shMove(innerWidth / 2, innerHeight / 2 - 60, 800);
+        await say('To wszystko. Od szkicu do stoiska, listy produkcyjnej i rozrysu podłogi w jednym narzędziu. Ta prezentacja niczego nie zapisała.',
+          'Це все. Від ескізу до стенду, виробничого переліку і розкрою підлоги в одному інструменті. Ця презентація нічого не зберегла.',
+          'That’s all. From sketch to stand, production list and floor layout in one tool. This presentation saved nothing.');
+        await shWait(400);
+      } },
+  ];
+}
 // przeskok w samouczku K-Frame: pusty edytor, potem błyskawicznie stan po wcześniejszych etapach
 function kfHide() {
   if (!UF.open) return;
@@ -13177,7 +13338,7 @@ async function shRebuildTo(k) {
 }
 async function runShow(photos, els) {
   const T = S.tour;
-  T.chapters = T.kf ? kfChapters() : T.pro ? proChapters(photos, T.allEls) : showChapters(photos, els); T.cur = 0;
+  T.chapters = T.kf ? (T.board ? kbChapters() : kfChapters()) : T.pro ? proChapters(photos, T.allEls) : showChapters(photos, els); T.cur = 0;
   await openProject(SHOW_PID);
   setElView('table');
   if (T.setup) { await T.setup(); await shSettle(); }
@@ -13255,7 +13416,7 @@ function endShow() {
   document.removeEventListener('keydown', T.keys, true);
   clearInterval(T.dotTimer);
   ['show-block', 'show-cursor', 'show-cap'].forEach(id => { const e = $(id); if (e) e.remove(); });
-  document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove());
+  document.querySelectorAll('.show-ripple, .show-key').forEach(e => e.remove()); kbChips([]);
   if (T.spc) Element.prototype.setPointerCapture = T.spc;
   if (S.graphMove) toggleGraphMove(false);
   S.graphBusy = false;
