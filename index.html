@@ -1186,6 +1186,7 @@
             <div class="pchips">
               <label class="pchip wide" title="Pokaż rozrys płyt podłogowych 200 × 90 cm na planie stoiska"><i class="ti ti-eye"></i><span>pokaż na planie</span><input type="checkbox" id="uf-fp-on" checked></label>
               <label class="pchip wide" title="Kierunek płyt 200 × 90 cm. Auto = taki układ, który daje najmniej płyt i cięć"><i class="ti ti-arrows-shuffle"></i><span>kierunek płyt</span><select id="uf-fp-dir"><option value="">auto — najmniej cięć</option><option value="x">płyty wzdłuż długości</option><option value="y">płyty wzdłuż głębokości</option></select></label>
+              <label class="pchip wide" title="Usłojenie dekoru płyt: bez znaczenia = płyty i kawałki można obracać o 90°. Poziome (horyzontalne) = słoje wzdłuż długości stoiska, pionowe = wzdłuż głębokości — wtedy płyt ani kawałków nie obracam"><i class="ti ti-wave-sine"></i><span>usłojenie</span><select id="uf-fp-grain"><option value="">bez znaczenia</option><option value="h">poziome (horyzontalne)</option><option value="v">pionowe</option></select></label>
             </div>
             <div class="hint" id="uf-fp-info" style="margin-top:4px"></div>
           </details>
@@ -8068,19 +8069,25 @@ function ufStdPiece(o, r) {
 const ufNonStdAny = geo => geo.parts.some(q => q.run && !ufStdPiece(q.op, q.run));
 // ---------- rozrys podłogi: płyty 200 × 90 cm na całej powierzchni stoiska, jak najmniej cięć (resztki wykorzystywane ponownie) ----------
 const UF_FPB = [2000, 900];
-function ufFpSplit(x, y, w, h, out) {          // prostokąt do pokrycia → kawałki, z których każdy mieści się w jednej płycie (jedna strona ≤ 90, druga ≤ 200)
-  const fits = (a, b) => Math.min(a, b) <= UF_FPB[1] + 0.5 && Math.max(a, b) <= UF_FPB[0] + 0.5;
+function ufFpSplit(x, y, w, h, out, bw, bh, rot) {          // prostokąt do pokrycia → kawałki, z których każdy mieści się w jednej płycie
   if (w < 1 || h < 1) return;
-  if (fits(w, h)) { out.push({ x, y, w, h }); return; }
-  if (Math.min(w, h) > UF_FPB[1]) {              // obie strony > 90: tnij krótszą na pasy po 90
-    if (w <= h) { for (let o = 0; o < w - 0.5; o += UF_FPB[1]) ufFpSplit(x + o, y, Math.min(UF_FPB[1], w - o), h, out); }
-    else { for (let o = 0; o < h - 0.5; o += UF_FPB[1]) ufFpSplit(x, y + o, w, Math.min(UF_FPB[1], h - o), out); }
+  if (!rot) {          // usłojenie: płyta leży tylko w jednym kierunku (bw × bh na planie), kawałków się nie obraca
+    if (w <= bw + 0.5 && h <= bh + 0.5) { out.push({ x, y, w, h }); return; }
+    if (w > bw + 0.5) { for (let o = 0; o < w - 0.5; o += bw) ufFpSplit(x + o, y, Math.min(bw, w - o), h, out, bw, bh, rot); }
+    else { for (let o = 0; o < h - 0.5; o += bh) ufFpSplit(x, y + o, w, Math.min(bh, h - o), out, bw, bh, rot); }
     return;
   }
-  if (w >= h) { for (let o = 0; o < w - 0.5; o += UF_FPB[0]) ufFpSplit(x + o, y, Math.min(UF_FPB[0], w - o), h, out); }
-  else { for (let o = 0; o < h - 0.5; o += UF_FPB[0]) ufFpSplit(x, y + o, w, Math.min(UF_FPB[0], h - o), out); }
+  const fits = (a, b) => Math.min(a, b) <= UF_FPB[1] + 0.5 && Math.max(a, b) <= UF_FPB[0] + 0.5;
+  if (fits(w, h)) { out.push({ x, y, w, h }); return; }
+  if (Math.min(w, h) > UF_FPB[1]) {              // obie strony > 90: tnij krótszą na pasy po 90
+    if (w <= h) { for (let o = 0; o < w - 0.5; o += UF_FPB[1]) ufFpSplit(x + o, y, Math.min(UF_FPB[1], w - o), h, out, bw, bh, rot); }
+    else { for (let o = 0; o < h - 0.5; o += UF_FPB[1]) ufFpSplit(x, y + o, w, Math.min(UF_FPB[1], h - o), out, bw, bh, rot); }
+    return;
+  }
+  if (w >= h) { for (let o = 0; o < w - 0.5; o += UF_FPB[0]) ufFpSplit(x + o, y, Math.min(UF_FPB[0], w - o), h, out, bw, bh, rot); }
+  else { for (let o = 0; o < h - 0.5; o += UF_FPB[0]) ufFpSplit(x, y + o, w, Math.min(UF_FPB[0], h - o), out, bw, bh, rot); }
 }
-function ufFpPack(pieces) {                     // pakowanie kawałków w płyty: najpierw w resztki po wcześniejszych cięciach, dopiero potem nowa płyta
+function ufFpPack(pieces, bw, bh, rot) {        // pakowanie kawałków w płyty: najpierw w resztki po wcześniejszych cięciach, dopiero potem nowa płyta (rot = false: bez obracania o 90°)
   const boards = []; let cuts = 0;
   const place = (fr, pw, ph) => {
     const c = (pw < fr.w - 0.5 ? 1 : 0) + (ph < fr.h - 0.5 ? 1 : 0), rw = fr.w - pw, rh = fr.h - ph;
@@ -8090,10 +8097,13 @@ function ufFpPack(pieces) {                     // pakowanie kawałków w płyty
   };
   pieces.map((p, i) => ({ ...p, i })).sort((a, b) => b.w * b.h - a.w * a.h).forEach(p => {
     let best = null;
-    boards.forEach((b, bi) => b.free.forEach((fr, fi) => [[p.w, p.h], [p.h, p.w]].forEach(([pw, ph]) => {
+    boards.forEach((b, bi) => b.free.forEach((fr, fi) => (rot ? [[p.w, p.h], [p.h, p.w]] : [[p.w, p.h]]).forEach(([pw, ph]) => {
       if (pw <= fr.w + 0.5 && ph <= fr.h + 0.5) { const sc = fr.w * fr.h - pw * ph; if (!best || sc < best.sc) best = { bi, fi, pw, ph, sc }; }
     })));
-    if (!best) { boards.push({ free: [{ w: UF_FPB[0], h: UF_FPB[1] }], pieces: [] }); const fit0 = p.w <= UF_FPB[0] + 0.5 && p.h <= UF_FPB[1] + 0.5; best = { bi: boards.length - 1, fi: 0, pw: fit0 ? p.w : p.h, ph: fit0 ? p.h : p.w }; }
+    if (!best) {
+      boards.push({ free: [rot ? { w: UF_FPB[0], h: UF_FPB[1] } : { w: bw, h: bh }], pieces: [] });
+      const fit0 = !rot || (p.w <= UF_FPB[0] + 0.5 && p.h <= UF_FPB[1] + 0.5); best = { bi: boards.length - 1, fi: 0, pw: fit0 ? p.w : p.h, ph: fit0 ? p.h : p.w };
+    }
     const b = boards[best.bi], fr = b.free[best.fi], r = place(fr, best.pw, best.ph);
     b.free.splice(best.fi, 1, ...r.free); cuts += r.c; b.pieces.push({ ...p, pw: best.pw, ph: best.ph, b: best.bi });
   });
@@ -8101,7 +8111,8 @@ function ufFpPack(pieces) {                     // pakowanie kawałków w płyty
 }
 let ufFpMemo = null;
 function ufFloorPlan(L, D, dir) {
-  const key = L + '|' + D + '|' + (dir || ''); if (ufFpMemo && ufFpMemo.key === key) return ufFpMemo.v;
+  const grain = ufFpGrain(); if (grain) dir = grain === 'h' ? 'x' : 'y';          // usłojenie wymusza kierunek płyt i zabrania obracania kawałków
+  const key = L + '|' + D + '|' + (dir || '') + '|' + grain; if (ufFpMemo && ufFpMemo.key === key) return ufFpMemo.v;
   let best = null;
   [[2000, 900], [900, 2000]].forEach(([bw, bh]) => {
     if ((dir === 'x' && bw !== 2000) || (dir === 'y' && bw !== 900)) return;
@@ -8109,9 +8120,9 @@ function ufFloorPlan(L, D, dir) {
       const cols = Math.floor(L / bw + 1e-6), rows = Math.floor(D / bh + 1e-6), full = [], rects = [];
       for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) full.push({ x: i * bw, y: j * bh, w: bw, h: bh });
       const rw = L - cols * bw, rh = D - rows * bh;
-      if (rw > 1) ufFpSplit(cols * bw, 0, rw, strip === 0 ? D : rows * bh, rects);
-      if (rh > 1) ufFpSplit(0, rows * bh, strip === 0 ? cols * bw : L, rh, rects);
-      const pk = ufFpPack(rects), total = full.length + pk.boards.length, v = { full, pieces: rects, boards: pk.boards, cuts: pk.cuts, total, bw, bh, waste: total * UF_FPB[0] * UF_FPB[1] - L * D };
+      if (rw > 1) ufFpSplit(cols * bw, 0, rw, strip === 0 ? D : rows * bh, rects, bw, bh, !grain);
+      if (rh > 1) ufFpSplit(0, rows * bh, strip === 0 ? cols * bw : L, rh, rects, bw, bh, !grain);
+      const pk = ufFpPack(rects, bw, bh, !grain), total = full.length + pk.boards.length, v = { full, pieces: rects, boards: pk.boards, cuts: pk.cuts, total, bw, bh, grain, waste: total * UF_FPB[0] * UF_FPB[1] - L * D };
       if (!best || v.total < best.total || (v.total === best.total && (v.cuts < best.cuts || (v.cuts === best.cuts && v.pieces.length < best.pieces.length)))) best = v;
     });
   });
@@ -8122,14 +8133,85 @@ function ufFloorPlan(L, D, dir) {
 }
 const ufFpOn = () => !!(UF.d && (!UF.d.fp || UF.d.fp.on !== false));
 const ufFpDir = () => (UF.d && UF.d.fp && UF.d.fp.dir) || '';
+const ufFpGrain = () => (UF.d && UF.d.fp && UF.d.fp.grain) || '';          // usłojenie dekoru: '' bez znaczenia, 'h' poziome (wzdłuż długości stoiska), 'v' pionowe
+const UF_GRAIN_TXT = { h: 'usłojenie poziome (horyzontalne)', v: 'usłojenie pionowe' };
 function ufFpText(fp) {
   if (!fp.total) return '';
   const cutB = fp.boards.length;
-  return `<b>${fp.total}</b> płyt ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}: ${fp.full.length} całych + ${cutB} do pocięcia · cięć: <b>${fp.cuts}</b> · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m²`;
+  return `<b>${fp.total}</b> płyt ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}: ${fp.full.length} całych + ${cutB} do pocięcia · cięć: <b>${fp.cuts}</b> · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m²${fp.grain ? ' · ' + UF_GRAIN_TXT[fp.grain] + ' — płyt nie obracam' : ''}`;
+}
+// kolor kawałka zależy od jego wymiaru (ten sam wymiar = ten sam kolor); z usłojeniem kawałek 400 × 900 ≠ 900 × 400
+function ufFpKinds(fp, grain) {
+  const dk = p => grain ? Math.round(p.w) + 'x' + Math.round(p.h) : Math.round(Math.max(p.w, p.h)) + 'x' + Math.round(Math.min(p.w, p.h)), kinds = [];
+  fp.pieces.slice().sort((a, b) => b.w * b.h - a.w * a.h).forEach(p => { const k = dk(p); if (!kinds.includes(k)) kinds.push(k); });
+  return { dk, kinds, hue: [28, 205, 130, 285, 340, 55, 175] };
+}
+const ufFpDimTxt = (w, h, grain) => grain === 'v' ? `${lenPL(h)} × ${lenPL(w)}` : `${lenPL(w)} × ${lenPL(h)}`;     // wzdłuż usłojenia × w poprzek
+function ufFpWave(g, x, y, w, h, dir, s, seed) {          // delikatne fale usłojenia w prostokącie [px]: dir 'h' = słoje biegną poziomo, 'v' = pionowo
+  if (w < 8 || h < 8) return;
+  const sp = Math.max(6, s * 55), amp = Math.min(2.4, sp * 0.3), lam = Math.max(50, s * 420), along = dir === 'h' ? w : h, across = dir === 'h' ? h : w, n = Math.max(1, Math.round(across / sp));
+  g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip(); g.strokeStyle = 'rgba(120,80,40,.24)'; g.lineWidth = 0.9;
+  for (let k = 0; k < n; k++) {
+    const off = (k + 0.5) * across / n, ph = seed + k * 0.93, am = amp * (0.6 + 0.4 * Math.sin(k * 1.7 + seed));
+    g.beginPath();
+    for (let t = 0; t <= along + 6; t += 6) {
+      const v = off + am * Math.sin(t / lam * 6.283 + ph) + am * 0.5 * Math.sin(t / (lam * 0.37) * 6.283 + ph * 2);
+      const px = dir === 'h' ? x + Math.min(t, along) : x + v, py = dir === 'h' ? y + v : y + Math.min(t, along);
+      t ? g.lineTo(px, py) : g.moveTo(px, py);
+    }
+    g.stroke();
+  }
+  g.restore();
+}
+// płyty 200 × 90 na planie: całe jasne, przycięte kolorowe z opisem wymiaru; z usłojeniem — delikatne fale słojów
+function ufFpPaint(g, X, Y, s, st, F, o) {
+  const fp = ufFloorPlan(st.L, st.D, ufFpDir()), grain = ufFpGrain(), { dk, kinds, hue } = ufFpKinds(fp, grain), fs = (o && o.fs) || Math.max(8, Math.min(12, s * 260));
+  g.save(); g.lineWidth = 1;
+  fp.full.forEach(t => {
+    g.fillStyle = 'rgba(222,190,140,.30)'; g.fillRect(X(t.x), Y(t.y), t.w * s, t.h * s);
+    if (grain) ufFpWave(g, X(t.x), Y(t.y), t.w * s, t.h * s, grain, s, (t.x * 0.013 + t.y * 0.007) % 6.28);
+    g.strokeStyle = 'rgba(160,120,70,.75)'; g.strokeRect(X(t.x) + .5, Y(t.y) + .5, t.w * s - 1, t.h * s - 1);
+  });
+  fp.pieces.forEach(p => {
+    const hu = hue[kinds.indexOf(dk(p)) % hue.length]; g.fillStyle = `hsla(${hu},85%,58%,.34)`; g.fillRect(X(p.x), Y(p.y), p.w * s, p.h * s);
+    if (grain) ufFpWave(g, X(p.x), Y(p.y), p.w * s, p.h * s, grain, s, (p.x * 0.011 + p.y * 0.017) % 6.28);
+    g.strokeStyle = `hsla(${hu},70%,38%,.9)`; g.setLineDash([5, 3]); g.strokeRect(X(p.x) + .5, Y(p.y) + .5, p.w * s - 1, p.h * s - 1); g.setLineDash([]);
+    if (p.w * s > 34 && p.h * s > 14) { g.fillStyle = `hsl(${hu},70%,26%)`; g.font = `600 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ufFpDimTxt(p.w, p.h, grain), X(p.x + p.w / 2), Y(p.y + p.h / 2)); }
+  });
+  if (s * UF_FPB[1] > 26) { g.fillStyle = 'rgba(120,90,50,.7)'; g.font = `600 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; fp.full.forEach(t => { if (t.w * s > 60) g.fillText(ufFpDimTxt(t.w, t.h, grain), X(t.x + t.w / 2), Y(t.y + t.h / 2)); }); }
+  g.restore();
+  return { fp, grain, kinds, dk, hue };
+}
+// widok z góry z rozrysem podłogi → canvas (dodatkowa wizka przy „Generuj 3D”, gdy na stoisku jest podłoga)
+function ufRenderTop(W) {
+  const d = UF.d, st = d.stand, geo = ufGeom(d), F = 'Segoe UI, Arial, sans-serif', M = 170, TOPM = 200, s = (W - 2 * M) / st.L, X = x => M + x * s, Y = y => TOPM + y * s;
+  const fp = ufFloorPlan(st.L, st.D, ufFpDir()), grain = ufFpGrain(), kk = ufFpKinds(fp, grain), sys = ufK() ? 'K-Frame' : 'Ultra Frame';
+  const cnt = new Map(); fp.pieces.forEach(p => { const k = kk.dk(p); const r = cnt.get(k) || { n: 0, w: p.w, h: p.h }; r.n++; cnt.set(k, r); });
+  const rows = (fp.full.length ? 1 : 0) + kk.kinds.length, yL = Y(st.D) + 90, H = Math.round(yL + rows * 40 + 120);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1a202c'; g.font = `700 44px ${F}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(`${sys} — rozrys podłogi, widok z góry`, M, 78);
+  g.fillStyle = '#4a5568'; g.font = `400 24px ${F}`; g.fillText(`płyty ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}${grain ? ' · ' + UF_GRAIN_TXT[grain] : ''}`, M, 114);
+  g.fillStyle = '#fff'; g.fillRect(X(0), Y(0), st.L * s, st.D * s);
+  ufFpPaint(g, X, Y, s, st, F, { fs: 20 });
+  geo.parts.forEach(q => { g.fillStyle = q.op && q.op.t === 'door' ? '#ecc94b' : '#2d3748'; g.fillRect(X(q.x0), Y(q.y0), (q.x1 - q.x0) * s, (q.y1 - q.y0) * s); });
+  [['n', 0, 0, st.L, 0], ['e', st.L, 0, st.L, st.D], ['s', 0, st.D, st.L, st.D], ['w', 0, 0, 0, st.D]].forEach(([k, x1, y1, x2, y2]) => {
+    const open = !!st.open[k]; g.strokeStyle = open ? '#38a169' : '#718096'; g.lineWidth = open ? 5 : 2; g.setLineDash(open ? [14, 8] : []); g.beginPath(); g.moveTo(X(x1), Y(y1)); g.lineTo(X(x2), Y(y2)); g.stroke(); g.setLineDash([]);
+  });
+  drawArrowLine(g, X(0), Y(0) - 56, X(st.L), Y(0) - 56, 14, '#2b6cb0', 2); g.fillStyle = '#1a202c'; g.font = `600 26px ${F}`; g.textAlign = 'center'; g.fillText(lenPL(st.L), X(st.L / 2), Y(0) - 66);
+  drawArrowLine(g, X(0) - 56, Y(0), X(0) - 56, Y(st.D), 14, '#2b6cb0', 2); g.save(); g.translate(X(0) - 66, Y(st.D / 2)); g.rotate(-Math.PI / 2); g.fillText(lenPL(st.D), 0, 0); g.restore();
+  g.fillText(`${lenPL(st.L)} × ${lenPL(st.D)} ${UNIT()} · ${numPL(st.L * st.D / 1e6)} m²`, X(st.L / 2), Y(st.D) + 44);
+  // legenda: ile czego wyciąć
+  let y = yL; g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = `500 26px ${F}`;
+  const item = (fill, stroke, txt) => { g.fillStyle = fill; g.fillRect(M, y - 14, 44, 28); g.strokeStyle = stroke; g.lineWidth = 1.5; g.strokeRect(M, y - 14, 44, 28); g.fillStyle = '#1a202c'; g.fillText(txt, M + 62, y); y += 40; };
+  if (fp.full.length) item('rgba(222,190,140,.45)', 'rgba(160,120,70,.9)', `${ufFpDimTxt(UF_FPB[0], UF_FPB[1], '')} — całe płyty: ${fp.full.length} szt.`);
+  kk.kinds.forEach(k => { const r = cnt.get(k), hu = kk.hue[kk.kinds.indexOf(k) % kk.hue.length]; item(`hsla(${hu},85%,58%,.45)`, `hsla(${hu},70%,38%,.9)`, `${ufFpDimTxt(r.w, r.h, grain)} — kawałki: ${r.n} szt.`); });
+  const edge = [...fp.full, ...fp.pieces].reduce((a, t) => a + 2 * (t.w + t.h), 0);
+  g.fillStyle = '#2d3748'; g.font = `700 26px ${F}`; g.fillText(`Razem płyt: ${fp.total} · cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² · okleina: ${numPL(edge / 1000)} m`, M, y + 14);
+  return cv;
 }
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
-  { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); $('uf-fp-info').innerHTML = ufFpText(fp); }
+  { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); if (document.activeElement !== $('uf-fp-grain')) $('uf-fp-grain').value = ufFpGrain(); $('uf-fp-dir').disabled = !!ufFpGrain(); $('uf-fp-info').innerHTML = ufFpText(fp); }
   { const fl = ufFloor(); $('uf-fl-ctl').classList.toggle('hidden', !fl); if (!fl) UF.floorEdit = false;
     if (fl) { $('uf-fl-on').checked = !fl.off; if (fl.off) UF.floorEdit = false; const tv = Math.round((fl.t == null ? 0.5 : fl.t) * 100); if (document.activeElement !== $('uf-fl-t')) $('uf-fl-t').value = tv; $('uf-fl-tv').textContent = tv + '%'; if (document.activeElement !== $('uf-fl-w')) $('uf-fl-w').value = numIn(fromMM(fl.w)); }
     $('uf-fl-ed').classList.toggle('on', !!UF.floorEdit); $('uf-cv').style.cursor = UF.floorEdit ? 'move' : ''; }
@@ -8547,17 +8629,7 @@ function ufDraw(light) {
       const pw = (odd ? bb.h : bb.w) * s, ph = (odd ? bb.w : bb.h) * s; g.drawImage(im, -pw / 2, -ph / 2, pw, ph); g.restore();
       if (UF.floorEdit) { g.save(); g.strokeStyle = '#3182ce'; g.lineWidth = 2; g.setLineDash([8, 5]); g.strokeRect(X(bb.x), Y(bb.y), bb.w * s, bb.h * s); g.restore(); }
     } }
-  if (ufFpOn()) {          // rozrys podłogi: płyty 200 × 90 cm (całe jasne, przycięte kolorowe z opisem wymiaru)
-    const fp = ufFloorPlan(st.L, st.D, ufFpDir()), hue = [28, 205, 130, 285, 340, 55, 175], fs = Math.max(8, Math.min(12, s * 260));
-    const dk = p => Math.round(Math.max(p.w, p.h)) + 'x' + Math.round(Math.min(p.w, p.h)), kinds = [];     // kolor wg wymiaru kawałka: ten sam wymiar = ten sam kolor
-    fp.pieces.slice().sort((a, b) => b.w * b.h - a.w * a.h).forEach(p => { const k = dk(p); if (!kinds.includes(k)) kinds.push(k); });
-    g.save(); g.lineWidth = 1;
-    fp.full.forEach(t => { g.fillStyle = 'rgba(222,190,140,.30)'; g.fillRect(X(t.x), Y(t.y), t.w * s, t.h * s); g.strokeStyle = 'rgba(160,120,70,.75)'; g.strokeRect(X(t.x) + .5, Y(t.y) + .5, t.w * s - 1, t.h * s - 1); });
-    fp.pieces.forEach(p => { const hu = hue[kinds.indexOf(dk(p)) % hue.length]; g.fillStyle = `hsla(${hu},85%,58%,.34)`; g.fillRect(X(p.x), Y(p.y), p.w * s, p.h * s); g.strokeStyle = `hsla(${hu},70%,38%,.9)`; g.setLineDash([5, 3]); g.strokeRect(X(p.x) + .5, Y(p.y) + .5, p.w * s - 1, p.h * s - 1); g.setLineDash([]);
-      if (p.w * s > 34 && p.h * s > 14) { g.fillStyle = `hsl(${hu},70%,26%)`; g.font = `600 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`${lenPL(p.w)} × ${lenPL(p.h)}`, X(p.x + p.w / 2), Y(p.y + p.h / 2)); } });
-    if (s * UF_FPB[1] > 26) { g.fillStyle = 'rgba(120,90,50,.7)'; g.font = `600 ${fs}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; fp.full.forEach(t => { if (t.w * s > 60) g.fillText(`${lenPL(t.w)} × ${lenPL(t.h)}`, X(t.x + t.w / 2), Y(t.y + t.h / 2)); }); }
-    g.restore();
-  }
+  if (ufFpOn()) ufFpPaint(g, X, Y, s, st, F);          // rozrys podłogi: płyty 200 × 90 cm (całe jasne, przycięte kolorowe, z usłojeniem — fale słojów)
   const sides = [['n', 0, 0, st.L, 0], ['e', st.L, 0, st.L, st.D], ['s', 0, st.D, st.L, st.D], ['w', 0, 0, 0, st.D]];
   sides.forEach(([k, x1, y1, x2, y2]) => {
     const open = !!st.open[k];
@@ -9687,16 +9759,16 @@ function ufProduction() {
   // lightbox: wspólna ramka na całej szerokości lica
   geo.faces.forEach(fc => { if (fc.run.mounts[ufPlOf(fc.run, fc.inn)] === 'lightbox') add(9, `ramka lightbox 6 cm ${ufLen(fc.b - fc.a)} × ${ufLen(fc.h)}`, 'pasek LED po obwodzie wewnętrznym', 'plain'); });
   { // podłoga: płyty 200 × 90 cm — całe, pocięte (z wzorem cięcia) i podsumowanie
-    const fp = ufFloorPlan(d.stand.L, d.stand.D, ufFpDir()), bn = `płyta ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])}`;
+    const fp = ufFloorPlan(d.stand.L, d.stand.D, ufFpDir()), bn = `płyta ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])}`, gr = fp.grain, grTxt = gr ? ` · ${UF_GRAIN_TXT[gr]}, płyt nie obracano` : '', pd = p => gr === 'v' ? [p.ph, p.pw] : gr === 'h' ? [p.pw, p.ph] : [Math.max(p.pw, p.ph), Math.min(p.pw, p.ph)];
     if (fp.full.length) add(6, `${bn} — cała`, 'bez cięcia', 'plain', fp.full.length);
     const pat = new Map();
-    fp.boards.forEach(b => { const ps = b.pieces.slice().sort((x, y) => y.pw * y.ph - x.pw * x.ph).map(p => `${ufLen(Math.max(p.pw, p.ph))} × ${ufLen(Math.min(p.pw, p.ph))}`).join(' + '), k = ps + '|' + b.pieces.length; const r = pat.get(k) || { ps, n: 0 }; r.n++; pat.set(k, r); });
+    fp.boards.forEach(b => { const ps = b.pieces.slice().sort((x, y) => y.pw * y.ph - x.pw * x.ph).map(p => `${ufLen(pd(p)[0])} × ${ufLen(pd(p)[1])}`).join(' + '), k = ps + '|' + b.pieces.length; const r = pat.get(k) || { ps, n: 0 }; r.n++; pat.set(k, r); });
     pat.forEach(r => add(6, `${bn} — do pocięcia`, `kawałki: ${r.ps}`, 'plain', r.n));
     if (fp.total) {     // okleina: zsumowany obwód każdej formatki (całe płyty + pocięte kawałki)
       const per = t => 2 * (t.w + t.h), mFull = fp.full.reduce((a, t) => a + per(t), 0), mCut = fp.pieces.reduce((a, t) => a + per(t), 0);
       add(6, 'Razem okleiny podłogi — obwód wszystkich formatek', `całe płyty: ${fp.full.length} × ${numPL(per({ w: UF_FPB[0], h: UF_FPB[1] }) / 1000)} m = ${numPL(mFull / 1000)} m · pocięte kawałki (${fp.pieces.length} szt.): ${numPL(mCut / 1000)} m`, 'plain').val = numPL((mFull + mCut) / 1000) + ' m';
     }
-    if (fp.total) add(6, `Razem płyt ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])} do zamówienia`, `cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² (stoisko ${numPL(d.stand.L * d.stand.D / 1e6)} m²)`, 'plain', fp.total);
+    if (fp.total) add(6, `Razem płyt ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])} do zamówienia`, `cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² (stoisko ${numPL(d.stand.L * d.stand.D / 1e6)} m²)${grTxt}`, 'plain', fp.total);
   }
   const secs = [[0, 'Formatki standardowe'], [1, 'Połówki'], [2, 'Drzwi'], [4, 'Słupki'], [3, 'Dostawki'], [5, 'Konektory'], [6, 'Podłoga — płyty 200 × 90 cm'], [9, 'Ścianki nietypowe']];
   const out = secs.map(([sec, title]) => ({ sec, title, list: [...rows.values()].filter(r => r.sec === sec).sort((a, b) => a.label.localeCompare(b.label, 'pl', { numeric: true }) || a.sub.localeCompare(b.sub, 'pl')) }));
@@ -9832,6 +9904,17 @@ async function ufGenerate() {
         UF.d.photoId3 = pC;
       }
     } catch (e) { console.warn('Ultra Frame: wizualizacja', e); toast('Wizualizacja się nie udała: ' + e.message, 'error', 6000); }
+    // trzecia wizka: widok z góry z rozrysem podłogi (tylko gdy na stoisku jest podłoga)
+    try {
+      if (ufFpOn() && ufFloorPlan(UF.d.stand.L, UF.d.stand.D, ufFpDir()).total) {
+        const cvT = ufRenderTop(1700), blobT = await new Promise(res => cvT.toBlob(res, 'image/png')), upT = await storeImage(new File([blobT], 'ultra-frame-podloga.png', { type: 'image/png' }), 3200, { png: true });
+        const pT0 = UF.d.photoId4 && S.photos.find(p => p.id === UF.d.photoId4), recT = { url: upT.url, w: upT.w, h: upT.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — podłoga, widok z góry' };
+        let pT = pT0 ? pT0.id : '';
+        if (pT) await DB.update(pPhotos(pid), pT, recT);
+        else { const order = ++ordMax; pT = await DB.add(pPhotos(pid), { ...recT, order, createdAt: nowIso(), createdBy: S.me.id }); addLog(pid, `Ultra Frame: dodano wizkę #${order} (podłoga, widok z góry)`); }
+        UF.d.photoId4 = pT;
+      }
+    } catch (e) { console.warn('Ultra Frame: widok z góry', e); toast('Widok z góry podłogi się nie udał: ' + e.message, 'error', 6000); }
     const keep = new Set(jobs.map(j => j.run.key + '|' + j.role));
     const orphans = S.elements.filter(e => e.ufKey && !e.doorFor && !keep.has(e.ufKey + '|' + e.ufRole));
     UF.d.photoId = photoId; await ufSave();
@@ -9915,7 +9998,7 @@ async function ufSwitchSystem() {
   if (UF.busy || !UF.d) return;
   const to = ufK() ? 'e' : 'k', nm = to === 'k' ? 'K-Frame' : 'EasyFrame';
   if (UF.d.pieces.length && !await confirmBox(`Przełączyć na <b>${nm}</b>? Ułożone ścianki zostaną usunięte (moduły obu systemów różnią się wymiarami).`, 'Przełącz')) return;
-  ufPush(); const old = UF.d; UF.d = ufFreshLayout(to, { photoId: old.photoId, photoId2: old.photoId2, photoId3: old.photoId3, floor: old.floor });
+  ufPush(); const old = UF.d; UF.d = ufFreshLayout(to, { photoId: old.photoId, photoId2: old.photoId2, photoId3: old.photoId3, photoId4: old.photoId4, floor: old.floor });
   UF.sel = null; UF.rot = false; UF.vw = null; UF.skOn = false; ufInitUi(); ufChanged();
 }
 async function closeUltraFrame() {
@@ -9991,6 +10074,7 @@ async function closeUltraFrame() {
   $('uf-capsx').onchange = e => { ufPush(); UF.d.stand.capsX = e.target.checked; ufChanged(); };
   $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
   $('uf-fp-on').onchange = e => { ufPush(); UF.d.fp = { ...(UF.d.fp || {}), on: e.target.checked }; ufChanged(); };
+  $('uf-fp-grain').onchange = e => { ufPush(); UF.d.fp = { ...(UF.d.fp || {}), grain: e.target.value }; ufChanged(); };
   $('uf-fp-dir').onchange = e => { ufPush(); UF.d.fp = { ...(UF.d.fp || {}), dir: e.target.value }; ufChanged(); };
   $('uf-hb').onchange = e => { ufPush(); UF.d.hband = e.target.checked; ufChanged(); };
   $('uf-mount').onchange = e => ufSetMount(e.target.value);
