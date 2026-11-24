@@ -827,6 +827,8 @@
   .pl-row b { min-width: 34px; }
   .pl-row input { width: 150px; padding: 7px 9px; border: 1.5px solid var(--line); }
   .row-dims.four { grid-template-columns: 1fr 1fr 1fr 90px; }
+  .row-dims.five { grid-template-columns: 1fr 1fr 1fr 1fr 80px; }
+  .pl-segs { display: block; font-size: .78rem; color: #276749; margin-top: 2px; }
   .calc { background: var(--bg); border-left: 4px solid var(--accent); padding: 9px 12px; font-size: 0.82rem; margin-top: 4px; line-height: 1.5; }
   .calc b { font-variant-numeric: tabular-nums; }
   details.adm { margin-top: 12px; border: 1px dashed var(--mid); padding: 8px 12px; }
@@ -1507,6 +1509,7 @@ const DEFAULT_TYPES = [
     variants: [
       { id: 'okragla', name: 'Okrągła', dims: 'ring', icon: 'hang-ring', desc: 'Pierścień z grafiką dookoła. Podaj średnicę i wysokość.' },
       { id: 'kwadratowa', name: 'Kwadratowa / prostokątna', dims: 'box', icon: 'hang-box', desc: 'Grafika na czterech bokach. Podaj szerokość, głębokość i wysokość.' },
+      { id: 'kwadrat-luk', name: 'Kwadrat + łuk', dims: 'arc', icon: 'hang-arc', desc: 'Prostokąt z zaokrąglonymi narożnikami. Podaj szerokość, głębokość, promień narożnika (mieści się w szerokości i głębokości) i wysokość. Zadruk: jeden pas z pokazanymi segmentami (boki i łuki).' },
       { id: 'inny', name: 'Inny kształt', icon: 'hang-other', desc: 'Nietypowy kształt konstrukcji. Podaj wymiar i opisz kształt w uwagach.' },
     ] },
   { id: 'logo3d', order: 7, name: 'Logo 3D', color: '#f07d00', bleed: 0, icon: 'l3d-pcw',
@@ -1836,7 +1839,7 @@ const I18N_PAIRS = [
   ['Zadrukowana folia oklejająca całą powierzchnię (ściana, lada, słup). W opcjach zaznacz, czy z laminatem.', 'Плівка з друком, що вкриває всю поверхню (стіна, стійка, колона). В опціях позначте, чи з ламінатом.', 'Printed vinyl covering the whole surface (wall, counter, column). Tick laminate in the options if needed.'],
   ['Płyta PCW', 'ПВХ-плита', 'PVC board'], ['Baner Blackback', 'Банер Blackback', 'Blackback banner'], ['Lightbox (podświetlany)', 'Лайтбокс (з підсвіткою)', 'Lightbox (backlit)'],
   ['Konstrukcja podwieszana', 'Підвісна конструкція', 'Hanging structure'], ['Logo 3D', 'Логотип 3D', '3D logo'], ['Nie wiem — do ustalenia', 'Не знаю — визначимо', 'Don’t know — to be decided'],
-  ['Okrągła', 'Кругла', 'Round'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
+  ['Okrągła', 'Кругла', 'Round'], ['Kwadrat + łuk', 'Квадрат + дуга', 'Square + arc'], ['Kwadratowa / prostokątna', 'Квадратна / прямокутна', 'Square / rectangular'], ['3D z PCW', '3D з ПВХ', '3D PVC'], ['3D z pleksi', '3D з плексигласу', '3D acrylic'],
   ['Efekt halo', 'Ефект гало', 'Halo effect'], ['Mat', 'Мат', 'Matte'], ['Połysk', 'Глянець', 'Gloss'], ['mat', 'мат', 'matte'], ['połysk', 'глянець', 'gloss'], ['Wykończenie', 'Оздоблення', 'Finish'], ['Kolejna sztuka…', 'Ще одна штука…', 'Another piece…'], ['Ten sam element…', 'Той самий елемент…', 'Same element…'], ['Ten sam element', 'Той самий елемент', 'Same element'], ['Kolejna sztuka', 'Ще одна штука', 'Another piece'], ['Element', 'Елемент', 'Element'],
   ['To miejsce to kolejna sztuka elementu, który już jest na liście. Wybierz go — dostanie tu drugi znacznik, a liczba sztuk wzrośnie.', 'Це місце — ще одна штука елемента, який вже є у списку. Виберіть його — він отримає тут другу мітку, а кількість штук зросте.', 'This spot is another piece of an element already on the list. Pick it — it gets a second marker here and the quantity goes up.'], ['Wybierz z listy (wielokrotności 49,6 cm)', 'Вибрати зі списку (кратні 49,6 см)', 'Pick from the list (multiples of 49.6 cm)'], ['Standard', 'Стандарт', 'Standard'], ['Nazwa', 'Назва', 'Name'],
   ['Nazwa elementu (opcjonalnie)', 'Назва елемента (необов’язково)', 'Element name (optional)'], ['nazwa (opcjonalnie)', 'назва (необов’язково)', 'name (optional)'],
@@ -2550,6 +2553,19 @@ const depthOf = el => Number(el.d) > 0 ? Number(el.d) : Number(el.w); // kwadrat
 //  znaki: A1, A2…; przy zadruku wewnątrz dopisek outside / inside
 const PI_DRUK = 3.14;
 const isHang = el => el.typeId === 'podwieszana';
+// „Kwadrat + łuk”: prostokąt W × D z zaokrąglonymi narożnikami o promieniu r (el.r); r mieści się w połowie krótszego boku. Zadruk = jeden pas (obwód × wysokość)
+const arcRof = (W, D, r) => Math.max(0, Math.min(Number(r) || 0, Math.min(W, D) / 2));
+const arcR = el => arcRof(Number(el.w), depthOf(el), el.r);
+// segmenty pasa w kolejności druku (od środka północy, w stronę zachodu): pół boku, łuk, bok, łuk, bok, łuk, bok, łuk, pół boku
+function arcSegList(W, D, r) {
+  r = arcRof(W, D, r); const arc = Math.round(PI_DRUK * r / 2), sg = [], push = (k, len) => { if (len > 0.5) sg.push({ k, len: Math.round(len) }); };
+  push('bok', W / 2 - r); push('łuk', arc); push('bok', D - 2 * r); push('łuk', arc); push('bok', W - 2 * r); push('łuk', arc); push('bok', D - 2 * r); push('łuk', arc); push('bok', W / 2 - r);
+  return sg;
+}
+const arcLen = (W, D, r) => arcSegList(W, D, r).reduce((a, x) => a + x.len, 0);
+// wymiary zadruku wewnątrz: z wymiaru zewnętrznego odjęta grubość profilu (promień też)
+const arcInner = el => { const t = hangInset(el); return [Math.max(0, Number(el.w) - 2 * t), Math.max(0, depthOf(el) - 2 * t), Math.max(0, arcR(el) - t)]; };
+const arcSegsTxt = (W, D, r) => 'pas: ' + arcSegList(W, D, r).map(x => (x.k === 'łuk' ? '⌒ ' : '') + lenPL(x.len)).join(' + ') + ' ' + UNIT();
 // profil konstrukcji: okrągły 32 mm (dotychczasowy — zadruk wewnątrz w tym samym wymiarze), T 50 mm, EF 80 mm;
 // przy T i EF wymiar wewnętrzny jest mniejszy o grubość profilu z każdej strony (np. 100 → 90 dla T, 100 → 84 dla EF); wysokość bez zmian; domyślnie bez spadów
 const HANG_PROFILES = [['r32', 'Okrągły 32 mm', 0], ['t50', 'T 50 mm', 50], ['ef80', 'EF 80 mm', 80]];
@@ -2602,12 +2618,14 @@ function planeBaseIn(el, base) {
   const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
   if (m === 'box') { const iw = Math.max(0, W - 2 * t), id = Math.max(0, depthOf(el) - 2 * t); return [[iw, H], [id, H], [iw, H], [id, H]]; }
   if (m === 'ring') return [[Math.round(PI_DRUK * Math.max(0, W - 2 * t)), H]];
+  if (m === 'arc') { const [iw, id, ir] = arcInner(el); return [[arcLen(iw, id, ir), H]]; }
   return base;
 }
 function planeBase(el) {
   const m = dimsMode(el), W = Number(el.w), H = Number(el.h);
   if (m === 'box') return W > 0 && H > 0 ? [[W, H], [depthOf(el), H], [W, H], [depthOf(el), H]] : [];
   if (m === 'ring') return W > 0 && H > 0 ? [[Math.round(PI_DRUK * W), H]] : [];
+  if (m === 'arc') return W > 0 && H > 0 ? [[arcLen(W, depthOf(el), arcR(el)), H]] : [];
   const pl = (el.planes || []).map(p => [Number(p.w), Number(p.h)]).filter(([w, h]) => w > 0 && h > 0);
   return pl.length ? pl : (W > 0 && H > 0 ? [[W, H]] : []);
 }
@@ -2635,9 +2653,9 @@ function planesOf(el) {
   const joined = (dimsMode(el) === 'flat' || dimsMode(el) === 'box') && base.length > 1;
   const out = base.map(([w, h], i) => {
     const bb = joined ? { l: i === 0 ? k.l : 0, r: i === base.length - 1 ? k.r : 0, t: k.t, b: k.b } : k;
-    return { label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb, gw: w + bb.l + bb.r, gh: h + bb.t + bb.b, thumb: th[i] || '' };
+    return { label: mark + (i + 1), side: el.inside ? 'outside' : '', w, h, b: Math.max(k.l, k.r, k.t, k.b), bb, gw: w + bb.l + bb.r, gh: h + bb.t + bb.b, thumb: th[i] || '', ...(dimsMode(el) === 'arc' ? { segs: arcSegsTxt(Number(el.w), depthOf(el), arcR(el)) } : {}) };
   });
-  if (el.inside) { const inb = planeBaseIn(el, base); base.forEach(([, h], i) => { const iw = inb[i][0]; out.push({ label: mark + (base.length + i + 1), side: 'inside', w: iw, h, b: out[i].b, bb: out[i].bb, gw: iw + out[i].bb.l + out[i].bb.r, gh: out[i].gh, thumb: th[base.length + i] || '' }); }); }
+  if (el.inside) { const inb = planeBaseIn(el, base); base.forEach(([, h], i) => { const iw = inb[i][0]; out.push({ label: mark + (base.length + i + 1), side: 'inside', w: iw, h, b: out[i].b, bb: out[i].bb, gw: iw + out[i].bb.l + out[i].bb.r, gh: out[i].gh, thumb: th[base.length + i] || '', ...(dimsMode(el) === 'arc' ? { segs: arcSegsTxt(...arcInner(el)) } : {}) }); }); }
   return out;
 }
 const planeName = p => p.label + (p.side ? ' ' + p.side : '');
@@ -2645,9 +2663,9 @@ const planeName = p => p.label + (p.side ? ' ' + p.side : '');
 const qtyOf = e => isHang(e) && e.variant === 'inny' ? 1 : Math.max(1, Number(e.qty) || 1);
 // pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
 const hangFields = d => isHang(d)
-  ? { prof: hangProf(d)[0], hw: hwClean(d.hw), vw: d.vw && d.vw.yaw != null ? { yaw: Number(d.vw.yaw), pitch: Number(d.vw.pitch) || 35.264 } : null, viz: d.viz ? { strut: Number(d.viz.strut) || 1500, cabMode: d.viz.cabMode || 'vertical', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
+  ? { prof: hangProf(d)[0], hw: hwClean(d.hw), vw: d.vw && d.vw.yaw != null ? { yaw: Number(d.vw.yaw), pitch: Number(d.vw.pitch) || 35.264 } : null, viz: d.viz ? { strut: Number(d.viz.strut) || 1500, cabMode: d.viz.cabMode || 'vertical', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', r: dimsMode(d) === 'arc' ? (Number(d.r) || 0) : '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
       pthumbs: (d.pthumbs || []).slice(0, (planesOf(d) || []).length) }
-  : { hbMode: '', hbSides: null, pthumbs: [] };
+  : { hbMode: '', hbSides: null, pthumbs: [], r: '' };
 // obrazek ze schowka (null, gdy brak / brak zgody)
 async function clipboardImageFile() {
   if (!navigator.clipboard || !navigator.clipboard.read) return null;
@@ -2947,6 +2965,7 @@ function netTxt(el) {
   if (isHang(el) && m === 'flat') return planeBase(el).map(([w, h]) => `${lenPL(w)} × ${lenPL(h)}`).join(' + ');
   if (m === 'ring') return `Ø ${lenPL(el.w)} × ${lenPL(el.h)}`;
   if (m === 'box') return `${lenPL(el.w)} × ${lenPL(depthOf(el))} × ${lenPL(el.h)}`;
+  if (m === 'arc') return `${lenPL(el.w)} × ${lenPL(depthOf(el))} × ${lenPL(el.h)}, R ${lenPL(arcR(el))}`;
   return `${lenPL(el.w)} × ${lenPL(el.h)}`;
 }
 function grossTxt(el) {
@@ -2979,6 +2998,7 @@ function exampleSvg(t) {
     'l3d-blok': `<g font-size="46" font-weight="900" font-family="Arial" text-anchor="middle">${[10, 8, 6, 4, 2].map(o => `<text x="${120 + o}" y="${92 + o}" fill="#555">LOGO</text>`).join('')}<text x="120" y="92" fill="${c}">LOGO</text></g>`,
     'l3d-neon': `<rect x="20" y="18" width="200" height="118" fill="#1a202c"/><rect x="44" y="44" width="152" height="66" fill="none" stroke="#fff" stroke-opacity=".18"/><text x="120" y="92" text-anchor="middle" font-size="44" font-weight="400" fill="none" stroke="${c}" stroke-width="9" stroke-opacity=".3" font-family="Arial">LOGO</text><text x="120" y="92" text-anchor="middle" font-size="44" font-weight="400" fill="none" stroke="#fff" stroke-width="2.2" font-family="Arial">LOGO</text>`,
     'l3d-cnc': `<rect x="20" y="18" width="200" height="118" fill="#2d3748"/><g font-size="46" font-weight="900" font-family="Arial" text-anchor="middle">${[8, 6, 4, 2].map(o => `<text x="${120 + o}" y="${92 + o}" fill="#555">LOGO</text>`).join('')}<text x="120" y="92" fill="#fffbe6" stroke="${c}" stroke-width="3">LOGO</text></g><g stroke="${c}" stroke-width="2" opacity=".7"><line x1="58" y1="40" x2="66" y2="48"/><line x1="182" y1="40" x2="174" y2="48"/><line x1="120" y1="30" x2="120" y2="40"/></g>`,
+    'hang-arc': `<line x1="70" y1="0" x2="70" y2="44" stroke="#555"/><line x1="170" y1="0" x2="170" y2="44" stroke="#555"/><rect x="40" y="38" width="160" height="58" rx="26" fill="${c}"/><rect x="40" y="38" width="160" height="20" rx="10" fill="#fff" opacity=".28"/>`,
     'hang-other': `<line x1="80" y1="0" x2="86" y2="40" stroke="#555"/><line x1="160" y1="0" x2="154" y2="40" stroke="#555"/><polygon points="60,40 180,40 200,70 150,100 90,100 40,70" fill="${c}" stroke="#fff" stroke-width="1.5"/><text x="120" y="80" text-anchor="middle" font-size="26" font-weight="900" fill="#fff" font-family="Arial">?</text>`,
     'hang-ring': `<line x1="80" y1="0" x2="86" y2="52" stroke="#555"/><line x1="160" y1="0" x2="154" y2="52" stroke="#555"/><ellipse cx="120" cy="88" rx="80" ry="16" fill="#cbd5e0"/><rect x="40" y="56" width="160" height="32" fill="${c}"/><ellipse cx="120" cy="56" rx="80" ry="16" fill="${c}" stroke="#fff" stroke-width="1.5"/><ellipse cx="120" cy="56" rx="74" ry="12" fill="#e2e8f0"/>`,
     'hang-box': `<line x1="70" y1="0" x2="70" y2="44" stroke="#555"/><line x1="170" y1="0" x2="170" y2="44" stroke="#555"/><polygon points="50,52 150,52 190,40 90,40" fill="#e2e8f0" stroke="${c}"/><rect x="50" y="52" width="100" height="40" fill="${c}"/><polygon points="150,52 190,40 190,80 150,92" fill="${c}" opacity=".7"/>`,
@@ -4829,6 +4849,7 @@ function openMarkMenu(x, y, eid, loc) { if (isViewer()) return;
   m.innerHTML = `<div class="mm-h">${esc(markOf(el))} · ${esc(typeLabel(el))}</div>
     <button type="button" data-mm="copy">⧉ Skopiuj<small>nowy, osobny element (kolejna litera) z tymi samymi danymi</small></button>
     ${locsOf(el).length ? '<button type="button" data-mm="clone">⊕ Sklonuj<small>drugi znacznik tego samego elementu (ilość bez zmian)</small></button>' : ''}
+    <button type="button" data-mm="rename">✎ Zmień nazwę<small>${el.name ? 'obecnie: ' + esc(el.name) : 'nazwa elementu (np. „Ściana frontowa")'}</small></button>
     <button type="button" data-mm="hide" class="mm-hide"><span class="mm-eye">${eyeIcon(!!el.tblHidden)}</span> ${el.tblHidden ? 'Pokaż' : 'Ukryj'}<small>${el.tblHidden ? 'znów widoczny na wizce, w Grafice i w eksporcie' : 'półprzezroczysty na wizce, ukryty w Grafice i pominięty w eksporcie'}</small></button>
     <button type="button" data-mm="del" class="mm-del">✕ Usuń${locsOf(el).length > 1 ? '<small>tylko ten znacznik</small>' : ''}</button>`;
   document.body.appendChild(m);
@@ -4843,8 +4864,27 @@ function openMarkMenu(x, y, eid, loc) { if (isViewer()) return;
     if (act === 'copy') await copyElement(eid, null, loc);
     else if (act === 'clone') await cloneElementPiece(eid, loc);
     else if (act === 'hide') await toggleRowHidden(eid);
+    else if (act === 'rename') renameElement(eid);
     else if (locsOf(el).length > 1) removeLocation(eid, loc); else deleteElement(eid);
   });
+}
+// Zmień nazwę: małe okno z jednym polem (Enter zapisuje, puste pole = bez nazwy)
+function renameElement(eid) {
+  const el = S.elements.find(e => e.id === eid); if (!el || !S.project || isViewer()) return;
+  const m = openModal({ title: `Nazwa elementu ${esc(markOf(el))}`, body: `<div class="fld" style="margin:0"><input type="text" id="rn-name" maxlength="120" value="${esc(el.name || '')}" placeholder="np. Ściana frontowa" autocomplete="off"></div>`,
+    footer: '<span class="hint" style="margin-right:auto">Enter = zapisz · puste pole = bez nazwy</span><button class="btn" data-no>Anuluj</button><button class="btn btn-solid" data-ok>Zapisz</button>' });
+  const inp = m.el.querySelector('#rn-name'); setTimeout(() => { inp.focus(); inp.select(); }, 40);
+  m.el.querySelector('[data-no]').onclick = () => m.close();
+  const save = async () => {
+    const nm = inp.value.trim(); m.close();
+    if (nm === (el.name || '')) return;
+    try {
+      await DB.update(pElements(S.project.id), eid, { name: nm, updatedAt: nowIso(), updatedBy: S.me.id });
+      addLog(S.project.id, nm ? `Zmieniono nazwę elementu ${markOf(el)}: „${nm}”` : `Usunięto nazwę elementu ${markOf(el)}`, eid);
+    } catch (e) { toast('Błąd zapisu nazwy: ' + e.message, 'error'); }
+  };
+  m.el.querySelector('[data-ok]').onclick = save;
+  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); save(); } });
 }
 // Skopiuj: nowy element o tych samych danych (typ, wymiary, uwagi, drzwi…), znacznik tuż obok oryginału
 async function copyElement(eid, place = null, loc = -1) {
@@ -4960,7 +5000,7 @@ function openArcMenu(shape, photoId) {
     <div class="arc-panel hidden" style="left:${(R + 16 + ARC_BTN_W + 20) * dir}px;width:${ARC_PANEL_W}px"></div>`;
   document.body.appendChild(back);
   document.body.appendChild(root);
-  ARC = { root, back, dir, panelLeft: (R + 16 + ARC_BTN_W + 20) * dir, shape, photoId, items: types, typeId: '', variant: '', seg: null, thick: '', w: '', h: '', d: '', qty: 1, notes: '', shown: new Set(), hoverT: null };
+  ARC = { root, back, dir, panelLeft: (R + 16 + ARC_BTN_W + 20) * dir, shape, photoId, items: types, typeId: '', variant: '', seg: null, thick: '', w: '', h: '', d: '', r: '', qty: 1, notes: '', shown: new Set(), hoverT: null };
   root.querySelectorAll('.arc-btn').forEach(b => {
     b.tabIndex = -1;
     b.onclick = () => arcPickType(b.dataset.t);
@@ -5042,7 +5082,8 @@ function renderArcPanel() {
         return (wysList && (id === 'w' || id === 'h')) || (segH && id === 'h') ? `<span class="sz-wrap">${inp}</span>` : inp; };
       h += `<div class="ap-sec ap-form${fresh('form' + m + (vv && vv.thick ? 't' : ''))}">
         <div class="ap-lab">${m === 'flat' ? 'Wymiar widoczny' : 'Wymiar konstrukcji'} [${UNIT()}]</div>
-        <div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>
+        ${m === 'arc' ? `<div class="ap-row">${f('w', 'szerokość', ARC.w)}${f('d', 'głębokość', ARC.d)}</div><div class="ap-row">${f('r', 'promień narożnika', ARC.r)}${f('h', 'wysokość', ARC.h)}</div>`
+          : `<div class="ap-row ${m === 'box' ? 'r3' : ''}">${m === 'ring' ? f('w', 'średnica', ARC.w) : f('w', 'szerokość', ARC.w)}${m === 'box' ? f('d', 'głębokość', ARC.d) : ''}${f('h', 'wysokość', ARC.h)}</div>`}
         <div class="ap-row" style="grid-template-columns:1fr"><input type="text" data-f="name" value="${esc(ARC.name || '')}" placeholder="nazwa (opcjonalnie)"></div>
         <div class="ap-row r2"><input type="number" min="1" step="1" data-f="qty" value="${esc(ARC.qty)}" title="Ilość sztuk"><input type="text" data-f="notes" value="${esc(ARC.notes)}" placeholder="uwagi (opcjonalnie)"></div>
         <div class="ap-calc" id="ap-calc"></div>
@@ -5115,7 +5156,7 @@ function arcEl() {
   const num = v => v === '' || v == null ? '' : Math.max(0, Number(v));
   const vv = variantOf(ARC), m = dimsMode(ARC);
   return { typeId: ARC.typeId, variant: ARC.variant || '', seg: !!ARC.seg, thick: hasThick(ARC) ? num(ARC.thick) : '', ...togValues(ARC, ARC.typeId), ...litValues(ARC), wyslona: typeById(ARC.typeId).wyslona ? !!ARC.wyslona : false,
-    w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' ? toMM(ARC.d) : '', qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: String(ARC.name || '').trim() };
+    w: toMM(ARC.w), h: toMM(ARC.h), d: m === 'box' || m === 'arc' ? toMM(ARC.d) : '', ...(m === 'arc' ? { r: toMM(ARC.r) } : {}), qty: Math.max(1, parseInt(ARC.qty, 10) || 1), notes: String(ARC.notes || '').trim(), name: String(ARC.name || '').trim() };
 }
 function arcCalc() {
   const c = ARC && ARC.root.querySelector('#ap-calc'); if (!c) return;
@@ -5576,13 +5617,24 @@ document.addEventListener('pointerdown', ev => {
 // bufor obrazków wizualizacji (orbita odświeża rysunek wielokrotnie) i tkanina domyślna, gdy płaszczyzna nie ma grafiki
 const _hangImgs = new Map(), HANG_TEX = 'pod/tkanina-domyslna.png';
 function hangImg(src) { let p = _hangImgs.get(src); if (!p) { p = loadImg(src); _hangImgs.set(src, p); p.catch(() => _hangImgs.delete(src)); } return p; }
+// obrys „Kwadrat + łuk”: krawędzie (odcinki prostych i próbkowane łuki) w kolejności czytania pasa: od środka południa na wschód, dalej przez północ i zachód
+function arcOutline(W, D, r, nA = 12) {
+  r = arcRof(W, D, r); const prims = [], h = Math.PI / 2;
+  const Ls = (x0, y0, x1, y1) => { if (Math.hypot(x1 - x0, y1 - y0) > 1e-6) prims.push({ kind: 'str', pts: [[x0, y0], [x1, y1]] }); };
+  const Ar = (cx, cy, a0, a1) => { if (r <= 1e-6) return; const pts = []; for (let i = 0; i <= nA; i++) { const a = a0 + (a1 - a0) * i / nA; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } prims.push({ kind: 'arc', pts }); };
+  Ls(W / 2, D, W - r, D); Ar(W - r, D - r, h, 0); Ls(W, D - r, W, r); Ar(W - r, r, 0, -h); Ls(W - r, 0, W / 2, 0);
+  Ls(W / 2, 0, r, 0); Ar(r, r, -h, -2 * h); Ls(0, r, 0, D - r); Ar(r, D - r, 2 * h, h); Ls(r, D, W / 2, D);
+  const edges = []; let s0 = 0;
+  prims.forEach(pr => { for (let i = 0; i + 1 < pr.pts.length; i++) { const [x0, y0] = pr.pts[i], [x1, y1] = pr.pts[i + 1], len = Math.hypot(x1 - x0, y1 - y0); edges.push({ x0, y0, x1, y1, len, s0, s1: s0 + len, kind: pr.kind, nx: -(y1 - y0) / len, ny: (x1 - x0) / len }); s0 += len; } });
+  return { edges, P: s0, r };
+}
 const HANG_YAW0 = 36;      // domyślny obrót widoku konstrukcji podwieszanej [°]
 async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'tex' = z teksturą (grafiki płaszczyzn), 'frame' = sam szkielet (profile, rozpórki, linki)
   const tex = mode !== 'frame', ghost = mode === 'ghost';      // ghost = tkanina półprzezroczysta, szkielet widać przez nią
   const vo = el.viz || {}, strutStep = Math.max(50, Number(vo.strut) || 1500), cabMode = ['point', 'vertical', 'none'].includes(vo.cabMode) ? vo.cabMode : 'vertical';
   const cabStep = Math.max(100, Number(vo.cabStep) || 1500), cabH = Math.max(50, Number(vo.cabH) || 1000);      // rozpórki / linki: odstęp i wysokość [mm]
-  const m = dimsMode(el); if (m !== 'box' && m !== 'ring') return null;
-  const W = Number(el.w), H = Number(el.h), D = m === 'box' ? depthOf(el) : W;
+  const m = dimsMode(el); if (m !== 'box' && m !== 'ring' && m !== 'arc') return null;
+  const W = Number(el.w), H = Number(el.h), D = m === 'box' || m === 'arc' ? depthOf(el) : W, arcRad = m === 'arc' ? arcRof(W, D, el.r) : 0, ol = m === 'arc' ? arcOutline(W, D, arcRad) : null;
   if (!(W > 0 && H > 0 && D > 0)) return null;
   const allP = planesOf(el) || [], pls = allP.filter(q => q.side !== 'inside'), insP = allP.filter(q => q.side === 'inside'), imgs = [], imgsIn = [];
   // grafika na cały pas (miniatura elementu / zadruku wewnątrz), gdy płaszczyzny nie mają własnych: dzielona na płaszczyzny według szerokości do druku
@@ -5602,7 +5654,7 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
   const P = (x, y, z) => [kx * (x * ca - y * sa), ky * (x * sa + y * ca) - z];
   const cab = cabMode === 'none' ? 0 : cabH, cx = W / 2, cy = D / 2, R = W / 2, DEG = Math.PI / 180;
   const ext = [];
-  if (m === 'box') { for (const x of [0, W]) for (const y of [0, D]) for (const z of [0, H]) ext.push(P(x, y, z)); }
+  if (m === 'box' || m === 'arc') { for (const x of [0, W]) for (const y of [0, D]) for (const z of [0, H]) ext.push(P(x, y, z)); }
   else for (let a = 0; a < 360; a += 10) for (const z of [0, H]) ext.push(P(cx + R * Math.cos(a * DEG), cy + R * Math.sin(a * DEG), z));
   if (cab > 0) ext.push(P(cx, cy, H + cab));
   const minX = Math.min(...ext.map(p => p[0])), maxX = Math.max(...ext.map(p => p[0])), minY = Math.min(...ext.map(p => p[1])), maxY = Math.max(...ext.map(p => p[1]));
@@ -5682,6 +5734,30 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
       backE.forEach(i => rail(H, i)); frontE.forEach(i => rail(H, i));        // góra: tylne, potem przednie
       capPost();
     }
+  } else if (m === 'arc') {
+    const Pg = ol.P, isFront = e => e.nx * sa + e.ny * ca > 0, edgesF = ol.edges.filter(isFront), edgesB = ol.edges.filter(e => !isFront(e));
+    const uOut = (e, sv) => (e.s0 + e.s1) / 2 < Pg / 2 ? 0.5 + sv / Pg : sv / Pg - 0.5, uIn = sv => 1 - sv / Pg;      // pas: środek grafiki na południu, łączenie na północy; zadruk wewnątrz: odwrotnie
+    const face = (e, front) => {
+      const q = [T(e.x0, e.y0, H), T(e.x1, e.y1, H), T(e.x1, e.y1, 0), T(e.x0, e.y0, 0)];
+      if (front) { const im = imgs[0]; if (im) { const uL = uOut(e, e.s0), uR = uOut(e, e.s1); image(im, q[0], q[1], q[3], Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q); } else poly(q, tint(0.3)); }
+      else { const im = hasIn ? imgsIn[0] : null; if (im) { const uL = uIn(e.s1), uR = uIn(e.s0); image(im, q[1], q[0], q[2], Math.max(0, uL * im.width), Math.max(1, (uR - uL) * im.width), q); } else poly(q, hasIn ? lite(0.78) : tint(0.2)); }
+    };
+    const pointAt = sv => { sv = ((sv % Pg) + Pg) % Pg; const e = ol.edges.find(x => sv >= x.s0 && sv <= x.s1) || ol.edges[0], k = e.len ? (sv - e.s0) / e.len : 0; return { p: [e.x0 + (e.x1 - e.x0) * k, e.y0 + (e.y1 - e.y0) * k], dir: [(e.x1 - e.x0) / e.len, (e.y1 - e.y0) / e.len], n: [e.nx, e.ny] }; };
+    const nStr = Math.max(4, Math.round(Pg / strutStep)), struts = Array.from({ length: nStr }, (_, k) => pointAt((k + 0.5) * Pg / nStr)), sFront = q => q.n[0] * sa + q.n[1] * ca > 0, strut = q => flatStrut(q.p, q.dir);
+    const rail = (z, list) => list.forEach(e => railSeg(T(e.x0, e.y0, z), T(e.x1, e.y1, z)));
+    // granice segmentów pasa (prosta ↔ łuk): cienkie przerywane linie na licach zwróconych do widza
+    const joints = () => { g.save(); g.setLineDash([10, 8]); g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 2.2; ol.edges.forEach((e, i) => { const nx2 = ol.edges[(i + 1) % ol.edges.length]; if (e.kind === nx2.kind || !isFront(e)) return; const a = T(e.x1, e.y1, 0), b = T(e.x1, e.y1, H); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }); g.restore(); };
+    if (ghost) {
+      g.save(); g.globalAlpha = 0.5; edgesB.forEach(e => face(e, false)); edgesF.forEach(e => face(e, true)); g.restore(); joints();
+      rail(0, edgesB); rail(0, edgesF); struts.forEach(strut); rail(H, edgesB); rail(H, edgesF);
+    } else {
+      if (!tex) rail(0, edgesB);
+      if (tex) { struts.forEach(strut); edgesB.forEach(e => face(e, false)); edgesF.forEach(e => face(e, true)); joints(); }
+      else struts.filter(q => !sFront(q)).forEach(strut);
+      if (!tex) { rail(0, edgesF); struts.filter(sFront).forEach(strut); }
+      if (tex) { g.strokeStyle = tint(0.7); g.lineWidth = 1.5; [0, H].forEach(z => { g.beginPath(); ol.edges.forEach((e, i) => { const [x, y] = T(e.x0, e.y0, z); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath(); g.stroke(); }); }
+      rail(H, edgesB); rail(H, edgesF);
+    }
   } else {
     const N = 120, th = i => i * 2 * Math.PI / N, nd = a => Math.sin(a + ang), pt3 = (a, z) => T(cx + R * Math.cos(a), cy + R * Math.sin(a), z);
     const ring = (z, front) => { g.beginPath(); let st = false; for (let i = 0; i <= N; i++) { const a = th(i); if ((nd(a) > 0) !== front) { st = false; continue; } const [x, y] = pt3(a, z); st ? g.lineTo(x, y) : g.moveTo(x, y); st = true; }
@@ -5724,6 +5800,7 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
   if (cabMode !== 'none') {
     const anchors = [];
     if (m === 'box') { const C2 = [[0, 0], [W, 0], [W, D], [0, D]]; for (let i = 0; i < 4; i++) { const [x0, y0] = C2[i], [x1, y1] = C2[(i + 1) % 4], n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / cabStep)); for (let k = 0; k < n; k++) anchors.push([x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n]); } }
+    else if (m === 'arc') { const nC = Math.max(4, Math.round(ol.P / cabStep)); for (let k = 0; k < nC; k++) { let sv = k * ol.P / nC; const e = ol.edges.find(x => sv >= x.s0 && sv <= x.s1) || ol.edges[0], f = e.len ? (sv - e.s0) / e.len : 0; anchors.push([e.x0 + (e.x1 - e.x0) * f, e.y0 + (e.y1 - e.y0) * f]); } }
     else { const nC = Math.max(4, Math.round(Math.PI * W / cabStep)); for (let k = 0; k < nC; k++) { const a = k * 2 * Math.PI / nC; anchors.push([cx + R * Math.cos(a), cy + R * Math.sin(a)]); } }
     g.strokeStyle = '#2d3748'; g.lineWidth = 2; g.fillStyle = '#fff';
     if (cabMode === 'point') {
@@ -5750,13 +5827,21 @@ async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'te
     g.fillStyle = '#fff'; g.fillRect(mx - tw / 2 - 8, my - 20, tw + 16, 40); g.fillStyle = '#276749'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, mx, my + 1);
   };
   const sOff = (nx, ny, px) => { const a0 = T(0, 0, 0), b0 = T(nx * 100, ny * 100, 0), dx = b0[0] - a0[0], dy = b0[1] - a0[1], l = Math.hypot(dx, dy); return l < 1e-6 ? [0, px] : [dx / l * px, dy / l * px]; };
-  if (m === 'box') {
+  if (m === 'box' || m === 'arc') {
     const southFront = sa * 0 + ca > 0, eastFront = sa > 0;
     const yE = southFront ? D : 0, xE = eastFront ? W : 0;
     dim(T(0, yE, 0), T(W, yE, 0), sOff(0, southFront ? 1 : -1, 64), lenPL(W) + U);
     dim(T(xE, D, 0), T(xE, 0, 0), sOff(eastFront ? 1 : -1, 0, 64), lenPL(D) + U);
     const lc = [[0, 0], [W, 0], [W, D], [0, D]].reduce((b2, c2) => P(c2[0], c2[1], 0)[0] < P(b2[0], b2[1], 0)[0] ? c2 : b2);
     dim(T(lc[0], lc[1], 0), T(lc[0], lc[1], H), [-70, 0], lenPL(H) + U);
+    if (m === 'arc' && arcRad > 0) {          // promień: od środka łuku do jego punktu, na narożniku najbliżej widza
+      const cs = [[W - arcRad, D - arcRad, Math.PI / 4], [W - arcRad, arcRad, -Math.PI / 4], [arcRad, arcRad, -3 * Math.PI / 4], [arcRad, D - arcRad, 3 * Math.PI / 4]];
+      const [kx0, ky0, a0] = cs.reduce((b2, c2) => (c2[0] + Math.cos(c2[2]) * arcRad) * sa + (c2[1] + Math.sin(c2[2]) * arcRad) * ca > (b2[0] + Math.cos(b2[2]) * arcRad) * sa + (b2[1] + Math.sin(b2[2]) * arcRad) * ca ? c2 : b2);
+      const A = T(kx0, ky0, H), B = T(kx0 + arcRad * Math.cos(a0), ky0 + arcRad * Math.sin(a0), H), mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, txt = 'R ' + lenPL(arcRad);
+      g.strokeStyle = '#38a169'; g.lineWidth = 3; g.setLineDash([9, 6]); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); g.setLineDash([]);
+      g.beginPath(); g.arc(A[0], A[1], 5, 0, Math.PI * 2); g.fillStyle = '#38a169'; g.fill();
+      g.font = `700 28px ${F}`; const tw = g.measureText(txt).width; g.fillStyle = '#fff'; g.fillRect(mx - tw / 2 - 8, my - 19, tw + 16, 38); g.fillStyle = '#276749'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, mx, my + 1);
+    }
   } else {
     const c0 = T(cx, cy, 0), rx = kx * R * s, rb = ky * R * s;       // średnica pod konstrukcją (poza rysunkiem), wysokość z lewej strony
     dim([c0[0] - rx, c0[1]], [c0[0] + rx, c0[1]], [0, rb + 56], 'Ø ' + lenPL(W) + U);
@@ -5932,10 +6017,10 @@ async function hangMakeViz(el, mark, eid, mode = 'tex') {
   finally { t.remove(); }
 }
 // wizualizacja konstrukcji podwieszanej powstaje sama przy zapisie elementu; zmiana wymiarów / ustawień odświeża istniejącą wizkę (w jej bieżącym widoku)
-const hangSig = e => JSON.stringify(['tlo-biale', e.thumb || '', e.thumbIn || '', e.variant, e.w, e.h, e.d, hangProf(e)[0], !!e.inside, e.hbMode, e.hbSides, e.viz, e.vw, (e.pthumbs || []).join('|')]);
+const hangSig = e => JSON.stringify(['tlo-biale', e.thumb || '', e.thumbIn || '', e.variant, e.w, e.h, e.d, hangProf(e)[0], !!e.inside, e.hbMode, e.hbSides, e.viz, e.vw, (e.pthumbs || []).join('|'), ...(dimsMode(e) === 'arc' ? [e.r] : [])]);
 const hangVizPhoto = e => { const id = [e.vizPhotoId, e.vizFramePhotoId, e.vizGhostPhotoId].find(x => x && S.photos.some(p => p.id === x)); return id ? S.photos.find(p => p.id === id) : null; };
 async function hangAutoViz(el) {
-  if (!el || !el.id || !isHang(el) || isViewer() || !S.project || !['box', 'ring'].includes(dimsMode(el))) return;
+  if (!el || !el.id || !isHang(el) || isViewer() || !S.project || !['box', 'ring', 'arc'].includes(dimsMode(el))) return;
   if (!(Number(el.w) > 0 && Number(el.h) > 0 && (dimsMode(el) === 'ring' || depthOf(el) > 0))) return;
   const sig = hangSig(el), pid = S.project.id, ph = hangVizPhoto(el);
   if (ph && el.vizSig === sig) return;                           // nic się nie zmieniło — wizualizacja aktualna
@@ -5979,6 +6064,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         <div class="row-dims" id="ed-dims">
           <div class="fld" style="margin:0"><input type="text" inputmode="decimal" autocomplete="off" id="ed-w" value="${esc(numIn(fromMM(el.w)))}" placeholder="szerokość [${UNIT()}]" title="Można wpisać działanie, np. 99,2x2+8 — pokażę wynik, a wyliczenie zapamiętam"></div>
           <div class="fld" style="margin:0" id="ed-d-wrap"><input type="number" id="ed-d" min="0" step="${unitStep()}" value="${esc(fromMM(el.d || ''))}" placeholder="głębokość [${UNIT()}]"></div>
+          <div class="fld" style="margin:0" id="ed-r-wrap"><input type="number" id="ed-r" min="0" step="${unitStep()}" value="${esc(fromMM(el.r || ''))}" placeholder="promień [${UNIT()}]" title="Promień zaokrąglenia narożników — musi się mieścić w połowie krótszego boku"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-h" min="0" step="${unitStep()}" value="${esc(fromMM(el.h))}" placeholder="wysokość [${UNIT()}]"></div>
           <div class="fld" style="margin:0"><input type="number" id="ed-q" min="1" step="1" value="${esc(el.qty || 1)}" title="Ilość sztuk"></div>
         </div>
@@ -6009,7 +6095,8 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     wExpr: el.wExpr && Math.abs((toMM(calcEval(el.wExpr)) || 0) - (toMM(calcVal($('ed-w').value)) || 0)) < 1 ? el.wExpr : '',
     wExprUnit: el.wExpr ? (el.wExprUnit || UNIT()) : '',
     h: toMM($('ed-h').value),
-    d: dimsMode(el) === 'box' ? toMM($('ed-d').value) : '',
+    d: ['box', 'arc'].includes(dimsMode(el)) ? toMM($('ed-d').value) : '',
+    r: dimsMode(el) === 'arc' ? toMM($('ed-r').value) : '',
     variant: el.variant || '',
     inside: isHang(el) ? !!el.inside : false,
     planes: isHang(el) && dimsMode(el) === 'flat' ? (el.planes || []).filter(p => Number(p.w) > 0 || Number(p.h) > 0).map(p => ({ w: Number(p.w) || '', h: Number(p.h) || '' })) : [],
@@ -6193,8 +6280,10 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       if (!el.planes || !el.planes.length) el.planes = [{ w: Number(toMM(calcVal($('ed-w').value))) || '', h: Number(toMM($('ed-h').value)) || '' }];
       renderPlanes();
     }
-    $('ed-d-wrap').classList.toggle('hidden', m !== 'box');
+    $('ed-d-wrap').classList.toggle('hidden', m !== 'box' && m !== 'arc');
+    $('ed-r-wrap').classList.toggle('hidden', m !== 'arc');
     $('ed-dims').classList.toggle('four', m === 'box');
+    $('ed-dims').classList.toggle('five', m === 'arc');
     $('ed-w').placeholder = (m === 'ring' ? 'średnica' : 'szerokość') + ` [${UNIT()}]`;
     // wysłona: lista typowych wymiarów (wielokrotności 49,6 cm) przy szerokości i wysokości
     const wysList = t && t.wyslona && el.wyslona;
@@ -6207,6 +6296,8 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     $('ed-dims-lab').textContent = m === 'flat' ? '2. Wymiar widoczny (netto)' : '2. Wymiar konstrukcji';
     $('ed-dims-hint').textContent = unitHint(m === 'ring' ? 'Średnica × wysokość pierścienia w milimetrach, ostatnie pole — ilość sztuk. Grafikę liczymy jako pas dookoła (obwód × wysokość).'
       : m === 'box' ? 'Szerokość × głębokość × wysokość w milimetrach (kwadratowa: głębokość możesz pominąć), ostatnie pole — ilość sztuk. Grafikę liczymy jako pas na czterech bokach.'
+      : m === 'arc' ? (() => { const w0 = toMM(calcVal($('ed-w').value)) || 0, d0 = toMM($('ed-d').value) || w0, r0 = toMM($('ed-r').value) || 0, mx = Math.min(w0, d0) / 2;
+          return 'Szerokość × głębokość × promień narożnika × wysokość, ostatnie pole — ilość sztuk. Zadruk to jeden pas (obwód × wysokość); segmenty (boki i łuki) widać niżej.' + (r0 > mx && mx > 0 ? ` ⚠ Promień ${lenPL(r0)} nie mieści się — liczę z maksymalnym ${lenPL(mx)} ${UNIT()}.` : ''); })()
       : 'Szerokość × wysokość w milimetrach, ostatnie pole — ilość sztuk. Nie znasz wymiaru? Zostaw puste — oznaczymy jako „do ustalenia".');
   };
   // wymiar każdej płaszczyzny (netto → do druku) pod polami + łączny wymiar na samym dole; przy każdej płaszczyźnie własny podgląd
@@ -6218,7 +6309,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const sw = pls.reduce((a, q) => a + q.w, 0), mh = Math.max(...pls.map(q => q.h)), gw = pls.reduce((a, q) => a + q.gw, 0), gh = Math.max(...pls.map(q => q.gh));
     const area = pls.reduce((a, q) => a + q.gw * q.gh, 0) / 1e6;
     box.innerHTML = `<label class="pl-lab" style="margin-top:10px">Wymiary płaszczyzn</label><div class="pl-drop-h">Przeciągnij plik TIFF / JPG / PNG na płaszczyznę — miniatura powstanie sama (TIFF: 1:10 z napisem PREVIEW). Kilka plików naraz wchodzi po kolei, od płaszczyzny, na którą je upuścisz.</div>` + pls.map((q, i) => `
-      <div class="pl-srow"><b>${esc(planeName(q))}</b><span>${lenPL(q.w)} × ${lenPL(q.h)} → do druku <b>${lenPL(q.gw)} × ${lenPL(q.gh)}</b> ${UNIT()}${hangBleedAny(q.bb) ? ' · ze spadem' : ''}</span>
+      <div class="pl-srow"><b>${esc(planeName(q))}</b><span>${lenPL(q.w)} × ${lenPL(q.h)} → do druku <b>${lenPL(q.gw)} × ${lenPL(q.gh)}</b> ${UNIT()}${hangBleedAny(q.bb) ? ' · ze spadem' : ''}${q.segs ? `<small class="pl-segs">${esc(q.segs)}</small>` : ''}</span>
         ${q.thumb ? `<img class="pl-th" src="${esc(q.thumb)}" alt=""><button type="button" class="btn btn-sm" data-ptrm="${i}" title="Usuń podgląd">✕</button>`
           : `<button type="button" class="btn btn-sm" data-ptb="${i}" title="Wklej podgląd tej płaszczyzny ze schowka (albo wybierz plik)">🖼 Wklej podgląd</button>`}</div>`).join('') +
       (() => {
@@ -6226,13 +6317,13 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         const row = (url, inn) => url ? `<div class="pl-srow pl-comb"><b>${inn ? 'Zadruk wewn.' : 'Cała konstrukcja'}</b><span>wspólny podgląd jednym obrazkiem (leży pod podglądami płaszczyzn)</span><img class="pl-th" src="${esc(url)}" alt=""><button type="button" class="btn btn-sm" data-ctrm="${inn ? 'in' : ''}" title="Usuń wspólny podgląd">✕</button></div>` : '';
         return row(st.thumb, false) + (cur.inside ? row(st.thumbIn, true) : '');
       })() +
-      (['box', 'ring'].includes(dimsMode(cur)) ? (() => {
+      (['box', 'ring', 'arc'].includes(dimsMode(cur)) ? (() => {
         const vz = { strut: 1500, cabMode: 'vertical', cabStep: 1500, cabH: 1000, ...(el.viz || {}) }, num = k => `<input type="number" data-vz="${k}" min="1" step="${unitStep()}" value="${esc(fromMM(vz[k]))}">`;
         return `<div class="viz-set"><b>Wizualizacja:</b> <label>rozpórki co ${num('strut')} ${UNIT()}</label>
           <label>linki <select data-vz="cabMode"><option value="point" ${vz.cabMode === 'point' ? 'selected' : ''}>w jeden punkt</option><option value="vertical" ${vz.cabMode === 'vertical' ? 'selected' : ''}>pionowo</option><option value="none" ${vz.cabMode === 'none' ? 'selected' : ''}>bez linek</option></select></label>
           <label>co ${num('cabStep')} ${UNIT()}</label><label>wysokość ${num('cabH')} ${UNIT()}</label></div>`;
       })() : '') +
-      (['box', 'ring'].includes(dimsMode(cur)) ? `<div class="hint" style="margin-top:6px">Wizualizacja powstaje automatycznie po zapisaniu i odświeża się, gdy zmienią się wymiary lub ustawienia konstrukcji. Widok (pełny / szkielet / tkanina półprzezroczysta) i orbitę zmienisz na gotowej wizce.</div>` : '') +
+      (['box', 'ring', 'arc'].includes(dimsMode(cur)) ? `<div class="hint" style="margin-top:6px">Wizualizacja powstaje automatycznie po zapisaniu i odświeża się, gdy zmienią się wymiary lub ustawienia konstrukcji. Widok (pełny / szkielet / tkanina półprzezroczysta) i orbitę zmienisz na gotowej wizce.</div>` : '') +
       `<div class="pl-total"><b>Razem</b><span>netto ${lenPL(sw)} × ${lenPL(mh)} · do druku <b>${lenPL(gw)} × ${lenPL(gh)}</b> ${UNIT()} (płaszczyzny obok siebie) · <b>${numPL(area)} m²</b></span></div>`;
     // podgląd płaszczyzn: wklejony ze schowka, wybrany albo upuszczony (także kilka plików naraz, po kolei od wskazanej płaszczyzny)
     const putPlaneFiles = async (start, files) => {
@@ -6395,7 +6486,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     m.el.querySelectorAll('.type-list .type-btn').forEach(x => x.classList.toggle('on', x === b));
     renderOpts(); renderCombo(); refresh();
   });
-  ['ed-w', 'ed-d', 'ed-h', 'ed-q'].forEach(id => { const i = $(id); if (i) i.addEventListener('input', refresh); });
+  ['ed-w', 'ed-d', 'ed-r', 'ed-h', 'ed-q'].forEach(id => { const i = $(id); if (i) i.addEventListener('input', refresh); });
   // szerokość: działanie liczone od razu; po wyjściu z pola widać wynik, wyliczenie zostaje zapamiętane
   const wIn = $('ed-w');
   wIn.addEventListener('input', () => {
@@ -7268,7 +7359,7 @@ function orderLine(e) {
     if (e.inside) head.push('zadruk zewnątrz i wewnątrz');
     if (e.notes) head.push(e.notes);
     return `${markOf(e)}${e.name ? ' (' + e.name + ')' : ''}: ${head.join(', ')}` +
-      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${!hangBleedAny(hangBleed(e)) ? ' (bez spadu)' : (planesOf(e) || []).length > 1 && dimsMode(e) === 'flat' ? '' : ` (spad ${hangBleedShort(e)})`}`).join('') +
+      (planesOf(e) || []).map(p => `\n   ${planeName(p)}: ${lenPL(p.gw)} × ${lenPL(p.gh)} ${UNIT()}${!hangBleedAny(hangBleed(e)) ? ' (bez spadu)' : (planesOf(e) || []).length > 1 && dimsMode(e) === 'flat' ? '' : ` (spad ${hangBleedShort(e)})`}${p.segs ? `\n      ${p.segs}` : ''}`).join('') +
       (() => { const pl = planesOf(e) || []; return pl.length > 1 ? `\n   razem (płaszczyzny obok siebie): ${lenPL(pl.reduce((a, p) => a + p.gw, 0))} × ${lenPL(Math.max(...pl.map(p => p.gh)))} ${UNIT()}${hangBleedAny(hangBleed(e)) ? ` (spad ${hangBleedShort(e)} dookoła całości)` : ''} · ${numPL(pl.reduce((a, p) => a + p.gw * p.gh, 0) / 1e6)} m²` : ''; })();
   }
   const parts = [hasDims(e) ? `${grossTxt(e)} ${UNIT()}` : 'wymiar do ustalenia', `${e.qty || 1} szt.`, orderTypeLabel(e) + (t.transfer ? ' + transfer' : '')];
@@ -10465,7 +10556,7 @@ function exportRows() {
   return S.elements.filter(e => !hiddenInExport(e)).map(e => {
     const t = typeById(e.typeId), g = grossOf(e);
     return { znak: markOf(e), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
-      w: hasDims(e) ? (Number(e.w) > 0 ? e.w : g.w) : '', h: hasDims(e) ? (Number(e.h) > 0 ? e.h : g.h) : '', d: hasDims(e) && dimsMode(e) === 'box' ? depthOf(e) : '',
+      w: hasDims(e) ? (Number(e.w) > 0 ? e.w : g.w) : '', h: hasDims(e) ? (Number(e.h) > 0 ? e.h : g.h) : '', d: hasDims(e) && ['box', 'arc'].includes(dimsMode(e)) ? depthOf(e) : '',
       net: netTxt(e), gross: grossTxt(e), spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
       qty: qtyOf(e), m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: colorOf(e), el: e };
   });
