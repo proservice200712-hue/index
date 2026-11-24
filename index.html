@@ -6841,16 +6841,18 @@ function renderGraph() {
     const outRows = hangPl.length ? (hangPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0, inRows = insPl.length ? (insPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0;
     const inTop = hangPl.length ? FH + 16 + outRows * 22 + 24 : 0;       // górna krawędź paska zadruku wewnętrznego (pod wymiarami zewnętrznymi)
     const LM = !dims ? 0 : hangPl.length ? (hangBl ? 56 : 32) : g.b ? 56 : 32, BM = !dims ? 0 : hangPl.length ? (insPl.length ? inTop + 16 + inRows * 22 + 6 : 10 + outRows * 22) : g.b ? 44 : 24;
-    const W = LM + FW + 4, H = FH + BM, QW = qtyOf(e) > 1 ? 52 : 0; // miejsce na „×3” obok miniatury
+    const W = LM + FW + 4, H = FH + BM, QW = !eRaw.multi && qtyOf(e) > 1 ? 52 : 0; // miejsce na „×3” obok miniatury (Multi: ilość jest na miniaturach pozycji)
+    const noDimLines = mi > 0;                  // Multi: wymiarujemy tylko pierwszą pozycję, pozostałe mają ten sam wymiar
     let svg = '';
     if (dims) {
       const L = (x1, y1, x2, y2, txt, vert) => {
+        if (noDimLines) return '';
         let o = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#4a5568" stroke-width="1" marker-start="url(#gArrow)" marker-end="url(#gArrow)"/>`;
         if (vert) { const cx = x1 - 4, cy = (y1 + y2) / 2; o += `<text x="${cx}" y="${cy}" text-anchor="middle" transform="rotate(-90 ${cx} ${cy})">${txt}</text>`; }
         else o += `<text x="${(x1 + x2) / 2}" y="${y1 - 4}" text-anchor="middle">${txt}</text>`;
         return o;
       };
-      const ext = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a0aec0" stroke-width=".8"/>`;
+      const ext = (x1, y1, x2, y2) => noDimLines ? '' : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a0aec0" stroke-width=".8"/>`;
       svg += `<rect x="${LM}" y="0" width="${FW}" height="${FH}" fill="none" stroke="#a0aec0"/>`;
       if (hangPl.length) {
         // pasek płaszczyzn z wymiarami: każda netto (bez spadu), razem netto, razem ze spadem + wysokości; zadruk wewnątrz — ten sam blok niżej
@@ -6881,7 +6883,7 @@ function renderGraph() {
         svg += ext(LM, 0, LM - 24, 0) + ext(LM, FH, LM - 24, FH) + L(LM - 22, 0, LM - 22, FH, cm(g.h), true);
       }
     }
-    const doorLayer = hasDoor(e) && dims ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - bw - bwR, FH - bh - bhB)}</svg>` : '';
+    const doorLayer = hasDoor(e) && dims && !noDimLines ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${doorSvg(e, LM + bw, bh, FW - bw - bwR, FH - bh - bhB)}</svg>` : '';
     // ramka netto (bez spadu) na wierzchu grafiki — widać, co zostaje po przycięciu; cienka, sama przerywana linia
     const netFrame = bx && dims && !hangPl.length && !(e.doorFor && !(e.seg || e.wyslona)) && !e.backFor
       ? `<svg class="gc-dsvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="${LM + bw}" y="${bh}" width="${FW - bw - bwR}" height="${FH - bh - bhB}" fill="none" stroke="#e8527a" stroke-width=".75" stroke-dasharray="5 3"/></svg>` : '';
