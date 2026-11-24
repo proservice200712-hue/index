@@ -10542,7 +10542,7 @@ function renderTodoBtn() {
   b.classList.toggle('todo-on', n > 0);
   b.classList.toggle('fi-on', fi.length > 0);
   b.classList.toggle('fi-ign', n === 0 && act === 0 && fi.length > 0);       // zostały tylko zignorowane niezgodności: ikonka pomarańczowa
-  b.innerHTML = '!?' + (n ? ` <small>${n}</small>` : '') + fi.slice(0, 4).map(f => `<span class="todo-ex${f.ign ? ' ign' : ''}">!</span>`).join('') + (fi.length > 4 ? ` <small>+${fi.length - 4}</small>` : '');
+  b.innerHTML = '!?' + (n ? ` <small>${n}</small>` : '') + (fi.length ? `<span class="todo-ex${act ? '' : ' ign'}">!</span>` + (act > 1 || (!act && fi.length > 1) ? ` <small>${act || fi.length}</small>` : '') : '');
   b.title = (n ? `Do zrobienia lub sprawdzenia: ${n} — kliknij, aby zobaczyć` : 'Notatki: rzeczy do zrobienia lub sprawdzenia')
     + (fi.length ? `\nNiezgodne pliki: ${act}${fi.length > act ? ' (+' + (fi.length - act) + ' zignorowanych)' : ''} — proporcje grafiki inne niż ramki` : '');
   if ($('todo-list')) renderTodoList();
