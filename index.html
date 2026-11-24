@@ -2643,7 +2643,7 @@ const planeName = p => p.label + (p.side ? ' ' + p.side : '');
 const qtyOf = e => isHang(e) && e.variant === 'inny' ? 1 : Math.max(1, Number(e.qty) || 1);
 // pola konstrukcji podwieszanej do zapisu: tryb spadu, spady indywidualne, podglądy płaszczyzn
 const hangFields = d => isHang(d)
-  ? { prof: hangProf(d)[0], hw: hwClean(d.hw), vw: d.vw && d.vw.yaw != null ? { yaw: Number(d.vw.yaw), pitch: Number(d.vw.pitch) || 35.264 } : null, viz: d.viz ? { strut: Number(d.viz.strut) || 1500, cabMode: d.viz.cabMode || 'point', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
+  ? { prof: hangProf(d)[0], hw: hwClean(d.hw), vw: d.vw && d.vw.yaw != null ? { yaw: Number(d.vw.yaw), pitch: Number(d.vw.pitch) || 35.264 } : null, viz: d.viz ? { strut: Number(d.viz.strut) || 1500, cabMode: d.viz.cabMode || 'vertical', cabStep: Number(d.viz.cabStep) || 1500, cabH: Number(d.viz.cabH) || 1000 } : null, vizPhotoId: d.vizPhotoId || '', vizFramePhotoId: d.vizFramePhotoId || '', vizGhostPhotoId: d.vizGhostPhotoId || '', hbMode: d.hbMode || 'none', hbSides: d.hbMode === 'custom' ? { l: Number(d.hbSides && d.hbSides.l) || 0, r: Number(d.hbSides && d.hbSides.r) || 0, t: Number(d.hbSides && d.hbSides.t) || 0, b: Number(d.hbSides && d.hbSides.b) || 0 } : null,
       pthumbs: (d.pthumbs || []).slice(0, (planesOf(d) || []).length) }
   : { hbMode: '', hbSides: null, pthumbs: [] };
 // obrazek ze schowka (null, gdy brak / brak zgody)
@@ -5575,7 +5575,7 @@ function hangImg(src) { let p = _hangImgs.get(src); if (!p) { p = loadImg(src); 
 const HANG_YAW0 = 36;      // domyślny obrót widoku konstrukcji podwieszanej [°]
 async function hangRender(el, mark, mode = 'tex', opts = {}) {      // mode: 'tex' = z teksturą (grafiki płaszczyzn), 'frame' = sam szkielet (profile, rozpórki, linki)
   const tex = mode !== 'frame', ghost = mode === 'ghost';      // ghost = tkanina półprzezroczysta, szkielet widać przez nią
-  const vo = el.viz || {}, strutStep = Math.max(50, Number(vo.strut) || 1500), cabMode = ['point', 'vertical', 'none'].includes(vo.cabMode) ? vo.cabMode : 'point';
+  const vo = el.viz || {}, strutStep = Math.max(50, Number(vo.strut) || 1500), cabMode = ['point', 'vertical', 'none'].includes(vo.cabMode) ? vo.cabMode : 'vertical';
   const cabStep = Math.max(100, Number(vo.cabStep) || 1500), cabH = Math.max(50, Number(vo.cabH) || 1000);      // rozpórki / linki: odstęp i wysokość [mm]
   const m = dimsMode(el); if (m !== 'box' && m !== 'ring') return null;
   const W = Number(el.w), H = Number(el.h), D = m === 'box' ? depthOf(el) : W;
@@ -6099,6 +6099,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     if (t && t.id === 'podwieszana') h += `<label class="chk seg-chk"><input type="checkbox" id="ed-inside" ${el.inside ? 'checked' : ''}> <span>Zadruk wewnątrz <span style="color:var(--gray);font-weight:400">(te same płaszczyzny jeszcze raz, z takim samym spadem)</span></span></label>`;
     if (t && t.id === 'podwieszana' && !el.hw) el.hw = hwDefault();
     if (t && t.id === 'podwieszana') {
+      if (!el.hbMode && !editing && !hangInset(el)) el.hbMode = 'sock';      // nowa konstrukcja z profilem okrągłym: domyślnie skarpeta
       if (!el.hbMode) { const k0 = hangBleed(el); el.hbMode = hangBleedAny(k0) ? 'custom' : 'none'; if (el.hbMode === 'custom') el.hbSides = { ...k0 }; }
       hb = `<div class="fld bleed-fld" style="margin-top:12px"><label>Spady (zadruk zewnętrzny)</label><div class="var-list">
         ${HANG_MODES.map(([id, n]) => `<button type="button" class="type-btn var-btn ${el.hbMode === id ? 'on' : ''}" data-hmode="${id}">${n}${id === 'sock' ? ` · boki ${lenPL(HANG_SOCK.l)}, góra/dół ${lenPL(HANG_SOCK.t)} ${UNIT()}` : ''}</button>`).join('')}</div>
@@ -6148,6 +6149,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     $('ed-opts').querySelectorAll('[data-prof]').forEach(b => b.onclick = () => {
       el.prof = b.dataset.prof;
       if (hangInset(el)) { el.hbMode = 'none'; el.hbSides = null; }      // T i EF: domyślnie bez spadów (można zmienić niżej)
+      else { el.hbMode = 'sock'; el.hbSides = null; }                    // profil okrągły: domyślnie skarpeta
       renderOpts(); refresh();
     });
     $('ed-bleedopts').querySelectorAll('[data-bmode]').forEach(b => b.onclick = () => { el.bleedMode = b.dataset.bmode; renderOpts(); refresh(); });
@@ -6218,7 +6220,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         return row(st.thumb, false) + (cur.inside ? row(st.thumbIn, true) : '');
       })() +
       (['box', 'ring'].includes(dimsMode(cur)) ? (() => {
-        const vz = { strut: 1500, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) }, num = k => `<input type="number" data-vz="${k}" min="1" step="${unitStep()}" value="${esc(fromMM(vz[k]))}">`;
+        const vz = { strut: 1500, cabMode: 'vertical', cabStep: 1500, cabH: 1000, ...(el.viz || {}) }, num = k => `<input type="number" data-vz="${k}" min="1" step="${unitStep()}" value="${esc(fromMM(vz[k]))}">`;
         return `<div class="viz-set"><b>Wizualizacja:</b> <label>rozpórki co ${num('strut')} ${UNIT()}</label>
           <label>linki <select data-vz="cabMode"><option value="point" ${vz.cabMode === 'point' ? 'selected' : ''}>w jeden punkt</option><option value="vertical" ${vz.cabMode === 'vertical' ? 'selected' : ''}>pionowo</option><option value="none" ${vz.cabMode === 'none' ? 'selected' : ''}>bez linek</option></select></label>
           <label>co ${num('cabStep')} ${UNIT()}</label><label>wysokość ${num('cabH')} ${UNIT()}</label></div>`;
@@ -6244,7 +6246,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
       if (file) putPlaneFiles(+b.dataset.ptb, [file]);
     });
     box.querySelectorAll('[data-vz]').forEach(i => i.addEventListener(i.tagName === 'SELECT' ? 'change' : 'input', () => {
-      el.viz = { strut: 1500, cabMode: 'point', cabStep: 1500, cabH: 1000, ...(el.viz || {}) };
+      el.viz = { strut: 1500, cabMode: 'vertical', cabStep: 1500, cabH: 1000, ...(el.viz || {}) };
       el.viz[i.dataset.vz] = i.tagName === 'SELECT' ? i.value : (toMM(i.value) || el.viz[i.dataset.vz]);
     }));
     [['ed-hviz', 'tex', 'vizPhotoId'], ['ed-hviz2', 'frame', 'vizFramePhotoId'], ['ed-hviz3', 'ghost', 'vizGhostPhotoId']].forEach(([bid, mode, key]) => { const hv = $(bid); if (hv) hv.onclick = async () => { hv.disabled = true; const c2 = read(); await hangMakeViz(c2, $('ed-badge').textContent.trim(), editing && editing.id, mode); el[key] = c2[key]; hv.disabled = false; }; });
