@@ -280,6 +280,8 @@
   #overlay .shp { cursor: move; }
   #viewer.t-poly #overlay .shp { pointer-events: none; }
   #overlay .hdl { cursor: pointer; }
+  #overlay .shp polygon.pg { transition: filter .12s; }
+  #overlay .shp:hover polygon.pg, #overlay .shp.hov polygon.pg { filter: drop-shadow(0 0 var(--gl, 6px) #46c43c) drop-shadow(0 0 calc(var(--gl, 6px) * .5) #46c43c); }
   #overlay .plab { pointer-events: none; }
   #overlay .pnum { pointer-events: all; cursor: grab; }
   #viewer.reordering, #viewer.reordering #overlay .pnum { cursor: grabbing; }
@@ -4423,8 +4425,10 @@ function renderOverlay() {
     }
     if (sh.kind !== 'point') {
       const pts = shapePolyPts(sh);
-      out += `<polygon points="${P(b, pts)}" fill="${col}" fill-opacity="${sel || hov ? 0.35 : 0.2}" stroke="${col}" stroke-width="${(sel ? 3.5 : 2.2) * s}" stroke-linejoin="round"/>
-        ${sel ? `<polygon points="${P(b, pts)}" fill="none" stroke="#fff" stroke-width="${1.2 * s}" stroke-dasharray="${6 * s} ${5 * s}"/>` : ''}`;
+      // zaznaczony: gruba ciągła zielona linia (10% przezroczystości) i delikatne zielone wypełnienie; po najechaniu zielona poświata (CSS .pg)
+      out += sel
+        ? `<polygon class="pg" style="--gl:${7 * s}px" points="${P(b, pts)}" fill="#46c43c" fill-opacity=".12" stroke="#46c43c" stroke-opacity=".9" stroke-width="${5 * s}" stroke-linejoin="round"/>`
+        : `<polygon class="pg" style="--gl:${6 * s}px" points="${P(b, pts)}" fill="${col}" fill-opacity="${hov ? 0.35 : 0.2}" stroke="${col}" stroke-width="${2.2 * s}" stroke-linejoin="round"/>`;
     } else if (sel) {
       out += `<circle cx="${X(b, [cx])}" cy="${Y([0, cy])}" r="${r + 7 * s}" fill="${col}" fill-opacity=".25" stroke="${col}" stroke-width="${2 * s}"/>`;
     }
