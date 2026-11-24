@@ -330,6 +330,16 @@
   .gidx.free { display: block; }
   .gc.abs { position: absolute; }
   .gc.dragging { z-index: 5; opacity: .92; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
+  /* wielosztuki: elementy o tym samym typie, wymiarze i spadzie, różne tylko grafiką — jedno okienko z paskiem miniatur nad rysunkiem */
+  .gc-multi { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 7px; align-items: flex-end; }
+  .gc-multi-t { flex: 0 0 100%; font-size: .62rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--gray); }
+  .gc-mi { position: relative; height: 38px; padding: 0; border: 1.5px solid #cbd5e0; border-radius: 3px; background: #f7fafc; overflow: hidden; cursor: pointer; flex: none; }
+  .gc-mi:hover { border-color: #718096; }
+  .gc-mi.on { border-color: var(--c, #3182ce); box-shadow: 0 0 0 1.5px var(--c, #3182ce); }
+  .gc-mi img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+  .gc-mi .mk { position: absolute; left: 0; bottom: 0; font: 700 9px/12px Arial, sans-serif; background: rgba(26,32,44,.78); color: #fff; padding: 0 3px; border-radius: 0 3px 0 0; pointer-events: none; }
+  .gc-mi .q { position: absolute; right: 0; top: 0; font: 700 9px/12px Arial, sans-serif; background: rgba(255,255,255,.85); color: #2d3748; padding: 0 3px; border-radius: 0 0 0 3px; pointer-events: none; }
+  .gc-mi .no { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #a0aec0; font-size: 14px; }
   .gc-h { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: normal; user-select: none; }
   .gc-h .gc-t { flex: 1 1 auto; min-width: 0; line-height: 1.25; padding-top: 3px; overflow-wrap: anywhere; }
   .gc-h .gc-q, .gc-h .gc-ed { flex: 0 0 auto; margin-top: 2px; }
@@ -5234,6 +5244,7 @@ function selectElement(id, focus = true, loc = -1) {
     centerOn(el.photoId, cx, cy);
   }
   renderOverlay();
+  if (S.elView === 'graph' && S.multiHidden && S.multiHidden.has(id)) { renderElements(); return; }
   document.querySelectorAll('#el-scroll tr[data-eid], #el-scroll .gc').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
   const row = document.querySelector(`#el-scroll tr[data-eid="${id}"], #el-scroll .gc[data-eid="${id}"]`);
   if (row) row.scrollIntoView({ block: 'nearest' });
@@ -6726,7 +6737,17 @@ function renderGraph() {
   const withD = gEls.filter(hasDims);
   const maxH = Math.max(1, ...withD.map(e => grossOf(e).h)), maxW = Math.max(1, ...withD.map(e => grossOf(e).w));
   const k = Math.min(avail / maxH, 320 / maxW);
-  const cards = gEls.map(e => {
+  // wielosztuki: elementy z tym samym typem, wymiarem do druku i spadem (grafika może być inna) tworzą jedno okienko;
+  // pokazuje zaznaczony element grupy (albo pierwszy), a pozostałe są w pasku miniatur nad rysunkiem
+  const msig = e => (!hasDims(e) || e.doorFor || e.backFor || e.seg || e.wyslona) ? '' : JSON.stringify([e.typeId, e.variant || '', grossOf(e), netTxt(e), !!e.inside, e.hbMode || '', e.hbSides || '', isHang(e) ? hangProf(e)[0] : '']);
+  const mGroups = new Map(); gEls.forEach(e => { const k = msig(e); if (k) { if (!mGroups.has(k)) mGroups.set(k, []); mGroups.get(k).push(e); } });
+  const multiOf = new Map(), mHidden = new Set(), slotOf = new Map();
+  mGroups.forEach(list => { if (list.length < 2) return; const prim = list.find(x => x.id === S.selId) || list[0]; multiOf.set(prim.id, list); slotOf.set(list[0].id, prim); list.forEach(x => { if (x !== prim) mHidden.add(x.id); }); });
+  S.multiHidden = mHidden;
+  const mSkip = new Set(); mGroups.forEach(list => { if (list.length > 1) list.slice(1).forEach(x => mSkip.add(x.id)); });
+  const slots = gEls.map(e0 => slotOf.get(e0.id) || (mSkip.has(e0.id) ? null : e0)).filter(Boolean);
+  const cards = slots.map(e => {
+    const grp = multiOf.get(e.id);
     const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
     // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
     const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
@@ -6806,9 +6827,14 @@ function renderGraph() {
     const frameIn = insPl.length ? `<div class="gc-frame gc-frame-in${e.thumbIn ? ' has-img has-thumb' : ''}" data-eid="${e.id}" data-in="1"${ratioAttr(e.thumbIn)} style="left:${LM}px;top:${inTop}px;width:${FW}px;height:${FH}px"
         title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
-    const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
+    const pos = [e].concat(grp || []).map(x => x.gpos).find(p => p && Number.isFinite(+p.x)) || null;
+    const multi = grp ? `<div class="gc-multi"><span class="gc-multi-t">wielosztuki · ${grp.length} grafik${grp.length < 5 ? 'i' : ''}</span>${grp.map(x => {
+      const q = qtyOf(x), ar = Math.max(.35, Math.min(2.6, g.w / (g.h || 1))), w = Math.round(38 * ar);
+      return `<button type="button" class="gc-mi${x.id === e.id ? ' on' : ''}" data-eid="${x.id}" style="width:${w}px" title="${esc(markOf(x))}${x.name ? ' · ' + esc(x.name) : ''}${q > 1 ? ' · ' + q + ' szt.' : ''} — kliknij, aby pokazać w okienku">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" draggable="false">` : '<span class="no">+</span>'}<span class="mk">${esc(markOf(x))}</span>${q > 1 ? `<span class="q">×${q}</span>` : ''}</button>`;
+    }).join('')}</div>` : '';
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W + QW, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${e.offset && isAdmin() ? `<button type="button" class="gc-ed" data-eid="${e.id}" data-ow="1" title="Offset Wizard: otwórz zapisany offset tego elementu">⌖</button>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
+      ${multi}
       <div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${frameIn}${doorLayer}${doorFrame}${netFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}</div>
       ${sub}${e.notes ? `<div class="gc-note" title="${esc(e.notes)}">${esc(e.notes)}</div>` : ''}</div>`;
   }).join('');
@@ -6835,6 +6861,10 @@ function renderGraph() {
     c.onmouseenter = () => setHover(c.dataset.eid);
     c.onmouseleave = () => setHover(null);
     c.oncontextmenu = ev => { ev.preventDefault(); openMarkMenu(ev.clientX, ev.clientY, c.dataset.eid, -1); };
+  });
+  box.querySelectorAll('.gc-mi').forEach(b => {
+    b.onpointerdown = e => e.stopPropagation();
+    b.onclick = e => { e.stopPropagation(); if (!S.graphMove) selectElement(b.dataset.eid, false); };
   });
   box.querySelectorAll('.gc-ed').forEach(b => {
     b.onpointerdown = e => e.stopPropagation();
