@@ -340,6 +340,15 @@
   .gc-mi .mk { position: absolute; left: 0; bottom: 0; font: 700 9px/12px Arial, sans-serif; background: rgba(26,32,44,.78); color: #fff; padding: 0 3px; border-radius: 0 3px 0 0; pointer-events: none; }
   .gc-mi .q { position: absolute; right: 0; top: 0; font: 700 9px/12px Arial, sans-serif; background: rgba(255,255,255,.85); color: #2d3748; padding: 0 3px; border-radius: 0 0 0 3px; pointer-events: none; }
   .gc-mi .no { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #a0aec0; font-size: 14px; }
+  .ed-mt { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
+  .ed-ms { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 0 0 12px; }
+  .ed-mp { position: relative; width: 78px; height: 78px; border: 1.5px dashed #a0aec0; border-radius: 4px; background: #f7fafc; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
+  .ed-mp:hover, .ed-mp.drag { border-color: #3182ce; background: #ebf8ff; }
+  .ed-mp img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+  .ed-mp .no { color: #a0aec0; font-size: 26px; }
+  .ed-mp .mk { position: absolute; left: 0; bottom: 0; font: 700 11px/15px Arial, sans-serif; background: rgba(26,32,44,.8); color: #fff; padding: 0 5px; border-radius: 0 4px 0 0; pointer-events: none; }
+  .ed-mp .rm { position: absolute; right: 2px; top: 2px; width: 17px; height: 17px; border-radius: 50%; background: rgba(26,32,44,.75); color: #fff; font: 700 10px/17px Arial, sans-serif; text-align: center; }
+  .ed-mp .rm:hover { background: #e53e3e; }
   .gc-h { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 6px; cursor: pointer; white-space: normal; user-select: none; }
   .gc-h .gc-t { flex: 1 1 auto; min-width: 0; line-height: 1.25; padding-top: 3px; overflow-wrap: anywhere; }
   .gc-h .gc-q, .gc-h .gc-ed { flex: 0 0 auto; margin-top: 2px; }
@@ -4888,7 +4897,7 @@ async function copyElement(eid, place = null, loc = -1) {
   const el = S.elements.find(e => e.id === eid); if (!el || !S.project) return;
   if (!place && loc >= 0 && locShape(el, loc)) place = { photoId: locPhoto(el, loc), shape: shiftShape(locShape(el, loc), 0.035, 0.035) };
   const pid = S.project.id, rec = clone(el);
-  ['id', 'num', 'wnum', 'mark', 'backFor', 'doorFor', 'backAsked', 'thumbAuto', 'thumbKey', 'gpos', 'extra', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'src', 'tblHidden', 'ufKey', 'ufRole'].forEach(k => delete rec[k]);
+  ['id', 'num', 'wnum', 'mark', 'backFor', 'doorFor', 'backAsked', 'thumbAuto', 'thumbKey', 'gpos', 'extra', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'src', 'tblHidden', 'ufKey', 'ufRole', 'multi', 'mthumbs'].forEach(k => delete rec[k]);
   rec.num = nextNum();
   if (isWys(rec)) rec.wnum = wysNumFor(rec, null);
   if (place) { rec.shape = place.shape; rec.photoId = place.photoId; }
@@ -5244,7 +5253,6 @@ function selectElement(id, focus = true, loc = -1) {
     centerOn(el.photoId, cx, cy);
   }
   renderOverlay();
-  if (S.elView === 'graph' && S.multiHidden && S.multiHidden.has(id)) { renderElements(); return; }
   document.querySelectorAll('#el-scroll tr[data-eid], #el-scroll .gc').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
   const row = document.querySelector(`#el-scroll tr[data-eid="${id}"], #el-scroll .gc[data-eid="${id}"]`);
   if (row) row.scrollIntoView({ block: 'nearest' });
@@ -6510,13 +6518,44 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     };
     $('ed-rn').onclick = go; $('ed-badge').style.cursor = 'pointer'; $('ed-badge').title = 'Kliknij, aby zmienić znak'; $('ed-badge').onclick = go;
   }
-  // wielosztuki: miniatury elementów o tym samym typie, wymiarze i spadzie — nad wymiarami; klik otwiera ten element
-  if (editing) {
-    const grp = multiGroups(S.elements.filter(x => !hiddenInExport(x))).find(l => l.some(x => x.id === editing.id)), mb = $('ed-multi');
-    if (grp && mb) {
-      mb.innerHTML = multiStripHtml(grp, editing.id);
-      mb.querySelectorAll('.gc-mi').forEach(b => b.onclick = () => { if (b.dataset.eid === editing.id) return; m.close(); openElementDialog({ id: b.dataset.eid }); });
-    }
+  // Multi: jeden znacznik, kilka sztuk — każda z własną miniaturą (nazwy J1, J2, J3…); liczba sztuk = ilość
+  {
+    const mbox = $('ed-multi'), curQ = () => Math.max(1, parseInt($('ed-q').value, 10) || 1);
+    const putPiece = async (i, file) => {
+      if (!file) return;
+      const t = toast('Wgrywanie miniatury…', '', 60000);
+      try {
+        const { url } = await storeThumb(await tiffToJpegFile(file));
+        const th = Array.from({ length: Math.max(curQ(), i + 1) }, (_, k) => pieceThumb(el, k)); th[i] = url; el.mthumbs = th;
+      } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
+      t.remove(); renderMulti();
+    };
+    var renderMulti = () => {
+      if (!mbox) return;
+      if (el.doorFor || el.backFor || (editing && (editing.doorFor || editing.backFor))) { mbox.innerHTML = ''; return; }
+      const on = !!el.multi, labs = multiLabels({ ...el, qty: curQ() });
+      mbox.innerHTML = `<div class="ed-mt"><button type="button" class="btn btn-sm${on ? ' btn-solid' : ''}" id="ed-mt-b" title="Kilka sztuk pod jednym znacznikiem, każda z inną grafiką (miniaturą)">▦ Multi</button><span class="hint" style="margin:0">${on ? 'Liczba sztuk = ilość (ostatnie pole poniżej). Kliknij kafelek, aby wkleić miniaturę ze schowka albo wybrać plik.' : 'Kilka sztuk o tym samym wymiarze i spadzie, ale z różnymi grafikami.'}</span></div>`
+        + (on ? `<div class="ed-ms">${labs.map((lb, i) => { const u = pieceThumb(el, i); return `<div class="ed-mp" data-i="${i}" title="Kliknij, aby wkleić grafikę ze schowka (albo wybrać plik); można też upuścić plik">${u ? `<img src="${esc(u)}" alt="" draggable="false"><span class="rm" data-rm="${i}" title="Usuń miniaturę">✕</span>` : '<span class="no">+</span>'}<span class="mk">${esc(lb)}</span></div>`; }).join('')}<button type="button" class="btn btn-sm" id="ed-mt-add" title="Dodaj kolejną sztukę (zwiększa ilość)">+ kolejna</button></div>` : '');
+      $('ed-mt-b').onclick = () => {
+        el.multi = !el.multi;
+        if (el.multi) { if (!(el.mthumbs || []).length && el.thumb) el.mthumbs = [el.thumb]; if (curQ() < 2) { $('ed-q').value = 2; $('ed-q').dispatchEvent(new Event('input')); } }
+        renderMulti();
+      };
+      const add = $('ed-mt-add'); if (add) add.onclick = () => { $('ed-q').value = curQ() + 1; $('ed-q').dispatchEvent(new Event('input')); };
+      mbox.querySelectorAll('.ed-mp').forEach(p => {
+        const i = +p.dataset.i;
+        p.onclick = async ev => {
+          const rm = ev.target.closest('[data-rm]');
+          if (rm) { ev.stopPropagation(); const th = Array.from({ length: curQ() }, (_, k) => pieceThumb(el, k)); th[i] = ''; el.mthumbs = th; if (i === 0) el.thumb = ''; return renderMulti(); }
+          putPiece(i, await clipboardImageFile() || await chooseImageFile());
+        };
+        p.addEventListener('dragover', ev => { if (hasFiles(ev)) { ev.preventDefault(); p.classList.add('drag'); } });
+        p.addEventListener('dragleave', () => p.classList.remove('drag'));
+        p.addEventListener('drop', ev => { p.classList.remove('drag'); if (!hasFiles(ev)) return; ev.preventDefault(); putPiece(i, [...ev.dataTransfer.files].find(x => x.type.startsWith('image/') || isTiff(x))); });
+      });
+    };
+    $('ed-q').addEventListener('input', () => { if (el.multi) renderMulti(); });
+    renderMulti();
   }
   // wysłona lightboxa: wymiar i ilość idą z lightboxa — tu tylko do podglądu
   if (editing && editing.backFor) {
@@ -6549,7 +6588,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     const pid = S.project.id;
     try {
       if (editing) {
-        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, updatedAt: nowIso(), updatedBy: S.me.id };
+        const fields = { typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, num: d.num, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, ...multiFields(d), updatedAt: nowIso(), updatedBy: S.me.id };
         // spad wybierany tylko przy Blackback standard / Folii / PCW; pozostałe typy — spad z typu (SEG, wysłona: bez spadu)
         Object.assign(fields, { bleedOverride: sideBleedOk(d) ? d.bleedOverride : '', eltex: false });
         Object.assign(fields, axFields(d), { wExpr: d.wExpr || '', wExprUnit: d.wExprUnit || '' });
@@ -6562,7 +6601,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         hangAutoViz({ ...editing, ...fields, id: editing.id }).catch(e => console.warn('wizualizacja:', e));
         if (isLbSeg({ ...editing, ...fields }) || backOf(editing)) applyLightboxBack(editing.id, { ...editing, ...fields }, el.backSel);
       } else {
-        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes,
+        const rec = { num: el.num, typeId: d.typeId, combo: comboClean(el.combo), variant: d.variant, inside: d.inside, planes: d.planes, ...hangFields(d), door: DOOR_TYPES.includes(d.typeId) && d.door && d.door.on ? clone(d.door) : null, thick: d.thick, ...togValues(d, d.typeId), ...litValues(d), seg: d.seg, wyslona: d.wyslona, wnum: d.wnum, name: d.name, w: d.w, h: d.h, d: d.d, qty: qtyOf(d), notes: d.notes, ...multiFields(d),
           photoId: photoId || '', shape: shape ? autoLab(shape, photoId) : null, createdAt: nowIso(), createdBy: S.me.id };      // nowy punkt: znacznik z literą delikatnie obok punktu (strzałka)
         if (sideBleedOk(d)) rec.bleedOverride = d.bleedOverride;
         Object.assign(rec, axFields(d));
@@ -6729,21 +6768,23 @@ function ringBadge(color, txt, size = 28) {
     <text x="20" y="26.5" text-anchor="middle" font-size="${txt.length > 1 ? 14 : 19}" font-weight="700" fill="#fff" font-family="Bahnschrift, Segoe UI, Arial, sans-serif">${txt}</text></svg>`;
 }
 const cm = mm => lenPL(mm); // linie wymiarowe w jednostce użytkownika
-// Wielosztuki: elementy z tym samym typem, wymiarem do druku i spadem (grafika może być inna). Nazwy: znak pierwszego elementu + numer (J → J1, J2, J3)
-const multiSig = e => (!hasDims(e) || e.doorFor || e.backFor || e.seg || e.wyslona) ? '' : JSON.stringify([e.typeId, e.variant || '', grossOf(e), netTxt(e), !!e.inside, e.hbMode || '', e.hbSides || '', isHang(e) ? hangProf(e)[0] : '']);
-function multiGroups(els) {
-  const m = new Map(); els.forEach(e => { const k = multiSig(e); if (k) { if (!m.has(k)) m.set(k, []); m.get(k).push(e); } });
-  return [...m.values()].filter(l => l.length > 1);
+// Multi: jeden element (jeden znacznik) z kilkoma sztukami, każda z własną grafiką (miniaturą). Liczba sztuk = ilość; nazwy: znak + numer (J → J1, J2, J3)
+const pieceThumb = (e, i) => (e.mthumbs && e.mthumbs[i]) || (i === 0 ? e.thumb || '' : '');
+function multiLabels(e) {
+  const m0 = markOf(e), base = m0.replace(/\d+$/, '') || m0, sep = /^\d+$/.test(base) ? '.' : '';
+  return Array.from({ length: qtyOf(e) }, (_, i) => base + sep + (i + 1));
 }
-function multiLabels(list) {
-  const m0 = markOf(list[0]), base = m0.replace(/\d+$/, '') || m0, sep = /^\d+$/.test(base) ? '.' : '';
-  return list.map((_, i) => base + sep + (i + 1));
-}
-function multiStripHtml(list, curId, color) {
-  const labs = multiLabels(list), g0 = grossOf(list[0]), ar = Math.max(.35, Math.min(2.6, g0.w / (g0.h || 1))), w = Math.round(38 * ar);
-  return `<div class="gc-multi"><span class="gc-multi-t">wielosztuki · ${list.length} grafik${list.length < 5 ? 'i' : ''}</span>${list.map((x, i) => {
-    const q = qtyOf(x);
-    return `<button type="button" class="gc-mi${x.id === curId ? ' on' : ''}" data-eid="${x.id}" style="width:${w}px" title="${esc(labs[i])} (znak ${esc(markOf(x))})${x.name ? ' · ' + esc(x.name) : ''}${q > 1 ? ' · ' + q + ' szt.' : ''} — kliknij, aby pokazać">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" draggable="false">` : '<span class="no">+</span>'}<span class="mk">${esc(labs[i])}</span>${q > 1 ? `<span class="q">×${q}</span>` : ''}</button>`;
+// pola do zapisu; pierwsza miniatura jest też „zwykłą” miniaturą elementu (tabela, eksport, wizualizacje)
+const multiFields = d => {
+  if (!d.multi) return { multi: false, mthumbs: [] };
+  const th = Array.from({ length: qtyOf(d) }, (_, i) => pieceThumb(d, i));
+  return { multi: true, mthumbs: th, thumb: th[0], ...(th[0] !== d.thumb ? { thumbVec: '' } : {}) };
+};
+function multiStripHtml(e, active) {
+  const labs = multiLabels(e), g0 = grossOf(e), ar = Math.max(.35, Math.min(2.6, g0.w / (g0.h || 1))), w = Math.round(38 * ar);
+  return `<div class="gc-multi"><span class="gc-multi-t">multi · ${labs.length} szt.</span>${labs.map((lb, i) => {
+    const u = pieceThumb(e, i);
+    return `<button type="button" class="gc-mi${i === active ? ' on' : ''}" data-eid="${e.id}" data-pi="${i}" style="width:${w}px" title="${esc(lb)} — kliknij, aby pokazać${u ? '' : ' (bez grafiki — wklej ją w ramce poniżej)'}">${u ? `<img src="${esc(u)}" alt="" draggable="false">` : '<span class="no">+</span>'}<span class="mk">${esc(lb)}</span></button>`;
   }).join('')}</div>`;
 }
 function renderGraph() {
@@ -6763,15 +6804,11 @@ function renderGraph() {
   const withD = gEls.filter(hasDims);
   const maxH = Math.max(1, ...withD.map(e => grossOf(e).h)), maxW = Math.max(1, ...withD.map(e => grossOf(e).w));
   const k = Math.min(avail / maxH, 320 / maxW);
-  // wielosztuki: elementy z tym samym typem, wymiarem do druku i spadem (grafika może być inna) tworzą jedno okienko;
-  // pokazuje zaznaczony element grupy (albo pierwszy), a pozostałe są w pasku miniatur nad rysunkiem
-  const multiOf = new Map(), mHidden = new Set(), slotOf = new Map(), mSkip = new Set();
-  multiGroups(gEls).forEach(list => { const prim = list.find(x => x.id === S.selId) || list[0]; multiOf.set(prim.id, list); slotOf.set(list[0].id, prim); list.forEach(x => { if (x !== prim) mHidden.add(x.id); }); list.slice(1).forEach(x => mSkip.add(x.id)); });
-  S.multiHidden = mHidden;
-  const slots = gEls.map(e0 => slotOf.get(e0.id) || (mSkip.has(e0.id) ? null : e0)).filter(Boolean);
-  const cards = slots.map(e => {
-    const grp = multiOf.get(e.id);
-    const t = typeById(e.typeId), grp0 = multiOf.get(e.id), lab = grp0 ? multiLabels(grp0)[grp0.indexOf(e)] : markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
+  const cards = gEls.map(eRaw => {
+    // Multi: w ramce widać wybraną sztukę (J1, J2…), pozostałe w pasku miniatur
+    const mi = eRaw.multi ? Math.min(((S.multiSel || {})[eRaw.id]) || 0, qtyOf(eRaw) - 1) : -1;
+    const e = mi >= 0 ? { ...eRaw, thumb: pieceThumb(eRaw, mi) } : eRaw;
+    const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
     // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
     const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
     const FW = dims ? Math.max(8, fw0 * up) : 120, FH = dims ? Math.max(8, fh0 * up) : 80;
@@ -6850,8 +6887,8 @@ function renderGraph() {
     const frameIn = insPl.length ? `<div class="gc-frame gc-frame-in${e.thumbIn ? ' has-img has-thumb' : ''}" data-eid="${e.id}" data-in="1"${ratioAttr(e.thumbIn)} style="left:${LM}px;top:${inTop}px;width:${FW}px;height:${FH}px"
         title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
-    const pos = [e].concat(grp || []).map(x => x.gpos).find(p => p && Number.isFinite(+p.x)) || null;
-    const multi = grp ? multiStripHtml(grp, e.id) : '';
+    const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
+    const multi = mi >= 0 ? multiStripHtml(eRaw, mi) : '';
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W + QW, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${e.offset && isAdmin() ? `<button type="button" class="gc-ed" data-eid="${e.id}" data-ow="1" title="Offset Wizard: otwórz zapisany offset tego elementu">⌖</button>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       ${multi}
@@ -6884,7 +6921,7 @@ function renderGraph() {
   });
   box.querySelectorAll('.gc-mi').forEach(b => {
     b.onpointerdown = e => e.stopPropagation();
-    b.onclick = e => { e.stopPropagation(); if (!S.graphMove) selectElement(b.dataset.eid, false); };
+    b.onclick = e => { e.stopPropagation(); if (S.graphMove) return; (S.multiSel = S.multiSel || {})[b.dataset.eid] = +b.dataset.pi; selectElement(b.dataset.eid, false); renderElements(); };
   });
   box.querySelectorAll('.gc-ed').forEach(b => {
     b.onpointerdown = e => e.stopPropagation();
@@ -7032,6 +7069,8 @@ async function setThumb(eid, file, which = '') {
       const b = bleedOf(el), w = sz.w - 2 * b, h = sz.h - 2 * b;
       if (w > 0 && h > 0) { upd.w = w; upd.h = h; dimNote = `wymiar ${lenPL(w)} × ${lenPL(h)} ${UNIT()} (plik ${lenPL(sz.w)} × ${lenPL(sz.h)}${b ? ' minus spad ' + lenPL(b) + ' z każdej strony' : ''}, z ${sz.from})`; }
     }
+    const mIdx = el.multi && which !== 'in' ? Math.min(((S.multiSel || {})[eid]) || 0, qtyOf(el) - 1) : -1;
+    if (mIdx >= 0) { const th = Array.from({ length: qtyOf(el) }, (_, i) => pieceThumb(el, i)); th[mIdx] = url; upd.mthumbs = th; if (mIdx !== 0) { delete upd.thumb; delete upd.thumbVec; } }
     await DB.update(pElements(S.project.id), eid, upd);
     addLog(S.project.id, `Dodano grafikę (miniaturę)${which === 'in' ? ' zadruku wewnętrznego' : ''} do elementu ${markOf(el)}${dimNote ? ' — ' + dimNote : ''}`, eid);
     if (dimNote) toast('Wpisano ' + dimNote + '. Jeśli plik nie ma spadu, popraw w oknie elementu.', '', 9000);
@@ -7055,7 +7094,9 @@ async function pastePlaneThumb(eid, idx) {
 async function removeThumb(eid, which = '') {
   const el = S.elements.find(x => x.id === eid); if (!el) return;
   if (!await confirmBox(`Usunąć miniaturę grafiki${which === 'in' ? ' zadruku wewnętrznego' : ''} z elementu <b>${markOf(el)}</b>?`, 'Usuń')) return;
-  await DB.update(pElements(S.project.id), eid, which === 'in' ? { thumbIn: '', updatedAt: nowIso(), updatedBy: S.me.id } : { thumb: '', thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
+  const mIdx = el.multi && which !== 'in' ? Math.min(((S.multiSel || {})[eid]) || 0, qtyOf(el) - 1) : -1;
+  const mth = mIdx >= 0 ? Array.from({ length: qtyOf(el) }, (_, i) => i === mIdx ? '' : pieceThumb(el, i)) : null;
+  await DB.update(pElements(S.project.id), eid, which === 'in' ? { thumbIn: '', updatedAt: nowIso(), updatedBy: S.me.id } : mth ? { mthumbs: mth, ...(mIdx === 0 ? { thumb: '', thumbVec: '' } : {}), updatedAt: nowIso(), updatedBy: S.me.id } : { thumb: '', thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
   addLog(S.project.id, `Usunięto miniaturę grafiki${which === 'in' ? ' zadruku wewnętrznego' : ''} z elementu ${markOf(el)}`, eid);
 }
 // okienka znów w automatycznym układzie
@@ -10429,7 +10470,7 @@ function ratioChecksOf(e) {
   const out = [], g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
   const add = (key, label, url, ar) => { if (url && ar > 0) out.push({ eid: e.id, key, label, url, ar }); };
   const hangPl = isHang(e) ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [], insPl = isHang(e) && e.inside ? (planesOf(e) || []).filter(q => q.side === 'inside') : [];
-  if (!axLinked(e)) { add('out', '', e.thumb, g.w / g.h); add('in', 'zadruk wewnątrz', e.thumbIn, g.w / g.h); }
+  if (!axLinked(e)) { if (e.multi) multiLabels(e).forEach((lb, i) => add('m' + i, lb, pieceThumb(e, i), g.w / g.h)); else add('out', '', e.thumb, g.w / g.h); add('in', 'zadruk wewnątrz', e.thumbIn, g.w / g.h); }
   hangPl.forEach((q, i) => add('pl' + i, planeName(q), q.thumb, q.gw / q.gh));
   insPl.forEach((q, i) => add('pi' + i, 'wewnątrz: ' + planeName(q), q.thumb, q.gw / q.gh));
   return out;
