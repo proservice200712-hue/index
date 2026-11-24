@@ -5258,7 +5258,18 @@ function selectElement(id, focus = true, loc = -1) {
   renderOverlay();
   document.querySelectorAll('#el-scroll tr[data-eid], #el-scroll .gc').forEach(tr => tr.classList.toggle('sel', tr.dataset.eid === id));
   const row = document.querySelector(`#el-scroll tr[data-eid="${id}"], #el-scroll .gc[data-eid="${id}"]`);
-  if (row) row.scrollIntoView({ block: 'nearest' });
+  // zaznaczenie spoza widoku Grafika (np. znacznik na wizce): widok Grafiki od razu przesuwa się i przybliża na okienko tego elementu
+  const fromGraph = (() => { try { const t = window.event && window.event.target; return !!(t && t.closest && t.closest('#el-scroll')); } catch (e) { return false; } })();
+  if (S.elView === 'graph' && id && !fromGraph) graphFocusCard(id);
+  else if (row) row.scrollIntoView({ block: 'nearest' });
+}
+function graphFocusCard(id) {
+  const box = $('el-scroll'), c = box && box.querySelector(`.gc[data-eid="${id}"]`), st = $('gstage'); if (!c || !st) return;
+  const bw = box.clientWidth, bh = box.clientHeight, cw = c.offsetWidth, ch = c.offsetHeight;
+  const ns = clamp(Math.min(bw * 0.9 / cw, bh * 0.9 / ch), 0.3, 1.5);
+  G.s = ns; G.tx = bw / 2 - (c.offsetLeft + cw / 2) * ns; G.ty = bh / 2 - (c.offsetTop + ch / 2) * ns;
+  st.style.transition = 'transform .35s ease'; applyGraphView();
+  clearTimeout(G.focT); G.focT = setTimeout(() => { st.style.transition = ''; crispGraphThumbs(box); }, 400);
 }
 
 // klawiatura
