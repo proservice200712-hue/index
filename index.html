@@ -67,7 +67,15 @@
   #btn-todo .todo-ex { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: #e53e3e; color: #fff; font: 800 11px/16px Arial, sans-serif; text-align: center; margin-left: 3px; vertical-align: 1px; box-shadow: 0 0 0 1.5px #fff; letter-spacing: 0; }
   #btn-todo.todo-on .todo-ex { background: #fff; color: #e53e3e; box-shadow: 0 0 0 1.5px #e53e3e; }
   #btn-todo.fi-on:not(.todo-on) { position: relative; }
-  .todo-row.fi { background: #fff5f5; }
+  .todo-row.fi { background: #fff5f5; align-items: center; }
+  .todo-row.fi .btn { flex: none; }
+  .todo-row.fi.ign { background: #fffaf0; }
+  .todo-row.fi.ign .ex { background: #ed8936; }
+  .todo-row.fi.ign .t { color: var(--gray); }
+  #btn-todo .todo-ex.ign { background: #ed8936; }
+  #btn-todo.todo-on .todo-ex.ign { background: #ed8936; color: #fff; box-shadow: 0 0 0 1.5px #fff; }
+  #btn-todo.fi-ign { background: #ed8936 !important; color: #fff !important; }
+  #btn-todo.fi-ign .todo-ex.ign { background: #fff; color: #dd6b20; box-shadow: 0 0 0 1.5px #dd6b20; }
   .todo-row.fi .ex { flex: none; width: 20px; height: 20px; border-radius: 50%; background: #e53e3e; color: #fff; font: 800 13px/20px Arial, sans-serif; text-align: center; margin-top: 1px; }
   .todo-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; }
   .todo-row input { margin-top: 3px; width: 17px; height: 17px; accent-color: #38a169; flex: none; }
@@ -6894,15 +6902,15 @@ function renderGraph() {
     // konstrukcja podwieszana: pasek płaszczyzn obok siebie (szerokość i wysokość wg wymiaru do druku); klik wkleja JEDEN obrazek na całą konstrukcję
     // (wypełnia też spady), linie podziału płaszczyzn zostają na wierzchu; zadruk wewnątrz — drugi pasek z własnym obrazkiem
     const hasCells = hangPl.length > 0;
-    const cellsOf = (pls, whole) => { const tw = pls.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...pls.map(q => q.gh)); let cx = 0;
-      return pls.map(q => { const c = `<div class="gc-pl" title="${esc(planeName(q))}"${q.thumb ? ` data-ar="${(q.gw / q.gh).toFixed(5)}" data-th="${esc(q.thumb)}"` : ''} style="left:${(cx / tw * 100).toFixed(3)}%;width:${(q.gw / tw * 100).toFixed(3)}%;height:${(q.gh / mh * 100).toFixed(3)}%">${q.thumb ? `<img src="${esc(q.thumb)}" alt="" draggable="false">` : whole ? '' : '<span>+</span>'}</div>`; cx += q.gw; return c; }).join(''); };
+    const cellsOf = (pls, whole, pre = 'pl') => { const tw = pls.reduce((a2, q) => a2 + q.gw, 0), mh = Math.max(...pls.map(q => q.gh)); let cx = 0;
+      return pls.map((q, qi) => { const c = `<div class="gc-pl" title="${esc(planeName(q))}"${q.thumb ? ` data-ar="${(q.gw / q.gh).toFixed(5)}" data-th="${esc(q.thumb)}" data-ik="${eRaw.id}|${pre}${qi}"` : ''} style="left:${(cx / tw * 100).toFixed(3)}%;width:${(q.gw / tw * 100).toFixed(3)}%;height:${(q.gh / mh * 100).toFixed(3)}%">${q.thumb ? `<img src="${esc(q.thumb)}" alt="" draggable="false">` : whole ? '' : '<span>+</span>'}</div>`; cx += q.gw; return c; }).join(''); };
     const himg = (url, inn) => url ? `<img class="gc-himg" src="${esc(url)}" alt="" draggable="false"><span class="x" data-rm="${e.id}"${inn ? ' data-in="1"' : ''} title="Usuń miniaturę">✕</span>` : '';
-    const ratioAttr = url => url && dims && !axLinked(e) ? ` data-ar="${(g.w / g.h).toFixed(5)}" data-th="${esc(url)}"` : '';
-    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}${hasCells && e.thumb ? ' has-img' : ''}${e.thumb ? ' has-thumb' : ''}" data-eid="${e.id}"${eRaw.multi ? ' data-pi="0"' : ''}${ratioAttr(e.thumb)} style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
+    const ratioAttr = (url, key) => url && dims && !axLinked(e) ? ` data-ar="${(g.w / g.h).toFixed(5)}" data-th="${esc(url)}" data-ik="${eRaw.id}|${key}"` : '';
+    const frame = `<div class="gc-frame ${dims ? '' : 'nodim'}${hasCells && e.thumb ? ' has-img' : ''}${e.thumb ? ' has-thumb' : ''}" data-eid="${e.id}"${eRaw.multi ? ' data-pi="0"' : ''}${ratioAttr(e.thumb, eRaw.multi ? 'm0' : 'out')} style="left:${LM}px;top:0;width:${FW}px;height:${FH}px"
         title="${e.thumb ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">
       ${hasCells ? himg(e.thumb, false) + cellsOf(hangPl, !!e.thumb) : (e.thumb ? `<img src="${esc(e.thumbVec || e.thumb)}" data-raster="${esc(e.thumb)}" alt="" draggable="false"><span class="x" data-rm="${e.id}" title="Usuń miniaturę">✕</span>` : '+ grafika')}</div>`;
-    const frameIn = insPl.length ? `<div class="gc-frame gc-frame-in${e.thumbIn ? ' has-img has-thumb' : ''}" data-eid="${e.id}" data-in="1"${ratioAttr(e.thumbIn)} style="left:${LM}px;top:${inTop}px;width:${FW}px;height:${FH}px"
-        title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
+    const frameIn = insPl.length ? `<div class="gc-frame gc-frame-in${e.thumbIn ? ' has-img has-thumb' : ''}" data-eid="${e.id}" data-in="1"${ratioAttr(e.thumbIn, 'in')} style="left:${LM}px;top:${inTop}px;width:${FW}px;height:${FH}px"
+        title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn, 'pi')}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
     const gcMk = (lb, q, first) => `<span class="gc-mk"${first ? ` style="left:${LM}px"` : ''}>${esc(lb)}</span>` + (q > 1 ? `<span class="gc-mq"${first ? ` style="left:${LM + Math.round(FW)}px;right:auto;transform:translateX(-100%)"` : ''}>×${q}</span>` : '');
@@ -6911,7 +6919,7 @@ function renderGraph() {
       if (!i) return '';
       const u = pieceThumb(eRaw, i), q = pieceQty(eRaw, i);
       const net = bx ? `<svg class="gc-dsvg" width="${FW}" height="${FH}" viewBox="0 0 ${FW} ${FH}"><rect x="${bw}" y="${bh}" width="${Math.max(1, FW - bw - bwR)}" height="${Math.max(1, FH - bh - bhB)}" fill="none" stroke="#e8527a" stroke-width=".75" stroke-dasharray="5 3"/></svg>` : '';
-      return `<div class="gc-mt" style="width:${FW}px;height:${FH}px"><div class="gc-frame${u ? ' has-thumb has-img' : ''}" data-eid="${eRaw.id}" data-pi="${i}"${ratioAttr(u)} style="left:0;top:0;width:${FW}px;height:${FH}px" title="${u ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${u ? `<img src="${esc(u)}" data-raster="${esc(u)}" alt="" draggable="false"><span class="x" data-rm="${eRaw.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>${net}${gcMk(lb, q, false)}</div>`;
+      return `<div class="gc-mt" style="width:${FW}px;height:${FH}px"><div class="gc-frame${u ? ' has-thumb has-img' : ''}" data-eid="${eRaw.id}" data-pi="${i}"${ratioAttr(u, 'm' + i)} style="left:0;top:0;width:${FW}px;height:${FH}px" title="${u ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${u ? `<img src="${esc(u)}" data-raster="${esc(u)}" alt="" draggable="false"><span class="x" data-rm="${eRaw.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>${net}${gcMk(lb, q, false)}</div>`;
     }).join('');
     const bodyHtml = `<div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${frameIn}${doorLayer}${doorFrame}${netFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}${eRaw.multi ? gcMk(mLabs[0], pieceQty(eRaw, 0), true) : ''}</div>`;
     const mCols = eRaw.multi ? Math.max(1, Math.min(mLabs.length, Math.floor(640 / (FW + 8)))) : 1;
@@ -7053,7 +7061,7 @@ async function markRatio(host) {
   try {
     if (!_crispImgs.has(url)) _crispImgs.set(url, loadImg(url));
     const img = await _crispImgs.get(url), r = img.width / img.height;
-    if (!host.isConnected || !(Math.abs(r / ar - 1) > RATIO_TOL)) return;
+    if (!host.isConnected || !(Math.abs(r / ar - 1) > RATIO_TOL) || (host.dataset.ik && isFileIgnored(host.dataset.ik, url))) return;
     const d = document.createElement('div'); d.className = 'gc-ratio'; d.textContent = '!';
     d.title = `Proporcje grafiki są inne niż ramki (grafika ${r.toFixed(2).replace('.', ',')} : 1, ramka ${ar.toFixed(2).replace('.', ',')} : 1)`;
     host.appendChild(d);
@@ -10488,10 +10496,23 @@ async function closeUltraFrame() {
 const todosOf = p => ((p && p.todos) || []).filter(t => t && t.text);
 const todosOpen = p => todosOf(p).filter(t => !t.done);
 // Niezgodności plików: grafika o innych proporcjach niż ramka (te same wykrzykniki co w widoku Grafika, także dla płaszczyzn konstrukcji podwieszanych)
+const _hashStr = t => { let h = 0; for (let i = 0; i < t.length; i++) h = (Math.imul(31, h) + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + t.length; };
+const ignKey = (ik, url) => ik + '|' + _hashStr(url || '');        // zignorowanie dotyczy tej grafiki; po podmianie pliku ostrzeżenie wraca
+const isFileIgnored = (ik, url) => !!(S.project && (S.project.fileIgnore || []).includes(ignKey(ik, url)));
+async function toggleFileIgnore(ik, url, on) {
+  if (!S.project || isViewer()) return;
+  const k = ignKey(ik, url), list = (S.project.fileIgnore || []).filter(x => x !== k);
+  if (on) list.push(k);
+  S.project.fileIgnore = list;
+  const el = S.elements.find(x => x.id === ik.split('|')[0]);
+  try { await DB.update(C_PROJECTS, S.project.id, { fileIgnore: list }); addLog(S.project.id, `Niezgodność proporcji grafiki elementu ${el ? markOf(el) : ''} — ${on ? 'zignorowana' : 'znów pilnowana'}`, el ? el.id : undefined); }
+  catch (e) { toast('Nie udało się zapisać: ' + e.message, 'error'); }
+  await refreshFileIssues(); renderTodoBtn(); if (S.elView === 'graph') renderElements();
+}
 function ratioChecksOf(e) {
   if (!hasDims(e) || hiddenInExport(e)) return [];
   const out = [], g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
-  const add = (key, label, url, ar) => { if (url && ar > 0) out.push({ eid: e.id, key, label, url, ar }); };
+  const add = (key, label, url, ar) => { if (url && ar > 0) out.push({ eid: e.id, key, ik: e.id + '|' + key, label, url, ar }); };
   const hangPl = isHang(e) ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [], insPl = isHang(e) && e.inside ? (planesOf(e) || []).filter(q => q.side === 'inside') : [];
   if (!axLinked(e)) { if (e.multi) multiLabels(e).forEach((lb, i) => add('m' + i, lb, pieceThumb(e, i), g.w / g.h)); else add('out', '', e.thumb, g.w / g.h); add('in', 'zadruk wewnątrz', e.thumbIn, g.w / g.h); }
   hangPl.forEach((q, i) => add('pl' + i, planeName(q), q.thumb, q.gw / q.gh));
@@ -10507,22 +10528,23 @@ async function refreshFileIssues() {
     try {
       if (!_crispImgs.has(c.url)) _crispImgs.set(c.url, loadImg(c.url));
       const img = await _crispImgs.get(c.url), r = img.width / img.height;
-      if (Math.abs(r / c.ar - 1) > RATIO_TOL) found.push({ ...c, r });
+      if (Math.abs(r / c.ar - 1) > RATIO_TOL) found.push({ ...c, r, ign: isFileIgnored(c.ik, c.url) });
     } catch (err) { /* obrazek się nie wczytał — bez alarmu */ }
     if (seq !== _fiSeq) return;
   }
-  const sig = found.map(f => f.eid + f.key + f.r.toFixed(3)).join('|');
+  const sig = found.map(f => f.eid + f.key + f.r.toFixed(3) + (f.ign ? 'i' : '')).join('|');
   S.fileIssues = found;
   if (sig !== S._fiSig) { S._fiSig = sig; renderTodoBtn(); }
 }
 function renderTodoBtn() {
   const b = $('btn-todo'); if (!b) return;
-  const n = todosOpen(S.project).length, fi = S.fileIssues || [];
+  const n = todosOpen(S.project).length, fi = (S.fileIssues || []).slice().sort((a, c) => (a.ign ? 1 : 0) - (c.ign ? 1 : 0)), act = fi.filter(f => !f.ign).length;
   b.classList.toggle('todo-on', n > 0);
   b.classList.toggle('fi-on', fi.length > 0);
-  b.innerHTML = '!?' + (n ? ` <small>${n}</small>` : '') + fi.slice(0, 4).map(() => '<span class="todo-ex">!</span>').join('') + (fi.length > 4 ? ` <small>+${fi.length - 4}</small>` : '');
+  b.classList.toggle('fi-ign', n === 0 && act === 0 && fi.length > 0);       // zostały tylko zignorowane niezgodności: ikonka pomarańczowa
+  b.innerHTML = '!?' + (n ? ` <small>${n}</small>` : '') + fi.slice(0, 4).map(f => `<span class="todo-ex${f.ign ? ' ign' : ''}">!</span>`).join('') + (fi.length > 4 ? ` <small>+${fi.length - 4}</small>` : '');
   b.title = (n ? `Do zrobienia lub sprawdzenia: ${n} — kliknij, aby zobaczyć` : 'Notatki: rzeczy do zrobienia lub sprawdzenia')
-    + (fi.length ? `\nNiezgodne pliki: ${fi.length} (proporcje grafiki inne niż ramki)` : '');
+    + (fi.length ? `\nNiezgodne pliki: ${act}${fi.length > act ? ' (+' + (fi.length - act) + ' zignorowanych)' : ''} — proporcje grafiki inne niż ramki` : '');
   if ($('todo-list')) renderTodoList();
 }
 async function saveTodos(list, logText) {
@@ -10535,13 +10557,17 @@ function renderTodoList() {
   const all = todosOf(S.project), ro = isViewer(), when = iso => { try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'numeric' }); } catch (e) { return ''; } };
   const row = t => `<label class="todo-row ${t.done ? 'done' : ''}"><input type="checkbox" data-tid="${esc(t.id)}" ${t.done ? 'checked' : ''} ${ro ? 'disabled' : ''}><span class="t">${esc(t.text)}</span><small>${esc(userLabel(t.by) || '')} ${t.at ? when(t.at) : ''}${t.done && t.doneAt ? ' · ✓ ' + esc(userLabel(t.doneBy) || '') + ' ' + when(t.doneAt) : ''}</small></label>`;
   const open = all.filter(t => !t.done), done = all.filter(t => t.done);
-  const fi = S.fileIssues || [], pr = x => x.toFixed(2).replace('.', ',');
-  const fiHtml = fi.length ? `<div class="todo-h" style="margin-top:0">Niezgodne pliki (${fi.length})</div>` + fi.map(f => {
+  const fiAll = S.fileIssues || [], pr = x => x.toFixed(2).replace('.', ',');
+  const fiRow = f => {
     const el = S.elements.find(x => x.id === f.eid);
-    return `<div class="todo-row fi" data-fi="${esc(f.eid)}"><span class="ex">!</span><span class="t"><b>${el ? esc(markOf(el)) : '?'}</b> ${esc(el ? typeLabel(el) : '')}${f.label ? ' · ' + esc(f.label) : ''} — proporcje grafiki ${pr(f.r)} : 1, ramki ${pr(f.ar)} : 1</span></div>`;
-  }).join('') : '';
+    return `<div class="todo-row fi${f.ign ? ' ign' : ''}" data-fi="${esc(f.eid)}"><span class="ex">!</span><span class="t"><b>${el ? esc(markOf(el)) : '?'}</b> ${esc(el ? typeLabel(el) : '')}${f.label ? ' · ' + esc(f.label) : ''} — proporcje grafiki ${pr(f.r)} : 1, ramki ${pr(f.ar)} : 1</span>${ro ? '' : `<button type="button" class="btn btn-sm" data-ig="${esc(f.ik)}" data-igu="${esc(f.url)}" data-igon="${f.ign ? 0 : 1}">${f.ign ? 'Przywróć' : 'Zignoruj'}</button>`}</div>`;
+  };
+  const fiAct = fiAll.filter(f => !f.ign), fiIgn = fiAll.filter(f => f.ign);
+  const fiHtml = (fiAct.length ? `<div class="todo-h" style="margin-top:0">Niezgodne pliki (${fiAct.length})</div>` + fiAct.map(fiRow).join('') : '')
+    + (fiIgn.length ? `<div class="todo-h"${fiAct.length ? '' : ' style="margin-top:0"'}>Zignorowane niezgodności (${fiIgn.length})</div>` + fiIgn.map(fiRow).join('') : '');
   box.innerHTML = fiHtml + (open.length ? open.map(row).join('') : '<div class="hint" style="padding:8px 0">Brak rzeczy do zrobienia.</div>')
     + (done.length ? `<div class="todo-h">Zrobione (${done.length})</div>` + done.map(row).join('') : '');
+  box.querySelectorAll('[data-ig]').forEach(bt => bt.onclick = ev => { ev.stopPropagation(); toggleFileIgnore(bt.dataset.ig, bt.dataset.igu, bt.dataset.igon === '1'); });
   box.querySelectorAll('[data-fi]').forEach(r => r.onclick = () => { if (S._todoModal) S._todoModal.close(); selectElement(r.dataset.fi); });
   box.querySelectorAll('input[data-tid]').forEach(cb => cb.onchange = () => {
     const list = todosOf(S.project).map(t => t.id === cb.dataset.tid ? { ...t, done: cb.checked, doneAt: cb.checked ? nowIso() : '', doneBy: cb.checked ? S.me.id : '' } : t);
