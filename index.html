@@ -6040,7 +6040,9 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     }
     if (t && hasLit(el)) h += `<div class="fld"><label>Podświetlenie</label>${LIT_OPTS.map(([k, n]) => `<label class="chk seg-chk" style="display:inline-flex;margin-right:16px"><input type="checkbox" data-lit="${k}" ${el[k] ? 'checked' : ''}> <span>${n}</span></label>`).join('')}</div>`;
     if (t && hasThick(el)) h += `<div class="fld" style="max-width:260px"><label>Grubość [mm]</label><input type="number" id="ed-thick" min="0" step="1" value="${esc(el.thick == null ? '' : el.thick)}" placeholder="np. 10"></div>`;
-    if (t) TYPE_TOGGLES.filter(([k]) => t[k] && !(k === 'whiteback' && el.wyslona)).forEach(([k, name]) => { h += `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`; });
+    const togHtml = ([k, name]) => `<label class="chk seg-chk"><input type="checkbox" data-tog="${k}" ${el[k] ? 'checked' : ''}> <span>${name}</span></label>`;
+    const wbBelow = !!(t && t.seg);      // „Biały tył” stoi pod Mocowaniem (gdy typ ma mocowanie)
+    if (t) TYPE_TOGGLES.filter(([k]) => t[k] && !(k === 'whiteback' && el.wyslona) && !(k === 'whiteback' && wbBelow)).forEach(tg => { h += togHtml(tg); });
     if (t && t.finish) h += `<div class="fld"><label>Wykończenie</label><div class="var-list">${FINISHES.map(([k, name]) =>
       `<button type="button" class="type-btn var-btn ${el.finish === k ? 'on' : ''}" data-fin="${k}">${name}</button>`).join('')}</div></div>`;
     if (t && t.seg) {
@@ -6053,6 +6055,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         <button type="button" class="type-btn var-btn ${el.backSel === 'none' ? 'on' : ''}" data-backsel="none">Bez wysłony</button>
         ${BACK_MATS.map(([k, n]) => `<button type="button" class="type-btn var-btn ${el.backSel === k ? 'on' : ''}" data-backsel="${k}">${n}</button>`).join('')}</div>
         ${el.backSel ? '' : '<div class="hint">Nie wybrano — zapytam przy zapisie.</div>'}</div>`;
+      if (t.whiteback && !el.wyslona) h += togHtml(TYPE_TOGGLES.find(x => x[0] === 'whiteback'));
     }
     let hd = '';
     if (t && DOOR_TYPES.includes(t.id) && !el.doorFor) {
