@@ -4847,9 +4847,9 @@ function openMarkMenu(x, y, eid, loc) { if (isViewer()) return;
   const m = document.createElement('div');
   m.className = 'menu mark-menu';
   m.innerHTML = `<div class="mm-h">${esc(markOf(el))} · ${esc(typeLabel(el))}</div>
+    <button type="button" data-mm="rename">✎ Zmień nazwę<small>znak w kółku (teraz ${esc(markOf(el))}) — gdy jest zajęty, elementy zamienią się znakami</small></button>
     <button type="button" data-mm="copy">⧉ Skopiuj<small>nowy, osobny element (kolejna litera) z tymi samymi danymi</small></button>
     ${locsOf(el).length ? '<button type="button" data-mm="clone">⊕ Sklonuj<small>drugi znacznik tego samego elementu (ilość bez zmian)</small></button>' : ''}
-    <button type="button" data-mm="rename">✎ Zmień nazwę<small>znak w kółku (teraz ${esc(markOf(el))}) — gdy jest zajęty, elementy zamienią się znakami</small></button>
     <button type="button" data-mm="hide" class="mm-hide"><span class="mm-eye">${eyeIcon(!!el.tblHidden)}</span> ${el.tblHidden ? 'Pokaż' : 'Ukryj'}<small>${el.tblHidden ? 'znów widoczny na wizce, w Grafice i w eksporcie' : 'półprzezroczysty na wizce, ukryty w Grafice i pominięty w eksporcie'}</small></button>
     <button type="button" data-mm="del" class="mm-del">✕ Usuń${locsOf(el).length > 1 ? '<small>tylko ten znacznik</small>' : ''}</button>`;
   document.body.appendChild(m);
