@@ -281,6 +281,8 @@
   #viewer.t-poly #overlay .shp { pointer-events: none; }
   #overlay .hdl { cursor: pointer; }
   #overlay .plab { pointer-events: none; }
+  #overlay .pnum { pointer-events: all; cursor: grab; }
+  #viewer.reordering, #viewer.reordering #overlay .pnum { cursor: grabbing; }
   #overlay .pdel, #overlay .pvm, #overlay .pexp, #overlay .pvo { cursor: pointer; }
   #overlay .pvm:hover rect { fill: rgba(56,161,105,.85); }
   #viewer-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--gray); gap: 14px; text-align: center; padding: 20px; pointer-events: none; }
@@ -4205,6 +4207,19 @@ async function alignMarkers() { if (isViewer()) return;
   };
 }
 
+async function reorderPhoto(pid, to) {
+  if (isViewer() || !S.project) return renderOverlay();
+  const cur = S.photos.slice(), from = cur.findIndex(p => p.id === pid); if (from < 0) return renderOverlay();
+  const [mv] = cur.splice(from, 1); cur.splice(Math.max(0, Math.min(to, cur.length)), 0, mv);
+  if (cur.every((p, i) => p.id === S.photos[i].id)) return renderOverlay();
+  const oldNo = from + 1, newNo = cur.findIndex(p => p.id === pid) + 1, ch = [];
+  cur.forEach((p, i) => { if ((p.order || 0) !== i + 1) { ch.push([p.id, i + 1]); p.order = i + 1; } });
+  S.photos = cur; renderStage(false);          // od razu lokalnie, żeby nie mrugało; potem zapis do bazy
+  try {
+    for (const [id, order] of ch) await DB.update(pPhotos(S.project.id), id, { order });
+    addLog(S.project.id, `Zmieniono kolejność wizek: #${oldNo} → #${newNo}`);
+  } catch (err) { toast('Błąd zapisu kolejności: ' + err.message, 'error'); }
+}
 function layoutPhotos() {
   let x = 0; const map = {};
   for (const p of S.photos) {
@@ -4354,6 +4369,7 @@ function shapeCenter(sh) {
 
 // --- rysowanie nakładki ---
 let liveShape = null; // {eid, shape} podczas przeciągania
+let reorder = null; // {pid, moved, to} podczas zmiany kolejności wizek (przeciąganie za numer)
 let suppressCtx = false; // prawy przycisk użyty jako „kopiuj” w trakcie przeciągania — bez menu kontekstowego
 let pendingShape = null; // narysowany kształt czekający na opis w oknie
 function renderOverlay() {
@@ -4367,8 +4383,8 @@ function renderOverlay() {
     const b = L.map[p.id], cur = p.id === S.photoId && S.photos.length > 1;
     if (p.noExp) { const z = Math.min(b.w, H0) * 0.42; out += eyeIcon(false).replace('<svg ', `<svg x="${b.x + (b.w - z) / 2}" y="${(H0 - z) / 2}" style="color:#2f9e5b;opacity:.5;pointer-events:none" `).replace('width="17" height="17"', `width="${z}" height="${z}"`); }
     if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#67b437" stroke-width="${3 * s}"/>`;
-    out += `<g class="plab"><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/>
-      <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">#${i + 1}</text>${p.noExp ? `<rect x="${b.x + 44 * s}" y="0" width="${96 * s}" height="${24 * s}" fill="rgba(197,48,48,.92)"/><text x="${b.x + 92 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial">poza eksportem</text>` : ''}</g>
+    out += `<g class="plab"><g class="pnum" data-pid="${p.id}"><title>${isViewer() ? 'Wizka #' + (i + 1) : 'Przeciągnij, aby zmienić kolejność wizek'}</title><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="${reorder && reorder.pid === p.id && reorder.moved ? 'rgba(103,180,55,.95)' : 'rgba(26,32,44,.8)'}"/>
+      <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">#${i + 1}</text></g>${p.noExp ? `<rect x="${b.x + 44 * s}" y="0" width="${96 * s}" height="${24 * s}" fill="rgba(197,48,48,.92)"/><text x="${b.x + 92 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial">poza eksportem</text>` : ''}</g>
       ${(() => { const hel = hangElOfPhoto(p.id), ufv = !hel && p.ufViz; if (!hel && !ufv) return ''; const cm = hel ? hangViewMode(p, hel) : (p.vmode || 'tex'), bs = hel ? [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']] : [['tex', 'pełny', 46, 'Widok pełny: ścianki z grafikami elementów'], ['frame', 'szkielet', 56, 'Kratownica / gołe ramy z wymiarami']]; let bx = b.x + b.w - 52 * s - 6 * s - 64 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
         const orb = `<g class="pvo" data-pid="${p.id}"><title>Orbita: obracaj wizualizację myszą i zapisz widok</title><rect x="${b.x + b.w - 52 * s - 6 * s - 64 * s}" y="0" width="${64 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/><text x="${b.x + b.w - 52 * s - 6 * s - 32 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">↻ orbita</text></g>`;
         return orb + bs.map(([k, lab, w, tt]) => { const x0 = bx; bx += w * s; return `<g class="pvm" data-pid="${p.id}" data-mode="${k}"><title>${tt}</title><rect x="${x0}" y="0" width="${w * s}" height="${24 * s}" fill="${cm === k ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + w * s / 2}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${lab}</text></g>`; }).join(''); })()}
@@ -4376,6 +4392,11 @@ function renderOverlay() {
       <g class="pdel" data-pid="${p.id}"><title>Usuń wizkę #${i + 1}</title><rect x="${b.x + b.w - 24 * s}" y="0" width="${24 * s}" height="${24 * s}" fill="rgba(229,62,62,.9)"/>
       <text x="${b.x + b.w - 12 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${14 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">✕</text></g>`;
   });
+  if (reorder && reorder.moved && L.map[reorder.pid]) {   // zmiana kolejności: zarys przenoszonej wizki + pionowa kreska w miejscu wstawienia
+    const bd = L.map[reorder.pid], others = S.photos.filter(q => q.id !== reorder.pid), gx = reorder.to <= 0 ? (others[0] ? L.map[others[0].id].x - GAP / 2 : 0) : L.map[others[reorder.to - 1].id].x + L.map[others[reorder.to - 1].id].w + GAP / 2;
+    out += `<rect style="pointer-events:none" x="${bd.x}" y="0" width="${bd.w}" height="${H0}" fill="rgba(103,180,55,.18)" stroke="#67b437" stroke-width="${2 * s}" stroke-dasharray="${8 * s} ${5 * s}"/>
+      <rect style="pointer-events:none" x="${gx - 3 * s}" y="${-6 * s}" width="${6 * s}" height="${H0 + 12 * s}" rx="${3 * s}" fill="#67b437" stroke="#fff" stroke-width="${1.5 * s}"/>`;
+  }
   const marks = [];
   // wysłona lightboxa nie ma własnego znacznika — rysujemy ją obok znacznika lightboxa
   S.elements.forEach(el => { if (!el.backFor) locsOf(el).forEach(l => { if (L.map[l.photoId]) marks.push({ el, ...l }); }); });
@@ -4493,6 +4514,7 @@ viewer.addEventListener('pointerdown', e => {
     lastMarkTap = { eid: el0.id, t: now0, x: e.clientX, y: e.clientY };
     selectElement(el0.id, false, loc0); setCurrentPhoto(pid0); act = null; return;
   }
+  const pnm = !draft && e.target.closest('.pnum'); if (pnm && S.photos.length > 1) { act = { mode: 'reorder', pid: pnm.dataset.pid, x: e.clientX, y: e.clientY }; reorder = { pid: pnm.dataset.pid, moved: false, to: S.photos.findIndex(q => q.id === pnm.dataset.pid) }; return; }
   const pxo = !draft && e.target.closest('.pexp'); if (pxo) { const ph = S.photos.find(x => x.id === pxo.dataset.pid); if (ph && S.project && !isViewer()) DB.update(pPhotos(S.project.id), ph.id, { noExp: !ph.noExp }); return; }     // oczko: wizka poza eksportem
   const vo2 = !draft && e.target.closest('.pvo'); if (vo2) { hangOrbit(vo2.dataset.pid); return; }
   const vm = !draft && e.target.closest('.pvm'); if (vm) { hangSetView(vm.dataset.pid, vm.dataset.mode); return; }     // przełącznik widoku wizualizacji konstrukcji
@@ -4570,6 +4592,13 @@ viewer.addEventListener('pointermove', e => {
     V.ty = (my - r.top) - ((act.my - r.top) - act.ty0) * k;
     applyView(); return;
   }
+  if (act.mode === 'reorder') {
+    if (!reorder.moved && Math.hypot(e.clientX - act.x, e.clientY - act.y) < 5) return;
+    reorder.moved = true; viewer.classList.add('reordering');
+    const sx = toStage(e)[0], others = S.photos.filter(q => q.id !== act.pid);
+    reorder.to = others.filter(q => { const b = L.map[q.id]; return b.x + b.w / 2 < sx; }).length;
+    renderOverlay(); return;
+  }
   if (act.mode === 'tap' && Math.hypot(e.clientX - act.x, e.clientY - act.y) > 5) { act.mode = 'pan'; viewer.classList.add('panning'); }
   if (act.mode === 'pan') {
     V.tx = act.tx + e.clientX - act.x; V.ty = act.ty + e.clientY - act.y; applyView(); return;
@@ -4622,10 +4651,12 @@ viewer.addEventListener('pointermove', e => {
 function endPointer(e) {
   pointers.delete(e.pointerId);
   viewer.classList.remove('panning', 'copying');
+  viewer.classList.remove('reordering');
   const a = act;
   if (a && a.mode === 'pinch') { if (pointers.size < 2) act = null; return; }
   act = null;
   if (!a) return;
+  if (a.mode === 'reorder') { const r = reorder; reorder = null; if (r && r.moved && e.type !== 'pointercancel') reorderPhoto(r.pid, r.to); else renderOverlay(); return; }
   if (a.mode === 'tap') {
     const pid = photoAt(a.at[0], a.at[1]);
     if (!pid) { if (S.selId) selectElement(null); return; }
