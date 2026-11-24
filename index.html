@@ -342,6 +342,14 @@
   .gc-mi .no { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: #a0aec0; font-size: 14px; }
   .ed-mt { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
   .ed-ms { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 0 0 12px; }
+  .row-dims.nq { grid-template-columns: 1fr 1fr; }
+  .row-dims.four.nq { grid-template-columns: 1fr 1fr 1fr; }
+  .row-dims.five.nq { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .ed-mc { display: flex; flex-direction: column; gap: 3px; align-items: stretch; }
+  .ed-mq { display: flex; align-items: center; gap: 3px; font-size: .75rem; color: var(--gray); white-space: nowrap; }
+  .ed-mq input { width: 46px; padding: 2px 4px; font-size: .8rem; }
+  .ed-mp .dl { position: absolute; left: 2px; top: 2px; width: 17px; height: 17px; border-radius: 50%; background: rgba(26,32,44,.75); color: #fff; font: 700 13px/16px Arial, sans-serif; text-align: center; }
+  .ed-mp .dl:hover { background: #e53e3e; }
   .ed-mp { position: relative; width: 78px; height: 78px; border: 1.5px dashed #a0aec0; border-radius: 4px; background: #f7fafc; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
   .ed-mp:hover, .ed-mp.drag { border-color: #3182ce; background: #ebf8ff; }
   .ed-mp img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
@@ -6112,7 +6120,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     seg: typeById(el.typeId).seg ? !!el.seg : false,
     wyslona: typeById(el.typeId).wyslona ? !!el.wyslona : false,
     name: $('ed-name').value.trim(),
-    qty: Math.max(1, parseInt($('ed-q').value, 10) || 1),
+    qty: el.multi ? multiFields(el).qty : Math.max(1, parseInt($('ed-q').value, 10) || 1),
     notes: $('ed-notes').value.trim(),
     ...(sideBleedOk(el) ? {
       bleedOverride: el.bleedMode === 'all' ? Number(el.bleedAll) || 0 : el.bleedMode === 'none' ? 0 : '',
@@ -6518,35 +6526,44 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     };
     $('ed-rn').onclick = go; $('ed-badge').style.cursor = 'pointer'; $('ed-badge').title = 'Kliknij, aby zmienić znak'; $('ed-badge').onclick = go;
   }
-  // Multi: jeden znacznik, kilka sztuk — każda z własną miniaturą (nazwy J1, J2, J3…); liczba sztuk = ilość
+  // Multi: jeden znacznik, kilka pozycji (J1, J2, J3…) — każda z własną miniaturą i własną ilością; ogólna ilość jest wtedy zbędna (to suma)
   {
-    const mbox = $('ed-multi'), curQ = () => Math.max(1, parseInt($('ed-q').value, 10) || 1);
+    const mbox = $('ed-multi');
+    const arrs = () => { const n = multiN(el); return { th: Array.from({ length: n }, (_, i) => pieceThumb(el, i)), mq: Array.from({ length: n }, (_, i) => pieceQty(el, i)) }; };
     const putPiece = async (i, file) => {
       if (!file) return;
       const t = toast('Wgrywanie miniatury…', '', 60000);
       try {
         const { url } = await storeThumb(await tiffToJpegFile(file));
-        const th = Array.from({ length: Math.max(curQ(), i + 1) }, (_, k) => pieceThumb(el, k)); th[i] = url; el.mthumbs = th;
+        const { th, mq } = arrs(); th[i] = url; el.mthumbs = th; el.mqty = mq;
       } catch (e) { toast('Nie udało się wgrać: ' + e.message, 'error'); }
       t.remove(); renderMulti();
     };
     var renderMulti = () => {
       if (!mbox) return;
       if (el.doorFor || el.backFor || (editing && (editing.doorFor || editing.backFor))) { mbox.innerHTML = ''; return; }
-      const on = !!el.multi, labs = multiLabels({ ...el, qty: curQ() });
-      mbox.innerHTML = `<div class="ed-mt"><button type="button" class="btn btn-sm${on ? ' btn-solid' : ''}" id="ed-mt-b" title="Kilka sztuk pod jednym znacznikiem, każda z inną grafiką (miniaturą)">▦ Multi</button><span class="hint" style="margin:0">${on ? 'Liczba sztuk = ilość (ostatnie pole poniżej). Kliknij kafelek, aby wkleić miniaturę ze schowka albo wybrać plik.' : 'Kilka sztuk o tym samym wymiarze i spadzie, ale z różnymi grafikami.'}</span></div>`
-        + (on ? `<div class="ed-ms">${labs.map((lb, i) => { const u = pieceThumb(el, i); return `<div class="ed-mp" data-i="${i}" title="Kliknij, aby wkleić grafikę ze schowka (albo wybrać plik); można też upuścić plik">${u ? `<img src="${esc(u)}" alt="" draggable="false"><span class="rm" data-rm="${i}" title="Usuń miniaturę">✕</span>` : '<span class="no">+</span>'}<span class="mk">${esc(lb)}</span></div>`; }).join('')}<button type="button" class="btn btn-sm" id="ed-mt-add" title="Dodaj kolejną sztukę (zwiększa ilość)">+ kolejna</button></div>` : '');
+      const on = !!el.multi, labs = multiLabels(el), n = labs.length;
+      $('ed-dims').classList.toggle('nq', on); $('ed-q').closest('.fld').classList.toggle('hidden', on);
+      mbox.innerHTML = `<div class="ed-mt"><button type="button" class="btn btn-sm${on ? ' btn-solid' : ''}" id="ed-mt-b" title="Kilka pozycji pod jednym znacznikiem, każda z inną grafiką (miniaturą) i własną ilością">▦ Multi</button><span class="hint" style="margin:0">${on ? `Ilość wpisujesz przy każdej pozycji (razem ${multiFields(el).qty} szt.). Kliknij kafelek, aby wkleić miniaturę ze schowka albo wybrać plik.` : 'Kilka pozycji o tym samym wymiarze i spadzie, ale z różnymi grafikami i ilościami.'}</span></div>`
+        + (on ? `<div class="ed-ms">${labs.map((lb, i) => { const u = pieceThumb(el, i); return `<div class="ed-mc"><div class="ed-mp" data-i="${i}" title="Kliknij, aby wkleić grafikę ze schowka (albo wybrać plik); można też upuścić plik">${u ? `<img src="${esc(u)}" alt="" draggable="false"><span class="rm" data-rm="${i}" title="Usuń miniaturę">✕</span>` : '<span class="no">+</span>'}${n > 2 ? `<span class="dl" data-dl="${i}" title="Usuń tę pozycję">−</span>` : ''}<span class="mk">${esc(lb)}</span></div><label class="ed-mq">× <input type="number" min="1" step="1" value="${pieceQty(el, i)}" data-qi="${i}"> szt.</label></div>`; }).join('')}<button type="button" class="btn btn-sm" id="ed-mt-add" title="Dodaj kolejną pozycję">+ kolejna</button></div>` : '');
       $('ed-mt-b').onclick = () => {
-        el.multi = !el.multi;
-        if (el.multi) { if (!(el.mthumbs || []).length && el.thumb) el.mthumbs = [el.thumb]; if (curQ() < 2) { $('ed-q').value = 2; $('ed-q').dispatchEvent(new Event('input')); } }
-        renderMulti();
+        if (!el.multi) {
+          el.multi = true;
+          if (!(el.mthumbs || []).length) { el.mthumbs = [el.thumb || '', '']; el.mqty = [Math.max(1, parseInt($('ed-q').value, 10) || 1), 1]; }
+        } else { $('ed-q').value = multiFields(el).qty; el.multi = false; }
+        $('ed-q').dispatchEvent(new Event('input')); renderMulti();
       };
-      const add = $('ed-mt-add'); if (add) add.onclick = () => { $('ed-q').value = curQ() + 1; $('ed-q').dispatchEvent(new Event('input')); };
+      const add = $('ed-mt-add'); if (add) add.onclick = () => { const { th, mq } = arrs(); th.push(''); mq.push(1); el.mthumbs = th; el.mqty = mq; renderMulti(); };
+      mbox.querySelectorAll('input[data-qi]').forEach(inp => inp.oninput = () => {
+        const { th, mq } = arrs(); mq[+inp.dataset.qi] = Math.max(1, parseInt(inp.value, 10) || 1); el.mthumbs = th; el.mqty = mq;
+        const h = mbox.querySelector('.ed-mt .hint'); if (h) h.textContent = `Ilość wpisujesz przy każdej pozycji (razem ${multiFields(el).qty} szt.). Kliknij kafelek, aby wkleić miniaturę ze schowka albo wybrać plik.`;
+      });
       mbox.querySelectorAll('.ed-mp').forEach(p => {
         const i = +p.dataset.i;
         p.onclick = async ev => {
-          const rm = ev.target.closest('[data-rm]');
-          if (rm) { ev.stopPropagation(); const th = Array.from({ length: curQ() }, (_, k) => pieceThumb(el, k)); th[i] = ''; el.mthumbs = th; if (i === 0) el.thumb = ''; return renderMulti(); }
+          const dl = ev.target.closest('[data-dl]'), rm = ev.target.closest('[data-rm]');
+          if (dl) { ev.stopPropagation(); const { th, mq } = arrs(); th.splice(i, 1); mq.splice(i, 1); el.mthumbs = th; el.mqty = mq; el.thumb = th[0] || ''; return renderMulti(); }
+          if (rm) { ev.stopPropagation(); const { th, mq } = arrs(); th[i] = ''; el.mthumbs = th; el.mqty = mq; if (i === 0) el.thumb = ''; return renderMulti(); }
           putPiece(i, await clipboardImageFile() || await chooseImageFile());
         };
         p.addEventListener('dragover', ev => { if (hasFiles(ev)) { ev.preventDefault(); p.classList.add('drag'); } });
@@ -6554,7 +6571,6 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         p.addEventListener('drop', ev => { p.classList.remove('drag'); if (!hasFiles(ev)) return; ev.preventDefault(); putPiece(i, [...ev.dataTransfer.files].find(x => x.type.startsWith('image/') || isTiff(x))); });
       });
     };
-    $('ed-q').addEventListener('input', () => { if (el.multi) renderMulti(); });
     renderMulti();
   }
   // wysłona lightboxa: wymiar i ilość idą z lightboxa — tu tylko do podglądu
@@ -6768,23 +6784,25 @@ function ringBadge(color, txt, size = 28) {
     <text x="20" y="26.5" text-anchor="middle" font-size="${txt.length > 1 ? 14 : 19}" font-weight="700" fill="#fff" font-family="Bahnschrift, Segoe UI, Arial, sans-serif">${txt}</text></svg>`;
 }
 const cm = mm => lenPL(mm); // linie wymiarowe w jednostce użytkownika
-// Multi: jeden element (jeden znacznik) z kilkoma sztukami, każda z własną grafiką (miniaturą). Liczba sztuk = ilość; nazwy: znak + numer (J → J1, J2, J3)
+// Multi: jeden element (jeden znacznik) z kilkoma pozycjami, każda z własną grafiką (miniaturą) i własną ilością; nazwy: znak + numer (J → J1, J2, J3).
+// Dane: mthumbs[] (miniatury), mqty[] (ilości); qty elementu = suma ilości; pierwsza miniatura jest też zwykłą miniaturą elementu
+const multiN = e => Math.max(1, (e.mthumbs || []).length, (e.mqty || []).length);
 const pieceThumb = (e, i) => (e.mthumbs && e.mthumbs[i]) || (i === 0 ? e.thumb || '' : '');
+const pieceQty = (e, i) => Math.max(1, parseInt(e.mqty && e.mqty[i], 10) || 1);
 function multiLabels(e) {
   const m0 = markOf(e), base = m0.replace(/\d+$/, '') || m0, sep = /^\d+$/.test(base) ? '.' : '';
-  return Array.from({ length: qtyOf(e) }, (_, i) => base + sep + (i + 1));
+  return Array.from({ length: multiN(e) }, (_, i) => base + sep + (i + 1));
 }
-// pola do zapisu; pierwsza miniatura jest też „zwykłą” miniaturą elementu (tabela, eksport, wizualizacje)
 const multiFields = d => {
-  if (!d.multi) return { multi: false, mthumbs: [] };
-  const th = Array.from({ length: qtyOf(d) }, (_, i) => pieceThumb(d, i));
-  return { multi: true, mthumbs: th, thumb: th[0], ...(th[0] !== d.thumb ? { thumbVec: '' } : {}) };
+  if (!d.multi) return { multi: false, mthumbs: [], mqty: [] };
+  const n = multiN(d), th = Array.from({ length: n }, (_, i) => pieceThumb(d, i)), mq = Array.from({ length: n }, (_, i) => pieceQty(d, i));
+  return { multi: true, mthumbs: th, mqty: mq, qty: mq.reduce((x, y) => x + y, 0), thumb: th[0], ...(th[0] !== d.thumb ? { thumbVec: '' } : {}) };
 };
 function multiStripHtml(e, active) {
   const labs = multiLabels(e), g0 = grossOf(e), ar = Math.max(.35, Math.min(2.6, g0.w / (g0.h || 1))), w = Math.round(38 * ar);
-  return `<div class="gc-multi"><span class="gc-multi-t">multi · ${labs.length} szt.</span>${labs.map((lb, i) => {
-    const u = pieceThumb(e, i);
-    return `<button type="button" class="gc-mi${i === active ? ' on' : ''}" data-eid="${e.id}" data-pi="${i}" style="width:${w}px" title="${esc(lb)} — kliknij, aby pokazać${u ? '' : ' (bez grafiki — wklej ją w ramce poniżej)'}">${u ? `<img src="${esc(u)}" alt="" draggable="false">` : '<span class="no">+</span>'}<span class="mk">${esc(lb)}</span></button>`;
+  return `<div class="gc-multi"><span class="gc-multi-t">multi · ${labs.length} poz. · ${multiFields(e).qty} szt.</span>${labs.map((lb, i) => {
+    const u = pieceThumb(e, i), q = pieceQty(e, i);
+    return `<button type="button" class="gc-mi${i === active ? ' on' : ''}" data-eid="${e.id}" data-pi="${i}" style="width:${w}px" title="${esc(lb)} · ${q} szt. — kliknij, aby pokazać${u ? '' : ' (bez grafiki — wklej ją w ramce poniżej)'}">${u ? `<img src="${esc(u)}" alt="" draggable="false">` : '<span class="no">+</span>'}<span class="mk">${esc(lb)}</span>${q > 1 ? `<span class="q">×${q}</span>` : ''}</button>`;
   }).join('')}</div>`;
 }
 function renderGraph() {
@@ -6806,8 +6824,8 @@ function renderGraph() {
   const k = Math.min(avail / maxH, 320 / maxW);
   const cards = gEls.map(eRaw => {
     // Multi: w ramce widać wybraną sztukę (J1, J2…), pozostałe w pasku miniatur
-    const mi = eRaw.multi ? Math.min(((S.multiSel || {})[eRaw.id]) || 0, qtyOf(eRaw) - 1) : -1;
-    const e = mi >= 0 ? { ...eRaw, thumb: pieceThumb(eRaw, mi) } : eRaw;
+    const mi = eRaw.multi ? Math.min(((S.multiSel || {})[eRaw.id]) || 0, multiN(eRaw) - 1) : -1;
+    const e = mi >= 0 ? { ...eRaw, thumb: pieceThumb(eRaw, mi), qty: pieceQty(eRaw, mi) } : eRaw;
     const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
     // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
     const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
@@ -7069,8 +7087,8 @@ async function setThumb(eid, file, which = '') {
       const b = bleedOf(el), w = sz.w - 2 * b, h = sz.h - 2 * b;
       if (w > 0 && h > 0) { upd.w = w; upd.h = h; dimNote = `wymiar ${lenPL(w)} × ${lenPL(h)} ${UNIT()} (plik ${lenPL(sz.w)} × ${lenPL(sz.h)}${b ? ' minus spad ' + lenPL(b) + ' z każdej strony' : ''}, z ${sz.from})`; }
     }
-    const mIdx = el.multi && which !== 'in' ? Math.min(((S.multiSel || {})[eid]) || 0, qtyOf(el) - 1) : -1;
-    if (mIdx >= 0) { const th = Array.from({ length: qtyOf(el) }, (_, i) => pieceThumb(el, i)); th[mIdx] = url; upd.mthumbs = th; if (mIdx !== 0) { delete upd.thumb; delete upd.thumbVec; } }
+    const mIdx = el.multi && which !== 'in' ? Math.min(((S.multiSel || {})[eid]) || 0, multiN(el) - 1) : -1;
+    if (mIdx >= 0) { const th = Array.from({ length: multiN(el) }, (_, i) => pieceThumb(el, i)); th[mIdx] = url; upd.mthumbs = th; if (mIdx !== 0) { delete upd.thumb; delete upd.thumbVec; } }
     await DB.update(pElements(S.project.id), eid, upd);
     addLog(S.project.id, `Dodano grafikę (miniaturę)${which === 'in' ? ' zadruku wewnętrznego' : ''} do elementu ${markOf(el)}${dimNote ? ' — ' + dimNote : ''}`, eid);
     if (dimNote) toast('Wpisano ' + dimNote + '. Jeśli plik nie ma spadu, popraw w oknie elementu.', '', 9000);
@@ -7094,8 +7112,8 @@ async function pastePlaneThumb(eid, idx) {
 async function removeThumb(eid, which = '') {
   const el = S.elements.find(x => x.id === eid); if (!el) return;
   if (!await confirmBox(`Usunąć miniaturę grafiki${which === 'in' ? ' zadruku wewnętrznego' : ''} z elementu <b>${markOf(el)}</b>?`, 'Usuń')) return;
-  const mIdx = el.multi && which !== 'in' ? Math.min(((S.multiSel || {})[eid]) || 0, qtyOf(el) - 1) : -1;
-  const mth = mIdx >= 0 ? Array.from({ length: qtyOf(el) }, (_, i) => i === mIdx ? '' : pieceThumb(el, i)) : null;
+  const mIdx = el.multi && which !== 'in' ? Math.min(((S.multiSel || {})[eid]) || 0, multiN(el) - 1) : -1;
+  const mth = mIdx >= 0 ? Array.from({ length: multiN(el) }, (_, i) => i === mIdx ? '' : pieceThumb(el, i)) : null;
   await DB.update(pElements(S.project.id), eid, which === 'in' ? { thumbIn: '', updatedAt: nowIso(), updatedBy: S.me.id } : mth ? { mthumbs: mth, ...(mIdx === 0 ? { thumb: '', thumbVec: '' } : {}), updatedAt: nowIso(), updatedBy: S.me.id } : { thumb: '', thumbVec: '', updatedAt: nowIso(), updatedBy: S.me.id });
   addLog(S.project.id, `Usunięto miniaturę grafiki${which === 'in' ? ' zadruku wewnętrznego' : ''} z elementu ${markOf(el)}`, eid);
 }
