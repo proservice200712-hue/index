@@ -331,10 +331,10 @@
   .gc.abs { position: absolute; }
   .gc.dragging { z-index: 5; opacity: .92; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
   /* Multi: pierwsza pozycja z wymiarami + kolejne kafelki obok (ze spadem, bez wymiarów); w rogu nazwa pozycji i ilość */
-  .gc-mrow { display: flex; flex-wrap: wrap; gap: 10px 8px; align-items: flex-start; }
+  .gc-mrow { display: flex; flex-wrap: wrap; gap: 24px 8px; align-items: flex-start; padding-top: 18px; }
   .gc-mt { position: relative; flex: none; }
-  .gc-mk { position: absolute; left: 0; bottom: 0; z-index: 3; font: 700 11px/15px Arial, sans-serif; background: rgba(26,32,44,.82); color: #fff; padding: 0 5px; border-radius: 0 3px 0 0; pointer-events: none; }
-  .gc-mq { position: absolute; right: 0; top: 0; z-index: 3; font: 700 11px/15px Arial, sans-serif; background: rgba(255,255,255,.9); color: #2d3748; padding: 0 5px; border-radius: 0 0 0 3px; pointer-events: none; box-shadow: 0 0 0 1px #cbd5e0; }
+  .gc-mk { position: absolute; left: 0; top: -17px; z-index: 3; font: 700 11px/15px Arial, sans-serif; background: #2d3748; color: #fff; padding: 0 6px; border-radius: 3px; pointer-events: none; white-space: nowrap; }
+  .gc-mq { position: absolute; right: 0; top: -17px; z-index: 3; font: 700 11px/15px Arial, sans-serif; background: #edf2f7; color: #2d3748; padding: 0 6px; border-radius: 3px; pointer-events: none; box-shadow: 0 0 0 1px #cbd5e0; white-space: nowrap; }
   .ed-mt { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
   .ed-ms { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 0 0 12px; }
   .row-dims.nq { grid-template-columns: 1fr 1fr; }
@@ -6894,7 +6894,7 @@ function renderGraph() {
         title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
-    const gcMk = (lb, q, first) => `<span class="gc-mk"${first ? ` style="left:${LM}px;top:${Math.round(FH) - 16}px;bottom:auto"` : ''}>${esc(lb)}</span>` + (q > 1 ? `<span class="gc-mq"${first ? ` style="left:${LM + Math.round(FW)}px;right:auto;transform:translateX(-100%)"` : ''}>×${q}</span>` : '');
+    const gcMk = (lb, q, first) => `<span class="gc-mk"${first ? ` style="left:${LM}px"` : ''}>${esc(lb)}</span>` + (q > 1 ? `<span class="gc-mq"${first ? ` style="left:${LM + Math.round(FW)}px;right:auto;transform:translateX(-100%)"` : ''}>×${q}</span>` : '');
     const mLabs = eRaw.multi ? multiLabels(eRaw) : [];
     const mTiles = mLabs.map((lb, i) => {
       if (!i) return '';
