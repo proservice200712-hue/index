@@ -6058,6 +6058,7 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
         <div class="type-prev" id="ed-prev"></div>
       </div>
       <div id="ed-opts"></div>
+      <div id="ed-multi"></div>
       <div class="fld"><label id="ed-dims-lab">2. Wymiar widoczny (netto)</label>
         <div class="row-dims" id="ed-dims">
           <div class="fld" style="margin:0"><input type="text" inputmode="decimal" autocomplete="off" id="ed-w" value="${esc(numIn(fromMM(el.w)))}" placeholder="szerokość [${UNIT()}]" title="Można wpisać działanie, np. 99,2x2+8 — pokażę wynik, a wyliczenie zapamiętam"></div>
@@ -6509,6 +6510,14 @@ function openElementDialog({ id, shape, photoId, turbo, typeId }) {
     };
     $('ed-rn').onclick = go; $('ed-badge').style.cursor = 'pointer'; $('ed-badge').title = 'Kliknij, aby zmienić znak'; $('ed-badge').onclick = go;
   }
+  // wielosztuki: miniatury elementów o tym samym typie, wymiarze i spadzie — nad wymiarami; klik otwiera ten element
+  if (editing) {
+    const grp = multiGroups(S.elements.filter(x => !hiddenInExport(x))).find(l => l.some(x => x.id === editing.id)), mb = $('ed-multi');
+    if (grp && mb) {
+      mb.innerHTML = multiStripHtml(grp, editing.id);
+      mb.querySelectorAll('.gc-mi').forEach(b => b.onclick = () => { if (b.dataset.eid === editing.id) return; m.close(); openElementDialog({ id: b.dataset.eid }); });
+    }
+  }
   // wysłona lightboxa: wymiar i ilość idą z lightboxa — tu tylko do podglądu
   if (editing && editing.backFor) {
     const lb = S.elements.find(e => e.id === editing.backFor);
@@ -6720,6 +6729,23 @@ function ringBadge(color, txt, size = 28) {
     <text x="20" y="26.5" text-anchor="middle" font-size="${txt.length > 1 ? 14 : 19}" font-weight="700" fill="#fff" font-family="Bahnschrift, Segoe UI, Arial, sans-serif">${txt}</text></svg>`;
 }
 const cm = mm => lenPL(mm); // linie wymiarowe w jednostce użytkownika
+// Wielosztuki: elementy z tym samym typem, wymiarem do druku i spadem (grafika może być inna). Nazwy: znak pierwszego elementu + numer (J → J1, J2, J3)
+const multiSig = e => (!hasDims(e) || e.doorFor || e.backFor || e.seg || e.wyslona) ? '' : JSON.stringify([e.typeId, e.variant || '', grossOf(e), netTxt(e), !!e.inside, e.hbMode || '', e.hbSides || '', isHang(e) ? hangProf(e)[0] : '']);
+function multiGroups(els) {
+  const m = new Map(); els.forEach(e => { const k = multiSig(e); if (k) { if (!m.has(k)) m.set(k, []); m.get(k).push(e); } });
+  return [...m.values()].filter(l => l.length > 1);
+}
+function multiLabels(list) {
+  const m0 = markOf(list[0]), base = m0.replace(/\d+$/, '') || m0, sep = /^\d+$/.test(base) ? '.' : '';
+  return list.map((_, i) => base + sep + (i + 1));
+}
+function multiStripHtml(list, curId, color) {
+  const labs = multiLabels(list), g0 = grossOf(list[0]), ar = Math.max(.35, Math.min(2.6, g0.w / (g0.h || 1))), w = Math.round(38 * ar);
+  return `<div class="gc-multi"><span class="gc-multi-t">wielosztuki · ${list.length} grafik${list.length < 5 ? 'i' : ''}</span>${list.map((x, i) => {
+    const q = qtyOf(x);
+    return `<button type="button" class="gc-mi${x.id === curId ? ' on' : ''}" data-eid="${x.id}" style="width:${w}px" title="${esc(labs[i])} (znak ${esc(markOf(x))})${x.name ? ' · ' + esc(x.name) : ''}${q > 1 ? ' · ' + q + ' szt.' : ''} — kliknij, aby pokazać">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" draggable="false">` : '<span class="no">+</span>'}<span class="mk">${esc(labs[i])}</span>${q > 1 ? `<span class="q">×${q}</span>` : ''}</button>`;
+  }).join('')}</div>`;
+}
 function renderGraph() {
   const box = $('el-scroll');
   if (!S.elements.length) {
@@ -6739,16 +6765,13 @@ function renderGraph() {
   const k = Math.min(avail / maxH, 320 / maxW);
   // wielosztuki: elementy z tym samym typem, wymiarem do druku i spadem (grafika może być inna) tworzą jedno okienko;
   // pokazuje zaznaczony element grupy (albo pierwszy), a pozostałe są w pasku miniatur nad rysunkiem
-  const msig = e => (!hasDims(e) || e.doorFor || e.backFor || e.seg || e.wyslona) ? '' : JSON.stringify([e.typeId, e.variant || '', grossOf(e), netTxt(e), !!e.inside, e.hbMode || '', e.hbSides || '', isHang(e) ? hangProf(e)[0] : '']);
-  const mGroups = new Map(); gEls.forEach(e => { const k = msig(e); if (k) { if (!mGroups.has(k)) mGroups.set(k, []); mGroups.get(k).push(e); } });
-  const multiOf = new Map(), mHidden = new Set(), slotOf = new Map();
-  mGroups.forEach(list => { if (list.length < 2) return; const prim = list.find(x => x.id === S.selId) || list[0]; multiOf.set(prim.id, list); slotOf.set(list[0].id, prim); list.forEach(x => { if (x !== prim) mHidden.add(x.id); }); });
+  const multiOf = new Map(), mHidden = new Set(), slotOf = new Map(), mSkip = new Set();
+  multiGroups(gEls).forEach(list => { const prim = list.find(x => x.id === S.selId) || list[0]; multiOf.set(prim.id, list); slotOf.set(list[0].id, prim); list.forEach(x => { if (x !== prim) mHidden.add(x.id); }); list.slice(1).forEach(x => mSkip.add(x.id)); });
   S.multiHidden = mHidden;
-  const mSkip = new Set(); mGroups.forEach(list => { if (list.length > 1) list.slice(1).forEach(x => mSkip.add(x.id)); });
   const slots = gEls.map(e0 => slotOf.get(e0.id) || (mSkip.has(e0.id) ? null : e0)).filter(Boolean);
   const cards = slots.map(e => {
     const grp = multiOf.get(e.id);
-    const t = typeById(e.typeId), lab = markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
+    const t = typeById(e.typeId), grp0 = multiOf.get(e.id), lab = grp0 ? multiLabels(grp0)[grp0.indexOf(e)] : markOf(e), dims = hasDims(e), g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
     // mały element: powiększony w całości (dłuższy bok min. 44 px), proporcje boków bez zmian
     const fw0 = g.w * k, fh0 = g.h * k, up = dims && Math.max(fw0, fh0) < 44 ? 44 / Math.max(fw0, fh0) : 1;
     const FW = dims ? Math.max(8, fw0 * up) : 120, FH = dims ? Math.max(8, fh0 * up) : 80;
@@ -6828,10 +6851,7 @@ function renderGraph() {
         title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
     const pos = [e].concat(grp || []).map(x => x.gpos).find(p => p && Number.isFinite(+p.x)) || null;
-    const multi = grp ? `<div class="gc-multi"><span class="gc-multi-t">wielosztuki · ${grp.length} grafik${grp.length < 5 ? 'i' : ''}</span>${grp.map(x => {
-      const q = qtyOf(x), ar = Math.max(.35, Math.min(2.6, g.w / (g.h || 1))), w = Math.round(38 * ar);
-      return `<button type="button" class="gc-mi${x.id === e.id ? ' on' : ''}" data-eid="${x.id}" style="width:${w}px" title="${esc(markOf(x))}${x.name ? ' · ' + esc(x.name) : ''}${q > 1 ? ' · ' + q + ' szt.' : ''} — kliknij, aby pokazać w okienku">${x.thumb ? `<img src="${esc(x.thumb)}" alt="" draggable="false">` : '<span class="no">+</span>'}<span class="mk">${esc(markOf(x))}</span>${q > 1 ? `<span class="q">×${q}</span>` : ''}</button>`;
-    }).join('')}</div>` : '';
+    const multi = grp ? multiStripHtml(grp, e.id) : '';
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${Math.max(W + QW, 240)}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${e.offset && isAdmin() ? `<button type="button" class="gc-ed" data-eid="${e.id}" data-ow="1" title="Offset Wizard: otwórz zapisany offset tego elementu">⌖</button>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       ${multi}
