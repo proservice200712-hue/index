@@ -64,6 +64,11 @@
   @media (prefers-reduced-motion: reduce) { #btn-todo.todo-on { animation: none; box-shadow: 0 0 9px 3px rgba(255,255,255,.9), 0 0 18px 6px rgba(229,62,62,.9); } }
   .todo-add { display: flex; gap: 8px; margin-bottom: 12px; }
   .todo-add input { flex: 1; }
+  #btn-todo .todo-ex { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: #e53e3e; color: #fff; font: 800 11px/16px Arial, sans-serif; text-align: center; margin-left: 3px; vertical-align: 1px; box-shadow: 0 0 0 1.5px #fff; letter-spacing: 0; }
+  #btn-todo.todo-on .todo-ex { background: #fff; color: #e53e3e; box-shadow: 0 0 0 1.5px #e53e3e; }
+  #btn-todo.fi-on:not(.todo-on) { position: relative; }
+  .todo-row.fi { background: #fff5f5; }
+  .todo-row.fi .ex { flex: none; width: 20px; height: 20px; border-radius: 50%; background: #e53e3e; color: #fff; font: 800 13px/20px Arial, sans-serif; text-align: center; margin-top: 1px; }
   .todo-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 6px; border-bottom: 1px solid var(--line); cursor: pointer; }
   .todo-row input { margin-top: 3px; width: 17px; height: 17px; accent-color: #38a169; flex: none; }
   .todo-row .t { flex: 1; overflow-wrap: anywhere; }
@@ -7134,6 +7139,7 @@ function setHover(id) {
 }
 function renderElements() {
   if (!S.project) return;
+  scheduleFileIssues();
   try { if (UF.open && !UF.drag) { clearTimeout(UF.rt); UF.rt = setTimeout(ufDraw, 150); } } catch (e) { /* edytor jeszcze nie wczytany */ }
   $('btn-turbo').classList.toggle('hidden', !isAdmin());
   renderTurboBar();
@@ -10367,12 +10373,42 @@ async function closeUltraFrame() {
 // =====================================================================
 const todosOf = p => ((p && p.todos) || []).filter(t => t && t.text);
 const todosOpen = p => todosOf(p).filter(t => !t.done);
+// Niezgodności plików: grafika o innych proporcjach niż ramka (te same wykrzykniki co w widoku Grafika, także dla płaszczyzn konstrukcji podwieszanych)
+function ratioChecksOf(e) {
+  if (!hasDims(e) || hiddenInExport(e)) return [];
+  const out = [], g = isHang(e) ? { ...grossOf(e), b: 0 } : grossOf(e);
+  const add = (key, label, url, ar) => { if (url && ar > 0) out.push({ eid: e.id, key, label, url, ar }); };
+  const hangPl = isHang(e) ? (planesOf(e) || []).filter(q => q.side !== 'inside') : [], insPl = isHang(e) && e.inside ? (planesOf(e) || []).filter(q => q.side === 'inside') : [];
+  if (!axLinked(e)) { add('out', '', e.thumb, g.w / g.h); add('in', 'zadruk wewnątrz', e.thumbIn, g.w / g.h); }
+  hangPl.forEach((q, i) => add('pl' + i, planeName(q), q.thumb, q.gw / q.gh));
+  insPl.forEach((q, i) => add('pi' + i, 'wewnątrz: ' + planeName(q), q.thumb, q.gw / q.gh));
+  return out;
+}
+let _fiTimer = 0, _fiSeq = 0;
+function scheduleFileIssues() { clearTimeout(_fiTimer); _fiTimer = setTimeout(refreshFileIssues, 250); }
+async function refreshFileIssues() {
+  const seq = ++_fiSeq; if (!S.project) return;
+  const found = [];
+  for (const e of S.elements) for (const c of ratioChecksOf(e)) {
+    try {
+      if (!_crispImgs.has(c.url)) _crispImgs.set(c.url, loadImg(c.url));
+      const img = await _crispImgs.get(c.url), r = img.width / img.height;
+      if (Math.abs(r / c.ar - 1) > RATIO_TOL) found.push({ ...c, r });
+    } catch (err) { /* obrazek się nie wczytał — bez alarmu */ }
+    if (seq !== _fiSeq) return;
+  }
+  const sig = found.map(f => f.eid + f.key + f.r.toFixed(3)).join('|');
+  S.fileIssues = found;
+  if (sig !== S._fiSig) { S._fiSig = sig; renderTodoBtn(); }
+}
 function renderTodoBtn() {
   const b = $('btn-todo'); if (!b) return;
-  const n = todosOpen(S.project).length;
+  const n = todosOpen(S.project).length, fi = S.fileIssues || [];
   b.classList.toggle('todo-on', n > 0);
-  b.innerHTML = '!?' + (n ? ` <small>${n}</small>` : '');
-  b.title = n ? `Do zrobienia lub sprawdzenia: ${n} — kliknij, aby zobaczyć` : 'Notatki: rzeczy do zrobienia lub sprawdzenia';
+  b.classList.toggle('fi-on', fi.length > 0);
+  b.innerHTML = '!?' + (n ? ` <small>${n}</small>` : '') + fi.slice(0, 4).map(() => '<span class="todo-ex">!</span>').join('') + (fi.length > 4 ? ` <small>+${fi.length - 4}</small>` : '');
+  b.title = (n ? `Do zrobienia lub sprawdzenia: ${n} — kliknij, aby zobaczyć` : 'Notatki: rzeczy do zrobienia lub sprawdzenia')
+    + (fi.length ? `\nNiezgodne pliki: ${fi.length} (proporcje grafiki inne niż ramki)` : '');
   if ($('todo-list')) renderTodoList();
 }
 async function saveTodos(list, logText) {
@@ -10385,8 +10421,14 @@ function renderTodoList() {
   const all = todosOf(S.project), ro = isViewer(), when = iso => { try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'numeric' }); } catch (e) { return ''; } };
   const row = t => `<label class="todo-row ${t.done ? 'done' : ''}"><input type="checkbox" data-tid="${esc(t.id)}" ${t.done ? 'checked' : ''} ${ro ? 'disabled' : ''}><span class="t">${esc(t.text)}</span><small>${esc(userLabel(t.by) || '')} ${t.at ? when(t.at) : ''}${t.done && t.doneAt ? ' · ✓ ' + esc(userLabel(t.doneBy) || '') + ' ' + when(t.doneAt) : ''}</small></label>`;
   const open = all.filter(t => !t.done), done = all.filter(t => t.done);
-  box.innerHTML = (open.length ? open.map(row).join('') : '<div class="hint" style="padding:8px 0">Brak rzeczy do zrobienia.</div>')
+  const fi = S.fileIssues || [], pr = x => x.toFixed(2).replace('.', ',');
+  const fiHtml = fi.length ? `<div class="todo-h" style="margin-top:0">Niezgodne pliki (${fi.length})</div>` + fi.map(f => {
+    const el = S.elements.find(x => x.id === f.eid);
+    return `<div class="todo-row fi" data-fi="${esc(f.eid)}"><span class="ex">!</span><span class="t"><b>${el ? esc(markOf(el)) : '?'}</b> ${esc(el ? typeLabel(el) : '')}${f.label ? ' · ' + esc(f.label) : ''} — proporcje grafiki ${pr(f.r)} : 1, ramki ${pr(f.ar)} : 1</span></div>`;
+  }).join('') : '';
+  box.innerHTML = fiHtml + (open.length ? open.map(row).join('') : '<div class="hint" style="padding:8px 0">Brak rzeczy do zrobienia.</div>')
     + (done.length ? `<div class="todo-h">Zrobione (${done.length})</div>` + done.map(row).join('') : '');
+  box.querySelectorAll('[data-fi]').forEach(r => r.onclick = () => { if (S._todoModal) S._todoModal.close(); selectElement(r.dataset.fi); });
   box.querySelectorAll('input[data-tid]').forEach(cb => cb.onchange = () => {
     const list = todosOf(S.project).map(t => t.id === cb.dataset.tid ? { ...t, done: cb.checked, doneAt: cb.checked ? nowIso() : '', doneBy: cb.checked ? S.me.id : '' } : t);
     const it = list.find(t => t.id === cb.dataset.tid);
@@ -10400,6 +10442,7 @@ function openTodos() {
     <div class="hint" style="margin-top:10px">Notatek nie da się usunąć — tylko odhaczyć. Dopóki coś jest nieodhaczone, ikonka <b>!?</b> świeci na czerwono, a przy eksporcie pojawi się przypomnienie.</div>`,
     footer: '<button class="btn" data-c>Zamknij</button>', onClose: () => renderTodoBtn() });
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  S._todoModal = m;
   renderTodoList();
   if (ro) return;
   const add = () => {
