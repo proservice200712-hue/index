@@ -4849,7 +4849,7 @@ function openMarkMenu(x, y, eid, loc) { if (isViewer()) return;
   m.innerHTML = `<div class="mm-h">${esc(markOf(el))} · ${esc(typeLabel(el))}</div>
     <button type="button" data-mm="copy">⧉ Skopiuj<small>nowy, osobny element (kolejna litera) z tymi samymi danymi</small></button>
     ${locsOf(el).length ? '<button type="button" data-mm="clone">⊕ Sklonuj<small>drugi znacznik tego samego elementu (ilość bez zmian)</small></button>' : ''}
-    <button type="button" data-mm="rename">✎ Zmień nazwę<small>${el.name ? 'obecnie: ' + esc(el.name) : 'nazwa elementu (np. „Ściana frontowa")'}</small></button>
+    <button type="button" data-mm="rename">✎ Zmień nazwę<small>znak w kółku (teraz ${esc(markOf(el))}) — gdy jest zajęty, elementy zamienią się znakami</small></button>
     <button type="button" data-mm="hide" class="mm-hide"><span class="mm-eye">${eyeIcon(!!el.tblHidden)}</span> ${el.tblHidden ? 'Pokaż' : 'Ukryj'}<small>${el.tblHidden ? 'znów widoczny na wizce, w Grafice i w eksporcie' : 'półprzezroczysty na wizce, ukryty w Grafice i pominięty w eksporcie'}</small></button>
     <button type="button" data-mm="del" class="mm-del">✕ Usuń${locsOf(el).length > 1 ? '<small>tylko ten znacznik</small>' : ''}</button>`;
   document.body.appendChild(m);
@@ -4864,27 +4864,9 @@ function openMarkMenu(x, y, eid, loc) { if (isViewer()) return;
     if (act === 'copy') await copyElement(eid, null, loc);
     else if (act === 'clone') await cloneElementPiece(eid, loc);
     else if (act === 'hide') await toggleRowHidden(eid);
-    else if (act === 'rename') renameElement(eid);
+    else if (act === 'rename') renameMark(eid);
     else if (locsOf(el).length > 1) removeLocation(eid, loc); else deleteElement(eid);
   });
-}
-// Zmień nazwę: małe okno z jednym polem (Enter zapisuje, puste pole = bez nazwy)
-function renameElement(eid) {
-  const el = S.elements.find(e => e.id === eid); if (!el || !S.project || isViewer()) return;
-  const m = openModal({ title: `Nazwa elementu ${esc(markOf(el))}`, body: `<div class="fld" style="margin:0"><input type="text" id="rn-name" maxlength="120" value="${esc(el.name || '')}" placeholder="np. Ściana frontowa" autocomplete="off"></div>`,
-    footer: '<span class="hint" style="margin-right:auto">Enter = zapisz · puste pole = bez nazwy</span><button class="btn" data-no>Anuluj</button><button class="btn btn-solid" data-ok>Zapisz</button>' });
-  const inp = m.el.querySelector('#rn-name'); setTimeout(() => { inp.focus(); inp.select(); }, 40);
-  m.el.querySelector('[data-no]').onclick = () => m.close();
-  const save = async () => {
-    const nm = inp.value.trim(); m.close();
-    if (nm === (el.name || '')) return;
-    try {
-      await DB.update(pElements(S.project.id), eid, { name: nm, updatedAt: nowIso(), updatedBy: S.me.id });
-      addLog(S.project.id, nm ? `Zmieniono nazwę elementu ${markOf(el)}: „${nm}”` : `Usunięto nazwę elementu ${markOf(el)}`, eid);
-    } catch (e) { toast('Błąd zapisu nazwy: ' + e.message, 'error'); }
-  };
-  m.el.querySelector('[data-ok]').onclick = save;
-  inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); save(); } });
 }
 // Skopiuj: nowy element o tych samych danych (typ, wymiary, uwagi, drzwi…), znacznik tuż obok oryginału
 async function copyElement(eid, place = null, loc = -1) {
