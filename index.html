@@ -331,8 +331,11 @@
   .gc.abs { position: absolute; }
   .gc.dragging { z-index: 5; opacity: .92; filter: drop-shadow(0 6px 14px rgba(0,0,0,.25)); }
   /* Multi: pierwsza pozycja z wymiarami + kolejne kafelki obok (ze spadem, bez wymiarów); w rogu nazwa pozycji i ilość */
-  .gc-mrow { display: flex; flex-wrap: wrap; gap: 24px 8px; align-items: flex-start; padding-top: 18px; }
+  .gc-mrow { display: flex; flex-wrap: wrap; gap: 24px 24px; align-items: flex-start; padding-top: 18px; }
   .gc-mt { position: relative; flex: none; }
+  .gc-frame[data-pi] .x { display: none; }
+  .gc-mx { position: absolute; top: 0; z-index: 4; width: 16px; height: 16px; border-radius: 50%; background: #a0aec0; color: #fff; font: 700 10px/16px Arial, sans-serif; text-align: center; cursor: pointer; }
+  .gc-mx:hover { background: #e53e3e; }
   .gc-mk { position: absolute; left: 0; top: -17px; z-index: 3; font: 700 11px/15px Arial, sans-serif; background: #2d3748; color: #fff; padding: 0 6px; border-radius: 3px; pointer-events: none; white-space: nowrap; }
   .gc-mq { position: absolute; right: 0; top: -17px; z-index: 3; font: 700 11px/15px Arial, sans-serif; background: #edf2f7; color: #2d3748; padding: 0 6px; border-radius: 3px; pointer-events: none; box-shadow: 0 0 0 1px #cbd5e0; white-space: nowrap; }
   .ed-mt { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; }
@@ -6905,17 +6908,17 @@ function renderGraph() {
         title="${e.thumbIn ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Zadruk wewnątrz — kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${himg(e.thumbIn, true)}${cellsOf(insPl, !!e.thumbIn)}</div>` : '';
     const sub = !dims ? `<div class="gc-note w">wymiar do ustalenia</div>` : '';
     const pos = e.gpos && Number.isFinite(+e.gpos.x) ? e.gpos : null;
-    const gcMk = (lb, q, first) => `<span class="gc-mk"${first ? ` style="left:${LM}px"` : ''}>${esc(lb)}</span>` + (q > 1 ? `<span class="gc-mq"${first ? ` style="left:${LM + Math.round(FW)}px;right:auto;transform:translateX(-100%)"` : ''}>×${q}</span>` : '');
+    const gcMk = (lb, q, first, has, pi) => (has ? `<span class="gc-mx" data-eid="${eRaw.id}" data-pi="${pi}" style="left:${(first ? LM : 0) + Math.round(FW) + 4}px" title="Usuń miniaturę">✕</span>` : '') + `<span class="gc-mk"${first ? ` style="left:${LM}px"` : ''}>${esc(lb)}</span>` + (q > 1 ? `<span class="gc-mq"${first ? ` style="left:${LM + Math.round(FW)}px;right:auto;transform:translateX(-100%)"` : ''}>×${q}</span>` : '');
     const mLabs = eRaw.multi ? multiLabels(eRaw) : [];
     const mTiles = mLabs.map((lb, i) => {
       if (!i) return '';
       const u = pieceThumb(eRaw, i), q = pieceQty(eRaw, i);
       const net = bx ? `<svg class="gc-dsvg" width="${FW}" height="${FH}" viewBox="0 0 ${FW} ${FH}"><rect x="${bw}" y="${bh}" width="${Math.max(1, FW - bw - bwR)}" height="${Math.max(1, FH - bh - bhB)}" fill="none" stroke="#e8527a" stroke-width=".75" stroke-dasharray="5 3"/></svg>` : '';
-      return `<div class="gc-mt" style="width:${FW}px;height:${FH}px"><div class="gc-frame${u ? ' has-thumb has-img' : ''}" data-eid="${eRaw.id}" data-pi="${i}"${ratioAttr(u)} style="left:0;top:0;width:${FW}px;height:${FH}px" title="${u ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${u ? `<img src="${esc(u)}" data-raster="${esc(u)}" alt="" draggable="false"><span class="x" data-rm="${eRaw.id}" title="Usuń miniaturę">✕</span>` : '+ grafika'}</div>${net}${gcMk(lb, q, false)}</div>`;
+      return `<div class="gc-mt" style="width:${FW}px;height:${FH}px"><div class="gc-frame${u ? ' has-thumb has-img' : ''}" data-eid="${eRaw.id}" data-pi="${i}"${ratioAttr(u)} style="left:0;top:0;width:${FW}px;height:${FH}px" title="${u ? 'Aby wkleić nową grafikę, najpierw usuń obecną (✕)' : 'Kliknij, aby wkleić grafikę ze schowka (albo upuść tu plik)'}">${u ? `<img src="${esc(u)}" data-raster="${esc(u)}" alt="" draggable="false">` : '+ grafika'}</div>${net}${gcMk(lb, q, false, !!u, i)}</div>`;
     }).join('');
-    const bodyHtml = `<div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${frameIn}${doorLayer}${doorFrame}${netFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}${eRaw.multi ? gcMk(mLabs[0], pieceQty(eRaw, 0), true) : ''}</div>`;
-    const mCols = eRaw.multi ? Math.max(1, Math.min(mLabs.length, Math.floor(640 / (FW + 8)))) : 1;
-    const cardW = eRaw.multi ? Math.max(240, W + (mCols - 1) * (FW + 8)) : Math.max(W + QW, 240);
+    const bodyHtml = `<div class="gc-body" style="width:${W + QW}px;height:${H}px"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${svg}</svg>${frame}${frameIn}${doorLayer}${doorFrame}${netFrame}${hangFrame}${QW ? `<div class="gc-qty" style="left:${LM + FW + 10}px" title="${qtyOf(e)} szt.">×${qtyOf(e)}</div>` : ''}${eRaw.multi ? gcMk(mLabs[0], pieceQty(eRaw, 0), true, !!pieceThumb(eRaw, 0), 0) : ''}</div>`;
+    const mCols = eRaw.multi ? Math.max(1, Math.min(mLabs.length, Math.floor(640 / (FW + 24)))) : 1;
+    const cardW = eRaw.multi ? Math.max(240, W + (mCols - 1) * (FW + 24)) : Math.max(W + QW, 240);
     return `<div class="gc ${e.id === S.selId ? 'sel' : ''} ${pos ? 'abs' : ''} ${isAlert(e) ? 'alert' : ''}" data-eid="${e.id}" style="--c:${colorOf(e)};width:${cardW}px;${pos ? `left:${+pos.x}px;top:${+pos.y}px` : ''}">
       <div class="gc-h" data-eid="${e.id}" title="${S.graphMove ? 'Przeciągnij, aby przesunąć okienko' : 'Kliknij, aby zaznaczyć'}">${ringBadge(colorOf(e), lab)}<span class="gc-t">${e.name ? `${esc(e.name)}<span class="gc-sub">${esc(typeLabel(e))}</span>` : esc(typeLabel(e))}${splitBadge(e)}</span>${e.offset && isAdmin() ? `<button type="button" class="gc-ed" data-eid="${e.id}" data-ow="1" title="Offset Wizard: otwórz zapisany offset tego elementu">⌖</button>` : ''}<button type="button" class="gc-ed" data-eid="${e.id}" title="Edytuj">✎</button></div>
       ${eRaw.multi ? `<div class="gc-mrow">${bodyHtml}${mTiles}</div>` : bodyHtml}
@@ -7043,6 +7046,10 @@ function renderGraph() {
       const file = [...e.dataTransfer.files].find(x => x.type.startsWith('image/') || isTiff(x));
       if (file) setThumb(eid, file, which);
     });
+  });
+  box.querySelectorAll('.gc-mx').forEach(b => {
+    b.onpointerdown = e => e.stopPropagation();
+    b.onclick = e => { e.stopPropagation(); if (S.graphMove) return; (S.multiSel = S.multiSel || {})[b.dataset.eid] = +b.dataset.pi; removeThumb(b.dataset.eid); };
   });
   box.querySelectorAll('[data-ar]').forEach(markRatio);
 }
