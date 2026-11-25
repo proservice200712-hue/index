@@ -8528,6 +8528,7 @@ function ufFpLegend(fp) {          // legenda liter formatek: kolorowy znaczek, 
 }
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
+  $('uf-lay').classList.toggle('hidden', !isAdmin());          // „Rozmieść grafiki” — tylko dla administratorów
   { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); if (document.activeElement !== $('uf-fp-grain')) $('uf-fp-grain').value = ufFpGrain(); $('uf-fp-dir').disabled = !!ufFpGrain(); $('uf-fp-info').innerHTML = ufFpText(fp) + ufFpLegend(fp); }
   { const fl = ufFloor(); $('uf-fl-ctl').classList.toggle('hidden', !fl); if (!fl) UF.floorEdit = false;
     if (fl) { $('uf-fl-on').checked = !fl.off; if (fl.off) UF.floorEdit = false; const tv = Math.round((fl.t == null ? 0.5 : fl.t) * 100); if (document.activeElement !== $('uf-fl-t')) $('uf-fl-t').value = tv; $('uf-fl-tv').textContent = tv + '%'; if (document.activeElement !== $('uf-fl-w')) $('uf-fl-w').value = numIn(fromMM(fl.w)); }
@@ -13562,7 +13563,7 @@ function kfChapters() {
         await shSay(TT('Gdy układ jest gotowy, klikam Generuj 3D. Powstają dwie wizualizacje i od razu elementy: grafika na każde lico widoczne od alejki, z wymiarami i drzwiami.',
           'Коли план готовий, клацаю «Генерувати 3D». З’являються дві візуалізації і одразу елементи: графіка на кожну площину, видиму з алеї, з розмірами і дверима.',
           'When the layout is ready, I click Generate 3D. Two visualizations appear together with the elements: a graphic for every face seen from the aisle, with sizes and doors.'));
-        await shClick('#uf-lay', 800);
+        if (isAdmin()) await shClick('#uf-lay', 800); else await ufGenerate('layout');
         let t0 = Date.now(); while (UF.busy && Date.now() - t0 < 60000) await shWait(200);
         await shClick('#uf-go', 800);
         t0 = Date.now(); while (UF.busy && Date.now() - t0 < 60000) await shWait(200);
