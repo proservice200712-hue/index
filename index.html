@@ -296,6 +296,9 @@
   #overlay .shp polygon.pg { transition: filter .12s; }
   #overlay .shp:hover polygon.pg, #overlay .shp.hov polygon.pg { filter: drop-shadow(0 0 var(--gl, 6px) #46c43c) drop-shadow(0 0 calc(var(--gl, 6px) * .5) #46c43c); }
   #overlay .plab { pointer-events: none; }
+  #overlay .nspul { fill: rgba(250,204,21,.5); stroke: #d69e2e; stroke-width: 2.2px; vector-effect: non-scaling-stroke; stroke-linejoin: round; animation: nsPulse 1s ease-in-out infinite alternate; }
+  @keyframes nsPulse { from { opacity: .25; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #overlay .nspul { animation: none; } }
   #overlay .pnum { pointer-events: all; cursor: grab; }
   #viewer.reordering, #viewer.reordering #overlay .pnum { cursor: grabbing; }
   #overlay .pdel, #overlay .pvm, #overlay .pexp, #overlay .pvo { cursor: pointer; }
@@ -4454,6 +4457,11 @@ function renderOverlay() {
     out += `<rect style="pointer-events:none" x="${bd.x}" y="0" width="${bd.w}" height="${H0}" fill="rgba(103,180,55,.18)" stroke="#67b437" stroke-width="${2 * s}" stroke-dasharray="${8 * s} ${5 * s}"/>
       <rect style="pointer-events:none" x="${gx - 3 * s}" y="${-6 * s}" width="${6 * s}" height="${H0 + 12 * s}" rx="${3 * s}" fill="#67b437" stroke="#fff" stroke-width="${1.5 * s}"/>`;
   }
+  // elementy niestandardowe ścianek Ultra / K-Frame: żółte, pulsujące obrysy na wizce
+  S.photos.forEach(p => {
+    const b = L.map[p.id]; if (!b || !p.ns || !p.ns.length) return;
+    p.ns.forEach(o => { const f = o && o.p; if (!f || f.length < 6) return; const pts = []; for (let i = 0; i + 1 < f.length; i += 2) pts.push([f[i], f[i + 1]]); out += `<polygon class="nspul" style="pointer-events:none" points="${P(b, pts)}"/>`; });
+  });
   const marks = [];
   // wysłona lightboxa nie ma własnego znacznika — rysujemy ją obok znacznika lightboxa
   S.elements.forEach(el => { if (!el.backFor) locsOf(el).forEach(l => { if (L.map[l.photoId]) marks.push({ el, ...l }); }); });
@@ -4817,7 +4825,7 @@ function openPhotoMenu(x, y, pid) {
 // wizka → PNG (data: albo adres z magazynu; przez canvas, żeby schowek dostał PNG)
 async function photoBlob(ph) {
   const im = await loadImg(ph.url), c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
-  c.getContext('2d').drawImage(im, 0, 0); return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('Nie udało się odczytać obrazu')), 'image/png'));
+  c.getContext('2d').drawImage(im, 0, 0); drawNsStatic(c.getContext('2d'), ph, 0, 0, c.width, c.height, Math.max(2, c.width / 450)); return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('Nie udało się odczytać obrazu')), 'image/png'));
 }
 async function copyPhoto(ph) {
   try {
@@ -4864,6 +4872,7 @@ async function exportPhoto(ph, ask) {
 }
 // druk wizki: sama grafika na całą stronę A4 (pozioma albo pionowa jak wizka), od razu okno drukowania
 function printPhoto(ph) {
+  if (ph.ns && ph.ns.length) { photoBlob(ph).then(b => printPhoto({ ...ph, url: URL.createObjectURL(b), ns: null })).catch(() => printPhoto({ ...ph, ns: null })); return; }       // z żółtymi elementami niestandardowymi
   const land = (Number(ph.w) || 4) >= (Number(ph.h) || 3), title = esc(((S.project && S.project.name) || 'INDEX') + (ph.name ? ' — ' + ph.name : ''));
   const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
   fr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4 ${land ? 'landscape' : 'portrait'};margin:8mm}html,body{margin:0;background:#fff}body{display:flex;align-items:center;justify-content:center;height:100vh}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="${esc(ph.url)}"></body></html>`;
@@ -5894,6 +5903,7 @@ async function ufVizRender(mode, view) {
     if (view && view.yaw != null) { d.yaw = Number(view.yaw); d.pitch = Number(view.pitch); }
     if (mode !== 'frame') await ufTexPreload();
     const r = mode === 'frame' ? ufRender3D({ W: 1700, dims: true, look: 'bare' }) : ufRender3D({ W: 1700, tex: true, look: 'full', vis: true });
+    if (r) r.cv.ufNS = r.ns;
     return r ? r.cv : null;
   } finally { d.yaw = y0; d.pitch = p0; if (own) UF.d = keepD; }
 }
@@ -5902,7 +5912,8 @@ async function ufVizSave(photoId, mode, view, keepAlts) {
   const cv = await ufVizRender(mode, view); if (!cv) throw new Error('brak zapisanego układu ścianek');
   const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
   const up = await storeImage(new File([blob], 'ultra-frame-' + mode + '.png', { type: 'image/png' }), 3200, { png: true });
-  await DB.update(pPhotos(S.project.id), photoId, { url: up.url, w: up.w, h: up.h, alts: { ...(keepAlts || {}), [mode]: up.url }, vmode: mode, ...(view ? { vw: view } : {}) });
+  const nsA = Object.fromEntries(Object.entries(p.nsAlts || {}).filter(([k]) => keepAlts && keepAlts[k])); nsA[mode] = cv.ufNS || [];
+  await DB.update(pPhotos(S.project.id), photoId, { url: up.url, w: up.w, h: up.h, alts: { ...(keepAlts || {}), [mode]: up.url }, vmode: mode, ns: cv.ufNS || [], nsAlts: nsA, ...(view ? { vw: view } : {}) });
 }
 async function ufVizSetView(photoId, mode) {
   const p = S.photos.find(x => x.id === photoId); if (!p || isViewer() || !S.project) return;
@@ -5910,7 +5921,8 @@ async function ufVizSetView(photoId, mode) {
   const t = toast('Przełączam widok…', '', 60000);
   try {
     const alts = { ...(p.alts || {}) }; if (!alts[cur]) alts[cur] = p.url;
-    if (alts[mode]) await DB.update(pPhotos(S.project.id), photoId, { url: alts[mode], alts, vmode: mode });
+    const nsA = { ...(p.nsAlts || {}) }; if (!nsA[cur] && p.ns) nsA[cur] = p.ns;
+    if (alts[mode]) await DB.update(pPhotos(S.project.id), photoId, { url: alts[mode], alts, vmode: mode, ns: nsA[mode] || [], nsAlts: nsA });
     else await ufVizSave(photoId, mode, p.vw, alts);
   } catch (e) { toast('Nie udało się przełączyć widoku: ' + e.message, 'error', 6000); }
   finally { t.remove(); }
@@ -8500,6 +8512,7 @@ function ufRenderTop(W) {
   const item = (fill, stroke, txt) => { g.fillStyle = fill; g.fillRect(M, y - 14, 44, 28); g.strokeStyle = stroke; g.lineWidth = 1.5; g.strokeRect(M, y - 14, 44, 28); g.fillStyle = '#1a202c'; g.fillText(txt, M + 62, y); y += 40; };
   if (fp.full.length) item('rgba(222,190,140,.45)', 'rgba(160,120,70,.9)', `A — ${ufFpDimTxt(UF_FPB[0], UF_FPB[1], '')} — całe płyty: ${fp.full.length} szt.`);
   kk.kinds.forEach(k => { const r = cnt.get(k), hu = kk.hue[kk.kinds.indexOf(k) % kk.hue.length]; item(`hsla(${hu},85%,58%,.45)`, `hsla(${hu},70%,38%,.9)`, `${kk.letter({ w: r.w, h: r.h })} — ${ufFpDimTxt(r.w, r.h, grain)} — kawałki: ${r.n} szt.`); });
+  cv.ufNS = geo.parts.filter(q => q.run && !ufStdPiece(q.op, q.run)).map(q => ({ p: [[q.x0, q.y0], [q.x1, q.y0], [q.x1, q.y1], [q.x0, q.y1]].flatMap(([x, y]) => [Math.round(X(x) / W * 1e4) / 1e4, Math.round(Y(y) / H * 1e4) / 1e4]) }));
   const edge = [...fp.full, ...fp.pieces].reduce((a, t) => a + 2 * (t.w + t.h), 0);
   g.fillStyle = '#2d3748'; g.font = `700 26px ${F}`; g.fillText(`Razem płyt: ${fp.total} · cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² · okleina: ${numPL(edge / 1000)} m`, M, y + 14);
   return cv;
@@ -9965,7 +9978,13 @@ function ufRender3D(o) {
       c.ends.forEach((e, i) => { const [rx, ry] = rot(e.x, e.y), [px, py] = T(rx, ry, c.h * 0.45); pos.set(c.key + '|end' + (i ? '|' + i : ''), [px / CW, py / H]); });
     });
   }
-  return { cv, pos };
+  // elementy niestandardowe (ucięte, inna długość / wysokość): obrys na obrazie — nakładka żółta pulsuje na wizce i jest żółta w eksporcie
+  const hull = pts => { const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+    for (const q of p) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+    for (const q of p.slice().reverse()) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+    return lo.slice(0, -1).concat(up.slice(0, -1)); };
+  const ns = boxes.filter(bx => bx.p.run && !ufStdPiece(bx.p.op, bx.p.run)).map(bx => ({ p: hull([[bx.x0, bx.y0], [bx.x1, bx.y0], [bx.x0, bx.y1], [bx.x1, bx.y1]].flatMap(([x, y]) => [0, bx.h].map(z => T(x, y, z)))).flatMap(([x, y]) => [Math.round(x / CW * 1e4) / 1e4, Math.round(y / H * 1e4) / 1e4]) }));
+  return { cv, pos, ns };
 }
 // miniatury grafik do podglądu 3D: wczytywane raz; po wczytaniu podgląd rysuje się jeszcze raz
 const _ufTex = new Map();
@@ -10090,8 +10109,15 @@ function ufProductionOpen() {
   const m = openModal({ title: `Produkcja — ${ufK() ? 'K-Frame' : 'EasyFrame'}: użyte ścianki`, wide: true,
     body: `<div class="hint" style="margin-bottom:8px">Ścianek na planie: <b>${nRuns}</b> · modułów razem: <b>${nMod}</b>. „Obite dwustronnie” = płyta po obu stronach (grafika, zaplecze albo wysłona ręczna); „jednostronnie” = płyta tylko od frontu.${ufK() ? '' : ' Konektory (EasyFrame): zawsze 2 szt. na każde połączenie modułów — poziomo i na wysokość; każde drzwi mają 2 konektory drzwiowe.'} Wymiary w ${UNIT()}.</div>
       <table class="uf-prod-tb"><thead><tr><th>Formatka</th><th>Obite 1-str.</th><th>Obite 2-str.</th><th>Razem</th></tr></thead><tbody>${body}</tbody></table>`,
-    footer: `<button class="btn" data-copy>Kopiuj do schowka</button><button class="btn btn-solid" data-c>Zamknij</button>` });
+    footer: `<button class="btn" data-print>🖨 Drukuj</button><button class="btn" data-copy>Kopiuj do schowka</button><button class="btn btn-solid" data-c>Zamknij</button>` });
   m.el.querySelector('[data-c]').onclick = () => m.close();
+  m.el.querySelector('[data-print]').onclick = () => {
+    const sys = ufK() ? 'K-Frame' : 'EasyFrame', title = esc(`Produkcja — ${sys}${S.project && S.project.name ? ' — ' + S.project.name : ''}`);
+    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    fr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>@page{size:A4;margin:12mm}body{font:12px/1.35 'Segoe UI',Arial,sans-serif;color:#1a202c;margin:0}h1{font-size:17px;margin:0 0 4px}.h{color:#4a5568;margin:0 0 10px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #cbd5e0;padding:4px 6px;text-align:left;vertical-align:top}th:nth-child(n+2),td:nth-child(n+2){text-align:center;width:70px}tr.sec td{background:#edf2f7;font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.4px}tr.sec.cut td{background:#fefcbf}small{display:block;color:#718096;font-size:10.5px}tr{break-inside:avoid}</style></head><body><h1>${title}</h1><div class="h">Ścianek na planie: ${nRuns} · modułów razem: ${nMod} · wymiary w ${UNIT()}</div><table><thead><tr><th>Formatka</th><th>Obite 1-str.</th><th>Obite 2-str.</th><th>Razem</th></tr></thead><tbody>${body}</tbody></table></body></html>`;
+    fr.onload = () => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('Nie udało się otworzyć drukowania', 'error'); } setTimeout(() => fr.remove(), 1500); };
+    document.body.appendChild(fr);
+  };
   m.el.querySelector('[data-copy]').onclick = async () => { try { await navigator.clipboard.writeText(tsv.map(r => r.join('\t')).join('\n')); toast('Zestawienie skopiowane (do wklejenia w Excela)', 'success', 3000); } catch (e) { toast('Nie udało się skopiować', 'error'); } };
 }
 async function ufGenerate() {
@@ -10166,10 +10192,10 @@ async function ufGenerate() {
     const up = await storeImage(new File([blob], 'ultra-frame.png', { type: 'image/png' }), 3200, { png: true });
     let photoId = UF.d.photoId && S.photos.some(p => p.id === UF.d.photoId) ? UF.d.photoId : '';
     let ordMax = S.photos.reduce((m, p) => Math.max(m, p.order || 0), 0);
-    if (photoId) await DB.update(pPhotos(pid), photoId, { url: up.url, w: up.w, h: up.h });
+    if (photoId) await DB.update(pPhotos(pid), photoId, { url: up.url, w: up.w, h: up.h, ns: img.ns || [] });
     else {
       const order = ++ordMax;
-      photoId = await DB.add(pPhotos(pid), { url: up.url, w: up.w, h: up.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — widok 3D', order, createdAt: nowIso(), createdBy: S.me.id });
+      photoId = await DB.add(pPhotos(pid), { url: up.url, w: up.w, h: up.h, ns: img.ns || [], name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — widok 3D', order, createdAt: nowIso(), createdBy: S.me.id });
       addLog(pid, `Ultra Frame: dodano wizkę #${order} (widok 3D)`);
     }
     // dawna osobna wizka z gołymi ramami — teraz to widok „szkielet” wizualizacji (przełącznik na niej)
@@ -10195,7 +10221,7 @@ async function ufGenerate() {
       if (cvC) {
         const blobC = await new Promise(res => cvC.toBlob(res, 'image/png'));
         const upC = await storeImage(new File([blobC], 'ultra-frame-wizualizacja.png', { type: 'image/png' }), 3200, { png: true });
-        const rec = { url: upC.url, w: upC.w, h: upC.h, alts: { [mode]: upC.url }, vmode: mode, ufViz: true, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — wizualizacja' };
+        const rec = { url: upC.url, w: upC.w, h: upC.h, alts: { [mode]: upC.url }, vmode: mode, ufViz: true, ns: cvC.ufNS || [], nsAlts: { [mode]: cvC.ufNS || [] }, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — wizualizacja' };
         let pC = pC0 ? pC0.id : '';
         if (pC) await DB.update(pPhotos(pid), pC, rec);
         else {
@@ -10210,7 +10236,7 @@ async function ufGenerate() {
     try {
       if (ufFpOn() && ufFloorPlan(UF.d.stand.L, UF.d.stand.D, ufFpDir()).total) {
         const cvT = ufRenderTop(1700), blobT = await new Promise(res => cvT.toBlob(res, 'image/png')), upT = await storeImage(new File([blobT], 'ultra-frame-podloga.png', { type: 'image/png' }), 3200, { png: true });
-        const pT0 = UF.d.photoId4 && S.photos.find(p => p.id === UF.d.photoId4), recT = { url: upT.url, w: upT.w, h: upT.h, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — podłoga, widok z góry' };
+        const pT0 = UF.d.photoId4 && S.photos.find(p => p.id === UF.d.photoId4), recT = { url: upT.url, w: upT.w, h: upT.h, ns: cvT.ufNS || [], name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — podłoga, widok z góry' };
         let pT = pT0 ? pT0.id : '';
         if (pT) await DB.update(pPhotos(pid), pT, recT);
         else { const order = ++ordMax; pT = await DB.add(pPhotos(pid), { ...recT, order, createdAt: nowIso(), createdBy: S.me.id }); addLog(pid, `Ultra Frame: dodano wizkę #${order} (podłoga, widok z góry)`); }
@@ -10886,8 +10912,16 @@ function trCtx(g) {
   return g;
 }
 // wizka z kształtami, strzałkami i literami
-function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br) {
+// elementy niestandardowe (ucięte / inna długość lub wysokość) na wizce: żółte wypełnienie z obrysem
+function drawNsStatic(g, ph, ix, iy, iw, ih, lw = 3) {
+  if (!ph || !ph.ns || !ph.ns.length) return;
+  g.save(); g.lineJoin = 'round';
+  ph.ns.forEach(o => { const f = o && o.p; if (!f || f.length < 6) return; g.beginPath(); for (let i = 0; i + 1 < f.length; i += 2) { const x = ix + f[i] * iw, y = iy + f[i + 1] * ih; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); g.fillStyle = 'rgba(250,204,21,.6)'; g.fill(); g.strokeStyle = '#d69e2e'; g.lineWidth = lw; g.stroke(); });
+  g.restore();
+}
+function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br, ph) {
   g.drawImage(img, ix, iy, iw, ih);
+  drawNsStatic(g, ph, ix, iy, iw, ih, Math.max(1.5, br * 0.1));
   g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.strokeRect(ix, iy, iw, ih);
   for (const r of rows) {
     if (!r.el.shape || r.el.shape.kind === 'point' || r.el.backFor) continue;
@@ -11105,7 +11139,7 @@ async function renderIndexA3(stamp) {
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
     const here = rows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
-    if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, here, Math.max(18, Math.min(30, Hp / 26)));
+    if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, here, Math.max(18, Math.min(30, Hp / 26)), o.ph);
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
     if (imgs.length > 1 || S.photos.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + photoNo(o.ph.id), x + 12, top + 29); }
     x += w + GAP;
