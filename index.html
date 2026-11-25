@@ -44,6 +44,7 @@
   .uf-bar button.on { background: var(--accent); color: var(--dark); }
   .uf-bar button:disabled { opacity: .5; cursor: default; }
   .uf-bar .uf-go { background: #38a169; border-color: #2f855a; color: #fff; }
+  .uf-bar .uf-lay { background: #3182ce; border-color: #2b6cb0; }
   .uf-bar input[type=number] { width: 78px; padding: 4px 6px; background: #fff; color: var(--dark); border: 1px solid #4a5568; font-size: .76rem; }
   .uf-bar select { background: #fff; color: var(--dark); border: 1px solid #4a5568; padding: 3px 4px; font-size: .76rem; }
   .uf-bar label { display: inline-flex; gap: 5px; align-items: center; }
@@ -1184,7 +1185,8 @@
           <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl+klik = 10×, Shift+klik albo Shift+strzałka = cała ścianka)">Krok strzałek <input type="number" id="uf-step" value="10" min="1" step="1"> mm</label></span>
           <span class="uf-sp"></span>
           <button type="button" id="uf-look" title="Widok 3D: pełne ściany (z grafiką, bez podziału) albo gołe ramy z widocznym podziałem na moduły">▮ 3D: pełne ściany</button>
-          <button type="button" id="uf-go" class="uf-go" title="Generuj 3D: widok 3D ze znacznikami i elementami (SEG + wysłony) oraz wizualizacja z przełącznikiem pełny / szkielet i orbitą">◈ Generuj 3D</button>
+          <button type="button" id="uf-lay" class="uf-go uf-lay" title="Rozmieść grafiki: tworzy i aktualizuje elementy (grafika na każde lico widoczne od alejki, wysłony, drzwi, zaślepki) i ustawia ich znaczniki na wizce 3D. Nie tworzy wizualizacji ani widoku z góry.">▤ Rozmieść grafiki</button>
+          <button type="button" id="uf-go" class="uf-go" title="Generuj 3D: wizki — widok 3D, wizualizacja z przełącznikiem pełny / szkielet i orbitą oraz widok z góry z podłogą. Nie zmienia elementów (do tego służy „Rozmieść grafiki”).">◈ Generuj 3D</button>
           <button type="button" id="uf-x" title="Zamknij (Esc)">✕</button>
         </div>
         <div class="uf-body">
@@ -9190,7 +9192,7 @@ function ufDraw(light) {
     g.fillStyle = '#718096'; g.font = `600 14px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(UF.skOn ? 'Rysuj: przeciągnij, aby narysować ścianę (zielona) lub drzwi (żółta) — prawy klawisz na kresce usuwa ją, środkowy przycisk przesuwa widok' : 'Przeciągnij ikonę modułu na plan — klocki styczne same się sklejają w ściankę', W / 2, Math.max(24, Y(st.D) + 32));
   }
-  if (UF.hasNS && !UF.pulseT) UF.pulseT = setInterval(() => { if (!UF.open || !UF.hasNS) { clearInterval(UF.pulseT); UF.pulseT = 0; return; } if (!UF.drag && !document.hidden) ufDraw(true); }, 130);
+  if (UF.hasNS && !UF.pulseT) UF.pulseT = setInterval(() => { if (!UF.open || !UF.hasNS) { clearInterval(UF.pulseT); UF.pulseT = 0; return; } if (!UF.drag && !document.hidden) { ufDraw(true); ufPvPaint(); } }, 130);
   if (!light) ufPreview();
 }
 const ufCanvasPos = e => { const r = $('uf-cv').getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
@@ -10008,7 +10010,19 @@ function ufPreview() {
   if (!r) { wr.classList.add('hidden'); return; }
   wr.style.width = UF.pvW ? cssW + 'px' : '';
   wr.classList.remove('hidden');
-  pv.width = r.cv.width; pv.height = r.cv.height; pv.getContext('2d').drawImage(r.cv, 0, 0);
+  UF.pvCv = r.cv; UF.pvNs = r.ns || []; ufPvPaint();
+}
+// podgląd 3D: obraz + żółte pulsujące elementy niestandardowe (odświeżane razem z pulsowaniem na planie)
+function ufPvPaint() {
+  const pv = $('uf-pv'), cv = UF.pvCv; if (!pv || !cv) return;
+  if (pv.width !== cv.width || pv.height !== cv.height) { pv.width = cv.width; pv.height = cv.height; }
+  const g = pv.getContext('2d'); g.clearRect(0, 0, pv.width, pv.height); g.drawImage(cv, 0, 0);
+  const ns = UF.pvNs || []; if (!ns.length) return;
+  const pul = 0.5 + 0.5 * Math.sin(Date.now() / 260);
+  g.save(); g.lineJoin = 'round';
+  ns.forEach(o => { const f = o && o.p; if (!f || f.length < 6) return; g.beginPath(); for (let i = 0; i + 1 < f.length; i += 2) { const x = f[i] * pv.width, y = f[i + 1] * pv.height; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath();
+    g.fillStyle = `rgba(250,204,21,${0.2 + 0.5 * pul})`; g.fill(); g.strokeStyle = `rgba(214,158,46,${0.6 + 0.4 * pul})`; g.lineWidth = Math.max(1.5, pv.width / 280); g.stroke(); });
+  g.restore();
 }
 
 // ---------- jedno kliknięcie: elementy + widok 3D jako nowa wizka ----------
@@ -10120,12 +10134,14 @@ function ufProductionOpen() {
   };
   m.el.querySelector('[data-copy]').onclick = async () => { try { await navigator.clipboard.writeText(tsv.map(r => r.join('\t')).join('\n')); toast('Zestawienie skopiowane (do wklejenia w Excela)', 'success', 3000); } catch (e) { toast('Nie udało się skopiować', 'error'); } };
 }
-async function ufGenerate() {
+// mode: 'photos' = same wizki (3D, wizualizacja, widok z góry), elementy bez zmian; 'layout' = elementy + ich znaczniki na wizce 3D (bez wizualizacji i widoku z góry)
+async function ufGenerate(mode = 'photos') {
   if (UF.busy || !S.project) return;
+  const layout = mode === 'layout', photosOnly = !layout;
   const pid = S.project.id, runs = ufRuns();
   if (!runs.length) return toast('Najpierw ułóż ścianki', 'error');
   const geoG = ufGeom(UF.d), multiDoor = geoG.faces.filter(fc => ufFaceSpec(fc).doors > 1).length;
-  UF.busy = true; $('uf-go').disabled = true; const tt = toast('Tworzę widok 3D i elementy…', '', 60000);
+  UF.busy = true; $('uf-go').disabled = true; $('uf-lay').disabled = true; const tt = toast(layout ? 'Rozmieszczam grafiki — tworzę elementy…' : 'Tworzę wizki 3D…', '', 60000);
   try {
     const usedNum = new Set(S.elements.filter(e => !isWys(e) && !e.doorFor && !e.backFor).map(e => Number(e.num) || 0));
     const usedW = new Set(S.elements.filter(e => isWys(e) && !e.doorFor && e.wnum).map(e => e.wnum));
@@ -10137,6 +10153,7 @@ async function ufGenerate() {
     units.forEach(({ run, role, spec }) => {
       const ex = S.elements.find(e => e.ufKey === run.key && e.ufRole === role && !e.doorFor);
       let rec = null, mark;
+      if (!ex && photosOnly) return;          // Generuj 3D nie tworzy elementów
       if (ex) mark = markOf(ex);
       else {
         const mt = ufK() ? ufMount(spec.mount) : null, tid = mt ? mt[2] : 'blackback', wys = role === 'back' && tid === 'blackback';
@@ -10151,6 +10168,7 @@ async function ufGenerate() {
     ufGeom(UF.d).ext.forEach(e => {
       const spec = ufExtSpec(e), ex = S.elements.find(x => x.ufKey === e.key && x.ufRole === 'ext' && !x.doorFor);
       let rec = null, mark;
+      if (!ex && photosOnly) return;          // Generuj 3D nie tworzy elementów
       if (ex) mark = markOf(ex);
       else {
         rec = { num: 0, typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: null, thick: '', ...togValues({ wyslona: true }, 'blackback'), frontlit: false, sidelit: false,
@@ -10164,6 +10182,7 @@ async function ufGenerate() {
     ufGeom(UF.d).zap.forEach(zf => {
       const spec = ufZapSpec(zf), ex = S.elements.find(x => x.ufKey === zf.key && x.ufRole === 'zap' && !x.doorFor);
       let rec = null, mark;
+      if (!ex && photosOnly) return;          // Generuj 3D nie tworzy elementów
       if (ex) mark = markOf(ex);
       else {
         rec = { num: 0, typeId: 'blackback', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: spec.door, doorsMore: spec.doorsMore || [], thick: '', ...togValues({ wyslona: true }, 'blackback'), frontlit: false, sidelit: false,
@@ -10177,6 +10196,7 @@ async function ufGenerate() {
     ufGeom(UF.d).caps.forEach(c => {
       const spec = ufCapSpec(c), ex = S.elements.find(x => x.ufKey === c.key && x.ufRole === 'end' && !x.doorFor);
       let rec = null, mark;
+      if (!ex && photosOnly) return;          // Generuj 3D nie tworzy elementów
       if (ex) mark = markOf(ex);
       else {
         rec = { num: take(usedNum), typeId: 'pcw', combo: null, variant: '', inside: false, planes: [], hbMode: '', hbSides: null, pthumbs: [], door: null, thick: 3, ...togValues({}, 'pcw'), frontlit: false, sidelit: false,
@@ -10202,7 +10222,7 @@ async function ufGenerate() {
     if (UF.d.photoId2 && S.photos.some(p => p.id === UF.d.photoId2)) { await DB.del(pPhotos(pid), UF.d.photoId2); addLog(pid, 'Ultra Frame: usunięto osobną wizkę z gołymi ramami (jest teraz widokiem „szkielet” wizualizacji)'); }
     UF.d.photoId2 = '';
     let nNew = 0, nUpd = 0;
-    for (const j of jobs) {
+    if (layout) for (const j of jobs) {
       const at = img.pos.get(j.run.key + '|' + j.role) || [0.5, 0.5], shape = { kind: 'point', pts: [at] };
       // zaślepki: kolejne gołe końce jako dalsze miejsca tego samego elementu (ilość = liczba końców)
       const more = j.role === 'end' ? { qty: j.spec.qty, extra: Array.from({ length: (j.n || 1) - 1 }, (_, i) => ({ photoId, shape: { kind: 'point', pts: [img.pos.get(j.run.key + '|end|' + (i + 1)) || at] } })) } : {};
@@ -10214,9 +10234,9 @@ async function ufGenerate() {
       } else { id = await DB.add(pElements(pid), { ...j.rec, ...more, photoId, shape }); nNew++; }
       if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], photoId, shape });
     }
-    addLog(pid, `Ultra Frame: ${nNew} nowych elementów, ${nUpd} zaktualizowanych`);
+    if (layout) addLog(pid, `Ultra Frame: rozmieszczenie grafik — ${nNew} nowych elementów, ${nUpd} zaktualizowanych`);
     // druga wizka: wizualizacja bez znaczników z przełącznikiem pełny (grafiki na ściankach) / szkielet (kratownica, gołe ramy z wymiarami) i orbitą
-    try {
+    if (!layout) try {
       const pC0 = UF.d.photoId3 && S.photos.find(p => p.id === UF.d.photoId3), mode = (pC0 && pC0.ufViz && pC0.vmode) || 'tex', cvC = await ufVizRender(mode, pC0 && pC0.vw);
       if (cvC) {
         const blobC = await new Promise(res => cvC.toBlob(res, 'image/png'));
@@ -10233,7 +10253,7 @@ async function ufGenerate() {
       }
     } catch (e) { console.warn('Ultra Frame: wizualizacja', e); toast('Wizualizacja się nie udała: ' + e.message, 'error', 6000); }
     // trzecia wizka: widok z góry z rozrysem podłogi (tylko gdy na stoisku jest podłoga)
-    try {
+    if (!layout) try {
       if (ufFpOn() && ufFloorPlan(UF.d.stand.L, UF.d.stand.D, ufFpDir()).total) {
         const cvT = ufRenderTop(1700), blobT = await new Promise(res => cvT.toBlob(res, 'image/png')), upT = await storeImage(new File([blobT], 'ultra-frame-podloga.png', { type: 'image/png' }), 3200, { png: true });
         const pT0 = UF.d.photoId4 && S.photos.find(p => p.id === UF.d.photoId4), recT = { url: upT.url, w: upT.w, h: upT.h, ns: cvT.ufNS || [], name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — podłoga, widok z góry' };
@@ -10244,10 +10264,10 @@ async function ufGenerate() {
       }
     } catch (e) { console.warn('Ultra Frame: widok z góry', e); toast('Widok z góry podłogi się nie udał: ' + e.message, 'error', 6000); }
     const keep = new Set(jobs.map(j => j.run.key + '|' + j.role));
-    const orphans = S.elements.filter(e => e.ufKey && !e.doorFor && !keep.has(e.ufKey + '|' + e.ufRole));
+    const orphans = layout ? S.elements.filter(e => e.ufKey && !e.doorFor && !keep.has(e.ufKey + '|' + e.ufRole)) : [];
     UF.d.photoId = photoId; await ufSave();
     tt.remove();
-    toast(`Gotowe: ${nNew} nowych elementów, ${nUpd} zaktualizowanych — znaczniki widać na planie; zamknij edytor (✕), aby zobaczyć nową wizkę${multiDoor ? ' · w ściance z kilkoma drzwiami uwzględniono pierwsze' : ''}`, 'success', 8000);
+    toast(layout ? `Gotowe: ${nNew} nowych elementów, ${nUpd} zaktualizowanych — znaczniki widać na planie; zamknij edytor (✕), aby zobaczyć wizkę${multiDoor ? ' · w ściance z kilkoma drzwiami uwzględniono pierwsze' : ''}` : 'Gotowe: wizki zaktualizowane (widok 3D, wizualizacja, widok z góry) — elementy bez zmian; zamknij edytor (✕), aby je zobaczyć', 'success', 8000);
     setTimeout(() => { setCurrentPhoto(photoId); fitView(); ufDraw(); }, 600);
     if (orphans.length) {
       const ok = await confirmBox(`W ramce nie ma już ${orphans.length} elementów utworzonych wcześniej przez Ultra Frame: <b>${orphans.map(e => esc(markOf(e))).join(', ')}</b>. Usunąć je razem z drzwiami?`, 'Usuń');
@@ -10257,7 +10277,7 @@ async function ufGenerate() {
       }
     }
   } catch (e) { tt.remove(); toast('Ultra Frame: ' + e.message, 'error', 7000); }
-  finally { UF.busy = false; const b = $('uf-go'); if (b) b.disabled = false; }
+  finally { UF.busy = false; ['uf-go', 'uf-lay'].forEach(i => { const b = $(i); if (b) b.disabled = false; }); }
 }
 
 // ---------- okno edytora ----------
@@ -10476,7 +10496,7 @@ async function closeUltraFrame() {
       UF.d.pvx = cx - 0.5 - (cx - 0.5 - (UF.d.pvx || 0)) * k; UF.d.pvy = cy - 0.5 - (cy - 0.5 - (UF.d.pvy || 0)) * k; UF.d.zoom = z1; ufPreview(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800);
     }, { passive: false });
   }
-  $('uf-go').onclick = ufGenerate; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
+  $('uf-go').onclick = () => ufGenerate('photos'); $('uf-lay').onclick = () => ufGenerate('layout'); $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
   $('uf-cus-b').onclick = () => {
     const v = toMM($('uf-cus').value);
     if (!(v >= 100 && v <= 2000)) return toast(`Podaj szerokość ścianki od ${lenPL(100)} do ${lenPL(2000)} ${UNIT()}`, 'error');
@@ -13542,8 +13562,10 @@ function kfChapters() {
         await shSay(TT('Gdy układ jest gotowy, klikam Generuj 3D. Powstają dwie wizualizacje i od razu elementy: grafika na każde lico widoczne od alejki, z wymiarami i drzwiami.',
           'Коли план готовий, клацаю «Генерувати 3D». З’являються дві візуалізації і одразу елементи: графіка на кожну площину, видиму з алеї, з розмірами і дверима.',
           'When the layout is ready, I click Generate 3D. Two visualizations appear together with the elements: a graphic for every face seen from the aisle, with sizes and doors.'));
+        await shClick('#uf-lay', 800);
+        let t0 = Date.now(); while (UF.busy && Date.now() - t0 < 60000) await shWait(200);
         await shClick('#uf-go', 800);
-        const t0 = Date.now(); while (UF.busy && Date.now() - t0 < 60000) await shWait(200);
+        t0 = Date.now(); while (UF.busy && Date.now() - t0 < 60000) await shWait(200);
         await shWait(900);
         await shSay(TT('Zamykam edytor.', 'Закриваю редактор.', 'I close the editor.'));
         await shClick('#uf-x', 700); await shWait(900); fitView(); await shWait(400);
