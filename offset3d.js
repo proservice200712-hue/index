@@ -590,6 +590,15 @@ function nazwaCzesci(k, li, mesh, cache) {
   }
   return null;
 }
+// czy bryła należy do litery L: jej siatka leży w obrysie litery (±1,6 mm), a nie tylko w prostokącie opisanym — części logo (sierp, haczyk, zęby) leżą w prostokącie korpusu, ale są osobnymi elementami i cięcia korpusu ich nie dotyczą
+function ownBody(b, L) {
+  const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2;
+  if (cx < L.bb.x0 - 3 || cx > L.bb.x1 + 3 || cy < L.bb.y0 - 3 || cy > L.bb.y1 + 3) return false;
+  const g = L._own || (L._own = offsetPolys([L.p], 1.6)), m = b.getMesh(), st = m.numProp, V = m.vertProperties, n = V.length / st, krok = Math.max(1, Math.floor(n / 120));
+  let wew = 0, razem = 0;     // obrys po offsecie może mieć „dziury” (zamknięta wąska szczelina) — liczy się parzystość, więc to, co leży w kieszeni, nie należy do litery
+  for (let v = 0; v < n; v += krok) { razem++; const P = { X: Math.round(V[v * st] * S), Y: Math.round(V[v * st + 1] * S) }; let k = 0; for (const q of g) if (C.Clipper.PointInPolygon(P, q) !== 0) k++; if (k % 2 === 1) wew++; }
+  return razem > 0 && wew * 2 > razem;
+}
 function mostkiBryla(zK0, zKmax, ndel, uw) {
   const { Manifold } = V3.wasm, t = mostekT(), zB = zK0 + Math.max(0, num($('b3-kmd').value) || 0), zT = zKmax - Math.max(0, num($('b3-kmg').value) || 0), H = zT - zB;
   if (H < 3) { uw.push(`mostki w kloszu pominięte: między odstępem od dołu a odstępem od pleksy zostaje ${fmt(Math.max(0, H), 1)} mm (potrzeba co najmniej 3 mm)`); return null; }
@@ -849,8 +858,7 @@ async function build3D() {
         const pzM = pz && pz.n ? (() => { const { Manifold } = V3.wasm, pr = P => ndel(ndel(Manifold.extrude(toPolys(P), Zh)).translate([0, 0, zOd])); return { A: pr(pz.A), G: pr(pz.G) }; })() : null;
         const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy) || 1, n = [-dy / len, dx / len, 0], off = n[0] * c.a[0] + n[1] * c.a[1], next = [];
         list.forEach(b => {
-          const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2;
-          if (cx < L.bb.x0 - 3 || cx > L.bb.x1 + 3 || cy < L.bb.y0 - 3 || cy > L.bb.y1 + 3) { next.push(b); return; }
+          if (!ownBody(b, L)) { next.push(b); return; }
           const [u, v] = pzM ? [ndel(V3.wasm.Manifold.intersection(b, pzM.A)), ndel(V3.wasm.Manifold.difference(b, pzM.G))] : b.splitByPlane(n, off); if (!pzM) { ndel(u); ndel(v); } [u, v].forEach(h => { if (!h.isEmpty()) h.decompose().map(ndel).forEach(q => next.push(q)); });
         });
         list = next;
@@ -862,13 +870,12 @@ async function build3D() {
         const L = ls[li]; if (!L) return;
         const { Manifold } = V3.wasm, prism = P => ndel(ndel(Manifold.extrude(toPolys(P), 2000)).translate([0, 0, -50])), sk = sektory(L, byLi[li], k === 'podstawa' && p.puz, k === 'klosz' ? kSkos() : 0).map(prism), next = [];
         list.forEach(b => {
-          const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2;
-          if (cx < L.bb.x0 - 3 || cx > L.bb.x1 + 3 || cy < L.bb.y0 - 3 || cy > L.bb.y1 + 3) { next.push(b); return; }
+          if (!ownBody(b, L)) { next.push(b); return; }
           sk.forEach(m => { const q = ndel(Manifold.intersection(b, m)); if (!q.isEmpty()) q.decompose().map(ndel).forEach(x => { if (objetosc(x) > 0.5) next.push(x); }); });
         });
         list = next;
       });
-      const rows = list.map(b => { const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2; let li = ls.findIndex(l => cx >= l.bb.x0 && cx <= l.bb.x1 && cy >= l.bb.y0 && cy <= l.bb.y1); if (li < 0) li = 0; return { b, bb, li, cx }; }).sort((a, c) => a.li - c.li || a.cx - c.cx);
+      const rows = list.map(b => { const bb = b.boundingBox(), cx = (bb.min[0] + bb.max[0]) / 2, cy = (bb.min[1] + bb.max[1]) / 2; const cand = ls.map((l, i) => i).filter(i => cx >= ls[i].bb.x0 && cx <= ls[i].bb.x1 && cy >= ls[i].bb.y0 && cy <= ls[i].bb.y1); let li = cand.find(i => ownBody(b, ls[i])); if (li === undefined) li = cand.length ? cand[0] : 0; return { b, bb, li, cx }; }).sort((a, c) => a.li - c.li || a.cx - c.cx);
       const cnt = {}; rows.forEach(r => { cnt[r.li] = (cnt[r.li] || 0) + 1; }); const nr = {};
       rows.forEach(r => { nr[r.li] = (nr[r.li] || 0) + 1; const mesh = r.b.getMesh(), nz = nazwaCzesci(k, r.li, mesh, pcC); let name = nz ? `${CZESCI[k]}_${nz}` : `${CZESCI[k]}_${String(r.li + 1).padStart(2, '0')}${cnt[r.li] > 1 ? String.fromCharCode(96 + nr[r.li]) : ''}`;
         if (uzyte.has(name)) { let i = 2; while (uzyte.has(name + '_' + i)) i++; name += '_' + i; } uzyte.add(name); bodies.push({ part: k, name, pos: mesh.vertProperties.slice(), tri: mesh.triVerts.slice(), numProp: mesh.numProp, vol: objetosc(r.b), bb: r.bb }); });
