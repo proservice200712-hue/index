@@ -7970,7 +7970,8 @@ function ufGeom0(d) {
       ln.a.sort((a, b) => ori === 0 ? a.x0 - b.x0 : a.y0 - b.y0);
       let seq = [];
       const flush = () => { if (seq.some(q => q.op.t !== 'post')) runs.push({ ori, line: ln.c, th: ln.th, parts: seq, ops: seq.map(q => q.op) }); seq = []; };
-      ln.a.forEach(q => { const last = seq[seq.length - 1]; if (last && Math.abs(ori === 0 ? q.x0 - last.x1 : q.y0 - last.y1) > TOL) flush(); seq.push(q); });
+      let lastH = null;          // wysokość ostatniej ścianki w ciągu (słupek wysokości nie ma): inna wysokość = osobna ścianka, ale przyległa
+      ln.a.forEach(q => { const last = seq[seq.length - 1], hq = q.op.t === 'post' ? null : (Number(q.op.h) || d.H); if (last && (Math.abs(ori === 0 ? q.x0 - last.x1 : q.y0 - last.y1) > TOL || (hq !== null && lastH !== null && Math.abs(hq - lastH) > 1))) { flush(); lastH = null; } seq.push(q); if (hq !== null) lastH = hq; });
       flush();
     });
   }
@@ -8387,7 +8388,7 @@ function ufOverlaps(p, skip) {
 function ufNewPiece(op, x, y, dir, from) {
   const n = { id: ufUid(), ...op, x, y, dir };
   if (n.t === 'door') { n.hinge = 'l'; n.swing = 'in'; }
-  if (from && from.t !== 'post') { n.back = !!from.back; if (from.h) n.h = from.h; if (from.mount) n.mount = from.mount; if (from.paint) n.paint = from.paint; if (from.pside !== undefined) n.pside = from.pside; if (from.pn) n.pn = { ...from.pn }; if (from.pm) n.pm = { ...from.pm }; if (from.pp) n.pp = { ...from.pp }; if (from.ps) n.ps = { ...from.ps }; }
+  if (from && from.t !== 'post') { n.back = !!from.back; if (from.h && (n.dir & 1) === (from.dir & 1)) n.h = from.h; if (from.mount) n.mount = from.mount; if (from.paint) n.paint = from.paint; if (from.pside !== undefined) n.pside = from.pside; if (from.pn) n.pn = { ...from.pn }; if (from.pm) n.pm = { ...from.pm }; if (from.pp) n.pp = { ...from.pp }; if (from.ps) n.ps = { ...from.ps }; }
   return n;
 }
 // klik w paletę: klocek dokłada się na końcu zaznaczonego (albo ostatniego) klocka
@@ -9516,7 +9517,7 @@ function ufDragMove(e) {
   } else {
     const p = ufFind(dr.id), o = dr.orig.get(dr.id), r = ufSnap({ ...p, x: o.x, y: o.y, dir: o.dir }, wx, wy, dr.grp, { x: o.x, y: o.y, px: dr.wx0, py: dr.wy0 });
     p.x = r.piece.x; p.y = r.piece.y; p.dir = r.piece.dir; ufFit(p); dr.an = r.an; dr.face = r.face || null;
-    if (r.an && !(p.t === 'post') && r.an.owner && r.an.owner.t !== 'post') { p.back = !!r.an.owner.back; p.h = r.an.owner.h; }
+    if (r.an && !(p.t === 'post') && r.an.owner && r.an.owner.t !== 'post') { p.back = !!r.an.owner.back; if ((p.dir & 1) === (r.an.owner.dir & 1)) p.h = r.an.owner.h; }
   }
   ufDraw();
 }
@@ -9539,7 +9540,7 @@ function ufDragEnd(e) {
       const geo = ufGeom(UF.d);
       if (ufPostClash(geo.parts, dr.ghost)) toast(UF_POST_MSG, 'error', 4500);
       else if (ufOverlaps(dr.ghost)) toast(UF_OVL_MSG, 'error', 4000);
-      else { const n = { ...dr.ghost, id: ufUid() }; if (n.len0) toast(`Ścianka wystawała poza stoisko — ucięta do ${lenPL(n.len)} ${UNIT()} (z ${lenPL(n.len0)})`, '', 5000); if (dr.an && dr.an.owner) { const f = dr.an.owner; if (n.t !== 'post' && f.t !== 'post') { n.back = !!f.back; if (f.h) n.h = f.h; } } ufPush(); UF.d.pieces.push(n); UF.sel = n.id; UF.rot = false; if (n.t === 'eltex') setTimeout(() => ufEltexDialog(n, true), 0); }
+      else { const n = { ...dr.ghost, id: ufUid() }; if (n.len0) toast(`Ścianka wystawała poza stoisko — ucięta do ${lenPL(n.len)} ${UNIT()} (z ${lenPL(n.len0)})`, '', 5000); if (dr.an && dr.an.owner) { const f = dr.an.owner; if (n.t !== 'post' && f.t !== 'post') { n.back = !!f.back; if (f.h && (n.dir & 1) === (f.dir & 1)) n.h = f.h; } } ufPush(); UF.d.pieces.push(n); UF.sel = n.id; UF.rot = false; if (n.t === 'eltex') setTimeout(() => ufEltexDialog(n, true), 0); }
     } else if (!dr.moved) ufAddNext(dr.op);
     ufChanged(); return;
   }
