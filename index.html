@@ -4551,7 +4551,7 @@ function renderOverlay() {
   S.photos.forEach(p => {
     const b = L.map[p.id]; if (!b || !p.ufViz || p.vpinsOff || !p.vpins || !p.vpins.length) return;
     p.vpins.forEach(q => {
-      const el = S.elements.find(e => e.ufKey === q.k && e.ufRole === 'front' && !e.doorFor); if (!el || el.tblHidden) return;
+      const el = S.elements.find(e => e.ufKey === q.k && e.ufRole === (q.r || 'front') && !e.doorFor); if (!el || el.tblHidden) return;
       const cx = X(b, [q.x]), cy = Y([0, q.y]), r = 12 * s, sel = el.id === S.selId, mk = markOf(el);
       out += `<g class="vpin" data-eid="${el.id}" style="opacity:${q.b ? .5 : 1}"><title>${esc(mk)} — ${esc(typeLabel(el))}${q.b ? ' (lico od drugiej strony)' : ''} · klik zaznacza, dwuklik otwiera</title><circle cx="${cx}" cy="${cy}" r="${r}" fill="${colorOf(el)}" stroke="${sel ? '#46c43c' : '#fff'}" stroke-width="${(sel ? 3.2 : 2) * s}"/><text x="${cx}" y="${cy}" dy="${4.2 * s}" text-anchor="middle" font-size="${(mk.length > 2 ? 8.5 : mk.length > 1 ? 10 : 12) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${esc(mk)}</text></g>`;
     });
@@ -6000,7 +6000,7 @@ async function ufVizRender(mode, view) {
     if (view && view.yaw != null) { d.yaw = Number(view.yaw); d.pitch = Number(view.pitch); }
     if (mode !== 'frame') await ufTexPreload();
     const r = mode === 'frame' ? ufRender3D({ W: 1700, dims: true, look: 'bare', pins: true }) : ufRender3D({ W: 1700, tex: true, look: 'full', vis: true, pins: true });
-    if (r) { r.cv.ufNS = r.ns; r.cv.ufPins = []; r.pos.forEach((v, k) => { if (k.endsWith('|front|c')) r.cv.ufPins.push({ k: k.slice(0, -8), x: Math.round(v[0] * 1e4) / 1e4, y: Math.round(v[1] * 1e4) / 1e4, b: v[2] ? 1 : 0 }); }); }
+    if (r) { r.cv.ufNS = r.ns; r.cv.ufPins = []; r.pos.forEach((v, k) => { const xy = { x: Math.round(v[0] * 1e4) / 1e4, y: Math.round(v[1] * 1e4) / 1e4, b: v[2] ? 1 : 0 }; if (k.endsWith('|front|c')) r.cv.ufPins.push({ k: k.slice(0, -8), ...xy }); else { const m = /^(.*)\|end\|c\d+$/.exec(k); if (m) r.cv.ufPins.push({ k: m[1], r: 'end', ...xy }); } }); }
     return r ? r.cv : null;
   } finally { d.yaw = y0; d.pitch = p0; if (own) UF.d = keepD; }
 }
@@ -6030,7 +6030,7 @@ async function ufVizSetView(photoId, mode) {
 function drawVizPins(g, cv) {
   const r = Math.max(14, cv.width / 95);
   (cv.ufPins || []).forEach(q => {
-    const el = S.elements.find(e => e.ufKey === q.k && e.ufRole === 'front' && !e.doorFor); if (!el || el.tblHidden) return;
+    const el = S.elements.find(e => e.ufKey === q.k && e.ufRole === (q.r || 'front') && !e.doorFor); if (!el || el.tblHidden) return;
     const x = q.x * cv.width, y = q.y * cv.height, mk = markOf(el); g.globalAlpha = q.b ? .5 : 1;
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = colorOf(el); g.fill(); g.lineWidth = 2.5; g.strokeStyle = '#fff'; g.stroke();
     g.fillStyle = '#fff'; g.font = `800 ${Math.round(r * (mk.length > 2 ? .75 : mk.length > 1 ? .9 : 1.05))}px Segoe UI, Arial`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(mk, x, y + 1); g.globalAlpha = 1;
@@ -10330,6 +10330,10 @@ function ufRender3D(o) {
       const r0 = rot(cx, cy), r1 = rot(cx + (fc.ori === 0 ? 0 : fc.inn), cy + (fc.ori === 0 ? fc.inn : 0)), back = ((r1[0] - r0[0]) * sa + (r1[1] - r0[1]) * ca) <= 0;     // lico odwrócone od kamery
       pos.set(fc.key + '|front|c', [px / CW, py / H, back ? 1 : 0]);
     });
+    if (o.pins) geo.caps.forEach(c => c.ends.forEach((e, i) => {        // zaślepki gołych końców ramy (EasyFrame): znacznik tuż za końcem ścianki
+      const [rx, ry] = rot(e.ori === 0 ? e.x + e.sg * 230 : e.x, e.ori === 0 ? e.y : e.y + e.sg * 230), [px, py] = T(rx, ry, c.h * 0.45);
+      pos.set(c.key + '|end|c' + i, [px / CW, py / H, 0]);
+    }));
     geo.ext.forEach(e => { // wysłona zewnętrzna: pas na cały bok stoiska, od 248 w górę
       const m = o.marks && o.marks.get(e.key + '|ext'); if (!m) return;
       const [mx, my] = e.side === 'n' ? [st.L / 2, UF_T / 2] : e.side === 's' ? [st.L / 2, st.D - UF_T / 2] : e.side === 'w' ? [UF_T / 2, st.D / 2] : [st.L - UF_T / 2, st.D / 2];
@@ -10646,7 +10650,7 @@ function ufTechRender() {
 }
 // plik .index3d dla skryptu 3ds Max „INDEX 3D” (tekst, jednostki mm, osie Maxa: X w prawo, Y w głąb, Z w górę)
 // BOX|nazwa|W/D|x0|y0|z0|x1|y1|z1   FLOOR|x0|y0|x1|y1   GFX|znak|klucz lica|x,y,z;x,y,z;x,y,z;x,y,z|u,v;u,v;u,v;u,v|tekstura (adres http albo data:image; tylko w pliku — Max przy imporcie z bazy bierze ją z elementu po kluczu)
-const MAX3D_VER = 3;          // wersja formatu modelu dla Maxa (3: grubość podłogi, kątownik, drzwi z ramką); starsze projekty publikują się ponownie przy otwarciu edytora
+const MAX3D_VER = 4;          // wersja formatu modelu dla Maxa (3: grubość podłogi, kątownik, drzwi z ramką; 4: zaślepki końców ramy); starsze projekty publikują się ponownie przy otwarciu edytora
 function ufMaxBuild(withTex = true) {
   const d = UF.d, geo = ufGeom(d), st = d.stand, L = st.L, D = st.D, out = [];
   const f1 = v => String(Math.round(v * 100) / 100);
@@ -10667,6 +10671,13 @@ function ufMaxBuild(withTex = true) {
     const ord = cx * nx + cy * ny >= 0 ? [0, 1, 2, 3] : [0, 3, 2, 1];
     const vs = ord.map(k => q[k].map(f1).join(',')).join(';'), uv = ord.map(k => f1(pts[k].u) + ',' + f1(pts[k].v)).join(';');
     out.push(['GFX', mk, String(fc.key).replace(/[|\r\n]/g, ''), vs, uv, withTex && el && el.thumb ? String(el.thumb).replace(/[|\r\n]/g, '') : ''].join('|'));
+  });
+  geo.caps.forEach(c => {        // zaślepki gołych końców ramy (PCW 3 mm): cienka płyta na końcu ścianki, szerokość c.w, wysokość c.h, grafika z elementu zaślepek
+    const el = S.elements.find(e => e.ufKey === c.key && e.ufRole === 'end' && !e.doorFor), mk = asc(el ? markOf(el) : 'Z'), tx = withTex && el && el.thumb ? String(el.thumb).replace(/[|\r\n]/g, '') : '', hw = c.w / 2, tk = 3;
+    c.ends.forEach(e => {
+      const [xa, xb, ya, yb] = e.ori === 0 ? [e.x, e.x + e.sg * tk, e.y - hw, e.y + hw] : [e.x - hw, e.x + hw, e.y, e.y + e.sg * tk];
+      out.push(['CAP', mk, String(c.key).replace(/[|\r\n]/g, ''), f1(xa), f1(D - ya), f1(xb), f1(D - yb), f1(c.h), tx].join('|'));
+    });
   });
   return { name: 'UltraFrame_' + asc((S.project && S.project.name) || 'stoisko'), text: out.join('\n') + '\n' };
 }
@@ -11608,7 +11619,7 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br, ph) {
   g.drawImage(img, ix, iy, iw, ih);
   drawNsStatic(g, ph, ix, iy, iw, ih, Math.max(1.5, br * 0.1));
   g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.strokeRect(ix, iy, iw, ih);
-  if (ph && ph.ufViz && !ph.vpinsOff && ph.vpins) ph.vpins.forEach(q => { const r = rows.find(x => x.el.ufKey === q.k && x.el.ufRole === 'front' && !x.el.doorFor); if (r) { g.globalAlpha = q.b ? .5 : 1; drawBadge(g, ix + q.x * iw, iy + q.y * ih, br, r.color, r.znak); g.globalAlpha = 1; } });       // wizualizacja: znaczniki na środku ścianek (można wygasić na wizce)
+  if (ph && ph.ufViz && !ph.vpinsOff && ph.vpins) ph.vpins.forEach(q => { const r = rows.find(x => x.el.ufKey === q.k && x.el.ufRole === (q.r || 'front') && !x.el.doorFor); if (r) { g.globalAlpha = q.b ? .5 : 1; drawBadge(g, ix + q.x * iw, iy + q.y * ih, br, r.color, r.znak); g.globalAlpha = 1; } });       // wizualizacja: znaczniki na środku ścianek (można wygasić na wizce)
   for (const r of rows) {
     if (!r.el.shape || r.el.shape.kind === 'point' || r.el.backFor) continue;
     const pts = shapePolyPts(r.el.shape);
