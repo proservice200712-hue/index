@@ -47,7 +47,7 @@
   .uf-bar .uf-lay { background: #3182ce; border-color: #2b6cb0; }
   .uf-bar .uf-link { background: #805ad5; border-color: #6b46c1; }
   .uf-bar .uf-link.on { background: #d69e2e; border-color: #b7791f; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #d69e2e; }
-  .uf-bar input[type=number] { width: 78px; padding: 4px 6px; background: #fff; color: var(--dark); border: 1px solid #4a5568; font-size: .76rem; }
+  .uf-bar input[type=number], .uf-bar #uf-step { width: 78px; padding: 4px 6px; background: #fff; color: var(--dark); border: 1px solid #4a5568; font-size: .76rem; }
   .uf-bar select { background: #fff; color: var(--dark); border: 1px solid #4a5568; padding: 3px 4px; font-size: .76rem; }
   .uf-bar label { display: inline-flex; gap: 5px; align-items: center; }
   .uf-chk input { width: 15px; height: 15px; accent-color: #38a169; } /* ptaszki zielone */
@@ -9166,29 +9166,33 @@ function ufDraw(light) {
   // grafiki: wymiar każdego lica widocznego od alejki, po stronie grafiki (tam gdzie znaczniki); opis wysłony — z tyłu (na zewnątrz)
   UF.seamHits = [];
   geo.faces.forEach(fc => {
-    const inn = fc.ori === 0 ? [0, fc.inn] : [fc.inn, 0], L = fc.run.line, off = 230;
-    const ax = fc.ori === 0 ? fc.a : L + inn[0] * off, ay = fc.ori === 0 ? L + inn[1] * off : fc.a;
-    const bx2 = fc.ori === 0 ? fc.b : ax, by2 = fc.ori === 0 ? ay : fc.b;
-    g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath();
-    g.moveTo(X(fc.ori === 0 ? fc.a : fc.f), Y(fc.ori === 0 ? fc.f : fc.a)); g.lineTo(X(ax) + inn[0] * 6, Y(ay) + inn[1] * 6);
-    g.moveTo(X(fc.ori === 0 ? fc.b : fc.f), Y(fc.ori === 0 ? fc.f : fc.b)); g.lineTo(X(bx2) + inn[0] * 6, Y(by2) + inn[1] * 6); g.stroke();
-    drawArrowLine(g, X(ax), Y(ay), X(bx2), Y(by2), 6, '#4a5568', 1.2);
-    // napis między ścianką a linią wymiarową (dalej od linii są znaczniki grafik)
-    const tw = fc.inn > 0;
-    g.save(); g.translate((X(ax) + X(bx2)) / 2, (Y(ay) + Y(by2)) / 2); if (fc.ori === 1) g.rotate(-Math.PI / 2);
-    g.fillStyle = '#2f855a'; g.font = `600 12px ${F}`; g.textAlign = 'center'; g.textBaseline = tw ? 'bottom' : 'top';
-    g.fillText(`${lenPL(fc.b - fc.a)} × ${lenPL(fc.h)}`, 0, tw ? -3 : 3); g.restore();
-    // połączone grafiki: kreska łączenia (od lica do linii wymiarowej) i wymiary części po drugiej stronie linii
-    const jn = fc.joins || [];
-    if (jn.length) {
-      const cuts = [fc.a, ...jn.map(q => q.c), fc.b], lineAt = v => fc.ori === 0 ? [v, L + inn[1] * off] : [L + inn[0] * off, v];
+    const inn = fc.ori === 0 ? [0, fc.inn] : [fc.inn, 0], L = fc.run.line, jn = fc.joins || [], tw = fc.inn > 0;
+    const lineAt = (v, off) => fc.ori === 0 ? [v, L + inn[1] * off] : [L + inn[0] * off, v], planeAt = v => fc.ori === 0 ? [v, fc.f] : [fc.f, v];
+    // linia wymiarowa od a do b na odsunięciu off; napis między ścianką a linią (dalej od linii są znaczniki grafik)
+    const dimLine = (a, b, off, txt, lineCol, txtCol) => {
+      const [ax, ay] = lineAt(a, off), [bx2, by2] = lineAt(b, off), [pax, pay] = planeAt(a), [pbx, pby] = planeAt(b);
+      g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath();
+      g.moveTo(X(pax), Y(pay)); g.lineTo(X(ax) + inn[0] * 6, Y(ay) + inn[1] * 6);
+      g.moveTo(X(pbx), Y(pby)); g.lineTo(X(bx2) + inn[0] * 6, Y(by2) + inn[1] * 6); g.stroke();
+      drawArrowLine(g, X(ax), Y(ay), X(bx2), Y(by2), 6, lineCol, 1.2);
+      g.save(); g.translate((X(ax) + X(bx2)) / 2, (Y(ay) + Y(by2)) / 2); if (fc.ori === 1) g.rotate(-Math.PI / 2);
+      g.fillStyle = txtCol; g.font = `600 12px ${F}`; g.textAlign = 'center'; g.textBaseline = tw ? 'bottom' : 'top';
+      g.fillText(txt, 0, tw ? -3 : 3); g.restore();
+    };
+    // odległości między ściankami (czyste odcinki lica) — zawsze; połączona grafika ma ich kilka
+    const segs = []; let s0 = fc.a; jn.forEach(q => { segs.push([s0, q.c - q.g / 2]); s0 = q.c + q.g / 2; }); segs.push([s0, fc.b]);
+    segs.forEach(([a, b]) => dimLine(a, b, 230, `${lenPL(b - a)} × ${lenPL(fc.h)}`, '#4a5568', '#2f855a'));
+    // połączone grafiki — wymiary grafiki (całość i części), kreska łączenia: tylko administrator, osobna linia dalej od ścianki
+    if (jn.length && isAdmin()) {
+      const off2 = 320, cuts = [fc.a, ...jn.map(q => q.c), fc.b];
+      dimLine(fc.a, fc.b, off2, `${lenPL(fc.b - fc.a)} × ${lenPL(fc.h)}`, '#2b6cb0', '#2b6cb0');
       jn.forEach(q => {
-        const [sx, sy] = lineAt(q.c), px0 = fc.ori === 0 ? q.c : fc.f, py0 = fc.ori === 0 ? fc.f : q.c;
+        const [sx, sy] = lineAt(q.c, off2), [px0, py0] = planeAt(q.c);
         g.save(); g.strokeStyle = '#2b6cb0'; g.lineWidth = 1.8; g.setLineDash([5, 3]); g.beginPath(); g.moveTo(X(px0), Y(py0)); g.lineTo(X(sx) + inn[0] * 8, Y(sy) + inn[1] * 8); g.stroke(); g.restore();
         if (UF.linkOn) { g.beginPath(); g.arc(X(sx), Y(sy), 8, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#e53e3e'; g.stroke(); g.fillStyle = '#e53e3e'; g.font = `800 11px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✕', X(sx), Y(sy) + .5); UF.seamHits.push({ x: X(sx), y: Y(sy), li: q.li }); }
       });
       for (let i = 0; i < cuts.length - 1; i++) {
-        const [mx, my] = lineAt((cuts[i] + cuts[i + 1]) / 2);
+        const [mx, my] = lineAt((cuts[i] + cuts[i + 1]) / 2, off2);
         g.save(); g.translate(X(mx), Y(my)); if (fc.ori === 1) g.rotate(-Math.PI / 2);
         g.fillStyle = '#2b6cb0'; g.font = `600 11px ${F}`; g.textAlign = 'center'; g.textBaseline = tw ? 'top' : 'bottom';
         g.fillText(lenPL(cuts[i + 1] - cuts[i]), 0, tw ? 3 : -3); g.restore();
