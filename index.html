@@ -4521,9 +4521,10 @@ function renderOverlay() {
     if (cur) out += `<rect class="plab" style="pointer-events:none" x="${b.x - 3 * s}" y="${-3 * s}" width="${b.w + 6 * s}" height="${H0 + 6 * s}" fill="none" stroke="#67b437" stroke-width="${3 * s}"/>`;
     out += `<g class="plab"><g class="pnum" data-pid="${p.id}"><title>${isViewer() ? 'Wizka #' + (i + 1) : 'Przeciągnij, aby zmienić kolejność wizek'}</title><rect x="${b.x}" y="0" width="${44 * s}" height="${24 * s}" fill="${reorder && reorder.pid === p.id && reorder.moved ? 'rgba(103,180,55,.95)' : 'rgba(26,32,44,.8)'}"/>
       <text x="${b.x + 22 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${13 * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">#${i + 1}</text></g>${p.noExp ? `<rect x="${b.x + 44 * s}" y="0" width="${96 * s}" height="${24 * s}" fill="rgba(197,48,48,.92)"/><text x="${b.x + 92 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial">poza eksportem</text>` : ''}</g>
-      ${(() => { const hel = hangElOfPhoto(p.id), ufv = !hel && p.ufViz; if (!hel && !ufv) return ''; const cm = hel ? hangViewMode(p, hel) : (p.vmode || 'tex'), bs = hel ? [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']] : [['tex', 'pełny', 46, 'Widok pełny: ścianki z grafikami elementów'], ['frame', 'szkielet', 56, 'Kratownica / gołe ramy z wymiarami']]; let bx = b.x + b.w - 52 * s - 6 * s - 64 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0);
+      ${(() => { const hel = hangElOfPhoto(p.id), ufv = !hel && p.ufViz; if (!hel && !ufv) return ''; const cm = hel ? hangViewMode(p, hel) : (p.vmode || 'tex'), bs = hel ? [['tex', 'pełny', 46, 'Widok pełny: tkanina z grafiką'], ['frame', 'szkielet', 56, 'Sam szkielet konstrukcji'], ['ghost', 'półprzezr.', 64, 'Tkanina półprzezroczysta, szkielet widać przez nią']] : [['tex', 'pełny', 46, 'Widok pełny: ścianki z grafikami elementów'], ['frame', 'szkielet', 56, 'Kratownica / gołe ramy z wymiarami']]; const exk = ufv ? 72 * s : 0; let bx = b.x + b.w - 52 * s - 6 * s - 64 * s - 6 * s - bs.reduce((a, q) => a + q[2] * s, 0) - exk;
         const orb = `<g class="pvo" data-pid="${p.id}"><title>Orbita: obracaj wizualizację myszą i zapisz widok</title><rect x="${b.x + b.w - 52 * s - 6 * s - 64 * s}" y="0" width="${64 * s}" height="${24 * s}" fill="rgba(26,32,44,.8)"/><text x="${b.x + b.w - 52 * s - 6 * s - 32 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">↻ orbita</text></g>`;
-        return orb + bs.map(([k, lab, w, tt]) => { const x0 = bx; bx += w * s; return `<g class="pvm" data-pid="${p.id}" data-mode="${k}"><title>${tt}</title><rect x="${x0}" y="0" width="${w * s}" height="${24 * s}" fill="${cm === k ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + w * s / 2}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${lab}</text></g>`; }).join(''); })()}
+        const pk = ufv ? (() => { const on = !p.vpinsOff, x0 = b.x + b.w - 52 * s - 6 * s - 64 * s - 6 * s - 68 * s; return `<g class="pvk" data-pid="${p.id}"><title>${on ? 'Wygaś znaczniki grafik na wizualizacji' : 'Pokaż znaczniki grafik na wizualizacji'}</title><rect x="${x0}" y="0" width="${68 * s}" height="${24 * s}" fill="${on ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + 34 * s}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">znaczniki</text></g>`; })() : '';
+        return pk + orb + bs.map(([k, lab, w, tt]) => { const x0 = bx; bx += w * s; return `<g class="pvm" data-pid="${p.id}" data-mode="${k}"><title>${tt}</title><rect x="${x0}" y="0" width="${w * s}" height="${24 * s}" fill="${cm === k ? 'rgba(56,161,105,.95)' : 'rgba(26,32,44,.8)'}"/><text x="${x0 + w * s / 2}" y="${16 * s}" text-anchor="middle" font-size="${11.5 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">${lab}</text></g>`; }).join(''); })()}
       ${(() => { const off = !!p.noExp, x0 = b.x + b.w - 52 * s; return `<g class="pexp" data-pid="${p.id}"><title>${off ? 'Wizka jest poza eksportem — kliknij, aby ją włączyć' : 'Wyłącz tę wizkę z eksportu'}</title><rect x="${x0}" y="0" width="${24 * s}" height="${24 * s}" fill="${off ? 'rgba(197,48,48,.92)' : 'rgba(26,32,44,.8)'}"/>${eyeIcon(!off).replace('<svg ', `<svg x="${x0 + 3 * s}" y="${3 * s}" style="color:#fff;pointer-events:none" `).replace('width="17" height="17"', `width="${18 * s}" height="${18 * s}"`)}</g>`; })()}
       <g class="pdel" data-pid="${p.id}"><title>Usuń wizkę #${i + 1}</title><rect x="${b.x + b.w - 24 * s}" y="0" width="${24 * s}" height="${24 * s}" fill="rgba(229,62,62,.9)"/>
       <text x="${b.x + b.w - 12 * s}" y="${16.5 * s}" text-anchor="middle" font-size="${14 * s}" font-weight="700" fill="#fff" font-family="Segoe UI, Arial" style="pointer-events:none">✕</text></g>`;
@@ -4537,6 +4538,15 @@ function renderOverlay() {
   S.photos.forEach(p => {
     const b = L.map[p.id]; if (!b || !p.ns || !p.ns.length) return;
     p.ns.forEach(o => { const f = o && o.p; if (!f || f.length < 6) return; const pts = []; for (let i = 0; i + 1 < f.length; i += 2) pts.push([f[i], f[i + 1]]); out += `<polygon class="nspul${p.nsRed ? ' red' : ''}" style="pointer-events:none" points="${P(b, pts)}"/>`; });
+  });
+  // wizualizacja Ultra / K-Frame: znaczniki grafik na środku ścianek (położenie liczone z 3D, więc trzymają się ścianki po obrocie); wygaszane przyciskiem „znaczniki”
+  S.photos.forEach(p => {
+    const b = L.map[p.id]; if (!b || !p.ufViz || p.vpinsOff || !p.vpins || !p.vpins.length) return;
+    p.vpins.forEach(q => {
+      const el = S.elements.find(e => e.ufKey === q.k && e.ufRole === 'front' && !e.doorFor); if (!el || el.tblHidden) return;
+      const cx = X(b, [q.x]), cy = Y([0, q.y]), r = 12 * s, sel = el.id === S.selId, mk = markOf(el);
+      out += `<g style="pointer-events:none"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${colorOf(el)}" stroke="${sel ? '#46c43c' : '#fff'}" stroke-width="${(sel ? 3.2 : 2) * s}"/><text x="${cx}" y="${cy}" dy="${4.2 * s}" text-anchor="middle" font-size="${(mk.length > 2 ? 8.5 : mk.length > 1 ? 10 : 12) * s}" font-weight="800" fill="#fff" font-family="Segoe UI, Arial">${esc(mk)}</text></g>`;
+    });
   });
   const marks = [];
   // wysłona lightboxa nie ma własnego znacznika — rysujemy ją obok znacznika lightboxa
@@ -4661,6 +4671,7 @@ viewer.addEventListener('pointerdown', e => {
   const pxo = !draft && e.target.closest('.pexp'); if (pxo) { const ph = S.photos.find(x => x.id === pxo.dataset.pid); if (ph && S.project && !isViewer()) DB.update(pPhotos(S.project.id), ph.id, { noExp: !ph.noExp }); return; }     // oczko: wizka poza eksportem
   const vo2 = !draft && e.target.closest('.pvo'); if (vo2) { hangOrbit(vo2.dataset.pid); return; }
   const vm = !draft && e.target.closest('.pvm'); if (vm) { hangSetView(vm.dataset.pid, vm.dataset.mode); return; }     // przełącznik widoku wizualizacji konstrukcji
+  const vk = !draft && e.target.closest('.pvk'); if (vk) { const ph = S.photos.find(x => x.id === vk.dataset.pid); if (ph && S.project && !isViewer()) DB.update(pPhotos(S.project.id), ph.id, { vpinsOff: !ph.vpinsOff }); return; }       // wygaszanie znaczników wizualizacji
   const del = !draft && e.target.closest('.pdel'); // w trakcie rysowania wielokąta ✕ nie przeszkadza
   if (del) { deletePhoto(del.dataset.pid); return; }
 
@@ -5978,8 +5989,8 @@ async function ufVizRender(mode, view) {
   try {
     if (view && view.yaw != null) { d.yaw = Number(view.yaw); d.pitch = Number(view.pitch); }
     if (mode !== 'frame') await ufTexPreload();
-    const r = mode === 'frame' ? ufRender3D({ W: 1700, dims: true, look: 'bare' }) : ufRender3D({ W: 1700, tex: true, look: 'full', vis: true });
-    if (r) r.cv.ufNS = r.ns;
+    const r = mode === 'frame' ? ufRender3D({ W: 1700, dims: true, look: 'bare', pins: true }) : ufRender3D({ W: 1700, tex: true, look: 'full', vis: true, pins: true });
+    if (r) { r.cv.ufNS = r.ns; r.cv.ufPins = []; r.pos.forEach((v, k) => { if (k.endsWith('|front|c')) r.cv.ufPins.push({ k: k.slice(0, -8), x: Math.round(v[0] * 1e4) / 1e4, y: Math.round(v[1] * 1e4) / 1e4 }); }); }
     return r ? r.cv : null;
   } finally { d.yaw = y0; d.pitch = p0; if (own) UF.d = keepD; }
 }
@@ -5989,7 +6000,8 @@ async function ufVizSave(photoId, mode, view, keepAlts) {
   const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
   const up = await storeImage(new File([blob], 'ultra-frame-' + mode + '.png', { type: 'image/png' }), 3200, { png: true });
   const nsA = Object.fromEntries(Object.entries(p.nsAlts || {}).filter(([k]) => keepAlts && keepAlts[k])); nsA[mode] = cv.ufNS || [];
-  await DB.update(pPhotos(S.project.id), photoId, { url: up.url, w: up.w, h: up.h, alts: { ...(keepAlts || {}), [mode]: up.url }, vmode: mode, ns: cv.ufNS || [], nsAlts: nsA, ...(view ? { vw: view } : {}) });
+  const vpA = Object.fromEntries(Object.entries(p.vpinsAlts || {}).filter(([k]) => keepAlts && keepAlts[k])); vpA[mode] = cv.ufPins || [];
+  await DB.update(pPhotos(S.project.id), photoId, { url: up.url, w: up.w, h: up.h, alts: { ...(keepAlts || {}), [mode]: up.url }, vmode: mode, ns: cv.ufNS || [], nsAlts: nsA, vpins: cv.ufPins || [], vpinsAlts: vpA, ...(view ? { vw: view } : {}) });
 }
 async function ufVizSetView(photoId, mode) {
   const p = S.photos.find(x => x.id === photoId); if (!p || isViewer() || !S.project) return;
@@ -5998,10 +6010,21 @@ async function ufVizSetView(photoId, mode) {
   try {
     const alts = { ...(p.alts || {}) }; if (!alts[cur]) alts[cur] = p.url;
     const nsA = { ...(p.nsAlts || {}) }; if (!nsA[cur] && p.ns) nsA[cur] = p.ns;
-    if (alts[mode]) await DB.update(pPhotos(S.project.id), photoId, { url: alts[mode], alts, vmode: mode, ns: nsA[mode] || [], nsAlts: nsA });
+    const vpA = { ...(p.vpinsAlts || {}) }; if (!vpA[cur] && p.vpins) vpA[cur] = p.vpins;
+    if (alts[mode]) await DB.update(pPhotos(S.project.id), photoId, { url: alts[mode], alts, vmode: mode, ns: nsA[mode] || [], nsAlts: nsA, vpins: vpA[mode] || [], vpinsAlts: vpA });
     else await ufVizSave(photoId, mode, p.vw, alts);
   } catch (e) { toast('Nie udało się przełączyć widoku: ' + e.message, 'error', 6000); }
   finally { t.remove(); }
+}
+// znaczniki grafik na obrazie wizualizacji (okno orbity): środek lica, ta sama litera i kolor co element
+function drawVizPins(g, cv) {
+  const r = Math.max(14, cv.width / 95);
+  (cv.ufPins || []).forEach(q => {
+    const el = S.elements.find(e => e.ufKey === q.k && e.ufRole === 'front' && !e.doorFor); if (!el || el.tblHidden) return;
+    const x = q.x * cv.width, y = q.y * cv.height, mk = markOf(el);
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = colorOf(el); g.fill(); g.lineWidth = 2.5; g.strokeStyle = '#fff'; g.stroke();
+    g.fillStyle = '#fff'; g.font = `800 ${Math.round(r * (mk.length > 2 ? .75 : mk.length > 1 ? .9 : 1.05))}px Segoe UI, Arial`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(mk, x, y + 1);
+  });
 }
 async function ufVizOrbit(photoId) {
   const p = S.photos.find(x => x.id === photoId); if (!p || isViewer() || !S.project) return;
@@ -6013,7 +6036,7 @@ async function ufVizOrbit(photoId) {
     footer: '<button class="btn" id="ho-reset" style="margin-right:auto">↺ Widok domyślny</button><button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="ho-ok">Zapisz widok</button>' });
   const draw = async () => {
     if (busy) { again = true; return; } busy = true;
-    try { const cv = await ufVizRender(mode, { yaw, pitch }), t = $('ho-cv'); if (cv && t) { t.width = cv.width; t.height = cv.height; t.getContext('2d').drawImage(cv, 0, 0); } } catch (e) { console.warn(e); }
+    try { const cv = await ufVizRender(mode, { yaw, pitch }), t = $('ho-cv'); if (cv && t) { t.width = cv.width; t.height = cv.height; const g2 = t.getContext('2d'); g2.drawImage(cv, 0, 0); const pp = S.photos.find(x => x.id === photoId); if (!pp || !pp.vpinsOff) drawVizPins(g2, cv); } } catch (e) { console.warn(e); }
     busy = false; if (again) { again = false; draw(); }
   };
   const c = $('ho-cv');
@@ -10173,6 +10196,10 @@ function ufRender3D(o) {
       g.fillStyle = 'rgba(255,255,255,.94)'; g.fillRect(bx0 - tw / 2, ty, tw, 26); g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.strokeRect(bx0 - tw / 2, ty, tw, 26);
       g.fillStyle = '#276749'; g.fillText(m.wTxt, bx0, ty + 13.5);
     });
+    if (o.pins) geo.faces.forEach(fc => {        // znaczniki wizualizacji: środek lica, połowa wysokości (przytwierdzone do ścianki przy każdym obrocie)
+      const am = (fc.a + fc.b) / 2, [fx, fy] = rot(...(fc.ori === 0 ? [am, fc.f] : [fc.f, am])), [px, py] = T(fx, fy, fc.h * 0.5);
+      pos.set(fc.key + '|front|c', [px / CW, py / H]);
+    });
     geo.ext.forEach(e => { // wysłona zewnętrzna: pas na cały bok stoiska, od 248 w górę
       const m = o.marks && o.marks.get(e.key + '|ext'); if (!m) return;
       const [mx, my] = e.side === 'n' ? [st.L / 2, UF_T / 2] : e.side === 's' ? [st.L / 2, st.D - UF_T / 2] : e.side === 'w' ? [UF_T / 2, st.D / 2] : [st.L - UF_T / 2, st.D / 2];
@@ -10636,7 +10663,7 @@ async function ufGenerate(mode = 'photos') {
       if (cvC) {
         const blobC = await new Promise(res => cvC.toBlob(res, 'image/png'));
         const upC = await storeImage(new File([blobC], 'ultra-frame-wizualizacja.png', { type: 'image/png' }), 3200, { png: true });
-        const rec = { url: upC.url, w: upC.w, h: upC.h, alts: { [mode]: upC.url }, vmode: mode, ufViz: true, ns: cvC.ufNS || [], nsAlts: { [mode]: cvC.ufNS || [] }, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — wizualizacja' };
+        const rec = { url: upC.url, w: upC.w, h: upC.h, alts: { [mode]: upC.url }, vmode: mode, ufViz: true, ns: cvC.ufNS || [], nsAlts: { [mode]: cvC.ufNS || [] }, vpins: cvC.ufPins || [], vpinsAlts: { [mode]: cvC.ufPins || [] }, name: (ufK() ? 'K-Frame' : 'Ultra Frame') + ' — wizualizacja' };
         let pC = pC0 ? pC0.id : '';
         if (pC) await DB.update(pPhotos(pid), pC, rec);
         else {
@@ -11369,6 +11396,7 @@ function drawPhotoMarks(g, img, ix, iy, iw, ih, rows, br, ph) {
   g.drawImage(img, ix, iy, iw, ih);
   drawNsStatic(g, ph, ix, iy, iw, ih, Math.max(1.5, br * 0.1));
   g.strokeStyle = '#cbd5e0'; g.lineWidth = 2; g.strokeRect(ix, iy, iw, ih);
+  if (ph && ph.ufViz && !ph.vpinsOff && ph.vpins) ph.vpins.forEach(q => { const r = rows.find(x => x.el.ufKey === q.k && x.el.ufRole === 'front' && !x.el.doorFor); if (r) drawBadge(g, ix + q.x * iw, iy + q.y * ih, br, r.color, r.znak); });       // wizualizacja: znaczniki na środku ścianek (można wygasić na wizce)
   for (const r of rows) {
     if (!r.el.shape || r.el.shape.kind === 'point' || r.el.backFor) continue;
     const pts = shapePolyPts(r.el.shape);
