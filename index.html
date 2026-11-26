@@ -97,11 +97,13 @@
   .uf-sh .vt { writing-mode: vertical-rl; transform: rotate(180deg); font-size: .7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
   .uf-sh .arr { font-size: .8rem; }
   #uf-side summary.pct { cursor: pointer; list-style: none; } #uf-side summary.pct::-webkit-details-marker { display: none; }
-  #uf-side summary.pct .pcv { margin-left: auto; transition: transform .15s; color: var(--gray); } #uf-side details.pcat:not([open]) summary.pct .pcv { transform: rotate(-90deg); }
-  #uf-side details.pcat:not([open]) > summary.pct { margin-bottom: 0; }
-  #uf-side .pcat { border: 1px solid var(--line); background: #fff; padding: 7px 8px 8px; margin: 0 0 8px; }
-  #uf-side .pct { display: flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--gray); margin: 0 0 6px; }
-  #uf-side .pct .ti { font-size: 17px; color: #2d3748; }
+  #uf-side summary.pct .pcv { margin-left: auto; transition: transform .15s; color: #2f855a; } #uf-side details.pcat:not([open]) summary.pct .pcv { transform: rotate(-90deg); }
+  /* rozwijane kategorie panelu: nagłówek na jasnozielonym tle przez całą szerokość — widać, gdzie sekcja się zaczyna i kończy */
+  #uf-side .pcat { border: 1px solid #a9d6b6; background: #fff; padding: 7px 8px 8px; margin: 0 0 8px; }
+  #uf-side .pct { display: flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #276749; margin: -7px -8px 8px; padding: 7px 8px; background: #e2f4e8; border-bottom: 1px solid #b9e0c6; }
+  #uf-side summary.pct:hover { background: #d3edda; }
+  #uf-side details.pcat:not([open]) > summary.pct { margin-bottom: -8px; border-bottom: 0; }
+  #uf-side .pct .ti { font-size: 17px; color: #2f855a; }
   #uf-side .pchips { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
   #uf-side .pchip { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: #f7fafc; padding: 3px 4px; font-size: .74rem; cursor: pointer; min-width: 0; }
   #uf-side .pchip .ti { font-size: 15px; color: var(--gray); flex: none; }
