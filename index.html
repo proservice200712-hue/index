@@ -1212,7 +1212,7 @@
       <div id="drop-hint" class="hidden">Upuść, aby dodać wizki</div>
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
-          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-tech" class="hidden" title="Rys-tech (K-Frame): rysunek techniczny z siatką i wymiarami — widok z góry (duży), front i bok od alejki. Do pobrania jako PNG albo do wydruku.">📐 Rys-tech</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,7; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
+          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-tech" class="hidden" title="Rys-tech (K-Frame): rysunek techniczny z siatką i wymiarami — widok z góry (duży), front i bok od alejki. Do pobrania jako PNG albo do wydruku.">📐 Rys-tech</button><button type="button" id="uf-obj" title="Eksport 3D do 3ds Max: pliki OBJ + MTL — ścianki i drzwi jako osobne obiekty, podłoga, płaszczyzny grafik z mapowaniem UV (jednostki mm, oś Z w górę).">⬇ 3D (OBJ)</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,7; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button><button type="button" id="uf-meas" title="Miarka: kliknij dwa punkty na planie — pokaże się ich odległość (przyciąga do narożników ścianek i stoiska). Shift przy klikaniu przełącza skos ↔ poziom/pion. Esc kończy.">📏</button><button type="button" id="uf-measm" class="hidden" title="Tryb miarki: po skosie (dowolna linia) albo poziom/pion (linia blokuje się na bliższej osi). Shift = chwilowo odwrotnie."></button></span>
           <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
@@ -10513,6 +10513,59 @@ function ufTechRender() {
   elev(rx, 130 + rh + 20, rw, rh, side, `Widok z boku — od strony ${NAME[side]}${open(side) ? ' (alejka)' : ''}`);
   return cv;
 }
+// =====================================================================
+//  EKSPORT 3D (OBJ + MTL) do 3ds Max i innych programów: ścianki / drzwi / podłoga / płaszczyzny grafik (UV 0–1 na całą grafikę)
+//  Jednostki: mm; osie: X w prawo, Y w głąb (północ = +Y), Z w górę (import w Maxie bez „flip YZ”)
+// =====================================================================
+function ufObjBuild() {
+  const d = UF.d, geo = ufGeom(d), st = d.stand, L = st.L, D = st.D, out = [], vt = [], mtl = new Map();
+  let nv = 0, nt = 0;
+  const f1 = v => (Math.round(v * 100) / 100).toString();
+  const V = (x, y, z) => { out.push(`v ${f1(x)} ${f1(D - y)} ${f1(z)}`); return ++nv; };       // y planu (w dół) → Y Maxa (w głąb)
+  const nameOf = t => String(t || 'x').replace(/[^\w\-]+/g, '_');
+  const mat = (name, kd, extra) => { if (!mtl.has(name)) mtl.set(name, `newmtl ${name}\nKd ${kd.join(' ')}\nKa 0.2 0.2 0.2\nKs 0.05 0.05 0.05\nNs 20\nd 1\nillum 2${extra ? '\n' + extra : ''}\n`); return name; };
+  const box = (name, material, x0, y0, x1, y1, z0, z1) => {
+    out.push(`o ${name}`, `usemtl ${material}`);
+    const A = V(x0, y1, z0), B = V(x1, y1, z0), C = V(x1, y0, z0), E = V(x0, y0, z0), A2 = V(x0, y1, z1), B2 = V(x1, y1, z1), C2 = V(x1, y0, z1), E2 = V(x0, y0, z1);
+    // wierzchołki: A=(x0,y1) B=(x1,y1) C=(x1,y0) E=(x0,y0) [planu y]; po odbiciu Y: y1 → niżej (bliżej widza)
+    [[A, E, C, B], [A2, B2, C2, E2], [A, B, B2, A2], [C, E, E2, C2], [E, A, A2, E2], [B, C, C2, B2]].forEach(q => out.push('f ' + q.join(' ')));
+  };
+  // ścianki i drzwi
+  const matW = mat('Sciana', [0.86, 0.84, 0.8]), matD = mat('Drzwi', [0.9, 0.75, 0.4]);
+  geo.parts.forEach(q => { if (q.op.t === 'post' && false) return; box((q.op.t === 'door' ? 'Drzwi_' : 'Sciana_') + nameOf(q.op.id), q.op.t === 'door' ? matD : matW, q.x0, q.y0, q.x1, q.y1, 0, q.run ? q.run.h : d.H); });
+  // podłoga
+  { const mf = mat('Podloga', [0.93, 0.94, 0.96]); out.push('o Podloga', `usemtl ${mf}`); const a = V(0, D, 0), b = V(L, D, 0), c = V(L, 0, 0), e = V(0, 0, 0); out.push(`f ${a} ${b} ${c} ${e}`); }
+  // grafiki: płaszczyzna tuż przed licem (2 mm), UV od lewej do prawej patrząc na grafikę; obiekt i materiał nazywają się jak element (np. Grafika_AB)
+  geo.faces.forEach((fc, i) => {
+    const el = S.elements.find(e => e.ufKey === fc.key && e.ufRole === 'front' && !e.doorFor), mk = nameOf(el ? markOf(el) : 'F' + (i + 1));
+    const rev = (fc.ori === 0) === (fc.inn < 0), off = fc.f + fc.inn * 2, h = fc.h;
+    const P = (t, z) => fc.ori === 0 ? [t, off, z] : [off, t, z];
+    const col = el ? colorOf(el) : '#ffffff', kd = [1, 3, 5].map(k => (parseInt(col.slice(k, k + 2), 16) / 255 * 0.35 + 0.65).toFixed(2));
+    const tex = el && el.thumb ? `map_Kd ${mk}.jpg\n# źródło grafiki: ${String(el.thumb).slice(0, 4) === 'data' ? '(dołączona w INDEX)' : el.thumb}` : '';
+    const mname = mat('G_' + mk, kd, tex);
+    const pts = [[fc.a, 0], [fc.b, 0], [fc.b, h], [fc.a, h]].map(([t, z]) => ({ p: P(t, z), u: rev ? (fc.b - t) / (fc.b - fc.a) : (t - fc.a) / (fc.b - fc.a), v: z / h }));
+    // normalna ma wskazywać stronę lica (inn); w układzie Maxa Y jest odbite
+    const nx = fc.ori === 0 ? 0 : fc.inn, ny = fc.ori === 0 ? -fc.inn : 0, q = pts.map(o => [o.p[0], D - o.p[1], o.p[2]]);
+    const cx = (q[1][1] - q[0][1]) * (q[2][2] - q[0][2]) - (q[1][2] - q[0][2]) * (q[2][1] - q[0][1]), cy = (q[1][2] - q[0][2]) * (q[2][0] - q[0][0]) - (q[1][0] - q[0][0]) * (q[2][2] - q[0][2]);
+    const ord = cx * nx + cy * ny >= 0 ? [0, 1, 2, 3] : [0, 3, 2, 1];
+    out.push(`o Grafika_${mk}`, `usemtl ${mname}`);
+    const ids = ord.map(k => { const o = pts[k]; return [V(o.p[0], o.p[1], o.p[2]), (vt.push(`vt ${f1(o.u)} ${f1(o.v)}`), ++nt)]; });
+    out.push('f ' + ids.map(([a, b]) => `${a}/${b}`).join(' '));
+  });
+  const name = 'UltraFrame_' + nameOf((S.project && S.project.name) || 'stoisko');
+  const head = `# INDEX — ${ufK() ? 'K-Frame' : 'Ultra Frame'}: ${S.project && S.project.name ? S.project.name : ''}\n# jednostki: mm; Z w górę; stoisko ${L} x ${D} mm\nmtllib ${name}.mtl\n`;
+  // wierzchołki tekstur dopisujemy po wierzchołkach (OBJ dopuszcza dowolną kolejność deklaracji przed użyciem)
+  const vLines = out.filter(l => l.startsWith('v ')), rest = out.filter(l => !l.startsWith('v '));
+  return { name, obj: head + vLines.join('\n') + '\n' + vt.join('\n') + '\n' + rest.join('\n') + '\n', mtl: '# materiały: nazwa G_<znak> = grafika elementu; podepnij plik grafiki (map_Kd) albo materiał V-Ray\n' + [...mtl.values()].join('\n') };
+}
+function ufExportObj() {
+  if (!UF.d || !UF.d.pieces.length) return toast('Najpierw ułóż ścianki', 'error');
+  let r; try { r = ufObjBuild(); } catch (e) { console.warn('obj', e); return toast('Eksport 3D się nie udał: ' + e.message, 'error', 6000); }
+  download(r.name + '.obj', new Blob([r.obj], { type: 'text/plain;charset=utf-8' }));
+  setTimeout(() => download(r.name + '.mtl', new Blob([r.mtl], { type: 'text/plain;charset=utf-8' })), 400);
+  if (S.project) addLog(S.project.id, 'Wyeksportowano model 3D (OBJ + MTL) do 3ds Max');
+  toast('Zapisuję ' + r.name + '.obj i .mtl — w 3ds Max: Import (OBJ), jednostki mm, bez „flip YZ”. Grafiki: materiały G_<znak> (UV 0–1 na całą grafikę).', 'success', 9000);
+}
 function ufTechOpen() {
   if (!UF.d || !UF.d.pieces.length) return toast('Najpierw ułóż ścianki', 'error');
   let cv; try { cv = ufTechRender(); } catch (e) { console.warn('rys-tech', e); return toast('Rysunek techniczny się nie udał: ' + e.message, 'error', 6000); }
@@ -10913,7 +10966,7 @@ async function closeUltraFrame() {
       UF.d.pvx = cx - 0.5 - (cx - 0.5 - (UF.d.pvx || 0)) * k; UF.d.pvy = cy - 0.5 - (cy - 0.5 - (UF.d.pvy || 0)) * k; UF.d.zoom = z1; ufPreview(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800);
     }, { passive: false });
   }
-  $('uf-go').onclick = () => ufGenerate('photos'); $('uf-lay').onclick = () => ufGenerate('layout'); $('uf-link').onclick = ufLinkToggle; $('uf-meas').onclick = ufMeasToggle; $('uf-measm').onclick = () => { UF.measMode = UF.measMode === 'o' ? 'd' : 'o'; ufSyncBar(); ufDraw(true); }; $('uf-tech').onclick = ufTechOpen; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
+  $('uf-go').onclick = () => ufGenerate('photos'); $('uf-lay').onclick = () => ufGenerate('layout'); $('uf-link').onclick = ufLinkToggle; $('uf-meas').onclick = ufMeasToggle; $('uf-measm').onclick = () => { UF.measMode = UF.measMode === 'o' ? 'd' : 'o'; ufSyncBar(); ufDraw(true); }; $('uf-tech').onclick = ufTechOpen; $('uf-obj').onclick = ufExportObj; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
   $('uf-cus-b').onclick = () => {
     const v = toMM($('uf-cus').value);
     if (!(v >= 100 && v <= 2000)) return toast(`Podaj szerokość ścianki od ${lenPL(100)} do ${lenPL(2000)} ${UNIT()}`, 'error');
