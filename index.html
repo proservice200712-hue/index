@@ -101,6 +101,9 @@
   /* rozwijane kategorie panelu: nagłówek na jasnozielonym tle przez całą szerokość — widać, gdzie sekcja się zaczyna i kończy */
   #uf-side .pcat { border: 1px solid #a9d6b6; background: #fff; padding: 7px 8px 8px; margin: 0 0 8px; }
   #uf-side .pct { display: flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #276749; margin: -7px -8px 8px; padding: 7px 8px; background: #e2f4e8; border-bottom: 1px solid #b9e0c6; }
+  #uf-side summary.pct .pct-btn { margin-left: auto; padding: 2px 8px; font: 700 .68rem/1.4 inherit; font-family: inherit; text-transform: none; letter-spacing: 0; border: 1px solid #5aa974; background: #fff; color: #276749; cursor: pointer; }
+  #uf-side summary.pct .pct-btn:hover, #uf-side summary.pct .pct-btn.on { background: #2f855a; color: #fff; border-color: #276749; }
+  #uf-side summary.pct .pct-btn + .pcv { margin-left: 8px; }
   #uf-side summary.pct:hover { background: #d3edda; }
   #uf-side details.pcat:not([open]) > summary.pct { margin-bottom: -8px; border-bottom: 0; }
   #uf-side .pct .ti { font-size: 17px; color: #2f855a; }
@@ -1251,12 +1254,13 @@
             <div id="uf-paint" class="uk" title="Kolor malowania zaznaczonej płaszczyzny (bez zaznaczenia — domyślny dla nowych)"><button type="button" id="uf-pbtn" title="Wybierz kolor: paleta, kod RAL / NCS albo własny kolor"><i class="uf-pdot"></i><span id="uf-paint-n"></span> ▾</button><label class="pchip wide" title="Maluj też bok ścianki (grubość — słupek między ściankami) w tym samym kolorze"><i class="ti ti-layout-distribute-vertical"></i><span>maluj też bok</span><input type="checkbox" id="uf-pside"></label>
               <div id="uf-pmenu"><div class="uf-pw"></div><div class="uf-prow"><input type="text" id="uf-pcode" placeholder="RAL 7016 lub NCS S 2030-Y90R" autocomplete="off"><button type="button" id="uf-pcodeb">Użyj</button></div><div class="uf-prow"><label>Własny kolor <input type="color" id="uf-paint-c" title="Własny kolor"></label></div><div class="uf-phint">RAL i NCS na ekranie są przybliżone — do zamówienia farby liczy się wpisany kod.</div></div></div>
           </details>
-          <details class="pcat" open data-k="stand"><summary class="pct"><i class="ti ti-layout-board"></i>Stoisko<i class="ti ti-chevron-down pcv"></i></summary>
+          <details class="pcat" open data-k="stand"><summary class="pct"><i class="ti ti-layout-board"></i>Stoisko<button type="button" class="pct-btn" id="uf-fdraw" title="Rysuj podłogę: dowolny kształt z kątami prostymi, skok 5 cm. Klikaj kolejne narożniki; zamknij klikając pierwszy punkt albo Enterem; Backspace cofa punkt, Esc anuluje">⬠ podłoga</button><i class="ti ti-chevron-down pcv"></i></summary>
             <div class="pchips">
               <label class="pchip" title="Długość stoiska (oś pozioma)"><i class="ti ti-arrows-horizontal"></i><span>dł.</span><input type="text" inputmode="decimal" id="uf-sl"></label>
               <label class="pchip" title="Głębokość stoiska (oś pionowa)"><i class="ti ti-arrows-vertical"></i><span>gł.</span><input type="text" inputmode="decimal" id="uf-sd"></label>
               <label class="pchip" title="Domyślna wysokość ścianek"><i class="ti ti-ruler-3"></i><span>wys.</span><select id="uf-sh"></select></label>
               <div class="pchip" title="Powierzchnia stoiska"><i class="ti ti-chart-area"></i><span>pole</span><b id="uf-sa" class="uf-area"></b></div>
+              <div class="pchip wide hidden" id="uf-fpoly-row" title="Podłoga ma własny kształt — rozrys płyt, 3D i Produkcja liczą się dla niego"><i class="ti ti-polygon"></i><span id="uf-fpoly-txt"></span><button type="button" class="btn btn-sm" id="uf-fpoly-reset" style="margin-left:auto">↺ prostokąt</button></div>
               <label class="pchip wide uk" id="uf-extm-l" title="Wysłona tyłu na zamkniętym boku stoiska (za nim sąsiad): od 250 cm w górę albo po całości (cała wysokość ścianki). Na wizualizacji od strony sąsiada jako biała płachta."><i class="ti ti-fence"></i><span>wysłona tyłu</span><select id="uf-extm"><option value="0">brak</option><option value="top">od 250 cm</option><option value="full">po całości</option></select></label>
               <label class="pchip ue" id="uf-ext-l" title="Ścianka na zamkniętym boku (za nią sąsiad): do 248 cm bez wysłony, wyżej wysłona od 248 w górę"><i class="ti ti-fence"></i><span id="uf-ext-t">wysłony zewn.</span><input type="checkbox" id="uf-ext"></label>
               <label class="pchip" title="Zamknięte pomieszczenie wewnątrz stoiska (zaplecze, magazyn — bez grafiki od alejki): wysłony Blackback na licach od wewnątrz, na wysokość ścianki, same moduły bez słupków"><i class="ti ti-door"></i><span>wysłona zaplecza</span><input type="checkbox" id="uf-zap"></label>
@@ -8558,6 +8562,23 @@ function ufFpPack(pieces, bw, bh, rot) {        // pakowanie kawałków w płyty
 }
 let ufFpMemo = null;
 function ufFloorPlan(L, D, dir) {
+  const poly = ufPoly(); if (!poly) return ufFloorPlanRect(L, D, dir);
+  const g0 = ufFpGrain(), op = (UF.d.stand && UF.d.stand.open) || {}, key = 'P' + UF.d.fpoly.join(',') + '|' + (dir || '') + '|' + g0 + '|' + (ufFpAlign() ? 'n' : '') + '|' + (op.e ? 'e' : '') + (op.w ? 'w' : '') + (op.s ? 's' : '') + (op.n ? 'n' : '');
+  if (ufFpMemoP && ufFpMemoP.key === key) return ufFpMemoP.v;
+  const full = [], pieces = [], boards = []; let cuts = 0, total = 0, area = 0, first = null;
+  ufFloorRects().forEach(r => {
+    const f = ufFloorPlanRect(r.w, r.h, dir); if (!first) first = f;
+    const po = pieces.length, bo = boards.length;
+    f.full.forEach(t => full.push({ ...t, x: t.x + r.x, y: t.y + r.y }));
+    f.pieces.forEach(t => pieces.push({ ...t, x: t.x + r.x, y: t.y + r.y, b: (t.b || 0) + bo }));
+    f.boards.forEach(b => boards.push({ ...b, pieces: b.pieces.map(q => ({ ...q, i: q.i + po })) }));
+    cuts += f.cuts; total += f.total; area += r.w * r.h;
+  });
+  const v = { full, pieces, boards, cuts, total, bw: first ? first.bw : UF_FPB[0], bh: first ? first.bh : UF_FPB[1], grain: g0, norot: !!g0 || ufFpAlign(), waste: total * UF_FPB[0] * UF_FPB[1] - area };
+  ufFpMemoP = { key, v }; return v;
+}
+let ufFpMemoP = null;
+function ufFloorPlanRect(L, D, dir) {
   const grain = ufFpGrain(); if (grain) dir = grain === 'h' ? 'x' : 'y';          // usłojenie wymusza kierunek płyt i zabrania obracania kawałków
   const norot = !!grain || ufFpAlign();          // „jedna linia”: kawałków też nie obracam (pasy B, C idą tak samo jak płyty A)
   const op = (UF.d && UF.d.stand && UF.d.stand.open) || {}, flipX = !!op.e && !op.w, flipY = !!op.s && !op.n;          // niestandardowe odcinki zawsze na tyle stoiska (od sąsiada): płyty całe układam od strony alejki
@@ -8592,6 +8613,77 @@ function ufAisleLen() {
   const st = UF.d.stand, parts = []; let total = 0;
   [['n', 'północ', st.L], ['e', 'wschód', st.D], ['s', 'południe', st.L], ['w', 'zachód', st.D]].forEach(([k, nm, len]) => { if (st.open[k]) { parts.push({ k, nm, len }); total += len; } });
   return { parts, total };
+}
+// KSZTAŁT PODŁOGI: domyślnie prostokąt stoiska; własny = wielokąt z kątami prostymi (UF.d.fpoly = [x0, y0, x1, y1, …] w mm, skok 5 cm)
+function ufPoly() {
+  const a = UF.d && UF.d.fpoly; if (!Array.isArray(a) || a.length < 8) return null;
+  const p = []; for (let i = 0; i + 1 < a.length; i += 2) p.push([a[i], a[i + 1]]); return p;
+}
+// podział wielokąta prostokątnego na prostokąty (pasy poziome, sklejane w pionie); dla prostokąta stoiska: jeden prostokąt
+function ufFloorRects() {
+  const p = ufPoly(), st = UF.d.stand; if (!p) return [{ x: 0, y: 0, w: st.L, h: st.D }];
+  const ys = [...new Set(p.map(q => q[1]))].sort((a, b) => a - b), rects = []; let open = new Map();
+  for (let i = 0; i + 1 < ys.length; i++) {
+    const ya = ys[i], yb = ys[i + 1], ym = (ya + yb) / 2, xs = [];
+    for (let k = 0; k < p.length; k++) { const A = p[k], B = p[(k + 1) % p.length]; if (A[0] === B[0] && Math.min(A[1], B[1]) < ym && Math.max(A[1], B[1]) > ym) xs.push(A[0]); }
+    xs.sort((a, b) => a - b); const now = new Set();
+    for (let k = 0; k + 1 < xs.length; k += 2) { if (xs[k + 1] - xs[k] < 1) continue; const key = xs[k] + '|' + xs[k + 1]; now.add(key); const r0 = open.get(key); if (r0) r0.h = yb - r0.y; else { const r = { x: xs[k], y: ya, w: xs[k + 1] - xs[k], h: yb - ya }; open.set(key, r); rects.push(r); } }
+    for (const key of [...open.keys()]) if (!now.has(key)) open.delete(key);
+  }
+  return rects;
+}
+const ufFloorArea = () => ufFloorRects().reduce((a, r) => a + r.w * r.h, 0);
+// rysowanie podłogi: kliknięcia (skok 5 cm, kąty proste), zamknięcie pierwszym punktem / Enter, Backspace cofa, Esc anuluje
+function ufFdToggle() {
+  UF.fdOn = !UF.fdOn; UF.fdPts = []; UF.fdMouse = null;
+  if (UF.fdOn) { UF.linkOn = false; UF.measOn = false; UF.measA = null; UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; toast('Rysuj podłogę: klikaj narożniki (skok 5 cm, kąty proste). Zamknij klikając pierwszy punkt albo Enterem; Backspace cofa punkt, Esc anuluje.', '', 7000); }
+  ufSyncBar(); ufDraw(true);
+}
+function ufFdSnap(wx, wy) {
+  const st = UF.d.stand, tol = 10 / UF.tr.s, pts = UF.fdPts || [];
+  if (pts.length >= 3 && Math.hypot(pts[0][0] - wx, pts[0][1] - wy) < 14 / UF.tr.s) return [pts[0][0], pts[0][1], 1];          // zamknięcie
+  let x = Math.round(wx / 50) * 50, y = Math.round(wy / 50) * 50;
+  const nx = [0, st.L].find(c => Math.abs(c - wx) < tol), ny = [0, st.D].find(c => Math.abs(c - wy) < tol); if (nx !== undefined) x = nx; if (ny !== undefined) y = ny;
+  const last = pts[pts.length - 1]; if (last) { if (Math.abs(x - last[0]) >= Math.abs(y - last[1])) y = last[1]; else x = last[0]; }
+  return [x, y, 0];
+}
+function ufFdClick(wx, wy) {
+  const p = ufFdSnap(wx, wy);
+  if (p[2]) return ufFdFinish();
+  const last = (UF.fdPts || [])[UF.fdPts.length - 1];
+  if (last && last[0] === p[0] && last[1] === p[1]) { if (UF.fdPts.length >= 3) ufFdFinish(); return; }          // dwuklik = zamknięcie
+  (UF.fdPts = UF.fdPts || []).push([p[0], p[1]]); ufDraw(true);
+}
+function ufFdFinish() {
+  let pts = (UF.fdPts || []).map(q => [q[0], q[1]]);
+  if (pts.length < 3) return toast('Podłoga potrzebuje co najmniej 3 klikniętych narożników', 'error', 3500);
+  const f = pts[0], l = pts[pts.length - 1]; if (f[0] !== l[0] && f[1] !== l[1]) pts.push([f[0], l[1]]);                 // zamknięcie kątem prostym
+  for (let it = 0; it < 3; it++) {          // bez powtórzeń i punktów leżących na jednej prostej
+    pts = pts.filter((q, i) => { const a = pts[(i + pts.length - 1) % pts.length], b = pts[(i + 1) % pts.length]; if (q[0] === a[0] && q[1] === a[1]) return false; return !((a[0] === q[0] && q[0] === b[0]) || (a[1] === q[1] && q[1] === b[1])); });
+  }
+  if (pts.length < 4) return toast('Z tych punktów nie powstaje kształt — narysuj co najmniej 4 narożniki', 'error', 4000);
+  let area = 0; pts.forEach((q, i) => { const b = pts[(i + 1) % pts.length]; area += q[0] * b[1] - b[0] * q[1]; });
+  if (Math.abs(area) < 1e5) return toast('Kształt jest za mały', 'error', 3000);
+  ufPush(); UF.d.fpoly = pts.flat(); UF.fdOn = false; UF.fdPts = []; UF.fdMouse = null; ufFpMemo = null; ufChanged();
+  toast(`Podłoga ma własny kształt: ${numPL(Math.abs(area) / 2 / 1e6)} m² — rozrys płyt policzony dla tego kształtu`, 'success', 4500);
+}
+function ufFdPaint(g, X, Y, s, F) {
+  const lab = (a, b, col) => { const len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 30 || len * s < 26) return; g.save(); g.font = `700 11px ${F}`; const t = lenPL(len), tw = g.measureText(t).width + 6, mx = X((a[0] + b[0]) / 2), my = Y((a[1] + b[1]) / 2); g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(mx - tw / 2, my - 8, tw, 15); g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, mx, my); g.restore(); };
+  const p = ufPoly();
+  if (p && !UF.fdOn) {
+    g.save(); g.strokeStyle = '#2b6cb0'; g.lineWidth = 2.5; g.setLineDash([9, 5]); g.beginPath(); p.forEach(([x, y], i) => i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))); g.closePath(); g.stroke(); g.restore();
+    p.forEach((q, i) => lab(q, p[(i + 1) % p.length], '#2b6cb0'));
+  }
+  if (UF.fdOn) {
+    const pts = UF.fdPts || [], m = UF.fdMouse; g.save(); g.lineJoin = 'round';
+    if (p) { g.strokeStyle = 'rgba(43,108,176,.35)'; g.lineWidth = 2; g.setLineDash([6, 5]); g.beginPath(); p.forEach(([x, y], i) => i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))); g.closePath(); g.stroke(); g.setLineDash([]); }
+    g.strokeStyle = '#d69e2e'; g.fillStyle = 'rgba(214,158,46,.12)'; g.lineWidth = 3;
+    const path = pts.concat(m ? [[m[0], m[1]]] : []); if (path.length > 1) { g.beginPath(); path.forEach(([x, y], i) => i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y))); if (m && m[2]) g.closePath(); g.fill(); g.stroke(); }
+    path.forEach((q, i) => { if (i) lab(path[i - 1], q, '#975a16'); });
+    pts.forEach(([x, y], i) => { g.beginPath(); g.arc(X(x), Y(y), i ? 4.5 : 6, 0, Math.PI * 2); g.fillStyle = i ? '#fff' : '#d69e2e'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#d69e2e'; g.stroke(); });
+    if (m) { g.beginPath(); g.arc(X(m[0]), Y(m[1]), m[2] ? 8 : 4, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = '#d69e2e'; g.stroke(); }
+    g.restore();
+  }
 }
 const ufFpAlign = () => !(UF.d && UF.d.fp && UF.d.fp.align === false);          // kawałki w jednej linii z płytami (bez obracania) — domyślnie włączone
 const ufFpGrain = () => (UF.d && UF.d.fp && UF.d.fp.grain) || '';          // usłojenie dekoru: '' bez znaczenia, 'h' poziome (wzdłuż długości stoiska), 'v' pionowe
@@ -8692,7 +8784,8 @@ function ufSyncBar() {
   { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); if (document.activeElement !== $('uf-fp-grain')) $('uf-fp-grain').value = ufFpGrain(); if (document.activeElement !== $('uf-fp-th')) $('uf-fp-th').value = ufFpTh() ? numIn(fromMM(ufFpTh())) : ''; $('uf-fp-thu').textContent = UNIT(); $('uf-fp-al').checked = ufFpAlign() || !!ufFpGrain(); $('uf-fp-al').disabled = !!ufFpGrain(); $('uf-fp-dir').disabled = !!ufFpGrain(); $('uf-fp-info').innerHTML = ufFpText(fp) + ufFpLegend(fp); }
   { const fl = ufFloor(); $('uf-fl-ctl').classList.toggle('hidden', !fl); if (!fl) UF.floorEdit = false;
     if (fl) { $('uf-fl-on').checked = !fl.off; if (fl.off) UF.floorEdit = false; const tv = Math.round((fl.t == null ? 0.5 : fl.t) * 100); if (document.activeElement !== $('uf-fl-t')) $('uf-fl-t').value = tv; $('uf-fl-tv').textContent = tv + '%'; if (document.activeElement !== $('uf-fl-w')) $('uf-fl-w').value = numIn(fromMM(fl.w)); }
-    $('uf-fl-ed').classList.toggle('on', !!UF.floorEdit); $('uf-cv').style.cursor = UF.floorEdit ? 'move' : UF.linkOn ? 'pointer' : ''; }
+    $('uf-fl-ed').classList.toggle('on', !!UF.floorEdit); $('uf-cv').style.cursor = UF.floorEdit ? 'move' : UF.fdOn ? 'crosshair' : UF.linkOn ? 'pointer' : ''; }
+  { const pl = ufPoly(); $('uf-fdraw').classList.toggle('on', !!UF.fdOn); $('uf-fpoly-row').classList.toggle('hidden', !pl); if (pl) $('uf-fpoly-txt').textContent = `własny kształt · ${pl.length} narożników · ${numPL(ufFloorArea() / 1e6)} m²`; }
   const r = ufSelRun(), sel = $('uf-h'), cb = $('uf-back');
   sel.disabled = !r; cb.disabled = !r;
   ufHOpt(sel, r ? r.h : d.H); cb.checked = !!(r && r.manual);
@@ -9114,7 +9207,8 @@ function ufDraw(light) {
       const pw = (odd ? bb.h : bb.w) * s, ph = (odd ? bb.w : bb.h) * s; g.drawImage(im, -pw / 2, -ph / 2, pw, ph); g.restore();
       if (UF.floorEdit) { g.save(); g.strokeStyle = '#3182ce'; g.lineWidth = 2; g.setLineDash([8, 5]); g.strokeRect(X(bb.x), Y(bb.y), bb.w * s, bb.h * s); g.restore(); }
     } }
-  if (ufFpOn()) ufFpPaint(g, X, Y, s, st, F);          // rozrys podłogi: płyty 200 × 90 cm (całe jasne, przycięte kolorowe, z usłojeniem — fale słojów)
+  if (ufFpOn()) ufFpPaint(g, X, Y, s, st, F);
+  ufFdPaint(g, X, Y, s, F);          // kształt podłogi / rysowanie
   const sides = [['n', 0, 0, st.L, 0], ['e', st.L, 0, st.L, st.D], ['s', 0, st.D, st.L, st.D], ['w', 0, 0, 0, st.D]];
   sides.forEach(([k, x1, y1, x2, y2]) => {
     const open = !!st.open[k];
@@ -9644,6 +9738,7 @@ function ufPointer(e) {
   if (e.button === 1) { e.preventDefault(); return ufPan(e); }
   closeMarkMenu();
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py);
+  if (UF.fdOn) { e.preventDefault(); return ufFdClick(wx, wy); }
   if (UF.measOn) { e.preventDefault(); return ufMeasClick(wx, wy, e.shiftKey, px, py); }
   if (UF.linkOn && isAdmin()) { e.preventDefault(); return ufLinkClick(px, py); }
   const ar = (UF.arrows || []).find(q => Math.hypot(q.x - px, q.y - py) < 16);
@@ -9892,8 +9987,8 @@ function ufRender3D(o) {
   let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
   const grow = (x, y, z) => { const [X, Y] = P(x, y, z); mnX = Math.min(mnX, X); mxX = Math.max(mxX, X); mnY = Math.min(mnY, Y); mxY = Math.max(mxY, Y); };
   boxes.forEach(bx => [[bx.x0, bx.y0], [bx.x1, bx.y0], [bx.x0, bx.y1], [bx.x1, bx.y1]].forEach(([x, y]) => [0, bx.hf].forEach(z => grow(x, y, z))));
-  const flTh = ufFpOn() ? ufFpTh() : 0;          // grubość podłogi: bryła od poziomu zero w dół, ściany rosną od zera w górę
-  fl.forEach(([x, y]) => { grow(x, y, 0); if (flTh) grow(x, y, -flTh); });
+  const flTh = ufFpOn() ? ufFpTh() : 0, polyF = ufPoly(), flp = polyF ? polyF.map(([x, y]) => rot(x, y)) : fl;          // grubość podłogi: bryła od poziomu zero w dół, ściany rosną od zera w górę
+  flp.forEach(([x, y]) => { grow(x, y, 0); if (flTh) grow(x, y, -flTh); });
   if (o.dims) { const ex = 900; [[-ex, -ex], [st.L + ex, -ex], [st.L + ex, st.D + ex], [-ex, st.D + ex]].forEach(([x, y]) => grow(...rot(x, y), 0)); } // miejsce na wymiary stoiska
   const M = pv ? 8 : 130, TOP = pv ? 8 : 150, BOT = pv ? 8 : 60, bw = mxX - mnX, bh = mxY - mnY;
   const zk = pv ? clamp(d.zoom || 1, 0.5, 8) : 1, s = Math.min((W - 2 * M) / bw, ((pv ? Math.round(418 * W / 572) : 1100) - TOP - BOT) / bh) * zk, H = pv ? Math.round(418 * W / 572) : Math.round(bh * s + TOP + BOT), CW = pv ? W : Math.max(900, Math.round(bw * s + 2 * M));
@@ -9902,11 +9997,12 @@ function ufRender3D(o) {
   const cv = document.createElement('canvas'); cv.width = CW; cv.height = H;
   const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, CW, H); g.lineJoin = 'round';
   // podłoga stoiska i alejka (otwarte boki)
-  g.beginPath(); fl.forEach(([x, y], i) => { const [a, c] = T(x, y, 0); i ? g.lineTo(a, c) : g.moveTo(a, c); }); g.closePath(); g.fillStyle = '#eef2f6'; g.fill(); g.strokeStyle = '#a0aec0'; g.lineWidth = pv ? 1 : 1.2; g.stroke();
-  if (flTh) [[0, 1], [1, 2], [2, 3], [3, 0]].map(([a, c]) => ({ A: fl[a], B: fl[c], sy: T((fl[a][0] + fl[c][0]) / 2, (fl[a][1] + fl[c][1]) / 2, 0)[1] })).sort((p, q) => q.sy - p.sy).slice(0, 2).forEach(({ A, B }) => {       // dwie przednie krawędzie: boczna ściana płyty w dół od zera
-    const p0 = T(A[0], A[1], 0), p1 = T(B[0], B[1], 0), p2 = T(B[0], B[1], -flTh), p3 = T(A[0], A[1], -flTh);
-    g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]); g.lineTo(p3[0], p3[1]); g.closePath(); g.fillStyle = '#c9d1db'; g.fill(); g.strokeStyle = '#718096'; g.lineWidth = pv ? 1 : 1.2; g.stroke();
-  });
+  g.beginPath(); flp.forEach(([x, y], i) => { const [a, c] = T(x, y, 0); i ? g.lineTo(a, c) : g.moveTo(a, c); }); g.closePath(); g.fillStyle = '#eef2f6'; g.fill(); g.strokeStyle = '#a0aec0'; g.lineWidth = pv ? 1 : 1.2; g.stroke();
+  if (flTh) { let ar = 0; flp.forEach((q, i) => { const b2 = flp[(i + 1) % flp.length]; ar += q[0] * b2[1] - b2[0] * q[1]; });          // boczne ściany płyty od zera w dół: krawędzie zwrócone do kamery
+    flp.forEach((A, i) => { const B = flp[(i + 1) % flp.length], dx = B[0] - A[0], dy = B[1] - A[1], nx = ar > 0 ? dy : -dy, ny = ar > 0 ? -dx : dx;
+      if (nx * sa + ny * ca <= 0) return;
+      const p0 = T(A[0], A[1], 0), p1 = T(B[0], B[1], 0), p2 = T(B[0], B[1], -flTh), p3 = T(A[0], A[1], -flTh);
+      g.beginPath(); g.moveTo(p0[0], p0[1]); g.lineTo(p1[0], p1[1]); g.lineTo(p2[0], p2[1]); g.lineTo(p3[0], p3[1]); g.closePath(); g.fillStyle = '#c9d1db'; g.fill(); g.strokeStyle = '#718096'; g.lineWidth = pv ? 1 : 1.2; g.stroke(); }); }
   [['n', 0, 1], ['e', 1, 2], ['s', 2, 3], ['w', 3, 0]].forEach(([k, a, c]) => {
     if (!st.open[k]) return;
     const [x1, y1] = T(fl[a][0], fl[a][1], 0), [x2, y2] = T(fl[c][0], fl[c][1], 0);
@@ -10427,7 +10523,7 @@ function ufProduction() {
     if (fp.total && ufFpTh()) add(6, 'Grubość podłogi', 'wpisana w rozrysie podłogi (nie wpływa na układ płyt)', 'plain').val = lenPL(ufFpTh()) + ' ' + UNIT();
     { const ai = ufAisleLen(); if (fp.total && ai.total > 0) add(6, `Kątownik aluminiowy ${lenPL(UF_ANGLE)} × ${lenPL(UF_ANGLE)} ${UNIT()} przy podłodze`, 'długości przy alejce: ' + ai.parts.map(p => `${p.nm} ${numPL(p.len / 1000)} m`).join(' + '), 'plain').val = numPL(ai.total / 1000) + ' m'; }
     if (fp.total) add(6, `Płyty ${lenPL(UF_SHEET[0])} × ${lenPL(UF_SHEET[1])} ${UNIT()} na podłogę — całe`, `słoje wzdłuż dłuższego boku · z jednej płyty ${UF_SHEET_PER} formatki ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])} · potrzeba ${fp.total} formatek → ${ufSheets(fp)} płyt (zapas ${ufSheets(fp) * UF_SHEET_PER - fp.total} formatek)`, 'plain', ufSheets(fp));
-    if (fp.total) add(6, `Razem płyt ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])} do zamówienia`, `cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² (stoisko ${numPL(d.stand.L * d.stand.D / 1e6)} m²)${grTxt}`, 'plain', fp.total);
+    if (fp.total) add(6, `Razem płyt ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])} do zamówienia`, `cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² (podłoga ${numPL(ufFloorArea() / 1e6)} m²)${grTxt}`, 'plain', fp.total);
   }
   const secs = [[0, 'Formatki standardowe'], [1, 'Połówki'], [2, 'Drzwi'], [4, 'Słupki'], [3, 'Dostawki'], [5, 'Konektory'], [6, 'Podłoga — płyty 200 × 90 cm'], [9, 'Ścianki nietypowe']];
   const out = secs.map(([sec, title]) => ({ sec, title, list: [...rows.values()].filter(r => r.sec === sec).sort((a, b) => a.label.localeCompare(b.label, 'pl', { numeric: true }) || a.sub.localeCompare(b.sub, 'pl')) }));
@@ -10556,7 +10652,7 @@ function ufMaxBuild(withTex = true) {
   out.push('INDEX3D|2', `SCENE|${asc((S.project && S.project.name) || 'stoisko')}|${f1(L)}|${f1(D)}|mm`);
   geo.parts.forEach(q => out.push(['BOX', (q.op.t === 'door' ? 'Drzwi_' : 'Sciana_') + asc(q.op.id), q.op.t === 'door' ? 'D' : 'W', f1(q.x0), f1(D - q.y1), 0, f1(q.x1), f1(D - q.y0), f1(q.run ? q.run.h : d.H)].join('|')));
   out.push(['FLOORT', ufFpOn() ? f1(ufFpTh()) : 0].join('|'));
-  out.push(['FLOOR', 0, 0, f1(L), f1(D)].join('|'));
+  ufFloorRects().forEach(r => out.push(['FLOOR', f1(r.x), f1(D - r.y - r.h), f1(r.x + r.w), f1(D - r.y)].join('|')));          // podłoga: prostokąt albo prostokąty własnego kształtu
   if (ufFpOn()) [['n', 0, D, L, D, 0, -1], ['s', 0, 0, L, 0, 0, 1], ['w', 0, 0, 0, D, 1, 0], ['e', L, 0, L, D, -1, 0]].forEach(([k, x0, y0, x1, y1, nx, ny]) => { if (st.open[k]) out.push(['ANGLE', 'Katownik_' + k, f1(x0), f1(y0), f1(x1), f1(y1), nx, ny, UF_ANGLE].join('|')); });
   geo.parts.forEach(q => { if (q.op.t !== 'door') return; const dg = ufDoorGeom(q.op, d, geo.pub), h = q.run ? q.run.h : d.H, dh = ufK() ? 2000 : Math.min(h, q.op.size === 'h2480' ? 2480 : 1984);
     out.push(['DOOR', 'Drzwi_' + asc(q.op.id), f1(dg.hinge[0]), f1(D - dg.hinge[1]), f1(dg.free[0]), f1(D - dg.free[1]), f1(dh), f1(ufTh(q.op))].join('|')); });
@@ -10813,7 +10909,7 @@ async function openUltraFrame() { if (isViewer() || !featOn('uf')) return;
   let sys = has ? (saved.sys || 'e') : await ufAskSystem();       // układ już narysowany — otwiera się w swoim systemie; pusty — pytamy
   if (!sys) return;
   if (!S.project) return;
-  UF.open = true; UF.linkOn = false; UF.linkA = null; UF.measOn = false; UF.measA = null; UF.meas = []; UF.skOn = false; UF.skDraft = null; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null; UF.pl = 'f'; UF.step = UF.step || UF_STEP; try { UF.pvW = Number(localStorage.getItem('INDEX_UFPV')) || 0; } catch (e) { UF.pvW = 0; }
+  UF.open = true; UF.fdOn = false; UF.fdPts = []; UF.linkOn = false; UF.linkA = null; UF.measOn = false; UF.measA = null; UF.meas = []; UF.skOn = false; UF.skDraft = null; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null; UF.pl = 'f'; UF.step = UF.step || UF_STEP; try { UF.pvW = Number(localStorage.getItem('INDEX_UFPV')) || 0; } catch (e) { UF.pvW = 0; }
   UF.d = has ? ufMigrate(JSON.parse(JSON.stringify(saved))) : ufFreshLayout(sys, saved ? JSON.parse(JSON.stringify(saved)) : null);
   if (!UF.d.sys) UF.d.sys = 'e';
   if (!UF.d.H) UF.d.H = UF.d.sys === 'k' ? UF_KH : 2480;
@@ -10854,6 +10950,7 @@ async function closeUltraFrame() {
   $('uf-cv').addEventListener('pointerdown', ufPointer);
   $('uf-cv').addEventListener('pointermove', e => {          // najechana ścianka też świeci
     if (UF.drag || !UF.tr || !UF.geo) return;
+    if (UF.fdOn) { const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py); UF.fdMouse = ufFdSnap(wx, wy); ufDraw(true); return; }
     if (UF.measOn) { const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py); UF.measMouse = ufMeasSnap(wx, wy); UF.measShift = e.shiftKey; ufDraw(true); return; }
     if (UF.linkOn && UF.linkA) { UF.linkMouse = ufCanvasPos(e); ufDraw(true); return; }
     const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 4 / UF.tr.s;
@@ -10982,7 +11079,7 @@ async function closeUltraFrame() {
       UF.d.pvx = cx - 0.5 - (cx - 0.5 - (UF.d.pvx || 0)) * k; UF.d.pvy = cy - 0.5 - (cy - 0.5 - (UF.d.pvy || 0)) * k; UF.d.zoom = z1; ufPreview(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800);
     }, { passive: false });
   }
-  $('uf-go').onclick = () => ufGenerate('photos'); $('uf-lay').onclick = () => ufGenerate('layout'); $('uf-link').onclick = ufLinkToggle; $('uf-meas').onclick = ufMeasToggle; $('uf-measm').onclick = () => { UF.measMode = UF.measMode === 'o' ? 'd' : 'o'; ufSyncBar(); ufDraw(true); }; $('uf-tech').onclick = ufTechOpen; $('uf-max').onclick = ufExportMax; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
+  $('uf-go').onclick = () => ufGenerate('photos'); $('uf-lay').onclick = () => ufGenerate('layout'); $('uf-link').onclick = ufLinkToggle; $('uf-fdraw').onclick = e => { e.preventDefault(); e.stopPropagation(); ufFdToggle(); }; $('uf-fpoly-reset').onclick = () => { ufPush(); delete UF.d.fpoly; ufFpMemo = null; ufFpMemoP = null; ufChanged(); }; $('uf-meas').onclick = ufMeasToggle; $('uf-measm').onclick = () => { UF.measMode = UF.measMode === 'o' ? 'd' : 'o'; ufSyncBar(); ufDraw(true); }; $('uf-tech').onclick = ufTechOpen; $('uf-max').onclick = ufExportMax; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
   $('uf-cus-b').onclick = () => {
     const v = toMM($('uf-cus').value);
     if (!(v >= 100 && v <= 2000)) return toast(`Podaj szerokość ścianki od ${lenPL(100)} do ${lenPL(2000)} ${UNIT()}`, 'error');
@@ -10994,6 +11091,14 @@ async function closeUltraFrame() {
     if (document.querySelector('.modal-back')) return;
     const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (e.key === 'Escape') t.blur(); return; }
     const k = e.key; let h = true;
+    if (UF.fdOn) {          // rysowanie podłogi
+      if (k === 'Escape') { if ((UF.fdPts || []).length) UF.fdPts = []; else UF.fdOn = false; }
+      else if (k === 'Enter') ufFdFinish();
+      else if (k === 'Backspace' || k === 'Delete') (UF.fdPts || []).pop();
+      else if (k === 'f' || k === 'F') { UF.vw = null; }
+      else return;
+      ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return;
+    }
     if (UF.measOn && k === 'Escape') { if (UF.measA) UF.measA = null; else { UF.measOn = false; } ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }
     if (UF.linkOn && k === 'Escape') { if (UF.linkA) UF.linkA = null; else UF.linkOn = false; ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }
     if (UF.skOn) {      // tryb rysowania kreską
