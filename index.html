@@ -922,6 +922,11 @@
   .exp-m { padding: 12px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-weight: 700; font-size: .9rem; }
   .exp-m.on { border-color: var(--dark); background: var(--dark); color: #fff; }
   .exp-m:disabled { opacity: .35; cursor: default; }
+  .exp-chk { display: grid; gap: 8px; }
+  .exp-chk label { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; font-weight: 700; font-size: .9rem; margin: 0; }
+  .exp-chk label.on { border-color: var(--dark); background: #f4f6f8; }
+  .exp-chk input { width: 20px; height: 20px; flex: none; accent-color: var(--dark); cursor: pointer; }
+  .exp-chk small { display: block; font-weight: 500; color: var(--gray); font-size: .78rem; }
   .exp-langs { grid-template-columns: 1fr 1fr 1fr; }
   .exp-langs .exp-m { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; }
   .exp-langs svg { flex: none; }
@@ -1687,6 +1692,17 @@ const calcVal = s => isCalc(s) ? calcEval(s) : s;
 const numIn = v => v === '' || v == null ? '' : String(v).replace('.', ',');
 // wyliczenie szerokości do zlecenia: składniki po „+”; przy ścianie z drzwiami składnik = szerokość drzwi
 // w miejscu, gdzie stoją drzwi (od lewej / od prawej), dostaje dopisek „(drzwi)”
+// podział grafiki: szerokość wpisana jako „200+300” (co najmniej 2 składniki; nie SEG, nie element Ultra / K-Frame) → kreska w podglądzie
+// i wymiary części; elementy Ultra / K-Frame biorą pozycje kresek z łączenia lic (useam). Wynik: [{ p: odległość od lewej [mm], g: przerwa [mm] }]
+function seamsOf(e) {
+  if (!e) return [];
+  if (Array.isArray(e.useam) && e.useam.length) return e.useam.filter(q => q && q.p > 0);
+  if (e.ufKey || e.seg || !e.wExpr || /[()]/.test(e.wExpr) || e.doorFor || e.backFor) return [];
+  const k = (e.wExprUnit || 'cm') === 'cm' ? 10 : 1, vals = calcNorm(e.wExpr).split('+').map(t => calcEval(t));
+  if (vals.length < 2 || !vals.every(v => Number.isFinite(v) && v > 0)) return [];
+  const out = []; let x = 0; vals.slice(0, -1).forEach(v => { x += v * k; out.push({ p: Math.round(x * 10) / 10, g: 0 }); });
+  return Math.abs(x + vals[vals.length - 1] * k - (Number(e.w) || 0)) < 1 ? out : [];
+}
 function wCalcTxt(e) {
   if (!e.wExpr) return '';
   const u = e.wExprUnit || 'cm', k = u === 'cm' ? 10 : 1;
@@ -6920,7 +6936,7 @@ function renderGraph() {
     const outRows = hangPl.length ? (hangPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0, inRows = insPl.length ? (insPl.length > 1 ? 1 : 0) + 1 + (hangBl ? 1 : 0) : 0;
     const inTop = hangPl.length ? FH + 16 + outRows * 22 + 24 : 0;       // górna krawędź paska zadruku wewnętrznego (pod wymiarami zewnętrznymi)
     // połączone grafiki (Ultra / K-Frame): kreska łączenia i wymiary części — tylko w podglądzie; eksport bez kreski, z wymiarem całkowitym
-    const seams = dims && !hangPl.length && !e.doorFor && !e.backFor ? (e.useam || []).filter(q => q && q.p > 0 && q.p < (Number(e.w) || 0)) : [];
+    const seams = dims && !hangPl.length && !e.doorFor && !e.backFor ? seamsOf(e).filter(q => q.p < (Number(e.w) || 0)) : [];
     const LM = !dims ? 0 : hangPl.length ? (hangBl ? 56 : 32) : g.b ? 56 : 32, BM = !dims ? 0 : hangPl.length ? (insPl.length ? inTop + 16 + inRows * 22 + 6 : 10 + outRows * 22) : (g.b ? 44 : 24) + (seams.length ? 22 : 0);
     const W = LM + FW + 4, H = FH + BM, QW = !eRaw.multi && qtyOf(e) > 1 ? 52 : 0; // miejsce na „×3” obok miniatury (Multi: ilość jest na miniaturach pozycji)
     let svg = '';
@@ -11037,12 +11053,12 @@ function openExportDialog() {
       <div class="fld"><label>Co?</label>
         <div class="exp-what">${what.map(([id, ic, n, d], i) => `<button type="button" class="exp-opt ${i === 0 ? 'on' : ''}" data-w="${id}"><span class="ic">${ic}</span><span><b>${n}</b><small>${d}</small></span></button>`).join('')}</div></div>
       <div class="fld exp-scope"><label>Zakres</label>
-        <div class="exp-mode">
-          <button type="button" class="exp-m on" data-s="all">Wszystko</button>
-          <button type="button" class="exp-m" data-s="nohang" title="Bez konstrukcji podwieszanych i ich wizualizacji">Wszystko oprócz podwieszenia</button>
-          <button type="button" class="exp-m" data-s="hang" title="Tylko konstrukcje podwieszane i ich wizualizacje">Tylko podwieszenie</button>
+        <div class="exp-chk">
+          <label><input type="checkbox" data-cat="classic" checked><span>Klasyczny index<small>bez elementów podwieszenia</small></span></label>
+          <label><input type="checkbox" data-cat="hang"><span>Podwieszenie<small>konstrukcje podwieszane i ich wizualizacje</small></span></label>
+          <label><input type="checkbox" data-cat="uf"><span>Ultra-frame<small>wizki wygenerowane z EasyFrame lub K-Frame</small></span></label>
         </div>
-        <div class="hint">Wizki z przekreślonym oczkiem (na wizce, obok ✕) nie idą do eksportu w żadnym zakresie.</div></div>
+        <div class="hint">Każdy zaznaczony zakres to osobna strona A3 w jednym pliku PDF (Tabela A4 i Excel łączą zaznaczone zakresy). Wizki z przekreślonym oczkiem (na wizce, obok ✕) nie idą do eksportu w żadnym zakresie.</div></div>
       <div class="fld"><label>Druk czy eksport?</label>
         <div class="exp-mode">
           <button type="button" class="exp-m on" data-m="print">🖨 Druk</button>
@@ -11062,12 +11078,12 @@ function openExportDialog() {
     footer: `<button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="exp-go">Drukuj</button>`,
     onClose: () => { EXP_SCOPE = 'all'; },
   });
-  let scope = 'all', w = 'a3', mode = 'print', lang = LANG, prevFor = '', prevNr = 0, zoom = null, zTimer = 0;
+  let cats = ['classic'], w = 'a3', mode = 'print', lang = LANG, prevFor = '', prevNr = 0, zoom = null, zTimer = 0;
   A3_ZOOM = null;
   // mały podgląd strony (to samo, co pójdzie do druku / PDF); dla CSV i JSON — kilka pierwszych wierszy
   const preview = async () => {
-    if (prevFor === w + lang + zoom + scope + S.photos.map(p => p.noExp ? 'x' : 'o').join('')) return;
-    prevFor = w + lang + zoom + scope + S.photos.map(p => p.noExp ? 'x' : 'o').join(''); const nr = ++prevNr, box = $('exp-prev'); EXP_SCOPE = scope;
+    if (prevFor === w + lang + zoom + cats.join() + S.photos.map(p => p.noExp ? 'x' : 'o').join('')) return;
+    prevFor = w + lang + zoom + cats.join() + S.photos.map(p => p.noExp ? 'x' : 'o').join(''); const nr = ++prevNr, box = $('exp-prev'); EXP_SCOPE = cats.slice();
     if (w === 'csv' || w === 'json') {
       const rows = exportRows().slice(0, 6);
       box.innerHTML = `<pre class="exp-txt">${esc(w === 'csv' ? rows.map(r => [r.znak, r.typ, r.gross, r.qty].join(';')).join('\n') : JSON.stringify(rows.map(r => ({ znak: r.znak, typ: r.typ, wymiar: r.gross })), null, 1))}${exportRows().length > 6 ? '\n…' : ''}</pre>`;
@@ -11077,7 +11093,9 @@ function openExportDialog() {
     try {
       const stamp = 'Index  ' + dateStamp();
       A3_ZOOM = w === 'a3' ? zoom : null; A3_NEEDZ = w === 'a3';
-      const pages = await withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
+      EXP_PAGES = cats.slice();
+      const pages = await withLang(lang, async () => w === 'a3' ? await a3Pages(stamp) : await renderTableA4(stamp));
+      if (nr === prevNr && !pages.length) { box.innerHTML = '<div class="hint">W tym zakresie nie ma nic do eksportu.</div>'; return; }
       if (nr !== prevNr || !document.body.contains(box)) return;
       if (w === 'a3') showZoom();
       box.innerHTML = pages.slice(0, 3).map(c => `<img src="${c.toDataURL('image/jpeg', 0.7)}" alt="">`).join('') + (pages.length > 3 ? `<span class="hint">+ ${pages.length - 3} str.</span>` : '');
@@ -11107,7 +11125,7 @@ function openExportDialog() {
     m.el.querySelector('.exp-ver').classList.toggle('hidden', mode !== 'save');
     m.el.querySelector('.exp-zoom').classList.toggle('hidden', w !== 'a3');
     m.el.querySelector('.exp-scope').classList.toggle('hidden', w === 'json');
-    m.el.querySelectorAll('.exp-m[data-s]').forEach(x => x.classList.toggle('on', x.dataset.s === scope));
+    m.el.querySelectorAll('.exp-chk input').forEach(x => { x.checked = cats.includes(x.dataset.cat); x.parentElement.classList.toggle('on', x.checked); });
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     $('exp-file').innerHTML = `Plik: <b>${esc(fileBase(v) + ext())}</b>`;
     $('exp-go').textContent = mode === 'print' ? '🖨 Drukuj' : '💾 Zapisz';
@@ -11116,32 +11134,57 @@ function openExportDialog() {
   m.el.querySelectorAll('.exp-opt').forEach(x => x.onclick = () => { w = x.dataset.w; sync(); });
   m.el.querySelectorAll('.exp-m[data-m]').forEach(x => x.onclick = () => { if (!x.disabled) { mode = x.dataset.m; sync(); } });
   m.el.querySelectorAll('.exp-m[data-l]').forEach(x => x.onclick = () => { lang = x.dataset.l; sync(); });
-  m.el.querySelectorAll('.exp-m[data-s]').forEach(x => x.onclick = () => { scope = x.dataset.s; sync(); });
+  m.el.querySelectorAll('.exp-chk input').forEach(x => x.onchange = () => { const c = x.dataset.cat; cats = ['classic', 'hang', 'uf'].filter(k => k === c ? x.checked : cats.includes(k)); if (!cats.length) cats = [c]; sync(); });       // zawsze co najmniej jeden zakres
   $('exp-v').addEventListener('input', sync);
   m.el.querySelector('[data-c]').onclick = () => m.close();
   $('exp-go').onclick = async () => {
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     const pend = todosOpen(S.project);      // nieodhaczone notatki „!?” — przypomnienie przed eksportem
     if (pend.length && !await confirmBox(`<b>Są rzeczy do zrobienia lub sprawdzenia (${pend.length}):</b><ul style="margin:8px 0 8px 20px">${pend.slice(0, 8).map(t => `<li>${esc(t.text)}</li>`).join('')}${pend.length > 8 ? `<li>… i ${pend.length - 8} więcej</li>` : ''}</ul>Eksportować mimo to?`, 'Eksportuj mimo to', false)) return;
-    if (w !== 'json') { EXP_SCOPE = scope; const empty = exportRows().length === 0 && (w !== 'a3' || expPhotos().length === 0); EXP_SCOPE = 'all'; if (empty) return toast('W tym zakresie nie ma nic do eksportu', 'error'); }
+    if (w !== 'json') { const has = c => { EXP_SCOPE = [c]; return exportRows().length > 0 || (w === 'a3' && expPhotos().length > 0); }; const okc = cats.filter(has); EXP_SCOPE = 'all'; if (!okc.length) return toast('W tym zakresie nie ma nic do eksportu', 'error'); if (w === 'a3') cats = okc; }
     $('exp-go').disabled = true;
     m.close();
     if (w === 'json') return exportJson(fileBase(v) + '.json');
-    EXP_SCOPE = scope;
+    EXP_SCOPE = cats.slice(); EXP_PAGES = cats.slice();
     if (w === 'csv') { try { return exportCsv(fileBase(v) + '.csv'); } finally { EXP_SCOPE = 'all'; } }
     A3_ZOOM = w === 'a3' ? zoom : null; A3_NEEDZ = false;
-    try { await exportDoc(w, mode, v, lang); } finally { A3_ZOOM = null; EXP_SCOPE = 'all'; }
+    try { await exportDoc(w, mode, v, lang); } finally { A3_ZOOM = null; EXP_SCOPE = 'all'; EXP_PAGES = ['classic']; }
   };
   sync();
 }
 // element ukryty okiem (tblHidden) nie idzie do eksportu — razem z nim wysłona jego lightboxa i drzwi jego ściany
-let EXP_SCOPE = 'all';                  // zakres eksportu: all | nohang (wszystko oprócz podwieszenia) | hang (tylko podwieszenie)
-// wizki do eksportu: bez wyłączonych oczkiem; w zakresie „bez podwieszenia” — bez wizualizacji konstrukcji, w „tylko podwieszenie” — tylko one
-const expPhotos = () => S.photos.filter(p => !p.noExp && (EXP_SCOPE === 'all' || (EXP_SCOPE === 'hang') === !!hangElOfPhoto(p.id)));
+let EXP_SCOPE = 'all';                  // zakres eksportu: 'all' (bez filtra — widok w aplikacji) albo lista kategorii: classic | hang | uf
+let EXP_PAGES = ['classic'];            // kategorie A3: każda to osobna strona w jednym pliku
+const EXP_CAT_NAME = { classic: 'Klasyczny index', hang: 'Podwieszenie', uf: 'Ultra-Frame' };
+// wizki wygenerowane przez Ultra Frame (widok 3D, wizualizacja, widok z góry) — zapisane w układzie stoiska
+let _ufPh = { src: null, set: null };
+function ufPhotoSet() {
+  const src = S.project && S.project.ultraFrame; if (_ufPh.src === src && _ufPh.set) return _ufPh.set;
+  let u = {}; try { u = ufFsDec(src) || {}; } catch (e) { u = {}; }
+  _ufPh = { src, set: new Set([u.photoId, u.photoId2, u.photoId3, u.photoId4].filter(Boolean)) }; return _ufPh.set;
+}
+function expCatOfEl(e) {
+  const main = (e.backFor || e.doorFor) && S.elements.find(x => x.id === (e.backFor || e.doorFor)), el = main || e;
+  if (isHang(el)) return 'hang';
+  return el.ufKey || (el.photoId && ufPhotoSet().has(el.photoId)) ? 'uf' : 'classic';
+}
+const expCatOfPhoto = p => hangElOfPhoto(p.id) ? 'hang' : (ufPhotoSet().has(p.id) || p.ufViz) ? 'uf' : 'classic';
+// wizki do eksportu: bez wyłączonych oczkiem i tylko z wybranych zakresów
+const expPhotos = () => S.photos.filter(p => !p.noExp && (EXP_SCOPE === 'all' || EXP_SCOPE.includes(expCatOfPhoto(p))));
+// strony A3: po jednej na każdy zaznaczony zakres (puste pomijane); w PDF wektorowym renderIndexA3 sam dokłada strony
+async function a3Pages(stamp) {
+  const out = [], keep = EXP_SCOPE;
+  try {
+    for (const c of EXP_PAGES) {
+      EXP_SCOPE = [c]; if (!exportRows().length && !expPhotos().length) continue;
+      out.push(await renderIndexA3(c === 'classic' ? stamp : stamp + '  ·  ' + EXP_CAT_NAME[c]));
+    }
+  } finally { EXP_SCOPE = keep; }
+  return out;
+}
 function hiddenInExport(e) {
   if (e.tblHidden) return true;
-  if (EXP_SCOPE === 'nohang' && isHang(e)) return true;
-  if (EXP_SCOPE === 'hang' && !isHang(e)) return true;
+  if (EXP_SCOPE !== 'all' && !EXP_SCOPE.includes(expCatOfEl(e))) return true;
   const main = (e.backFor || e.doorFor) && S.elements.find(x => x.id === (e.backFor || e.doorFor));
   return !!(main && main.tblHidden);
 }
@@ -11410,7 +11453,8 @@ async function renderIndexA3(stamp) {
     const hpN = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [], hpBl = hpN.length > 0 && hangBleedAny(hangBleed(r.el));
     const hpIn = isHang(r.el) && d && r.el.inside ? (planesOf(r.el) || []).filter(q => q.side === 'inside') : [];
     const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0, hpInRows = hpIn.length ? (hpIn.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0;
-    const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = !d ? 0 : hpN.length ? (hpIn.length ? FH + 106 + hpRows * 46 + (hpInRows - 1) * 46 : 14 + hpRows * 46) : gb ? 88 : 48;
+    const sm = d && !hpN.length && !r.el.doorFor && !r.el.backFor ? seamsOf(r.el).filter(q => q.p < (Number(r.w) || 0)) : [];       // podział grafiki: wymiary części w eksporcie (bez kreski)
+    const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = (!d ? 0 : hpN.length ? (hpIn.length ? FH + 106 + hpRows * 46 + (hpInRows - 1) * 46 : 14 + hpRows * 46) : gb ? 88 : 48) + (sm.length ? 46 : 0);
     const qw = (r.qty || 1) > 1 ? 110 : 0;
     const hwOn = isHang(r.el) && d && !vizEls.has(r.el.id), hwL = hwOn ? hwList(r.el) : [], hpim = hwOn ? hwImgs['pod/prof-' + hangProf(r.el)[0] + '.png'] : null, hwH = hwOn ? 168 : 0;
     const hwW = hwOn ? (hpim ? hpim.width / hpim.height * 120 : 60) + 44 + hwL.length * 112 : 0;
@@ -11421,7 +11465,7 @@ async function renderIndexA3(stamp) {
     const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
     const head = 20 + title.length * 34;
     const notes = (!d ? 40 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
-    return { r, d, FW, FH, LM, BM, w, h: head + FH + BM + notes + hwH, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
+    return { r, d, FW, FH, LM, BM, sm, w, h: head + FH + BM + notes + hwH, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
   };
   // okienka w rzędach (kolejność: alfabetycznie albo od najwyższych — co lepiej wypełnia arkusz)
   // okienka po kolei (A, B, C… / 1, 2, 3…) w rzędach; obs = blok wizek u góry — rzędy obok niego go omijają
@@ -11566,7 +11610,7 @@ async function renderIndexA3(stamp) {
       L.out.forEach(o => { o.x += o.x / mx * freeX; o.y += o.y / my * freeY + Math.min(freeV - freeY, 40) / 2; });
     }
     for (const cd of L.out) {
-      const { r, d, FW, FH, LM, BM } = cd, bx = M + cd.x, by = y0 + cd.y;
+      const { r, d, FW, FH, LM, BM, sm } = cd, bx = M + cd.x, by = y0 + cd.y;
       // logo 3D i folia cięta po konturze: sam kształt (miniatura) z wymiarami, bez obrysu ramki;
       // element z drugim typem (np. logo + folia z druku) ramkę zachowuje, chyba że to też logo / folia po konturze
       const FRAMELESS = ['logo3d', 'folia-kontur'];
@@ -11643,6 +11687,10 @@ async function renderIndexA3(stamp) {
         } else {
           ext(fx, fy + FH, fx, fy + FH + 44); ext(fx + FW, fy + FH, fx + FW, fy + FH + 44); hDim(fx, fx + FW, fy + FH + 40, r.bw);
           ext(fx, fy, fx - 56, fy); ext(fx, fy + FH, fx - 56, fy + FH); vDim(fy, fy + FH, fx - 52, r.bh);
+        }
+        if (sm && sm.length && !hpl.length) {       // podział grafiki: wymiary części (kreski podziału w eksporcie nie ma)
+          const nx0 = gb ? fx + bw : fx, nW = gb ? FW - bw - bwR : FW, nw = Number(r.w) || 1, X0 = t => nx0 + nW * t / nw, ry = gb ? fy + FH + 128 : fy + FH + 86, xs = [0, ...sm.map(q => q.p), nw];
+          for (let i = 0; i < xs.length - 1; i++) { ext(X0(xs[i]), fy + FH, X0(xs[i]), ry + 4); ext(X0(xs[i + 1]), fy + FH, X0(xs[i + 1]), ry + 4); hDim(X0(xs[i]), X0(xs[i + 1]), ry, xs[i + 1] - xs[i]); }
         }
       }
       if (cd.nlines.length) {
@@ -11980,7 +12028,7 @@ async function vecPdf(w, stamp) {
   vecFonts(pdf); pdf.setFont('F400', 'normal');
   const pageW = w === 'a3' ? 420 : 297; let n = 0;
   VEC = { pdf, page: PW => { if (n++) pdf.addPage(); return [{ vec: true }, new PdfCtx(pdf, pageW / PW)]; } };
-  try { if (w === 'a3') await renderIndexA3(stamp); else await renderTableA4(stamp); }
+  try { if (w === 'a3') await a3Pages(stamp); else await renderTableA4(stamp); }
   finally { VEC = null; }
   return pdf;
 }
@@ -11993,7 +12041,7 @@ async function exportDoc(w, mode, v, lang = LANG) {
     const stamp = (ver ? `Index_v${ver}  ` : 'Index  ') + dateStamp();
     if (lang !== 'pl') { stage('tłumaczenie uwag'); try { await withTimeout(translateNotes(lang), 60000, 'tłumaczenie uwag'); } catch (e) { toast('Uwagi zostają po polsku: ' + e.message, 'error', 6000); } }
     stage('rysowanie');
-    const raster = () => withLang(lang, async () => w === 'a3' ? [await renderIndexA3(stamp)] : await renderTableA4(stamp));
+    const raster = () => withLang(lang, async () => w === 'a3' ? await a3Pages(stamp) : await renderTableA4(stamp));
     if (mode === 'print') {
       const pages = await raster();
       printPages(pages, w === 'a3' ? 'A3' : 'A4');
