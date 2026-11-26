@@ -939,6 +939,13 @@
   #alpaca[data-costume="jason"] .eye, #alpaca[data-costume="jason"] .eyehl, #alpaca[data-costume="jason"] .blush { display: none; }
   /* Avengersi: osobne postacie (nie alpaka) — ta sama animacja biegu (.lg) */
   #alpaca[data-kind="hero"] #alp-body, #alpaca:not([data-kind="hero"]) #hero-svg { display: none; }
+  /* Son Goku: obrazek zamiast rysunku — bieg to podskoki z lekkim kołysaniem */
+  #alpaca #goku-img { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; height: 118%; width: auto; transform-origin: 50% 100%; }
+  #alpaca:not([data-kind="goku"]) #goku-img, #alpaca[data-kind="goku"] #alp-body, #alpaca[data-kind="goku"] #hero-svg { display: none; }
+  #alpaca.run #goku-img { animation: gokuRun .3s ease-in-out infinite; }
+  #alpaca.para #goku-img { animation: gokuSway 1.4s ease-in-out infinite alternate; }
+  @keyframes gokuRun { 0%, 100% { transform: translateY(0) rotate(-6deg) scale(1.03, .96); } 50% { transform: translateY(-9px) rotate(6deg) scale(.97, 1.04); } }
+  @keyframes gokuSway { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
   #alpaca:not([data-costume="iron"]) .hr-iron, #alpaca:not([data-costume="cap"]) .hr-cap, #alpaca:not([data-costume="thor"]) .hr-thor,
   #alpaca:not([data-costume="hulk"]) .hr-hulk, #alpaca:not([data-costume="widow"]) .hr-widow, #alpaca:not([data-costume="spider"]) .hr-spider { display: none; }
   #alpaca .hr-glow { filter: drop-shadow(0 0 2px #7fe7ff) drop-shadow(0 0 4px #4ccfff); }
@@ -1185,9 +1192,9 @@
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
           <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
-          <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl = 10×; domyślnie przesuwa się cała ścianka — wszystkie sklejone moduły; Shift = tylko zaznaczony moduł)">Krok strzałek <input type="number" id="uf-step" value="10" min="1" step="1"> mm</label></span>
+          <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl = 10×; domyślnie przesuwa się cała ścianka — wszystkie sklejone moduły; Shift = tylko zaznaczony moduł)">Krok strzałek <input type="text" inputmode="decimal" id="uf-step" value="10" autocomplete="off" title="Krok w mm — można ułamki, np. 0,1"> mm</label></span>
           <span class="uf-sp"></span>
-          <button type="button" id="uf-link" class="uf-go uf-link hidden" title="Połącz grafiki (administrator): kliknij znacznik jednej grafiki, potem drugiej (w tej samej płaszczyźnie) — staną się jedną grafiką o szerokości A + przerwa (połowa ścianki + połowa ścianki) + B. Kreska łączenia widoczna w podglądzie, w eksporcie bez kreski, wymiar całkowity zostaje. Kliknięcie ✕ na kresce rozłącza. Po zmianie kliknij „Rozmieść grafiki”.">⛓ Połącz grafiki</button>
+          <button type="button" id="uf-link" class="uf-go uf-link hidden" title="Połącz grafiki (administrator): kliknij znacznik jednej grafiki, potem drugiej (w tej samej płaszczyźnie) — staną się jedną grafiką o szerokości A + przerwa (połowa ścianki + połowa ścianki) + B. Kreska łączenia widoczna w podglądzie, w eksporcie bez kreski, wymiar całkowity zostaje. Kliknięcie ✕ na kresce rozłącza. Działa raz na kliknięcie — po połączeniu (albo rozłączeniu) tryb sam się wyłącza. Po zmianie kliknij „Rozmieść grafiki”.">⛓ Połącz grafiki</button>
           <button type="button" id="uf-lay" class="uf-go uf-lay" title="Rozmieść grafiki: tworzy i aktualizuje elementy (grafika na każde lico widoczne od alejki, wysłony, drzwi, zaślepki) i ustawia ich znaczniki na wizce 3D. Nie tworzy wizualizacji ani widoku z góry.">▤ Rozmieść grafiki</button>
           <button type="button" id="uf-look" title="Widok 3D: pełne ściany (z grafiką, bez podziału) albo gołe ramy z widocznym podziałem na moduły">▮ 3D: pełne ściany</button>
           <button type="button" id="uf-go" class="uf-go" title="Generuj 3D: wizki — widok 3D, wizualizacja z przełącznikiem pełny / szkielet i orbitą oraz widok z góry z podłogą. Nie zmienia elementów (do tego służy „Rozmieść grafiki”).">◈ Generuj 3D</button>
@@ -1353,6 +1360,7 @@
       <g stroke-width="1.6" fill="none"><path d="M12 70 L88 146"/><path d="M64 68 L94 146"/><path d="M136 68 L106 146"/><path d="M188 70 L112 146"/></g>
     </g>
   </svg>
+  <img id="goku-img" src="goku.png" alt="" draggable="false">
   <svg id="alp-body" viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
     <g stroke="#3b2f2f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
       <rect class="lg lb" x="25" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
@@ -2229,7 +2237,7 @@ function startPresence() {
 const isAdmin = () => !!(S.me && S.me.admin) && (!S.tour || !!S.tour.pro);
 // funkcje włączane per konto w panelu użytkowników (u.features): domyślnie Ultra Frame mają wszyscy poza podglądem, Offset Wizard — administratorzy
 const FEATS = [['uf', 'Ultra Frame', u => !u.viewer], ['ow', 'Offset Wizard', u => !!u.admin]];
-const CREATURES = [['alpaca', '🦙 Alpaka (stroje sezonowe)'], ['avengers', '🦸 Avengersi (losowo: Iron Man, Kapitan Ameryka, Thor, Hulk, Czarna Wdowa, Spider-Man)'], ['none', '🚫 Brak biegającego stworka']];
+const CREATURES = [['alpaca', '🦙 Alpaka (stroje sezonowe)'], ['avengers', '🦸 Avengersi (losowo: Iron Man, Kapitan Ameryka, Thor, Hulk, Czarna Wdowa, Spider-Man)'], ['goku', '🐉 Son Goku (Dragon Ball)'], ['none', '🚫 Brak biegającego stworka']];
 const featOf = (u, k) => { const v = u && u.features && u.features[k], f = FEATS.find(x => x[0] === k); return typeof v === 'boolean' ? v : !!(u && f && f[2](u)); };
 const featOn = k => featOf(S.me, k) && !(k === 'ow' && S.tour && !S.tour.pro);
 const creatureOf = u => { const c = u && u.features && u.features.creature; return CREATURES.some(x => x[0] === c) ? c : 'alpaca'; };
@@ -8224,7 +8232,7 @@ function ufKMove(dx, dy, wall, big) {
   const p = ufFind(UF.sel); if (!p || UF.busy) return;
   const st = (Number(UF.step) || UF_STEP) * (big ? 10 : 1), r = wall ? ufSelRun() : null, ids = r ? r.ops.map(o => o.id) : [p.id];
   ufPush(); const sv = ids.map(id => { const q = ufFind(id); return q && [q, q.x, q.y, q.len, q.len0]; }).filter(Boolean), grp = new Set(ids);
-  ids.forEach(id => { const q = ufFind(id); if (q) { q.x += dx * st; q.y += dy * st; ufFit(q); } });
+  ids.forEach(id => { const q = ufFind(id); if (q) { q.x = Math.round((q.x + dx * st) * 100) / 100; q.y = Math.round((q.y + dy * st) * 100) / 100; ufFit(q); } });      // do setnych mm — bez dryfu przy kroku 0,1
   if (ids.some(id => { const q = ufFind(id); return q && ufOverlaps(q, grp); })) { sv.forEach(([q, x, y, l, l0]) => { q.x = x; q.y = y; q.len = l; if (l0) q.len0 = l0; else delete q.len0; }); UF.undo.pop(); return toast(UF_OVL_MSG, 'error', 2500); }
   ufChanged();
 }
@@ -8582,7 +8590,7 @@ function ufSyncBar() {
     $('uf-pane').classList.toggle('uf-paint-on', ufK() && $('uf-mount').value === 'paint');
     $('uf-paint').querySelectorAll('.uf-sw').forEach(b => b.classList.toggle('on', b.dataset.c.toLowerCase() === pc.toLowerCase()));
     $('uf-pside').checked = r ? !!r.psides[ufPl()] : !!d.pside;
-    $('uf-paint-c').value = pc; $('uf-paint-n').textContent = r ? ufPaintLabel(r, ufPl()) : (d.pname || ufPaintName(pc)); $('uf-pbtn').querySelector('.uf-pdot').style.background = pc; } if (document.activeElement !== $('uf-step')) $('uf-step').value = UF.step || UF_STEP;
+    $('uf-paint-c').value = pc; $('uf-paint-n').textContent = r ? ufPaintLabel(r, ufPl()) : (d.pname || ufPaintName(pc)); $('uf-pbtn').querySelector('.uf-pdot').style.background = pc; } if (document.activeElement !== $('uf-step')) $('uf-step').value = String(UF.step || UF_STEP).replace('.', ',');
   const all = ufRuns(), n = all.length;
   let t;
   if (r) {
@@ -9438,12 +9446,13 @@ function ufLinkAdd(ka, kb) {
 }
 function ufLinkClick(px, py) {
   const sh = (UF.seamHits || []).find(h => Math.hypot(h.x - px, h.y - py) < 12);
-  if (sh) { ufPush(); UF.d.links.splice(sh.li, 1); UF.linkA = null; ufChanged(); toast('Rozłączono grafiki — kliknij „Rozmieść grafiki”, aby zaktualizować elementy', '', 5000); return; }
+  if (sh) { ufPush(); UF.d.links.splice(sh.li, 1); UF.linkA = null; UF.linkOn = false; ufSyncBar(); ufChanged(); toast('Rozłączono grafiki — kliknij „Rozmieść grafiki”, aby zaktualizować elementy', '', 5000); return; }
   const pn = (UF.pins || []).find(q => Math.hypot(q.x - px, q.y - py) < q.r + 6);
   if (!pn) { if (UF.linkA) { UF.linkA = null; ufDraw(true); } return; }
   if (!UF.linkA) { UF.linkA = pn.key; UF.linkMouse = [px, py]; ufDraw(true); return; }
   if (UF.linkA === pn.key) { UF.linkA = null; ufDraw(true); return; }
-  const err = ufLinkAdd(UF.linkA, pn.key); UF.linkA = null; if (err) toast(err, 'error', 4500); ufDraw(true);
+  const err = ufLinkAdd(UF.linkA, pn.key); UF.linkA = null; if (err) toast(err, 'error', 4500); else { UF.linkOn = false; ufSyncBar(); }       // jednorazowo: po połączeniu przycisk się „odciska”
+  ufDraw(true);
 }
 function ufPointer(e) {
   if ((e.button !== 0 && e.button !== 1) || UF.busy || !UF.tr) return;
@@ -10549,7 +10558,7 @@ async function closeUltraFrame() {
   $('uf-pcode').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); useCode(); } else if (e.key === 'Escape') { e.stopPropagation(); pclose(); } };
   $('uf-paint-c').onchange = e => { ufSetPaint(e.target.value); pclose(); };
   $('uf-pside').onchange = e => ufSetPaintSide(e.target.checked);
-  $('uf-step').onchange = e => { const v = parseFloat(e.target.value); UF.step = v >= 1 ? v : UF_STEP; e.target.value = UF.step; };
+  $('uf-step').onchange = e => { const v = parseFloat(String(e.target.value).replace(',', '.')); UF.step = v >= 0.01 ? Math.round(v * 100) / 100 : UF_STEP; e.target.value = String(UF.step).replace('.', ','); };
   $('uf-sysb').onclick = ufSwitchSystem;
   $('uf-look').onclick = () => { ufPush(); UF.d.look = UF.d.look === 'bare' ? 'full' : 'bare'; ufChanged(); };
   // obrót widoku 3D strzałkami na podglądzie (o 90° w lewo / w prawo)
@@ -11965,6 +11974,7 @@ const AVENGERS = ['iron', 'cap', 'thor', 'hulk', 'widow', 'spider'];
 const creatureKind = () => creatureOf(S.me);
 function alpacaCostume() {
   const a = $('alpaca'); if (!a) return;
+  if (creatureKind() === 'goku') { a.dataset.kind = 'goku'; a.dataset.costume = ''; return; }
   if (creatureKind() === 'avengers') { a.dataset.kind = 'hero'; a.dataset.costume = AVENGERS[Math.floor(Math.random() * AVENGERS.length)]; return; }
   delete a.dataset.kind;
   const m = new Date().getMonth();
