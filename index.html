@@ -1212,11 +1212,11 @@
       <div id="drop-hint" class="hidden">Upuść, aby dodać wizki</div>
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
-          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-tech" class="hidden" title="Rys-tech (K-Frame): rysunek techniczny z siatką i wymiarami — widok z góry (duży), front i bok od alejki. Do pobrania jako PNG albo do wydruku.">📐 Rys-tech</button><button type="button" id="uf-max" class="hidden" title="Eksport do 3ds Max (administrator): plik .index3d (ścianki, drzwi, podłoga, płaszczyzny grafik z UV i adresami tekstur). W Maxie: ikona „INDEX 3D” (skrypt Zainstaluj_INDEX3D.ms) wczytuje model i nakłada tekstury na sloty materiałów.">⬇ 3ds Max</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,7; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
+          <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-tech" class="hidden" title="Rys-tech: rysunek techniczny z siatką i wymiarami — widok z góry (duży), front i bok od alejki. Do pobrania jako PNG albo do wydruku.">📐 Rys-tech</button><button type="button" id="uf-max" class="hidden" title="Eksport do 3ds Max (administrator): plik .index3d (ścianki, drzwi, podłoga, płaszczyzny grafik z UV i adresami tekstur). W Maxie: ikona „INDEX 3D” (skrypt Zainstaluj_INDEX3D.ms) wczytuje model i nakłada tekstury na sloty materiałów.">⬇ 3ds Max</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,7; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
           <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button><button type="button" id="uf-meas" title="Miarka: kliknij dwa punkty na planie — pokaże się ich odległość (przyciąga do narożników ścianek i stoiska). Shift przy klikaniu przełącza skos ↔ poziom/pion. Esc kończy.">📏</button><button type="button" id="uf-measm" class="hidden" title="Tryb miarki: po skosie (dowolna linia) albo poziom/pion (linia blokuje się na bliższej osi). Shift = chwilowo odwrotnie."></button></span>
           <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
-          <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl = 10×; domyślnie przesuwa się cała ścianka — wszystkie sklejone moduły; Shift = tylko zaznaczony moduł)">Krok strzałek <input type="text" inputmode="decimal" id="uf-step" value="10" autocomplete="off" title="Krok w mm — można ułamki, np. 0,1"> mm</label></span>
+          <span class="uf-grp"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl = 10×; domyślnie przesuwa się cała ścianka — wszystkie sklejone moduły; Shift = tylko zaznaczony moduł)">Krok strzałek <input type="text" inputmode="decimal" id="uf-step" value="10" autocomplete="off" title="Krok w mm — można ułamki, np. 0,1"> mm</label></span>
           <span class="uf-sp"></span>
           <button type="button" id="uf-link" class="uf-go uf-link hidden" title="Połącz grafiki (administrator): kliknij znacznik jednej grafiki, potem drugiej (w tej samej płaszczyźnie) — staną się jedną grafiką o szerokości A + przerwa (połowa ścianki + połowa ścianki) + B. Kreska łączenia widoczna w podglądzie, w eksporcie bez kreski, wymiar całkowity zostaje. Kliknięcie ✕ na kresce rozłącza. Działa raz na kliknięcie — po połączeniu (albo rozłączeniu) tryb sam się wyłącza. Po zmianie kliknij „Rozmieść grafiki”.">⛓ Połącz grafiki</button>
           <button type="button" id="uf-lay" class="uf-go uf-lay" title="Rozmieść grafiki: tworzy i aktualizuje elementy (grafika na każde lico widoczne od alejki, wysłony, drzwi, zaślepki) i ustawia ich znaczniki na wizce 3D. Nie tworzy wizualizacji ani widoku z góry.">▤ Rozmieść grafiki</button>
@@ -8669,7 +8669,7 @@ const ufStandM = () => !!(S.me && S.me.id === 'kg' && !S.tour);
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
   $('uf-meas').classList.toggle('on', !!UF.measOn); $('uf-measm').classList.toggle('hidden', !UF.measOn); $('uf-measm').textContent = UF.measMode === 'o' ? '↔ poziom/pion' : '↗ po skosie';
-  $('uf-tech').classList.toggle('hidden', !ufK());
+  $('uf-tech').classList.remove('hidden');          // Rys-tech: K-Frame i EasyFrame
   $('uf-max').classList.toggle('hidden', !isAdmin());          // plik .index3d — tylko administrator             // „Rys-tech” — tylko K-Frame
   $('uf-lay').classList.toggle('hidden', !isAdmin());          // „Rozmieść grafiki” — tylko dla administratorów
   if (!isAdmin()) UF.linkOn = false;
@@ -8709,7 +8709,7 @@ function ufSyncBar() {
     t = `Zaznaczona ścianka: <b>${lenPL(r.front)} × ${lenPL(r.h)} ${UNIT()}</b> (${ufStackTxt(r.h) && !r.ops.some(o => o.t === 'eltex') ? (ufK() ? 'moduł + dostawka ' : 'ramy ') + ufStackTxt(r.h) + ' · ' : ''}${r.mods} mod.${r.gOps.some(o => o.t === 'post') ? ', słupki ' + r.gOps.filter(o => o.t === 'post').length : ''}) · grafika: ${fs.length ? fs.map(f => `<b>${lenPL(f.b - f.a)} × ${lenPL(f.h)}</b>`).join(' + ') : 'brak (strona niewidoczna od alejki)'}${wy}${rtx}`;
   } else t = n ? `${n} ${n === 1 ? 'ścianka' : 'ścianki'} · przeciągnij ikonę na plan albo kliknij klocek, aby zaznaczyć` : 'Przeciągnij ikonę modułu na plan (albo kliknij ją) — klocki styczne same się sklejają w ściankę.';
   $('uf-info').innerHTML = t + (ufK() ? ufKInfo() : '') + (ufNonStdAny(ufGeom(d)) ? ' <b style="color:#c53030">· czerwone pulsujące = element niestandardowy (ucięty, inna długość / wysokość)</b>' : '');
-  $('uf-keys').innerHTML = `${ufK() ? UF_KKEYS : `zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij`}`;
+  $('uf-keys').innerHTML = `${ufK() ? UF_KKEYS : `zamknięte pomieszczenie = zaplecze (wysłony); MT na środku pomieszczenia = pokój rozmów (grafiki) · fioletowe końce = zaślepki PCW ${lenPL(UF_CAP_W)} (gołe aluminium) · strzałki wokół obrysu = alejka · klocki przyciągają się do krawędzi stoiska, wystająca ścianka jest ucinana · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · drugi klik w klocek = ikona obrotu · R / Shift+R obrót · przeciągnij klocek = odłączenie (Shift = cała ścianka), w trakcie przeciągania prawy przycisk = kopia · PPM na drzwiach = zawiasy i kierunek · B wysłona · Backspace usuń · Ctrl+Z cofnij · strzałki = przesuń ściankę (Shift = jeden moduł, Ctrl = 10×; krok w polu „Krok strzałek”)`}`;
 }
 
 // ---------- rysowanie widoku z góry ----------
@@ -10434,9 +10434,9 @@ function ufTechRender() {
   const frame = (x, y, w, h, title) => { g.strokeStyle = '#1a202c'; g.lineWidth = 2; g.strokeRect(x, y, w, h); g.fillStyle = '#edf2f7'; g.fillRect(x, y, w, 50); g.strokeRect(x, y, w, 50); txt(title, x + 18, y + 26, 26, '#1a202c', 'left', 'middle', 800); };
   // nagłówek
   g.fillStyle = '#1a202c'; g.fillRect(0, 0, PW, 110);
-  txt('K-Frame — rysunek techniczny', 40, 40, 44, '#fff', 'left', 'middle', 800);
+  txt(`${ufK() ? 'K-Frame' : 'EasyFrame'} — rysunek techniczny`, 40, 40, 44, '#fff', 'left', 'middle', 800);
   txt(`${S.project && S.project.name ? S.project.name : ''}${S.project && S.project.fair ? ' · ' + S.project.fair : ''}`, 40, 84, 26, '#cbd5e0', 'left', 'middle', 500);
-  txt(`stoisko ${num(L)} × ${num(D)} ${UNIT()} (${numPL(L * D / 1e6)} m²) · wysokość ${[...new Set(geo.runs.map(r => r.h))].map(num).join(' / ')} ${UNIT()} · grubość ścianki ${num(UF_KT + 3)} ${UNIT()} (z płytą po obu stronach)`, PW - 40, 40, 26, '#fff', 'right', 'middle', 600);
+  txt(`stoisko ${num(L)} × ${num(D)} ${UNIT()} (${numPL(L * D / 1e6)} m²) · wysokość ${[...new Set(geo.runs.map(r => r.h))].map(num).join(' / ')} ${UNIT()} · grubość ścianki ${num(ufK() ? UF_KT + 3 : UF_T)} ${UNIT()}${ufK() ? ' (z płytą po obu stronach)' : ' (rama E80)'}`, PW - 40, 40, 26, '#fff', 'right', 'middle', 600);
   txt(`wymiary w ${UNIT()} · siatka co ${UNIT() === 'cm' ? '100 cm' : '1000 mm'} · ${new Date().toLocaleDateString('pl-PL')}`, PW - 40, 84, 24, '#cbd5e0', 'right', 'middle', 500);
   const doorOf = q => q.op.t === 'door';
   // ---------- WIDOK Z GÓRY ----------
@@ -10456,7 +10456,7 @@ function ufTechRender() {
     // ścianki
     geo.parts.forEach(q => { const door = doorOf(q);
       g.fillStyle = door ? '#fde68a' : '#d9b98a'; g.fillRect(X(q.x0), Y(q.y0), (q.x1 - q.x0) * s, (q.y1 - q.y0) * s); g.strokeStyle = '#2d3748'; g.lineWidth = 1.6; g.strokeRect(X(q.x0), Y(q.y0), (q.x1 - q.x0) * s, (q.y1 - q.y0) * s);
-      if (door) { const dg = ufDoorGeom(q.op, d, geo.pub), len = UF_KDW * s, hx = X(dg.hinge[0]), hy = Y(dg.hinge[1]), fx = X(dg.free[0]), fy = Y(dg.free[1]);
+      if (door) { const dg = ufDoorGeom(q.op, d, geo.pub), len = (ufK() ? UF_KDW : q.op.len) * s, hx = X(dg.hinge[0]), hy = Y(dg.hinge[1]), fx = X(dg.free[0]), fy = Y(dg.free[1]);
         g.strokeStyle = '#2b6cb0'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + dg.side[0] * len, hy + dg.side[1] * len);
         const a1 = Math.atan2(fy - hy, fx - hx), a2 = Math.atan2(dg.side[1], dg.side[0]); let df = a2 - a1; while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
         g.arc(hx, hy, len, a1, a2, df < 0); g.stroke(); }
@@ -10464,7 +10464,7 @@ function ufTechRender() {
     // wymiary: zielone — pojedyncze ścianki (moduły), niebieskie — długości lic jak na planie edytora (odcinki między ściankami, razem z wysokością)
     const BT = 450, drawn = new Set(), once = k => { if (drawn.has(k)) return false; drawn.add(k); return true; };
     geo.runs.forEach(r => {
-      const hz = r.ori === 0, ps = r.parts.filter(q => q.op.t !== 'post').slice().sort((p, q) => hz ? p.x0 - q.x0 : p.y0 - q.y0); if (!ps.length) return;
+      const hz = r.ori === 0, ps = r.parts.filter(q => !ufK() || q.op.t !== 'post').slice().sort((p, q) => hz ? p.x0 - q.x0 : p.y0 - q.y0); if (!ps.length) return;
       const hi = hz ? D : L, edge = r.line <= BT ? -1 : r.line >= hi - BT ? 1 : 0, th = (ps[0][hz ? 'y1' : 'x1'] - ps[0][hz ? 'y0' : 'x0']) / 2, toC = r.line < hi / 2 ? 1 : -1;
       const sgn = edge ? edge : toC, nrm = hz ? [0, sgn] : [sgn, 0], line = r.line + sgn * th, pt = v => hz ? [X(v), Y(line)] : [X(line), Y(v)];
       ps.forEach(q => { const a = hz ? q.x0 : q.y0, b = hz ? q.x1 : q.y1; if (once(`g|${r.ori}|${Math.round(line)}|${Math.round(a)}|${Math.round(b)}`)) dim(pt(a), pt(b), nrm[0], nrm[1], 34, num(b - a), '#2f855a', 21); });
@@ -10495,16 +10495,16 @@ function ufTechRender() {
     for (let z = 0; z <= Hmax + 300; z += 1000) { g.strokeStyle = '#dde3ea'; g.lineWidth = 1; g.beginPath(); g.moveTo(U_(0) - 10, Z(z)); g.lineTo(U_(U) + 10, Z(z)); g.stroke(); }
     g.strokeStyle = '#1a202c'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(U_(0) - 20, Z(0)); g.lineTo(U_(U) + 20, Z(0)); g.stroke();
     geo.parts.slice().sort((p, q) => depth(q) - depth(p)).forEach(q => {       // dalsze najpierw, bliższe je zasłaniają
-      const ua = uOf(q.x0, q.y0), ub = uOf(q.x1, q.y1), u0 = Math.min(ua, ub), u1 = Math.max(ua, ub), h = q.run ? q.run.h : d.H, para = (q.dir & 1) === (along ? 0 : 1);
-      if (q.op.t === 'post') return;
-      g.fillStyle = para ? (doorOf(q) ? '#fff3c4' : '#f3e3c8') : '#cfa876'; g.fillRect(U_(u0), Z(h), (u1 - u0) * s, h * s); g.strokeStyle = '#2d3748'; g.lineWidth = para ? 1.6 : 1.2; g.strokeRect(U_(u0), Z(h), (u1 - u0) * s, h * s);
+      const ua = uOf(q.x0, q.y0), ub = uOf(q.x1, q.y1), u0 = Math.min(ua, ub), u1 = Math.max(ua, ub), h = q.run ? q.run.h : d.H, para = q.op.t === 'post' || (q.dir & 1) === (along ? 0 : 1);
+      if (q.op.t === 'post' && ufK()) return;
+      g.fillStyle = q.op.t === 'post' ? '#e8a0a0' : para ? (doorOf(q) ? '#fff3c4' : '#f3e3c8') : '#cfa876'; g.fillRect(U_(u0), Z(h), (u1 - u0) * s, h * s); g.strokeStyle = '#2d3748'; g.lineWidth = para ? 1.6 : 1.2; g.strokeRect(U_(u0), Z(h), (u1 - u0) * s, h * s);
       if (para) {
-        if (h > UF_KH + 1) { g.strokeStyle = '#718096'; g.lineWidth = 1.2; g.setLineDash([8, 6]); g.beginPath(); g.moveTo(U_(u0), Z(UF_KH)); g.lineTo(U_(u1), Z(UF_KH)); g.stroke(); g.setLineDash([]); }
-        if (doorOf(q)) { const dw = Math.min(UF_KDW, u1 - u0 - 20), dm = (u0 + u1) / 2; g.fillStyle = '#fbd38d'; g.fillRect(U_(dm - dw / 2), Z(2000), dw * s, 2000 * s); g.strokeStyle = '#7b341e'; g.lineWidth = 1.6; g.strokeRect(U_(dm - dw / 2), Z(2000), dw * s, 2000 * s); } }
+        { let zc = 0; ufStack(h).slice(0, -1).forEach(v => { zc += v; g.strokeStyle = '#718096'; g.lineWidth = 1.2; g.setLineDash([8, 6]); g.beginPath(); g.moveTo(U_(u0), Z(zc)); g.lineTo(U_(u1), Z(zc)); g.stroke(); g.setLineDash([]); }); }       // styki ram / modułu i dostawki
+        if (doorOf(q)) { const dw = ufK() ? Math.min(UF_KDW, u1 - u0 - 20) : u1 - u0 - 8, dh = ufK() ? 2000 : Math.min(h, q.op.size === 'h2480' ? 2480 : 1984), dm = (u0 + u1) / 2; g.fillStyle = '#fbd38d'; g.fillRect(U_(dm - dw / 2), Z(dh), dw * s, dh * s); g.strokeStyle = '#7b341e'; g.lineWidth = 1.6; g.strokeRect(U_(dm - dw / 2), Z(dh), dw * s, dh * s); } }
     });
     // łańcuch wymiarów poziomych (kolejne moduły wzdłuż widoku) i całkowita szerokość
     // wymiary tylko widocznych odcinków (od najbliższych: część zasłonięta przez bliższą ściankę nie daje wymiaru)
-    const near = geo.parts.filter(q => q.op.t !== 'post').map(q => { const ua = uOf(q.x0, q.y0), ub = uOf(q.x1, q.y1); return { u0: Math.min(ua, ub), u1: Math.max(ua, ub), h: q.run ? q.run.h : d.H, para: (q.dir & 1) === (along ? 0 : 1), dp: depth(q) }; }).sort((p, q) => p.dp - q.dp);
+    const near = geo.parts.filter(q => !ufK() || q.op.t !== 'post').map(q => { const ua = uOf(q.x0, q.y0), ub = uOf(q.x1, q.y1); return { u0: Math.min(ua, ub), u1: Math.max(ua, ub), h: q.run ? q.run.h : d.H, para: q.op.t === 'post' || (q.dir & 1) === (along ? 0 : 1), dp: depth(q) }; }).sort((p, q) => p.dp - q.dp);
     const bounds = new Set(), cover = [];
     near.forEach(p => { let iv = [[p.u0, p.u1]];
       cover.forEach(c => { if (c.h < p.h - 1) return; iv = iv.flatMap(([a, b]) => { if (c.u1 <= a || c.u0 >= b) return [[a, b]]; const o = []; if (c.u0 > a) o.push([a, c.u0]); if (c.u1 < b) o.push([c.u1, b]); return o; }); });
@@ -10516,7 +10516,7 @@ function ufTechRender() {
     // wysokości: całość i podział moduł + dostawka
     const hs = [...new Set(geo.runs.map(r => r.h))].sort((a, b) => b - a);
     hs.forEach((h, i) => { const stk = ufStack(h); let zc = 0; stk.forEach(v => { dim([U_(0), Z(zc)], [U_(0), Z(zc + v)], -1, 0, 40 + i * 0, num(v), '#2f855a', 20); zc += v; }); if (stk.length > 1) dim([U_(0), Z(0)], [U_(0), Z(h)], -1, 0, 90, num(h), '#1a202c', 24); });
-    txt('linia przerywana — styk modułu i dostawki · żółte — drzwi (skrzydło ' + num(UF_KDW) + ' × 2000)', vx + 18, vy + vh - 18, 18, '#4a5568', 'left', 'middle', 500);
+    txt(ufK() ? 'linia przerywana — styk modułu i dostawki · żółte — drzwi (skrzydło ' + num(UF_KDW) + ' × 2000)' : 'linia przerywana — styk ram (rama + nadstawka) · różowe — słupki · żółte — drzwi (moduł)', vx + 18, vy + vh - 18, 18, '#4a5568', 'left', 'middle', 500);
   };
   const rx = 2530, rw = PW - rx - 30, rh = (PH - 160 - 20) / 2;
   elev(rx, 130, rw, rh, front, `Widok z przodu — od strony ${NAME[front]}${open(front) ? ' (alejka)' : ''}`);
@@ -10555,7 +10555,7 @@ function ufTechOpen() {
   if (!UF.d || !UF.d.pieces.length) return toast('Najpierw ułóż ścianki', 'error');
   let cv; try { cv = ufTechRender(); } catch (e) { console.warn('rys-tech', e); return toast('Rysunek techniczny się nie udał: ' + e.message, 'error', 6000); }
   const url = cv.toDataURL('image/png'), nm = 'Rys-tech' + (S.project && S.project.name ? ' - ' + S.project.name : '');
-  const m = openModal({ title: 'Rys-tech — rysunek techniczny K-Frame', wide: true,
+  const m = openModal({ title: `Rys-tech — rysunek techniczny ${ufK() ? 'K-Frame' : 'EasyFrame'}`, wide: true,
     body: `<div class="hint" style="margin-bottom:8px">Widok z góry (siatka co 1 m, wymiary pojedynczych ścianek i długości lic jak na planie), front i bok od alejki. Do wydruku albo zapisu jako PDF (A3 poziomo) lub PNG.</div><div style="overflow:auto;max-height:68vh;border:1px solid var(--line)"><img src="${url}" alt="Rys-tech" style="width:100%;display:block"></div>`,
     footer: `<button class="btn" data-print>🖨 Drukuj</button><button class="btn" data-pdf>📄 Zapisz PDF</button><button class="btn" data-dl>⬇ Pobierz PNG</button><button class="btn btn-solid" data-c>Zamknij</button>` });
   m.el.querySelector('[data-c]').onclick = () => m.close();
@@ -10563,7 +10563,7 @@ function ufTechOpen() {
   m.el.querySelector('[data-pdf]').onclick = () => {
     if (!window.jspdf) return toast('Brak biblioteki PDF (sprawdź internet)', 'error');
     try { const pdf = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3', compress: true }); pdf.addImage(url, 'PNG', 0, 0, 420, 420 * cv.height / cv.width, undefined, 'FAST'); pdf.save(nm.replace(/[\/:*?"<>|]+/g, '_') + '.pdf');
-      if (S.project) addLog(S.project.id, 'Wyeksportowano rysunek techniczny K-Frame (A3, PDF)'); } catch (e) { toast('PDF się nie udał: ' + e.message, 'error', 5000); }
+      if (S.project) addLog(S.project.id, `Wyeksportowano rysunek techniczny ${ufK() ? 'K-Frame' : 'EasyFrame'} (A3, PDF)`); } catch (e) { toast('PDF się nie udał: ' + e.message, 'error', 5000); }
   };
   m.el.querySelector('[data-print]').onclick = () => {
     const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
@@ -10980,7 +10980,7 @@ async function closeUltraFrame() {
     }
     const pal = ufPal().find(p => p.key === k);
     if (pal) ufAddNext(ufPalOp(pal));
-    else if (ufK() && UF.sel && /^Arrow(Left|Right|Up|Down)$/.test(k)) ufKMove(k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0, k === 'ArrowUp' ? -1 : k === 'ArrowDown' ? 1 : 0, !e.shiftKey, e.ctrlKey);
+    else if (UF.sel && /^Arrow(Left|Right|Up|Down)$/.test(k)) ufKMove(k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0, k === 'ArrowUp' ? -1 : k === 'ArrowDown' ? 1 : 0, !e.shiftKey, e.ctrlKey);
     else if (k === 'r' || k === 'R') ufRotate(!e.shiftKey);
     else if (k === 'b' || k === 'B') { const r = ufSelRun(); ufSetBack(r ? !r.manual : true); }
     else if (k === 'Backspace' || k === 'Delete') ufDelete();
