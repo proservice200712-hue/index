@@ -8065,7 +8065,8 @@ function ufGeom0(d) {
       if (sb - sa < 100) return;
       const am = (sa + sb) / 2;
       const px = r.ori === 0 ? am : f + inn * 60, py = r.ori === 0 ? f + inn * 60 : am;
-      if (!vis(px, py) || (back && !(px > 0 && px < st.L && py > 0 && py < st.D))) return;       // tył poza stoiskiem (sąsiad) — bez grafiki
+      const outside = !(px > 0 && px < st.L && py > 0 && py < st.D), osd = py < 0 ? 'n' : py > st.D ? 's' : px < 0 ? 'w' : px > st.L ? 'e' : '';
+      if (!vis(px, py) || (back && outside && !(osd && st.open[osd]))) return;       // tył poza stoiskiem: sąsiad — bez grafiki, ale od strony alejki (otwarty bok) grafika jest
       const items = r.parts.map(q => ({ op: q.op, len: Math.min(sb, q[k0 + '1']) - Math.max(sa, q[k0 + '0']) })).filter(it => it.len > 1);
       const w0 = items.find(it => it.op.t !== 'post'); if (!w0) return;
       faces.push({ key: 'uf:' + w0.op.id + (back ? ':b' : ''), run: r, ori: r.ori, inn, back, f, a: sa, b: sb, h: r.h, items, rg: pub(px, py) ? 0 : pub.region(px, py) });
@@ -8148,6 +8149,7 @@ function ufGeom0(d) {
       faces.splice(faces.indexOf(A), 1, m); faces.splice(faces.indexOf(B), 1);
     });
   }
+  faces.forEach(fc => [fc.run, ...(fc.runs2 || [])].forEach(r => { if (r.aisle && r.aisle[fc.inn]) delete r.aisle[fc.inn]; }));          // lico od alejki z grafiką nie jest już „samą płytą”
   const dbl = [];
   if (ufK()) runs.forEach(r => {
     const sd = new Set();
