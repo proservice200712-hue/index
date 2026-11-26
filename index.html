@@ -3168,9 +3168,8 @@ function startProjectsSub() {
 }
 // stoisko „GOG testy” to materiał samouczka (pokaz, stoisko ćwiczeniowe) — nie ma go na liście stoisk
 const isTourSrc = p => p.id === TOUR_PID || String(p.name || '').trim().toLowerCase() === TOUR_NAME;
-const canSee = p => !isTourSrc(p) && (isAdmin() || isViewer() || (p.users || []).includes(S.me.id) || (p.team || []).some(m => m.uid === S.me.id));
-// targi widzi administrator, ich autor i ten, kogo administrator dodał do któregoś stoiska na tych targach (inni nie widzą nawet nazwy)
-const canSeeFair = f => isAdmin() || isViewer() || f.createdBy === S.me.id || S.projects.some(p => p.fairId === f.id && canSee(p));
+const canSee = p => !isTourSrc(p);          // wszyscy użytkownicy widzą wszystkie stoiska — niezależnie od tego, czy są dodani do zespołu
+const canSeeFair = f => true;          // ... i wszystkie targi
 // zespół projektu: konta INDEX ({uid}) i osoby spoza systemu ({name})
 const initialsOf = n => String(n || '?').trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
 function teamAvatar(m) {
@@ -8587,6 +8586,8 @@ const ufFpDir = () => (UF.d && UF.d.fp && UF.d.fp.dir) || '';
 // grubość podłogi [mm] (nie wpływa na rozrys) i długości przy alejce (kątownik aluminiowy 4 × 4 cm przy podłodze)
 const ufFpTh = () => Number(UF.d && UF.d.fp && UF.d.fp.th) || 0;
 const UF_ANGLE = 40;
+const UF_SHEET = [2070, 2800], UF_SHEET_PER = 3;          // płyta 207 × 280 cm, słoje wzdłuż dłuższego boku; z jednej wychodzą 3 formatki 200 × 90 cm
+const ufSheets = fp => Math.ceil((fp.total || 0) / UF_SHEET_PER);
 function ufAisleLen() {
   const st = UF.d.stand, parts = []; let total = 0;
   [['n', 'północ', st.L], ['e', 'wschód', st.D], ['s', 'południe', st.L], ['w', 'zachód', st.D]].forEach(([k, nm, len]) => { if (st.open[k]) { parts.push({ k, nm, len }); total += len; } });
@@ -8598,7 +8599,7 @@ const UF_GRAIN_TXT = { h: 'usłojenie poziome (horyzontalne)', v: 'usłojenie pi
 function ufFpText(fp) {
   if (!fp.total) return '';
   const cutB = fp.boards.length;
-  return `${ufFpTh() ? `grubość podłogi <b>${lenPL(ufFpTh())} ${UNIT()}</b> · ` : ''}<b>${fp.total}</b> płyt ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}: ${fp.full.length} całych + ${cutB} do pocięcia · cięć: <b>${fp.cuts}</b> · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m²${fp.grain ? ' · ' + UF_GRAIN_TXT[fp.grain] + ' — płyt nie obracam' : fp.norot ? ' · wszystko w jednej linii (bez obracania)' : ''}`;
+  return `${ufFpTh() ? `grubość podłogi <b>${lenPL(ufFpTh())} ${UNIT()}</b> · ` : ''}<b>${fp.total}</b> formatek ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()} (z <b>${ufSheets(fp)}</b> płyt ${lenPL(UF_SHEET[0])} × ${lenPL(UF_SHEET[1])}): ${fp.full.length} całych + ${cutB} do pocięcia · cięć: <b>${fp.cuts}</b> · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m²${fp.grain ? ' · ' + UF_GRAIN_TXT[fp.grain] + ' — płyt nie obracam' : fp.norot ? ' · wszystko w jednej linii (bez obracania)' : ''}`;
 }
 // kolor kawałka zależy od jego wymiaru (ten sam wymiar = ten sam kolor); z usłojeniem kawałek 400 × 900 ≠ 900 × 400
 function ufFpKinds(fp, grain) {
@@ -8668,7 +8669,7 @@ function ufRenderTop(W) {
   kk.kinds.forEach(k => { const r = cnt.get(k), hu = kk.hue[kk.kinds.indexOf(k) % kk.hue.length]; item(`hsla(${hu},85%,58%,.45)`, `hsla(${hu},70%,38%,.9)`, `${kk.letter({ w: r.w, h: r.h })} — ${ufFpDimTxt(r.w, r.h, grain)} — kawałki: ${r.n} szt.`); });
   cv.ufNS = geo.parts.filter(q => q.run && !ufStdPiece(q.op, q.run)).map(q => ({ p: [[q.x0, q.y0], [q.x1, q.y0], [q.x1, q.y1], [q.x0, q.y1]].flatMap(([x, y]) => [Math.round(X(x) / W * 1e4) / 1e4, Math.round(Y(y) / H * 1e4) / 1e4]) }));
   const edge = [...fp.full, ...fp.pieces].reduce((a, t) => a + 2 * (t.w + t.h), 0);
-  g.fillStyle = '#2d3748'; g.font = `700 26px ${F}`; g.fillText(`Razem płyt: ${fp.total} · cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² · okleina: ${numPL(edge / 1000)} m`, M, y + 14);
+  g.fillStyle = '#2d3748'; g.font = `700 26px ${F}`; g.fillText(`Razem formatek: ${fp.total} (płyt ${lenPL(UF_SHEET[0])} × ${lenPL(UF_SHEET[1])}: ${ufSheets(fp)}) · cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² · okleina: ${numPL(edge / 1000)} m`, M, y + 14);
   return cv;
 }
 function ufFpLegend(fp) {          // legenda liter formatek: kolorowy znaczek, litera, wymiar, ilość
@@ -10425,6 +10426,7 @@ function ufProduction() {
     }
     if (fp.total && ufFpTh()) add(6, 'Grubość podłogi', 'wpisana w rozrysie podłogi (nie wpływa na układ płyt)', 'plain').val = lenPL(ufFpTh()) + ' ' + UNIT();
     { const ai = ufAisleLen(); if (fp.total && ai.total > 0) add(6, `Kątownik aluminiowy ${lenPL(UF_ANGLE)} × ${lenPL(UF_ANGLE)} ${UNIT()} przy podłodze`, 'długości przy alejce: ' + ai.parts.map(p => `${p.nm} ${numPL(p.len / 1000)} m`).join(' + '), 'plain').val = numPL(ai.total / 1000) + ' m'; }
+    if (fp.total) add(6, `Płyty ${lenPL(UF_SHEET[0])} × ${lenPL(UF_SHEET[1])} ${UNIT()} na podłogę — całe`, `słoje wzdłuż dłuższego boku · z jednej płyty ${UF_SHEET_PER} formatki ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])} · potrzeba ${fp.total} formatek → ${ufSheets(fp)} płyt (zapas ${ufSheets(fp) * UF_SHEET_PER - fp.total} formatek)`, 'plain', ufSheets(fp));
     if (fp.total) add(6, `Razem płyt ${ufLen(UF_FPB[0])} × ${ufLen(UF_FPB[1])} do zamówienia`, `cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² (stoisko ${numPL(d.stand.L * d.stand.D / 1e6)} m²)${grTxt}`, 'plain', fp.total);
   }
   const secs = [[0, 'Formatki standardowe'], [1, 'Połówki'], [2, 'Drzwi'], [4, 'Słupki'], [3, 'Dostawki'], [5, 'Konektory'], [6, 'Podłoga — płyty 200 × 90 cm'], [9, 'Ścianki nietypowe']];
