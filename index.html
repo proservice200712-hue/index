@@ -8359,8 +8359,17 @@ function ufAddNext(op) {
   ufPush(); UF.d.pieces.push(piece); UF.sel = piece.id; UF.rot = false; ufChanged();
   if (piece.t === 'eltex') ufEltexDialog(piece, true);                // nowa rama ELTEX: od razu okno wymiarów
 }
+// Usuń: zaznaczony klocek ścianki albo — gdy żaden klocek nie jest zaznaczony — zaznaczona grafika (znacznik na planie); usunięta grafika lica nie wraca po „Rozmieść grafiki”
+async function ufDeleteGraphic(el) {
+  if (isViewer() || UF.busy) return;
+  await deleteElement(el.id);
+  if (S.selId === el.id) return;          // anulowane (deleteElement czyści zaznaczenie tylko po usunięciu)
+  if (el.ufKey && el.ufRole === 'front' && !el.doorFor) { UF.d.skip = [...new Set([...(UF.d.skip || []), el.ufKey + '|front'])]; ufChanged(); toast(`Usunięto grafikę ${markOf(el)} — nie wróci po „Rozmieść grafiki”; szary „＋” na planie ją przywraca`, '', 5000); }
+  ufDraw(true);
+}
 function ufDelete() {
-  if (UF.busy || !UF.sel) return;
+  if (UF.busy) return;
+  if (!UF.sel) { const el = S.selId && S.elements.find(x => x.id === S.selId); if (el) ufDeleteGraphic(el); return; }
   const i = UF.d.pieces.findIndex(p => p.id === UF.sel); if (i < 0) return;
   ufPush(); UF.d.pieces.splice(i, 1); UF.sel = null; UF.rot = false; ufChanged();
 }
@@ -9236,8 +9245,13 @@ function ufDraw(light) {
   };
   const elOf = (key, role) => S.elements.find(e => e.ufKey === key && e.ufRole === role && !e.doorFor);
   geo.faces.forEach(fc => {
-    const fe = elOf(fc.key, 'front'); if (!fe) return;
+    const fe = elOf(fc.key, 'front');
     const at = (along, off) => fc.ori === 0 ? [along, fc.run.line + fc.inn * off] : [fc.run.line + fc.inn * off, along];
+    if (!fe) {        // grafika usunięta z planu: szary „＋” (klik przywraca)
+      if ((UF.d.skip || []).includes(fc.key + '|front')) { const [gx, gy] = at((fc.a + fc.b) / 2, 420); UF.pins.push({ x: X(gx), y: Y(gy), r: 11, key: '', mark: '', ghost: fc.key });
+        g.save(); g.setLineDash([3, 3]); g.beginPath(); g.arc(X(gx), Y(gy), 11, 0, Math.PI * 2); g.fillStyle = 'rgba(255,255,255,.8)'; g.fill(); g.lineWidth = 1.6; g.strokeStyle = '#a0aec0'; g.stroke(); g.setLineDash([]); g.fillStyle = '#a0aec0'; g.font = `800 15px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('+', X(gx), Y(gy) + .5); g.restore(); }
+      return;
+    }
     pin(...at((fc.a + fc.b) / 2, 420), markOf(fe), colorOf(fe), 11, fc.key);
     ufFaceSpec(fc).doorOps.forEach((op, i) => {   // każde drzwi w licu: swój znacznik (A1, A2…)
       const de = S.elements.find(e => e.doorFor === fe.id && (e.doorIdx || 0) === i), dp = (fc.runs2 ? fc.runs2.flatMap(r => r.parts) : fc.run.parts).find(q => q.op === op);
@@ -9559,6 +9573,8 @@ function ufPointer(e) {
   if (ar) { ufPush(); UF.d.stand.open[ar.k] = !UF.d.stand.open[ar.k]; ufChanged(); return; }
   const dh = (UF.dimHits || []).find(h => px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h);
   if (dh) { e.preventDefault(); ufDimEdit(dh); return; }
+  const gh = (UF.pins || []).find(q => q.ghost && Math.hypot(q.x - px, q.y - py) < q.r + 3);
+  if (gh) { e.preventDefault(); ufPush(); UF.d.skip = (UF.d.skip || []).filter(k => k !== gh.ghost + '|front'); ufChanged(); toast('Grafika wróci po kliknięciu „Rozmieść grafiki”', '', 4000); return; }
   const pk = (UF.pins || []).find(q => q.mark && Math.hypot(q.x - px, q.y - py) < q.r + 3);
   if (pk) { const el = S.elements.find(x => markOf(x) === pk.mark); if (el) { e.preventDefault(); selectElement(el.id, false); ufDraw(true); return; } }       // znacznik na planie: element od razu zaznaczony i pokazany w wykazie
   const ka = (UF.kar || []).find(a => Math.hypot(a.x - px, a.y - py) < 14);
@@ -10491,7 +10507,7 @@ async function ufGenerate(mode = 'photos') {
     const take = set => { let n = 1; while (set.has(n)) n++; set.add(n); return n; };
     const jobs = [], marks = new Map(), tcol = typeById('blackback').color;
     // przód: jedna grafika na każde lico widoczne od alejki; tył: wysłona ręczna na całą ściankę
-    const units = geoG.faces.filter(fc => !ufK() || fc.run.mounts[ufPlOf(fc.run, fc.inn)] !== 'plate').map(fc => { let spec = ufFaceSpec(fc); if (ufK() && spec.mount === 'paint') spec = { ...spec, door: null, doorsMore: [], doors: 0 }; return { run: { key: fc.key }, role: 'front', spec }; })
+    const units = geoG.faces.filter(fc => !(UF.d.skip || []).includes(fc.key + '|front')).filter(fc => !ufK() || fc.run.mounts[ufPlOf(fc.run, fc.inn)] !== 'plate').map(fc => { let spec = ufFaceSpec(fc); if (ufK() && spec.mount === 'paint') spec = { ...spec, door: null, doorsMore: [], doors: 0 }; return { run: { key: fc.key }, role: 'front', spec }; })
       .concat(runs.filter(r => r.backKind).map(r => ({ run: { key: r.key }, role: 'back', spec: ufSpec(r, 'back') })));
     units.forEach(({ run, role, spec }) => {
       const ex = S.elements.find(e => e.ufKey === run.key && e.ufRole === role && !e.doorFor);
