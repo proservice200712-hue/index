@@ -8661,6 +8661,8 @@ function ufFpLegend(fp) {          // legenda liter formatek: kolorowy znaczek, 
   kk.kinds.forEach((k, i) => { const r = cnt.get(k), hu = kk.hue[i % kk.hue.length]; h += chip(`hsla(${hu},85%,58%,.5)`, `hsla(${hu},70%,38%,.9)`, kk.letter({ w: r.w, h: r.h }), `${ufFpDimTxt(r.w, r.h, grain)} × ${r.n}`); });
   return h ? `<div style="margin-top:5px;line-height:1.5">${h}</div>` : '';
 }
+// wymiary stoiska w polach „dł.” i „gł.” — w metrach tylko dla administratora KG (poza samouczkiem)
+const ufStandM = () => !!(S.me && S.me.id === 'kg' && !S.tour);
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
   $('uf-meas').classList.toggle('on', !!UF.measOn); $('uf-measm').classList.toggle('hidden', !UF.measOn); $('uf-measm').textContent = UF.measMode === 'o' ? '↔ poziom/pion' : '↗ po skosie';
@@ -8677,7 +8679,9 @@ function ufSyncBar() {
   sel.disabled = !r; cb.disabled = !r;
   ufHOpt(sel, r ? r.h : d.H); cb.checked = !!(r && r.manual);
   const act = document.activeElement;
-  if (act !== $('uf-sl')) $('uf-sl').value = numIn(fromMM(st.L)); if (act !== $('uf-sd')) $('uf-sd').value = numIn(fromMM(st.D));
+  { const sm = ufStandM(), fmt = v => numIn(sm ? Math.round(v) / 1000 : fromMM(v));       // wyjątek: wymiary stoiska w metrach dla administratora KG
+    if (act !== $('uf-sl')) $('uf-sl').value = fmt(st.L); if (act !== $('uf-sd')) $('uf-sd').value = fmt(st.D);
+    [['uf-sl', 'dł.'], ['uf-sd', 'gł.']].forEach(([id, t]) => { const sp = $(id).parentElement.querySelector('span'); if (sp) sp.textContent = sm ? t + ' [m]' : t; }); }
   $('uf-sa').textContent = numPL(st.L * st.D / 1e6) + ' m²';
   ufHOpt($('uf-sh'), d.H); $('uf-ext').checked = !!st.ext; $('uf-extm').value = !st.ext ? '0' : st.extFull ? 'full' : 'top'; $('uf-caps').checked = st.caps !== false; $('uf-capsx').checked = st.capsX !== false; $('uf-zap').checked = !!st.zap; $('uf-hb').checked = d.hband !== false;
   $('uf-look').textContent = d.look === 'bare' ? (ufK() ? '▦ 3D: kratownica' : '▦ 3D: gołe ramy') : '▮ 3D: pełne ściany';
@@ -10863,7 +10867,7 @@ async function closeUltraFrame() {
   $('uf-roofk').onchange = e => { const r0 = ufSelRun(), c = r0 && ufRoofCfg(r0); if (!c || !c.can) return; ufSetRoof(ufRoofMode(c), { drop: e.target.checked }); };
   $('uf-roofd').onchange = e => { const r0 = ufSelRun(), c = r0 && ufRoofCfg(r0), txt = String(e.target.value).trim(), v = txt ? toMM(txt) : 0; if (!c || !c.can) return; if (txt && !(v >= 50)) { toast('Podaj głębokość daszku, min. ' + lenPL(50) + ' ' + UNIT() + ' (puste = do przeciwległej ścianki)', 'error'); return ufSyncBar(); } ufSetRoof(ufRoofMode(c), { d: v }); };
   $('uf-sh').onchange = async e => { let v = parseInt(e.target.value, 10); if (e.target.value === 'custom') { v = await ufAskHeight(UF.d.H); if (!v) return ufSyncBar(); } ufPush(); UF.d.H = v; ufChanged(); };
-  const dimIn = (id, k) => $(id).addEventListener('change', e => { const v = toMM(e.target.value); if (!(v >= 1000 && v <= 60000)) { toast(`Podaj wymiar od ${lenPL(1000)} do ${lenPL(60000)} ${UNIT()}`, 'error'); ufSyncBar(); return; } ufPush(); UF.d.stand[k] = v; UF.d.pieces.forEach(p => ufFit(p)); ufChanged(); });
+  const dimIn = (id, k) => $(id).addEventListener('change', e => { const sm = ufStandM(), v = sm ? Math.round(Number(String(e.target.value).replace(',', '.')) * 1000) : toMM(e.target.value); if (!(v >= 1000 && v <= 60000)) { toast(sm ? 'Podaj wymiar od 1 do 60 m' : `Podaj wymiar od ${lenPL(1000)} do ${lenPL(60000)} ${UNIT()}`, 'error'); ufSyncBar(); return; } ufPush(); UF.d.stand[k] = v; UF.d.pieces.forEach(p => ufFit(p)); ufChanged(); });
   dimIn('uf-sl', 'L'); dimIn('uf-sd', 'D');
   $('uf-extm').onchange = e => { ufPush(); const v = e.target.value; UF.d.stand.ext = v !== '0'; UF.d.stand.extFull = v === 'full'; ufChanged(); };
   $('uf-ext').onchange = e => { ufPush(); UF.d.stand.ext = e.target.checked; ufChanged(); };
