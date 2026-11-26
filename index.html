@@ -3927,6 +3927,7 @@ function openProjectForm(pid, fairId) { if (isViewer()) return;
       }
     } catch (e) { toast('Błąd zapisu: ' + e.message, 'error'); $('pf-ok').disabled = false; }
   };
+  $('pf-name').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && !$('pf-ok').disabled) { e.preventDefault(); e.stopPropagation(); $('pf-ok').click(); } });       // Enter w polu nazwy = Utwórz / Zapisz
   if (pid && isAdmin()) $('pf-del').onclick = async () => {
     const ok = await confirmBox(`Usunąć stoisko <b>${esc(p.name)}</b> razem ze wszystkimi wizkami, elementami i historią?<br><br>Tej operacji nie da się cofnąć.`, 'Usuń stoisko');
     if (!ok) return;
