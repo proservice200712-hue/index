@@ -939,13 +939,31 @@
   #alpaca[data-costume="jason"] .eye, #alpaca[data-costume="jason"] .eyehl, #alpaca[data-costume="jason"] .blush { display: none; }
   /* Avengersi: osobne postacie (nie alpaka) — ta sama animacja biegu (.lg) */
   #alpaca[data-kind="hero"] #alp-body, #alpaca:not([data-kind="hero"]) #hero-svg { display: none; }
-  /* Son Goku: obrazek zamiast rysunku — bieg to podskoki z lekkim kołysaniem */
-  #alpaca #goku-img { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; height: 118%; width: auto; transform-origin: 50% 100%; }
-  #alpaca:not([data-kind="goku"]) #goku-img, #alpaca[data-kind="goku"] #alp-body, #alpaca[data-kind="goku"] #hero-svg { display: none; }
-  #alpaca.run #goku-img { animation: gokuRun .3s ease-in-out infinite; }
-  #alpaca.para #goku-img { animation: gokuSway 1.4s ease-in-out infinite alternate; }
-  @keyframes gokuRun { 0%, 100% { transform: translateY(0) rotate(-6deg) scale(1.03, .96); } 50% { transform: translateY(-9px) rotate(6deg) scale(.97, 1.04); } }
-  @keyframes gokuSway { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+  /* Son Goku (profil): bieg jak u alpaki (nogi .gk-l, ręce .gk-a), Kamehameha: .charge (kula w dłoniach) → .fire (promień) */
+  #alpaca[data-kind="goku"] { width: 2.7cm; height: 2.7cm; }
+  #alpaca:not([data-kind="goku"]) #goku-svg, #alpaca:not([data-kind="goku"]) #gk-beam, #alpaca:not([data-kind="goku"]) #gk-say, #alpaca[data-kind="goku"] #alp-body, #alpaca[data-kind="goku"] #hero-svg { display: none; }
+  #alpaca .gk-l, #alpaca .gk-a { transform-box: fill-box; transform-origin: 50% 8%; transition: transform .25s ease; }
+  #alpaca.run .gk-l1, #alpaca.run .gk-a2 { animation: alpLeg .32s ease-in-out infinite; }
+  #alpaca.run .gk-l2, #alpaca.run .gk-a1 { animation: alpLeg .32s ease-in-out infinite reverse; }
+  #alpaca .gk-b { transition: transform .25s ease; }
+  #alpaca.stop .gk-l1 { transform: rotate(-12deg); } #alpaca.stop .gk-l2 { transform: rotate(12deg); }
+  #alpaca.charge .gk-b, #alpaca.fire .gk-b { transform: translateY(5px); }
+  #alpaca.charge .gk-l1, #alpaca.fire .gk-l1 { transform: rotate(-34deg); }
+  #alpaca.charge .gk-l2, #alpaca.fire .gk-l2 { transform: rotate(30deg); }
+  #alpaca.charge .gk-a { transform: rotate(48deg); }
+  #alpaca.fire .gk-a { transform: rotate(-90deg); }
+  #alpaca.para .gk-a { transform: rotate(-150deg); }
+  #alpaca .gk-orb, #alpaca .gk-orb2 { display: none; transform-box: fill-box; transform-origin: 50% 50%; filter: drop-shadow(0 0 3px #7fe0ff) drop-shadow(0 0 8px #3a9bff); }
+  #alpaca.charge .gk-orb { display: block; animation: gkOrb 1.3s ease-in forwards; }
+  #alpaca.fire .gk-orb2 { display: block; animation: gkPulse .18s ease-in-out infinite alternate; }
+  @keyframes gkOrb { from { transform: scale(.05); } to { transform: scale(1.3); } }
+  @keyframes gkPulse { from { transform: scale(1); } to { transform: scale(1.25); } }
+  #gk-beam { display: none; position: absolute; left: 79%; bottom: 42%; height: 32%; width: var(--beam, 400px); transform-origin: 0 50%; border-radius: 999px; pointer-events: none;
+    background: linear-gradient(90deg, #fff 0, #d6f6ff 18%, #5cc8ff 62%, rgba(76,170,255,.35) 100%); box-shadow: 0 0 10px 3px #8ae4ff, 0 0 28px 9px rgba(58,160,255,.55); }
+  #alpaca.fire #gk-beam { display: block; animation: gkBeam 1.9s ease-out forwards; }
+  @keyframes gkBeam { 0% { transform: scaleX(0) scaleY(.5); opacity: 1; } 30% { transform: scaleX(1) scaleY(1); } 55% { transform: scaleX(1) scaleY(1.15); } 80% { transform: scaleX(1) scaleY(.9); opacity: 1; } 100% { transform: scaleX(1) scaleY(.4); opacity: 0; } }
+  #gk-say { display: none; position: absolute; left: 50%; bottom: 100%; margin-bottom: 2px; white-space: nowrap; font: 900 15px/1 'Segoe UI', Impact, sans-serif; color: #fff; -webkit-text-stroke: 3px #1c3d8f; paint-order: stroke fill; text-shadow: 0 0 8px #4cc3ff; transform: translateX(-50%) scaleX(var(--f, 1)); }
+  #alpaca.charge #gk-say, #alpaca.fire #gk-say { display: block; }
   #alpaca:not([data-costume="iron"]) .hr-iron, #alpaca:not([data-costume="cap"]) .hr-cap, #alpaca:not([data-costume="thor"]) .hr-thor,
   #alpaca:not([data-costume="hulk"]) .hr-hulk, #alpaca:not([data-costume="widow"]) .hr-widow, #alpaca:not([data-costume="spider"]) .hr-spider { display: none; }
   #alpaca .hr-glow { filter: drop-shadow(0 0 2px #7fe7ff) drop-shadow(0 0 4px #4ccfff); }
@@ -1360,7 +1378,34 @@
       <g stroke-width="1.6" fill="none"><path d="M12 70 L88 146"/><path d="M64 68 L94 146"/><path d="M136 68 L106 146"/><path d="M188 70 L112 146"/></g>
     </g>
   </svg>
-  <img id="goku-img" src="goku.png" alt="" draggable="false">
+  <!-- Son Goku z profilu (rysunek SVG): bieg, Kamehameha (ładowanie kuli → strzał) -->
+  <svg id="goku-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <defs><radialGradient id="gkg"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#bdf1ff"/><stop offset="1" stop-color="#3aa0ff"/></radialGradient></defs>
+    <g stroke="#2a1a14" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M52 75 Q33 82 31 63 Q30 52 40 49" fill="none" stroke="#2a1a14" stroke-width="7.6"/>
+      <path class="gk-tail" d="M52 75 Q33 82 31 63 Q30 52 40 49" fill="none" stroke="#a5733a" stroke-width="4.2"/>
+      <g class="gk-b">
+        <g class="gk-l gk-l2"><rect x="55" y="76" width="11" height="25" rx="5" fill="#d9610f"/><path d="M54 99 H67 L77 104 Q79 108 75 109 H54 Z" fill="#1f3a8a"/></g>
+        <g class="gk-a gk-a2"><rect x="56" y="47" width="10" height="15" rx="5" fill="#d9610f"/><rect x="56" y="61" width="10" height="6" fill="#1f3a8a"/><rect x="56.5" y="66" width="9" height="11" rx="4.5" fill="#e0a878"/></g>
+        <path d="M51 47 Q49 62 51 78 H77 Q78 62 74 47 Z" fill="#f2761b"/>
+        <rect x="50.5" y="70" width="26.5" height="7" fill="#2d4fa8"/>
+        <g class="gk-l gk-l1"><rect x="57" y="76" width="11" height="25" rx="5" fill="#f2761b"/><path d="M56 99 H69 L79 104 Q81 108 77 109 H56 Z" fill="#2d4fa8"/></g>
+        <g class="gk-a gk-a1"><rect x="62" y="47" width="10" height="15" rx="5" fill="#f2761b"/><rect x="62" y="61" width="10" height="6" fill="#2d4fa8"/><rect x="62.5" y="66" width="9" height="11" rx="4.5" fill="#f6c79a"/></g>
+        <rect x="62" y="41" width="8" height="8" fill="#f6c79a" stroke="none"/>
+        <circle cx="66" cy="29" r="16" fill="#f6c79a"/>
+        <circle cx="57" cy="31" r="3.4" fill="#f6c79a"/>
+        <path d="M50 36 L38 33 L46 27 L35 19 L47 19 L41 7 L54 13 L56 1 L66 10 L74 1 L77 11 L88 6 L84 19 L92 20 L83 25 L84 21 L76 19 Q66 17 58 24 Q52 28 52 36 Z" fill="#1b1b1b"/>
+        <ellipse class="eye" cx="76" cy="29.5" rx="3.2" ry="4.4" fill="#fff" stroke-width="1.5"/>
+        <circle class="eye" cx="77.3" cy="30" r="2.1" fill="#1b1b1b" stroke="none"/>
+        <path d="M72 24.5 L80 26" fill="none" stroke-width="2.2"/>
+        <path d="M82 31 Q86 33 82 35.5" fill="none" stroke-width="1.6"/>
+        <path d="M75 39 Q79 41.5 83 38.5" fill="none" stroke-width="1.6"/>
+      </g>
+      <circle class="gk-orb" cx="47" cy="70" r="10" fill="url(#gkg)" stroke="none"/>
+      <circle class="gk-orb2" cx="97" cy="50" r="9" fill="url(#gkg)" stroke="none"/>
+    </g>
+  </svg>
+  <div id="gk-beam"></div><div id="gk-say"></div>
   <svg id="alp-body" viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
     <g stroke="#3b2f2f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
       <rect class="lg lb" x="25" y="72" width="9" height="30" rx="4.5" fill="#efdcb8"/>
@@ -7789,7 +7834,7 @@ const ufPlOf = (run, inn) => inn === run.inn0 ? 'f' : 'b';
 // lico zamknięte samą płytą: wybrany montaż „sama płyta” albo strona zwrócona na alejkę (wszystko przy alejkach jest zamknięte)
 const ufPlateOn = (r, inn) => !!(r.mounts && r.mounts[ufPlOf(r, inn)] === 'plate') || !!(r.aisle && r.aisle[inn]);
 const ufPl = () => UF.pl === 'b' ? 'b' : 'f';
-const ufKNote = (run, pl = 'f') => `K-Frame: kratownica z kantówek i płyta od frontu (moduł ${lenPL(UF_KW)} × ${lenPL(UF_KH)} × gr. ${lenPL(UF_KT)}); montaż: ${run.mounts[pl] === 'paint' ? 'malowanie — ' + ufPaintLabel(run, pl) + (run.psides[pl] ? ', razem z bokiem ścianki' : '') : run.mounts[pl] === 'lightbox' ? 'lightbox — wspólna ramka głębokości 6 cm na całej szerokości lica, pasek LED po obwodzie wewnętrznym, grafika lightbox z przodu' : ufMount(run.mounts[pl])[1]}${pl === 'b' ? ' (tył ścianki)' : ''}${run.ops.some(o => o.t === 'door') ? ' · ściana z drzwiami obudowana płytą z dwóch stron' : ''}`;
+const ufKNote = (run, pl = 'f') => `K-Frame · ${run.mounts[pl] === 'paint' ? 'malowanie — ' + ufPaintLabel(run, pl) + (run.psides[pl] ? ', razem z bokiem ścianki' : '') : run.mounts[pl] === 'lightbox' ? 'lightbox' : ufMount(run.mounts[pl])[1]}${pl === 'b' ? ' (tył ścianki)' : ''}`;
 const UF_KKEYS = 'ścianka z płytą po obu stronach (grafika z dwóch stron, płyta od strony zaplecza, wysłona ręczna) ma 6,6 cm: kratownica 6 cm + płyta 3 mm z każdej strony · zaplecze ma płytę w środku, bez grafik · ścianki nie mogą na siebie nachodzić (czerwony obrys) · przeciągnij moduł na plan: koniec przyciąga się do końca innej ścianki albo do jej lica w dowolnym miejscu (styk prostopadły) · niebieskie wymiary przy zaznaczonej ściance (odległość od końców ścianki, do której dolega) — kliknij liczbę i wpisz nowy wymiar · niebieskie strzałki ją przesuwają · kropka w narożniku zaznaczonego modułu: chwyć i przyciągnij do narożnika innej ścianki, granicy stoiska albo lica innego modułu (krok w polu „Krok strzałek”; Ctrl+klik = 10×; domyślnie cała ścianka (wszystkie sklejone moduły), Shift = tylko zaznaczony moduł; klawisze strzałek to samo) · brązowy pasek = płyta od frontu · drzwi: prawy klawisz = zlicowane / wpuszczone · kółko = zbliżanie, przeciągnięcie tła = przesuwanie · R obrót · Backspace usuń · Ctrl+Z cofnij';
 const ufTh = p => p.t === 'eltex' ? (Number(p.th) || 50) : ufK() ? (p.back || (p.id && UF_DBL.has(p.id)) ? UF_KT + 3 : UF_KT) : UF_T;   // K-Frame: kratownica 60 + płyta 3 mm = 63; ścianka dwustronna (wysłona) ma drugą płytę: 66          // grubość klocka: ELTEX — własna, reszta ramy E80
 const ufCorners = r => [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]];   // narożniki prostokąta klocka (świat, mm)
@@ -8771,11 +8816,16 @@ function ufSkGenerate(keepView) {
     ufSkSnapPosts(rs, ufSkJunc(rs, TOL), TOL, T, UF_KW, gapPW);
     rs.forEach(r => { r.ea = r.a; r.eb = r.b; });
     ends.forEach(e => { const r = rs[e.i], q = rs[e.j], thr = r['thr' + e.k]; r[e.k === 'A' ? 'ea' : 'eb'] = q.c + e.sg * (thr ? 1 : -1) * T / 2; r['fix' + e.k] = true; });
+    // koniec ściany przy zamkniętym boku stoiska (za nim sąsiad) zawsze dochodzi do krawędzi — bez wolnego odcinka
+    { const stE = UF.d.stand, BE = 150;
+      const edge = (r, k) => { const hiC = r.ori === 0 ? stE.L : stE.D, v = k === 'A' ? r.a : r.b; if (k === 'A' ? v > BE : v < hiC - BE) return null; const side = r.ori === 0 ? (k === 'A' ? 'w' : 'e') : (k === 'A' ? 'n' : 's'); return stE.open[side] ? null : (k === 'A' ? 0 : hiC); };
+      rs.forEach(r => { r.edA = r.fixA ? null : edge(r, 'A'); r.edB = r.fixB ? null : edge(r, 'B'); if (r.edA !== null) r.ea = r.edA; if (r.edB !== null) r.eb = r.edB; }); }
     const pieces = []; let nStd = 0, nCus = 0, nDoor = 0;
     rs.forEach(r => {
       const L = r.eb - r.ea; if (L < 100) return;
-      const fa = !!r.fixA, fb = !!r.fixB;
-      const mods = ufSkMods(L, fit, (fa ? 1 : 0) + (fb ? 1 : 0), UF_KW).map(l => ({ len: l, door: false })), tot = mods.reduce((a2, m) => a2 + m.len, 0), st0 = fb && !fa ? r.eb - tot : r.ea;
+      const fa = !!r.fixA, fb = !!r.fixB, eA = r.edA != null, eB = r.edB != null;
+      const fromB = (fb && !fa) || (!fa && !fb && eB && !eA), fillRem = fromB ? (eA && !fa) : (eB && !fb);        // reszta wypada na końcu przy sąsiedzie → dobudowana w całości (jak przy dwóch stałych końcach)
+      const mods = ufSkMods(L, fit, fillRem ? 2 : (fa ? 1 : 0) + (fb ? 1 : 0), UF_KW).map(l => ({ len: l, door: false })), tot = mods.reduce((a2, m) => a2 + m.len, 0), st0 = fromB ? r.eb - tot : r.ea;
       let pos = st0; const cen = mods.map(m => { const c = pos + m.len / 2; pos += m.len; return c; });
       r.doors.filter(dc => dc >= r.ea - 100 && dc <= r.eb + 100).forEach(dc => {
         let bi = -1, bd = Infinity; mods.forEach((m, i) => { if (!m.door && Math.abs(m.len - UF_KW) < 1 && Math.abs(cen[i] - dc) < bd) { bd = Math.abs(cen[i] - dc); bi = i; } });
@@ -9170,8 +9220,10 @@ function ufDraw(light) {
   });
   // znaczniki wygenerowanych elementów (te same litery co na wizce): przód, wysłona ręczna, drzwi, wysłona zewnętrzna na boku
   UF.pins = [];
+  const selEl = S.selId && S.elements.find(x => x.id === S.selId), selMk = selEl ? markOf(selEl) : '';
   const pin = (mx, my, txt, col, r = 11, key = '') => {
-    if (key) UF.pins.push({ x: X(mx), y: Y(my), r, key });
+    UF.pins.push({ x: X(mx), y: Y(my), r, key, mark: txt });
+    if (selMk && txt === selMk) { g.beginPath(); g.arc(X(mx), Y(my), r + 5, 0, Math.PI * 2); g.lineWidth = 3; g.strokeStyle = '#38a169'; g.stroke(); }
     g.beginPath(); g.arc(X(mx), Y(my), r, 0, Math.PI * 2); g.fillStyle = col; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke();
     g.fillStyle = '#fff'; g.font = `800 ${txt.length > 2 ? 8 : txt.length > 1 ? 9.5 : 11.5}px ${F}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, X(mx), Y(my) + 0.5);
   };
@@ -9211,10 +9263,10 @@ function ufDraw(light) {
   });
   // tryb „Połącz grafiki”: pierścienie wokół znaczników, nitka od wybranej grafiki do kursora
   if (UF.linkOn) {
-    UF.pins.forEach(q => { g.beginPath(); g.arc(q.x, q.y, q.r + 4, 0, Math.PI * 2); g.lineWidth = q.key === UF.linkA ? 4 : 2; g.strokeStyle = q.key === UF.linkA ? '#d69e2e' : '#805ad5'; g.stroke(); });
+    UF.pins.filter(q => q.key).forEach(q => { g.beginPath(); g.arc(q.x, q.y, q.r + 4, 0, Math.PI * 2); g.lineWidth = q.key === UF.linkA ? 4 : 2; g.strokeStyle = q.key === UF.linkA ? '#d69e2e' : '#805ad5'; g.stroke(); });
     const pa = UF.linkA && UF.pins.find(q => q.key === UF.linkA);
     if (pa && UF.linkMouse) {
-      const hv = UF.pins.find(q => q.key !== pa.key && Math.hypot(q.x - UF.linkMouse[0], q.y - UF.linkMouse[1]) < q.r + 8), tx = hv ? hv.x : UF.linkMouse[0], ty = hv ? hv.y : UF.linkMouse[1];
+      const hv = UF.pins.find(q => q.key && q.key !== pa.key && Math.hypot(q.x - UF.linkMouse[0], q.y - UF.linkMouse[1]) < q.r + 8), tx = hv ? hv.x : UF.linkMouse[0], ty = hv ? hv.y : UF.linkMouse[1];
       g.save(); g.setLineDash([7, 5]); g.lineWidth = 3; g.strokeStyle = '#d69e2e'; g.lineCap = 'round'; g.beginPath(); g.moveTo(pa.x, pa.y); g.lineTo(tx, ty); g.stroke(); g.restore();
     }
   }
@@ -9447,7 +9499,7 @@ function ufLinkAdd(ka, kb) {
 function ufLinkClick(px, py) {
   const sh = (UF.seamHits || []).find(h => Math.hypot(h.x - px, h.y - py) < 12);
   if (sh) { ufPush(); UF.d.links.splice(sh.li, 1); UF.linkA = null; UF.linkOn = false; ufSyncBar(); ufChanged(); toast('Rozłączono grafiki — kliknij „Rozmieść grafiki”, aby zaktualizować elementy', '', 5000); return; }
-  const pn = (UF.pins || []).find(q => Math.hypot(q.x - px, q.y - py) < q.r + 6);
+  const pn = (UF.pins || []).find(q => q.key && Math.hypot(q.x - px, q.y - py) < q.r + 6);
   if (!pn) { if (UF.linkA) { UF.linkA = null; ufDraw(true); } return; }
   if (!UF.linkA) { UF.linkA = pn.key; UF.linkMouse = [px, py]; ufDraw(true); return; }
   if (UF.linkA === pn.key) { UF.linkA = null; ufDraw(true); return; }
@@ -9464,6 +9516,8 @@ function ufPointer(e) {
   if (ar) { ufPush(); UF.d.stand.open[ar.k] = !UF.d.stand.open[ar.k]; ufChanged(); return; }
   const dh = (UF.dimHits || []).find(h => px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h);
   if (dh) { e.preventDefault(); ufDimEdit(dh); return; }
+  const pk = (UF.pins || []).find(q => q.mark && Math.hypot(q.x - px, q.y - py) < q.r + 3);
+  if (pk) { const el = S.elements.find(x => markOf(x) === pk.mark); if (el) { e.preventDefault(); selectElement(el.id, false); ufDraw(true); return; } }       // znacznik na planie: element od razu zaznaczony i pokazany w wykazie
   const ka = (UF.kar || []).find(a => Math.hypot(a.x - px, a.y - py) < 14);
   if (ka) { ufKMove(ka.dx, ka.dy, !e.shiftKey, e.ctrlKey); return; }
   if (UF.hit && Math.hypot(UF.hit.x - px, UF.hit.y - py) < 16) { ufRotate(true); return; }
@@ -10335,7 +10389,7 @@ async function ufGenerate(mode = 'photos') {
       let id;
       if (j.ex) {
         id = j.ex.id;
-        await DB.update(pElements(pid), id, { ...(ufK() && j.role === 'front' && j.spec.mount === 'paint' ? { typeId: 'nie-wiem', seg: false, name: 'Malowanie — ' + (j.spec.paintName || ufPaintName(j.spec.paint)), notes: j.spec.notes } : {}), useam: j.spec.seams || [], w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...more, photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
+        await DB.update(pElements(pid), id, { ...(ufK() && j.role === 'front' && j.spec.mount === 'paint' ? { typeId: 'nie-wiem', seg: false, name: 'Malowanie — ' + (j.spec.paintName || ufPaintName(j.spec.paint)), notes: j.spec.notes } : {}), ...(j.ex.notes && /^K-Frame: kratownica z kantówek/.test(j.ex.notes) ? { notes: j.ex.notes.replace(/^K-Frame: kratownica z kantówek i płyta od frontu \(moduł [^)]*\); montaż: /, 'K-Frame · ').replace(' · ściana z drzwiami obudowana płytą z dwóch stron', '') } : {}), useam: j.spec.seams || [], w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], wExpr: j.spec.wExpr, wExprUnit: j.spec.wExpr ? j.spec.wExprUnit : '', ...more, photoId, shape, updatedAt: nowIso(), updatedBy: S.me.id });
         nUpd++;
       } else { id = await DB.add(pElements(pid), { ...j.rec, ...more, photoId, shape }); nNew++; }
       if (j.spec.door || S.elements.some(e => e.doorFor === id)) await syncDoorElement(id, { ...(j.ex || j.rec), id, w: j.spec.w, h: j.spec.h, door: j.spec.door, doorsMore: j.spec.doorsMore || [], photoId, shape });
@@ -11995,6 +12049,15 @@ function runAlpaca() {
 const alpGo = (a, from, to, flip, ms, easing = 'ease-in-out') => a.animate(
   [{ transform: `translate(${from[0]}px, ${from[1]}px) scaleX(${flip})` }, { transform: `translate(${to[0]}px, ${to[1]}px) scaleX(${flip})` }],
   { duration: ms, easing, fill: 'forwards' }).finished;
+// Son Goku: staje, ładuje kulę w dłoniach („Ka-me-ha-me…”), strzela promieniem w stronę, w którą patrzy, i biegnie z powrotem
+async function gokuKamehameha(a, dir) {
+  const wait = ms => new Promise(r => setTimeout(r, ms)), say = $('gk-say'), bx = a.getBoundingClientRect();
+  a.style.setProperty('--f', dir); a.style.setProperty('--beam', Math.max(120, dir > 0 ? innerWidth - (bx.left + bx.width * 0.79) : bx.left + bx.width * 0.21) + 'px');
+  a.className = 'stop'; await wait(350);
+  a.className = 'charge'; say.textContent = 'Ka… me… ha… me…'; await wait(1400);
+  a.className = 'fire'; say.textContent = 'HAAAAA!!!'; await wait(1900);
+  a.className = 'stop'; await wait(450);
+}
 // dobiega do 1/4 (z lewej) albo 3/4 (z prawej) szerokości ekranu, mruga i wraca
 function alpacaRun(a, side) {
   const w = a.offsetWidth || 76, W = innerWidth;
@@ -12002,7 +12065,7 @@ function alpacaRun(a, side) {
   const dir = side === 'left' ? 1 : -1, ms = Math.max(1800, Math.abs(mid - off) * 4.5);
   a.style.display = 'block'; a.className = 'run';
   return alpGo(a, [off, 0], [mid, 0], dir, ms)
-    .then(() => { a.className = 'stop'; return new Promise(r => setTimeout(r, 1200)); })
+    .then(() => creatureKind() === 'goku' ? gokuKamehameha(a, dir) : (a.className = 'stop', new Promise(r => setTimeout(r, 1200))))
     .then(() => { a.className = 'run'; return alpGo(a, [mid, 0], [off, 0], -dir, ms); });
 }
 // spadochron: start na belce nad zegarem, łagodne kołysanie w dół, po wylądowaniu ucieka w bok
