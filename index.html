@@ -44,6 +44,7 @@
   .uf-bar button.on { background: var(--accent); color: var(--dark); }
   .uf-bar button:disabled { opacity: .5; cursor: default; }
   .uf-bar .uf-go { background: #38a169; border-color: #2f855a; color: #fff; }
+  #uf-meas.on { background: #d53f8c; border-color: #b83280; color: #fff; }
   .uf-bar .uf-lay { background: #3182ce; border-color: #2b6cb0; }
   .uf-bar .uf-link { background: #805ad5; border-color: #6b46c1; }
   .uf-bar .uf-link.on { background: #d69e2e; border-color: #b7791f; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #d69e2e; }
@@ -1207,7 +1208,7 @@
       <div id="uf-pane" class="hidden">
         <div class="uf-bar">
           <span class="uf-grp"><button type="button" id="uf-prod" title="Produkcja: zestawienie użytych ścianek — formatki standardowe, połówki, dostawki i ścianki nietypowe, z podziałem na obite jednostronnie / dwustronnie">🏭 Produkcja</button><button type="button" id="uf-tech" class="hidden" title="Rys-tech (K-Frame): rysunek techniczny z siatką i wymiarami — widok z góry (duży), front i bok od alejki. Do pobrania jako PNG albo do wydruku.">📐 Rys-tech</button><button type="button" id="uf-sketch" class="hidden" title="Rysowanie: narysuj ściany kreską (zielona = ściany, zaplecze, pokoje; żółta = drzwi), a program ułoży z nich moduły 99,5 i 49,75. K-Frame: moduły 99,5 i 49,7; EasyFrame: moduły 99,2 i 49,6 + słupki w narożnikach i na stykach. Dostępne na początku, gdy na planie nie ma jeszcze ścianek.">✎ Rysowanie</button></span>
-          <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button></span>
+          <span class="uf-grp"><button type="button" id="uf-zo" title="Pomniejsz (−, kółko myszy)">−</button><span id="uf-zl" class="uf-zl">100%</span><button type="button" id="uf-zi" title="Powiększ (+, kółko myszy)">＋</button><button type="button" id="uf-zf" title="Dopasuj do okna (F)">⤢</button><button type="button" id="uf-meas" title="Miarka: kliknij dwa punkty na planie — pokaże się ich odległość (przyciąga do narożników ścianek i stoiska). Shift przy klikaniu przełącza skos ↔ poziom/pion. Esc kończy.">📏</button><button type="button" id="uf-measm" class="hidden" title="Tryb miarki: po skosie (dowolna linia) albo poziom/pion (linia blokuje się na bliższej osi). Shift = chwilowo odwrotnie."></button></span>
           <span class="uf-grp"><button type="button" id="uf-sysb" title="System ram: EasyFrame (aluminium E80) albo K-Frame (kratownica z kantówek). Zmiana czyści ułożone ścianki."></button></span>
           <span class="uf-grp"><button type="button" id="uf-undo" title="Cofnij (Ctrl+Z)">⟲</button><button type="button" id="uf-del" title="Usuń zaznaczony klocek (Backspace)">⌫</button></span>
           <span class="uf-grp uk"><label title="O ile przesuwają strzałki przy zaznaczonej ściance (Ctrl = 10×; domyślnie przesuwa się cała ścianka — wszystkie sklejone moduły; Shift = tylko zaznaczony moduł)">Krok strzałek <input type="text" inputmode="decimal" id="uf-step" value="10" autocomplete="off" title="Krok w mm — można ułamki, np. 0,1"> mm</label></span>
@@ -8609,6 +8610,7 @@ function ufFpLegend(fp) {          // legenda liter formatek: kolorowy znaczek, 
 }
 function ufSyncBar() {
   const d = UF.d, st = d.stand; if (!$('uf-h')) return;
+  $('uf-meas').classList.toggle('on', !!UF.measOn); $('uf-measm').classList.toggle('hidden', !UF.measOn); $('uf-measm').textContent = UF.measMode === 'o' ? '↔ poziom/pion' : '↗ po skosie';
   $('uf-tech').classList.toggle('hidden', !ufK());             // „Rys-tech” — tylko K-Frame
   $('uf-lay').classList.toggle('hidden', !isAdmin());          // „Rozmieść grafiki” — tylko dla administratorów
   if (!isAdmin()) UF.linkOn = false;
@@ -9275,6 +9277,21 @@ function ufDraw(light) {
       g.save(); g.setLineDash([7, 5]); g.lineWidth = 3; g.strokeStyle = '#d69e2e'; g.lineCap = 'round'; g.beginPath(); g.moveTo(pa.x, pa.y); g.lineTo(tx, ty); g.stroke(); g.restore();
     }
   }
+  // miarka: zapisane pomiary + pomiar na żywo (od pierwszego punktu do kursora)
+  if (UF.measOn || (UF.meas || []).length) {
+    const mc = '#d53f8c', one = (a, b, live) => {
+      const ax = X(a[0]), ay = Y(a[1]), bx = X(b[0]), by = Y(b[1]), dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), px = Math.hypot(bx - ax, by - ay);
+      g.save(); g.setLineDash(live ? [7, 5] : []); if (px > 14) drawArrowLine(g, ax, ay, bx, by, 9, mc, 2); else { g.strokeStyle = mc; g.lineWidth = 2; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke(); } g.setLineDash([]);
+      [[ax, ay], [bx, by]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = mc; g.stroke(); });
+      const diag = Math.abs(dx) > 0.5 && Math.abs(dy) > 0.5, t1 = lenPL(len) + ' ' + UNIT(), t2 = diag ? `Δx ${lenPL(Math.abs(dx))} · Δy ${lenPL(Math.abs(dy))}` : '';
+      g.font = `700 13px ${F}`; const w1 = g.measureText(t1).width; g.font = `600 11px ${F}`; const w2 = t2 ? g.measureText(t2).width : 0, bw = Math.max(w1, w2) + 14, bh = t2 ? 36 : 22, mx = (ax + bx) / 2, my = (ay + by) / 2 - 16 - bh / 2;
+      g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(mx - bw / 2, my - bh / 2, bw, bh); g.strokeStyle = mc; g.lineWidth = 1.5; g.strokeRect(mx - bw / 2, my - bh / 2, bw, bh);
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#97266d'; g.font = `700 13px ${F}`; g.fillText(t1, mx, t2 ? my - 7 : my); if (t2) { g.font = `600 11px ${F}`; g.fillStyle = '#702459'; g.fillText(t2, mx, my + 9); }
+      g.restore();
+    };
+    (UF.meas || []).forEach(m => one(m.a, m.b, false));
+    if (UF.measOn && UF.measA && UF.measMouse) one(UF.measA, ufMeasEnd(UF.measA, UF.measMouse, (UF.measMode === 'o') !== !!UF.measShift), true);
+  }
   // zaczepy podczas przeciągania + duch klocka
   const dr = UF.drag;
   if (dr && dr.moved) {
@@ -9483,9 +9500,29 @@ function ufZoomAt(px, py, k) {
   UF.vw = { s: s2, ox: px - wx * s2, oy: py - wy * s2 }; ufDraw();
 }
 // „Połącz grafiki” (administrator): tryb, w którym klik w znacznik jednej grafiki i drugiej łączy je w jedną (nitka); ✕ na kresce rozłącza
+// MIARKA: dwa punkty na planie → odległość (po skosie albo poziom/pion); punkty przyciągają się do narożników ścianek i stoiska
+function ufMeasToggle() {
+  UF.measOn = !UF.measOn; UF.measA = null; UF.measMouse = null; if (!UF.measOn) UF.meas = []; else { UF.linkOn = false; UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; UF.measMode = UF.measMode || 'd'; }
+  ufSyncBar(); ufDraw(true);
+  if (UF.measOn) toast('Miarka: kliknij pierwszy punkt, potem drugi (przyciąga do narożników). Przycisk obok przełącza skos ↔ poziom/pion, Esc kończy.', '', 5000);
+}
+function ufMeasSnap(wx, wy) {
+  const tol = 12 / UF.tr.s, st = UF.d.stand, geo = UF.geo || ufGeom(UF.d); let best = null, bd = tol;
+  const pts = [[0, 0], [st.L, 0], [st.L, st.D], [0, st.D]]; geo.parts.forEach(q => pts.push([q.x0, q.y0], [q.x1, q.y0], [q.x1, q.y1], [q.x0, q.y1]));
+  pts.forEach(p => { const dd = Math.hypot(p[0] - wx, p[1] - wy); if (dd < bd) { bd = dd; best = p; } });
+  return best ? [best[0], best[1]] : [wx, wy];
+}
+function ufMeasEnd(a, b, orth) { return orth ? (Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]) ? [b[0], a[1]] : [a[0], b[1]]) : b; }
+function ufMeasClick(wx, wy, shift) {
+  const p = ufMeasSnap(wx, wy);
+  if (!UF.measA) { UF.measA = p; UF.measMouse = p; ufDraw(true); return; }
+  const orth = (UF.measMode === 'o') !== !!shift, b = ufMeasEnd(UF.measA, p, orth);
+  if (Math.hypot(b[0] - UF.measA[0], b[1] - UF.measA[1]) > 0.5) (UF.meas = UF.meas || []).push({ a: UF.measA, b });
+  UF.measA = null; ufDraw(true);
+}
 function ufLinkToggle() {
   if (!isAdmin() || !UF.open) return;
-  UF.linkOn = !UF.linkOn; UF.linkA = null; UF.linkMouse = null; if (UF.linkOn) { UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; }
+  UF.linkOn = !UF.linkOn; UF.linkA = null; UF.linkMouse = null; if (UF.linkOn) { UF.measOn = false; UF.measA = null; UF.meas = []; UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; }
   ufSyncBar(); ufDraw(true);
   if (UF.linkOn) toast('Połącz grafiki: kliknij znacznik pierwszej grafiki, potem drugiej (w tej samej płaszczyźnie). ✕ na kresce rozłącza, Esc kończy.', '', 6000);
 }
@@ -9516,6 +9553,7 @@ function ufPointer(e) {
   if (e.button === 1) { e.preventDefault(); return ufPan(e); }
   closeMarkMenu();
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py);
+  if (UF.measOn) { e.preventDefault(); return ufMeasClick(wx, wy, e.shiftKey); }
   if (UF.linkOn && isAdmin()) { e.preventDefault(); return ufLinkClick(px, py); }
   const ar = (UF.arrows || []).find(q => Math.hypot(q.x - px, q.y - py) < 16);
   if (ar) { ufPush(); UF.d.stand.open[ar.k] = !UF.d.stand.open[ar.k]; ufChanged(); return; }
@@ -10282,16 +10320,17 @@ function ufTechRender() {
   const cv = document.createElement('canvas'); cv.width = PW; cv.height = PH; const g = cv.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, PW, PH); g.lineJoin = 'round';
   const txt = (t, x, y, sz = 22, col = '#1a202c', al = 'center', bl = 'middle', w = 600) => { g.font = `${w} ${sz}px ${F}`; g.fillStyle = col; g.textAlign = al; g.textBaseline = bl; g.fillText(t, x, y); };
-  const num = v => lenPL(Math.round(v * 10) / 10);
+  const num = v => lenPL(Math.round(v * 10) / 10), KD = 1.15;        // wymiary 15% większe
   // linia wymiarowa między punktami p1, p2 [px], przesunięta o off wzdłuż normalnej (nx, ny); napis na środku, obrócony wzdłuż linii
-  const dim = (p1, p2, nx, ny, off, label, col = '#2f855a', sz = 22) => {
+  const dim = (p1, p2, nx, ny, off, label, col = '#2f855a', sz = 22) => {      // odsunięcia też rosną z KD, żeby napisy się nie nakładały
+    off *= KD;
     const q1 = [p1[0] + nx * off, p1[1] + ny * off], q2 = [p2[0] + nx * off, p2[1] + ny * off], e = off >= 0 ? 8 : -8;
     g.strokeStyle = '#a0aec0'; g.lineWidth = 1; g.beginPath(); g.moveTo(p1[0] + nx * 4, p1[1] + ny * 4); g.lineTo(q1[0] + nx * e, q1[1] + ny * e); g.moveTo(p2[0] + nx * 4, p2[1] + ny * 4); g.lineTo(q2[0] + nx * e, q2[1] + ny * e); g.stroke();
     const len = Math.hypot(q2[0] - q1[0], q2[1] - q1[1]); if (len < 4) return;
-    drawArrowLine(g, q1[0], q1[1], q2[0], q2[1], Math.min(11, len / 3), col, 1.6);
+    drawArrowLine(g, q1[0], q1[1], q2[0], q2[1], Math.min(11 * KD, len / 3), col, 1.6 * KD);
     let an = Math.atan2(q2[1] - q1[1], q2[0] - q1[0]); if (an > Math.PI / 2 - 1e-6) an -= Math.PI; if (an < -Math.PI / 2 - 1e-6) an += Math.PI;      // napis czytany od dołu do góry albo od lewej do prawej
     g.save(); g.translate((q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2); g.rotate(an);
-    const w = g.measureText(label).width; g.font = `700 ${sz}px ${F}`; const tw = g.measureText(label).width + 8;
+    sz = Math.round(sz * KD); g.font = `700 ${sz}px ${F}`; const tw = g.measureText(label).width + 8;
     g.fillStyle = 'rgba(255,255,255,.88)'; g.fillRect(-tw / 2, -sz - 3, tw, sz + 2); g.fillStyle = col; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(label, 0, -6); g.restore();
   };
   const frame = (x, y, w, h, title) => { g.strokeStyle = '#1a202c'; g.lineWidth = 2; g.strokeRect(x, y, w, h); g.fillStyle = '#edf2f7'; g.fillRect(x, y, w, 50); g.strokeRect(x, y, w, 50); txt(title, x + 18, y + 26, 26, '#1a202c', 'left', 'middle', 800); };
@@ -10324,29 +10363,32 @@ function ufTechRender() {
         const a1 = Math.atan2(fy - hy, fx - hx), a2 = Math.atan2(dg.side[1], dg.side[0]); let df = a2 - a1; while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
         g.arc(hx, hy, len, a1, a2, df < 0); g.stroke(); }
     });
-    // wymiary: łańcuch modułów każdej ścianki (po zewnętrznej stronie dla ścian na obrysie, w środku dla pozostałych) + odległości od krawędzi stoiska
-    const BT = 450, rows = new Map();
+    // wymiary (zasada „od–do”, każdy wymiar raz): zielone — moduły każdej ścianki, niebieskie — suma ścianki (gdy ma kilka modułów),
+    // bursztynowe — wymiary wewnętrzne: od lica ścianki do lica przeciwległej ścianki (nigdy do krawędzi stoiska)
+    const BT = 450, RB = [], drawn = new Set(), once = k => { if (drawn.has(k)) return false; drawn.add(k); return true; };
     geo.runs.forEach(r => {
       const hz = r.ori === 0, ps = r.parts.filter(q => q.op.t !== 'post').slice().sort((p, q) => hz ? p.x0 - q.x0 : p.y0 - q.y0); if (!ps.length) return;
       const hi = hz ? D : L, edge = r.line <= BT ? -1 : r.line >= hi - BT ? 1 : 0, th = (ps[0][hz ? 'y1' : 'x1'] - ps[0][hz ? 'y0' : 'x0']) / 2, toC = r.line < hi / 2 ? 1 : -1;
-      const sgn = edge ? edge : toC, lvl = edge ? 1 : 0;
-      const nrm = hz ? [0, sgn] : [sgn, 0], k = `${r.ori}|${edge ? sgn : 'i' + Math.round(r.line)}`;
-      const base = edge ? th * s + 40 + 0 : th * s + 36;
-      ps.forEach(q => { const a = hz ? q.x0 : q.y0, b = hz ? q.x1 : q.y1, line = r.line + (edge ? sgn * th : sgn * th);
-        const p1 = hz ? [X(a), Y(line)] : [X(line), Y(a)], p2 = hz ? [X(b), Y(line)] : [X(line), Y(b)];
-        dim(p1, p2, nrm[0], nrm[1], 34 + (edge ? 0 : 0), num(b - a), '#2f855a', 21); });
-      // odległości końców ścianki od krawędzi stoiska (osie prostopadłe do ścianki)
-      const a0 = hz ? Math.min(...ps.map(q => q.x0)) : Math.min(...ps.map(q => q.y0)), b0 = hz ? Math.max(...ps.map(q => q.x1)) : Math.max(...ps.map(q => q.y1)), span = hz ? L : D, sg2 = edge ? -edge : -toC;
-      const line2 = r.line + sg2 * th, nn = hz ? [0, sg2] : [sg2, 0], off2 = 34 + 40;
-      if (a0 > 20) dim(hz ? [X(0), Y(line2)] : [X(line2), Y(0)], hz ? [X(a0), Y(line2)] : [X(line2), Y(a0)], nn[0], nn[1], off2, num(a0), '#2b6cb0', 21);
-      if (span - b0 > 20) dim(hz ? [X(b0), Y(line2)] : [X(line2), Y(b0)], hz ? [X(span), Y(line2)] : [X(line2), Y(span)], nn[0], nn[1], off2, num(span - b0), '#2b6cb0', 21);
-      // wnętrzna ścianka: odległość jej lica od najbliższej krawędzi stoiska
-      if (!edge) { const nearLo = r.line < hi / 2, dist = nearLo ? r.line - th : hi - (r.line + th), mid = (a0 + b0) / 2;
-        dim(hz ? [X(mid), Y(nearLo ? 0 : D)] : [X(nearLo ? 0 : L), Y(mid)], hz ? [X(mid), Y(nearLo ? r.line - th : r.line + th)] : [X(nearLo ? r.line - th : r.line + th), Y(mid)], hz ? 1 : 0, hz ? 0 : 1, 0 + 26, num(dist), '#b7791f', 21); }
+      const sgn = edge ? edge : toC, nrm = hz ? [0, sgn] : [sgn, 0], line = r.line + sgn * th, pt = v => hz ? [X(v), Y(line)] : [X(line), Y(v)];
+      const a0 = hz ? Math.min(...ps.map(q => q.x0)) : Math.min(...ps.map(q => q.y0)), b0 = hz ? Math.max(...ps.map(q => q.x1)) : Math.max(...ps.map(q => q.y1));
+      ps.forEach(q => { const a = hz ? q.x0 : q.y0, b = hz ? q.x1 : q.y1; if (once(`g|${r.ori}|${Math.round(line)}|${Math.round(a)}|${Math.round(b)}`)) dim(pt(a), pt(b), nrm[0], nrm[1], 34, num(b - a), '#2f855a', 21); });
+      if (ps.length > 1 && once(`b|${r.ori}|${Math.round(line)}|${Math.round(a0)}|${Math.round(b0)}`)) dim(pt(a0), pt(b0), nrm[0], nrm[1], 84, num(b0 - a0), '#2b6cb0', 23);
+      RB.push({ hz, c: r.line, th, a: a0, b: b0, parts: new Set(r.parts) });
     });
+    // wymiary wewnętrzne: najbliższa przeciwległa ścianka równoległa (z nakładaniem ≥ 30 cm), bez ścianki po drodze
+    [true, false].forEach(hzF => { const list = RB.filter(q => q.hz === hzF);
+      list.forEach(A => {
+        let best = null;
+        list.forEach(B => { if (B === A || B.c <= A.c) return; const gap = (B.c - B.th) - (A.c + A.th); if (gap < 30) return; const lo = Math.max(A.a, B.a), hi = Math.min(A.b, B.b); if (hi - lo < 300) return; if (!best || gap < best.gap) best = { B, gap, lo, hi }; });
+        if (!best) return;
+        const yA = A.c + A.th, yB = best.B.c - best.B.th, blocked = m => geo.parts.some(q => !A.parts.has(q) && !best.B.parts.has(q) && (hzF ? q.x0 - 1 <= m && m <= q.x1 + 1 && q.y1 > yA + 2 && q.y0 < yB - 2 : q.y0 - 1 <= m && m <= q.y1 + 1 && q.x1 > yA + 2 && q.x0 < yB - 2));
+        const w = best.hi - best.lo, m = [0.5, 0.3, 0.7, 0.15, 0.85].map(f => best.lo + w * f).find(v => !blocked(v)); if (m === undefined) return;
+        if (!once(`a|${hzF}|${Math.round(yA)}|${Math.round(yB)}|${Math.round(m / 200)}`)) return;
+        dim(hzF ? [X(m), Y(yA)] : [X(yA), Y(m)], hzF ? [X(m), Y(yB)] : [X(yB), Y(m)], hzF ? 1 : 0, hzF ? 0 : 1, 0, num(yB - yA), '#b7791f', 22);
+      }); });
     // wymiary całkowite: długość i głębokość stoiska
     dim([X(0), Y(0)], [X(L), Y(0)], 0, -1, 135, `${num(L)}`, '#1a202c', 28); dim([X(0), Y(0)], [X(0), Y(D)], -1, 0, 135, `${num(D)}`, '#1a202c', 28);
-    txt('zielony — moduły ścianki · niebieski — odległość końca ścianki od krawędzi stoiska · bursztynowy — odległość lica ścianki od krawędzi · czarny — wymiary stoiska', bx + 18, by + bh - 18, 20, '#4a5568', 'left', 'middle', 500);
+    txt('zielony — moduły ścianki · niebieski — suma ścianki · bursztynowy — wymiar wewnętrzny (lico–lico) · czarny — wymiary stoiska', bx + 18, by + bh - 18, 20, '#4a5568', 'left', 'middle', 500);
   }
   // ---------- FRONT i BOK (rzuty ścianek od alejki) ----------
   const open = k => !!st.open[k], front = ['s', 'n', 'w', 'e'].find(open) || 's', side = (front === 's' || front === 'n' ? ['e', 'w'] : ['s', 'n']).find(open) || (front === 's' || front === 'n' ? 'e' : 's');
@@ -10360,18 +10402,24 @@ function ufTechRender() {
     for (let u = 0; u <= U + 1; u += 1000) { g.strokeStyle = u % 5000 === 0 ? '#a0aec0' : '#dde3ea'; g.lineWidth = 1; g.beginPath(); g.moveTo(U_(u), Z(0)); g.lineTo(U_(u), Z(Hmax + 300)); g.stroke(); txt(String(u / 1000), U_(u), Z(Hmax + 300) - 10, 15, '#718096', 'center', 'middle', 500); }
     for (let z = 0; z <= Hmax + 300; z += 1000) { g.strokeStyle = '#dde3ea'; g.lineWidth = 1; g.beginPath(); g.moveTo(U_(0) - 10, Z(z)); g.lineTo(U_(U) + 10, Z(z)); g.stroke(); }
     g.strokeStyle = '#1a202c'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(U_(0) - 20, Z(0)); g.lineTo(U_(U) + 20, Z(0)); g.stroke();
-    const bounds = new Set();
-    geo.parts.slice().sort((p, q) => depth(p) - depth(q)).forEach(q => {
+    geo.parts.slice().sort((p, q) => depth(q) - depth(p)).forEach(q => {       // dalsze najpierw, bliższe je zasłaniają
       const ua = uOf(q.x0, q.y0), ub = uOf(q.x1, q.y1), u0 = Math.min(ua, ub), u1 = Math.max(ua, ub), h = q.run ? q.run.h : d.H, para = (q.dir & 1) === (along ? 0 : 1);
       if (q.op.t === 'post') return;
       g.fillStyle = para ? (doorOf(q) ? '#fff3c4' : '#f3e3c8') : '#cfa876'; g.fillRect(U_(u0), Z(h), (u1 - u0) * s, h * s); g.strokeStyle = '#2d3748'; g.lineWidth = para ? 1.6 : 1.2; g.strokeRect(U_(u0), Z(h), (u1 - u0) * s, h * s);
-      if (para) { bounds.add(Math.round(u0 * 10) / 10); bounds.add(Math.round(u1 * 10) / 10);
+      if (para) {
         if (h > UF_KH + 1) { g.strokeStyle = '#718096'; g.lineWidth = 1.2; g.setLineDash([8, 6]); g.beginPath(); g.moveTo(U_(u0), Z(UF_KH)); g.lineTo(U_(u1), Z(UF_KH)); g.stroke(); g.setLineDash([]); }
         if (doorOf(q)) { const dw = Math.min(UF_KDW, u1 - u0 - 20), dm = (u0 + u1) / 2; g.fillStyle = '#fbd38d'; g.fillRect(U_(dm - dw / 2), Z(2000), dw * s, 2000 * s); g.strokeStyle = '#7b341e'; g.lineWidth = 1.6; g.strokeRect(U_(dm - dw / 2), Z(2000), dw * s, 2000 * s); } }
     });
     // łańcuch wymiarów poziomych (kolejne moduły wzdłuż widoku) i całkowita szerokość
+    // wymiary tylko widocznych odcinków (od najbliższych: część zasłonięta przez bliższą ściankę nie daje wymiaru)
+    const near = geo.parts.filter(q => q.op.t !== 'post').map(q => { const ua = uOf(q.x0, q.y0), ub = uOf(q.x1, q.y1); return { u0: Math.min(ua, ub), u1: Math.max(ua, ub), h: q.run ? q.run.h : d.H, para: (q.dir & 1) === (along ? 0 : 1), dp: depth(q) }; }).sort((p, q) => p.dp - q.dp);
+    const bounds = new Set(), cover = [];
+    near.forEach(p => { let iv = [[p.u0, p.u1]];
+      cover.forEach(c => { if (c.h < p.h - 1) return; iv = iv.flatMap(([a, b]) => { if (c.u1 <= a || c.u0 >= b) return [[a, b]]; const o = []; if (c.u0 > a) o.push([a, c.u0]); if (c.u1 < b) o.push([c.u1, b]); return o; }); });
+      if (p.para) iv.forEach(([a, b]) => { if (b - a > 30) { bounds.add(Math.round(a * 10) / 10); bounds.add(Math.round(b * 10) / 10); } });
+      cover.push(p); });
     const bs = [...bounds].sort((a, b) => a - b);
-    for (let i = 0; i < bs.length - 1; i++) if (bs[i + 1] - bs[i] > 30) dim([U_(bs[i]), Z(0)], [U_(bs[i + 1]), Z(0)], 0, 1, 40, num(bs[i + 1] - bs[i]), '#2f855a', 20);
+    for (let i = 0; i < bs.length - 1; i++) { const len = bs[i + 1] - bs[i]; if (len > 30 && len * s >= 60) dim([U_(bs[i]), Z(0)], [U_(bs[i + 1]), Z(0)], 0, 1, 40, num(len), '#2f855a', 20); }
     dim([U_(0), Z(0)], [U_(U), Z(0)], 0, 1, 105, num(U), '#1a202c', 26);
     // wysokości: całość i podział moduł + dostawka
     const hs = [...new Set(geo.runs.map(r => r.h))].sort((a, b) => b - a);
@@ -10388,7 +10436,7 @@ function ufTechOpen() {
   let cv; try { cv = ufTechRender(); } catch (e) { console.warn('rys-tech', e); return toast('Rysunek techniczny się nie udał: ' + e.message, 'error', 6000); }
   const url = cv.toDataURL('image/png'), nm = 'Rys-tech' + (S.project && S.project.name ? ' - ' + S.project.name : '');
   const m = openModal({ title: 'Rys-tech — rysunek techniczny K-Frame', wide: true,
-    body: `<div class="hint" style="margin-bottom:8px">Widok z góry (siatka co 1 m, moduły ścianek, odległości od krawędzi stoiska), front i bok od alejki. Do wydruku albo zapisu jako PDF (A3 poziomo) lub PNG.</div><div style="overflow:auto;max-height:68vh;border:1px solid var(--line)"><img src="${url}" alt="Rys-tech" style="width:100%;display:block"></div>`,
+    body: `<div class="hint" style="margin-bottom:8px">Widok z góry (siatka co 1 m, moduły i sumy ścianek, wymiary wewnętrzne lico–lico), front i bok od alejki. Do wydruku albo zapisu jako PDF (A3 poziomo) lub PNG.</div><div style="overflow:auto;max-height:68vh;border:1px solid var(--line)"><img src="${url}" alt="Rys-tech" style="width:100%;display:block"></div>`,
     footer: `<button class="btn" data-print>🖨 Drukuj</button><button class="btn" data-pdf>📄 Zapisz PDF</button><button class="btn" data-dl>⬇ Pobierz PNG</button><button class="btn btn-solid" data-c>Zamknij</button>` });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   m.el.querySelector('[data-dl]').onclick = () => { const a = document.createElement('a'); a.href = url; a.download = nm.replace(/[\\/:*?"<>|]+/g, '_') + '.png'; document.body.appendChild(a); a.click(); a.remove(); };
@@ -10627,7 +10675,7 @@ async function openUltraFrame() { if (isViewer() || !featOn('uf')) return;
   let sys = has ? (saved.sys || 'e') : await ufAskSystem();       // układ już narysowany — otwiera się w swoim systemie; pusty — pytamy
   if (!sys) return;
   if (!S.project) return;
-  UF.open = true; UF.linkOn = false; UF.linkA = null; UF.skOn = false; UF.skDraft = null; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null; UF.pl = 'f'; UF.step = UF.step || UF_STEP; try { UF.pvW = Number(localStorage.getItem('INDEX_UFPV')) || 0; } catch (e) { UF.pvW = 0; }
+  UF.open = true; UF.linkOn = false; UF.linkA = null; UF.measOn = false; UF.measA = null; UF.meas = []; UF.skOn = false; UF.skDraft = null; UF.pid = S.project.id; UF.sel = null; UF.rot = false; UF.undo = []; UF.drag = null; UF.vw = null; UF.pl = 'f'; UF.step = UF.step || UF_STEP; try { UF.pvW = Number(localStorage.getItem('INDEX_UFPV')) || 0; } catch (e) { UF.pvW = 0; }
   UF.d = has ? ufMigrate(JSON.parse(JSON.stringify(saved))) : ufFreshLayout(sys, saved ? JSON.parse(JSON.stringify(saved)) : null);
   if (!UF.d.sys) UF.d.sys = 'e';
   if (!UF.d.H) UF.d.H = UF.d.sys === 'k' ? UF_KH : 2480;
@@ -10667,6 +10715,7 @@ async function closeUltraFrame() {
   $('uf-cv').addEventListener('pointerdown', ufPointer);
   $('uf-cv').addEventListener('pointermove', e => {          // najechana ścianka też świeci
     if (UF.drag || !UF.tr || !UF.geo) return;
+    if (UF.measOn) { if (UF.measA) { const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py); UF.measMouse = ufMeasSnap(wx, wy); UF.measShift = e.shiftKey; ufDraw(true); } return; }
     if (UF.linkOn && UF.linkA) { UF.linkMouse = ufCanvasPos(e); ufDraw(true); return; }
     const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 4 / UF.tr.s;
     const q = UF.geo.parts.filter(q => wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0))[0], id = q ? q.op.id : null;
@@ -10792,7 +10841,7 @@ async function closeUltraFrame() {
       UF.d.pvx = cx - 0.5 - (cx - 0.5 - (UF.d.pvx || 0)) * k; UF.d.pvy = cy - 0.5 - (cy - 0.5 - (UF.d.pvy || 0)) * k; UF.d.zoom = z1; ufPreview(); clearTimeout(UF.tmr); UF.tmr = setTimeout(ufSave, 800);
     }, { passive: false });
   }
-  $('uf-go').onclick = () => ufGenerate('photos'); $('uf-lay').onclick = () => ufGenerate('layout'); $('uf-link').onclick = ufLinkToggle; $('uf-tech').onclick = ufTechOpen; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
+  $('uf-go').onclick = () => ufGenerate('photos'); $('uf-lay').onclick = () => ufGenerate('layout'); $('uf-link').onclick = ufLinkToggle; $('uf-meas').onclick = ufMeasToggle; $('uf-measm').onclick = () => { UF.measMode = UF.measMode === 'o' ? 'd' : 'o'; ufSyncBar(); ufDraw(true); }; $('uf-tech').onclick = ufTechOpen; $('uf-x').onclick = closeUltraFrame; $('uf-prod').onclick = ufProductionOpen; ufSkInit();
   $('uf-cus-b').onclick = () => {
     const v = toMM($('uf-cus').value);
     if (!(v >= 100 && v <= 2000)) return toast(`Podaj szerokość ścianki od ${lenPL(100)} do ${lenPL(2000)} ${UNIT()}`, 'error');
@@ -10804,6 +10853,7 @@ async function closeUltraFrame() {
     if (document.querySelector('.modal-back')) return;
     const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (e.key === 'Escape') t.blur(); return; }
     const k = e.key; let h = true;
+    if (UF.measOn && k === 'Escape') { if (UF.measA) UF.measA = null; else { UF.measOn = false; UF.meas = []; } ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }
     if (UF.linkOn && k === 'Escape') { if (UF.linkA) UF.linkA = null; else UF.linkOn = false; ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }
     if (UF.skOn) {      // tryb rysowania kreską
       if (k === 'Escape') { if (UF.skDraft) { UF.skDraft = null; ufDraw(true); } else ufSkOff(); }
