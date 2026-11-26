@@ -1267,6 +1267,7 @@
             <div class="pchips">
               <label class="pchip wide" title="Pokaż rozrys płyt podłogowych 200 × 90 cm na planie stoiska"><i class="ti ti-eye"></i><span>pokaż na planie</span><input type="checkbox" id="uf-fp-on" checked></label>
               <label class="pchip wide" title="Kierunek płyt 200 × 90 cm. Auto = taki układ, który daje najmniej płyt i cięć"><i class="ti ti-arrows-shuffle"></i><span>kierunek płyt</span><select id="uf-fp-dir"><option value="">auto — najmniej cięć</option><option value="x">płyty wzdłuż długości</option><option value="y">płyty wzdłuż głębokości</option></select></label>
+              <label class="pchip wide" title="Wszystkie płyty i kawałki leżą w jednym kierunku (jak całe płyty A) — pasy przy krawędzi nie są obracane o 90°. Wyłączone = program może obracać kawałki, żeby zużyć mniej płyt"><i class="ti ti-layout-align-left"></i><span>jedna linia</span><input type="checkbox" id="uf-fp-al" checked></label>
               <label class="pchip wide" title="Usłojenie dekoru płyt: bez znaczenia = płyty i kawałki można obracać o 90°. Poziome (horyzontalne) = słoje wzdłuż długości stoiska, pionowe = wzdłuż głębokości — wtedy płyt ani kawałków nie obracam"><i class="ti ti-wave-sine"></i><span>usłojenie</span><select id="uf-fp-grain"><option value="">bez znaczenia</option><option value="h">poziome (horyzontalne)</option><option value="v">pionowe</option></select></label>
             </div>
             <div class="hint" id="uf-fp-info" style="margin-top:4px"></div>
@@ -8553,8 +8554,9 @@ function ufFpPack(pieces, bw, bh, rot) {        // pakowanie kawałków w płyty
 let ufFpMemo = null;
 function ufFloorPlan(L, D, dir) {
   const grain = ufFpGrain(); if (grain) dir = grain === 'h' ? 'x' : 'y';          // usłojenie wymusza kierunek płyt i zabrania obracania kawałków
+  const norot = !!grain || ufFpAlign();          // „jedna linia”: kawałków też nie obracam (pasy B, C idą tak samo jak płyty A)
   const op = (UF.d && UF.d.stand && UF.d.stand.open) || {}, flipX = !!op.e && !op.w, flipY = !!op.s && !op.n;          // niestandardowe odcinki zawsze na tyle stoiska (od sąsiada): płyty całe układam od strony alejki
-  const key = L + '|' + D + '|' + (dir || '') + '|' + grain + '|' + (flipX ? 'x' : '') + (flipY ? 'y' : ''); if (ufFpMemo && ufFpMemo.key === key) return ufFpMemo.v;
+  const key = L + '|' + D + '|' + (dir || '') + '|' + grain + '|' + (norot ? 'n' : '') + '|' + (flipX ? 'x' : '') + (flipY ? 'y' : ''); if (ufFpMemo && ufFpMemo.key === key) return ufFpMemo.v;
   let best = null;
   [[2000, 900], [900, 2000]].forEach(([bw, bh]) => {
     if ((dir === 'x' && bw !== 2000) || (dir === 'y' && bw !== 900)) return;
@@ -8562,9 +8564,9 @@ function ufFloorPlan(L, D, dir) {
       const cols = Math.floor(L / bw + 1e-6), rows = Math.floor(D / bh + 1e-6), full = [], rects = [];
       for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) full.push({ x: i * bw, y: j * bh, w: bw, h: bh });
       const rw = L - cols * bw, rh = D - rows * bh;
-      if (rw > 1) ufFpSplit(cols * bw, 0, rw, strip === 0 ? D : rows * bh, rects, bw, bh, !grain);
-      if (rh > 1) ufFpSplit(0, rows * bh, strip === 0 ? cols * bw : L, rh, rects, bw, bh, !grain);
-      const pk = ufFpPack(rects, bw, bh, !grain), total = full.length + pk.boards.length, v = { full, pieces: rects, boards: pk.boards, cuts: pk.cuts, total, bw, bh, grain, waste: total * UF_FPB[0] * UF_FPB[1] - L * D };
+      if (rw > 1) ufFpSplit(cols * bw, 0, rw, strip === 0 ? D : rows * bh, rects, bw, bh, !norot);
+      if (rh > 1) ufFpSplit(0, rows * bh, strip === 0 ? cols * bw : L, rh, rects, bw, bh, !norot);
+      const pk = ufFpPack(rects, bw, bh, !norot), total = full.length + pk.boards.length, v = { full, pieces: rects, boards: pk.boards, cuts: pk.cuts, total, bw, bh, grain, norot, waste: total * UF_FPB[0] * UF_FPB[1] - L * D };
       if (!best || v.total < best.total || (v.total === best.total && (v.cuts < best.cuts || (v.cuts === best.cuts && v.pieces.length < best.pieces.length)))) best = v;
     });
   });
@@ -8576,16 +8578,17 @@ function ufFloorPlan(L, D, dir) {
 }
 const ufFpOn = () => !!(UF.d && (!UF.d.fp || UF.d.fp.on !== false));
 const ufFpDir = () => (UF.d && UF.d.fp && UF.d.fp.dir) || '';
+const ufFpAlign = () => !(UF.d && UF.d.fp && UF.d.fp.align === false);          // kawałki w jednej linii z płytami (bez obracania) — domyślnie włączone
 const ufFpGrain = () => (UF.d && UF.d.fp && UF.d.fp.grain) || '';          // usłojenie dekoru: '' bez znaczenia, 'h' poziome (wzdłuż długości stoiska), 'v' pionowe
 const UF_GRAIN_TXT = { h: 'usłojenie poziome (horyzontalne)', v: 'usłojenie pionowe' };
 function ufFpText(fp) {
   if (!fp.total) return '';
   const cutB = fp.boards.length;
-  return `<b>${fp.total}</b> płyt ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}: ${fp.full.length} całych + ${cutB} do pocięcia · cięć: <b>${fp.cuts}</b> · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m²${fp.grain ? ' · ' + UF_GRAIN_TXT[fp.grain] + ' — płyt nie obracam' : ''}`;
+  return `<b>${fp.total}</b> płyt ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}: ${fp.full.length} całych + ${cutB} do pocięcia · cięć: <b>${fp.cuts}</b> · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m²${fp.grain ? ' · ' + UF_GRAIN_TXT[fp.grain] + ' — płyt nie obracam' : fp.norot ? ' · wszystko w jednej linii (bez obracania)' : ''}`;
 }
 // kolor kawałka zależy od jego wymiaru (ten sam wymiar = ten sam kolor); z usłojeniem kawałek 400 × 900 ≠ 900 × 400
 function ufFpKinds(fp, grain) {
-  const dk = p => grain ? Math.round(p.w) + 'x' + Math.round(p.h) : Math.round(Math.max(p.w, p.h)) + 'x' + Math.round(Math.min(p.w, p.h)), kinds = [];
+  const ex = grain || fp.norot, dk = p => ex ? Math.round(p.w) + 'x' + Math.round(p.h) : Math.round(Math.max(p.w, p.h)) + 'x' + Math.round(Math.min(p.w, p.h)), kinds = [];
   fp.pieces.slice().sort((a, b) => b.w * b.h - a.w * a.h).forEach(p => { const k = dk(p); if (!kinds.includes(k)) kinds.push(k); });
   const off = fp.full.length ? 2 : 1, letter = p => { const i = kinds.indexOf(dk(p)); return i < 0 ? '' : letterOf(i + off); };          // A = całe płyty, kolejne litery = kolejne wymiary kawałków
   return { dk, kinds, letter, hue: [28, 205, 130, 285, 340, 55, 175] };
@@ -8671,7 +8674,7 @@ function ufSyncBar() {
   $('uf-lay').classList.toggle('hidden', !isAdmin());          // „Rozmieść grafiki” — tylko dla administratorów
   if (!isAdmin()) UF.linkOn = false;
   $('uf-link').classList.toggle('hidden', !isAdmin()); $('uf-link').classList.toggle('on', !!UF.linkOn);          // „Połącz grafiki” — tylko dla administratorów
-  { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); if (document.activeElement !== $('uf-fp-grain')) $('uf-fp-grain').value = ufFpGrain(); $('uf-fp-dir').disabled = !!ufFpGrain(); $('uf-fp-info').innerHTML = ufFpText(fp) + ufFpLegend(fp); }
+  { const fp = ufFloorPlan(st.L, st.D, ufFpDir()); $('uf-fp-on').checked = ufFpOn(); if (document.activeElement !== $('uf-fp-dir')) $('uf-fp-dir').value = ufFpDir(); if (document.activeElement !== $('uf-fp-grain')) $('uf-fp-grain').value = ufFpGrain(); $('uf-fp-al').checked = ufFpAlign() || !!ufFpGrain(); $('uf-fp-al').disabled = !!ufFpGrain(); $('uf-fp-dir').disabled = !!ufFpGrain(); $('uf-fp-info').innerHTML = ufFpText(fp) + ufFpLegend(fp); }
   { const fl = ufFloor(); $('uf-fl-ctl').classList.toggle('hidden', !fl); if (!fl) UF.floorEdit = false;
     if (fl) { $('uf-fl-on').checked = !fl.off; if (fl.off) UF.floorEdit = false; const tv = Math.round((fl.t == null ? 0.5 : fl.t) * 100); if (document.activeElement !== $('uf-fl-t')) $('uf-fl-t').value = tv; $('uf-fl-tv').textContent = tv + '%'; if (document.activeElement !== $('uf-fl-w')) $('uf-fl-w').value = numIn(fromMM(fl.w)); }
     $('uf-fl-ed').classList.toggle('on', !!UF.floorEdit); $('uf-cv').style.cursor = UF.floorEdit ? 'move' : UF.linkOn ? 'pointer' : ''; }
@@ -10875,6 +10878,7 @@ async function closeUltraFrame() {
   $('uf-capsx').onchange = e => { ufPush(); UF.d.stand.capsX = e.target.checked; ufChanged(); };
   $('uf-zap').onchange = e => { ufPush(); UF.d.stand.zap = e.target.checked; ufChanged(); };
   $('uf-fp-on').onchange = e => { ufPush(); UF.d.fp = { ...(UF.d.fp || {}), on: e.target.checked }; ufChanged(); };
+  $('uf-fp-al').onchange = e => { ufPush(); UF.d.fp = { ...(UF.d.fp || {}), align: e.target.checked }; ufChanged(); };
   $('uf-fp-grain').onchange = e => { ufPush(); UF.d.fp = { ...(UF.d.fp || {}), grain: e.target.value }; ufChanged(); };
   $('uf-fp-dir').onchange = e => { ufPush(); UF.d.fp = { ...(UF.d.fp || {}), dir: e.target.value }; ufChanged(); };
   $('uf-hb').onchange = e => { ufPush(); UF.d.hband = e.target.checked; ufChanged(); };
