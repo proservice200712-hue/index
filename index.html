@@ -9292,7 +9292,7 @@ function ufDraw(light) {
     }
   }
   // miarka: zapisane pomiary + pomiar na żywo (od pierwszego punktu do kursora)
-  UF.measHits = [];
+  UF.measHits = []; UF.measLines = [];
   if (UF.measOn || (UF.d.meas || []).length) {
     const mc = '#d53f8c', one = (a, b, live, idx) => {
       const ax = X(a[0]), ay = Y(a[1]), bx = X(b[0]), by = Y(b[1]), dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), px = Math.hypot(bx - ax, by - ay);
@@ -9302,7 +9302,7 @@ function ufDraw(light) {
       g.font = `700 13px ${F}`; const w1 = g.measureText(t1).width; g.font = `600 11px ${F}`; const w2 = t2 ? g.measureText(t2).width : 0, bw = Math.max(w1, w2) + 14, bh = t2 ? 36 : 22, mx = (ax + bx) / 2, my = (ay + by) / 2 - 16 - bh / 2;
       g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(mx - bw / 2, my - bh / 2, bw, bh); g.strokeStyle = mc; g.lineWidth = 1.5; g.strokeRect(mx - bw / 2, my - bh / 2, bw, bh);
       g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#97266d'; g.font = `700 13px ${F}`; g.fillText(t1, mx, t2 ? my - 7 : my); if (t2) { g.font = `600 11px ${F}`; g.fillStyle = '#702459'; g.fillText(t2, mx, my + 9); }
-      if (!live && idx !== undefined) UF.measHits.push({ x: mx - bw / 2, y: my - bh / 2, w: bw, h: bh, i: idx });
+      if (!live && idx !== undefined) { UF.measHits.push({ x: mx - bw / 2, y: my - bh / 2, w: bw, h: bh, i: idx }); UF.measLines.push({ ax, ay, bx, by, i: idx }); }
       g.restore();
     };
     (UF.d.meas || []).forEach((m, i) => one([m.ax, m.ay], [m.bx, m.by], false, i));
@@ -9741,8 +9741,23 @@ function ufWallMenu(e, wx, wy, tol) {
     closeMarkMenu(); ufChanged();
   });
 }
+// pomiar miarką pod kursorem: opis albo linia
+function ufMeasAt(px, py) {
+  const h = (UF.measHits || []).find(q => px >= q.x && px <= q.x + q.w && py >= q.y && py <= q.y + q.h); if (h) return h.i;
+  const l = (UF.measLines || []).find(q => { const dx = q.bx - q.ax, dy = q.by - q.ay, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((px - q.ax) * dx + (py - q.ay) * dy) / l2)); return Math.hypot(q.ax + t * dx - px, q.ay + t * dy - py) < 7; });
+  return l ? l.i : -1;
+}
 function ufContext(e) {
   e.preventDefault(); closeMarkMenu();
+  { const [cx0, cy0] = ufCanvasPos(e), mi = ufMeasAt(cx0, cy0);
+    if (mi >= 0 && UF.d.meas && UF.d.meas[mi]) {           // PPM na ręcznym wymiarze (miarka): usuń
+      const mm = UF.d.meas[mi], len = Math.hypot(mm.bx - mm.ax, mm.by - mm.ay), m = document.createElement('div'); m.className = 'menu mark-menu';
+      m.innerHTML = `<div class="mm-h">Pomiar ${lenPL(len)} ${UNIT()}</div><button type="button" data-mdel="1">🗑 Usuń pomiar</button>`;
+      document.body.appendChild(m); const rc = m.getBoundingClientRect();
+      m.style.left = clamp(e.clientX, 6, innerWidth - rc.width - 6) + 'px'; m.style.top = clamp(e.clientY, 6, innerHeight - rc.height - 6) + 'px';
+      setTimeout(() => document.addEventListener('pointerdown', ev => { if (!m.contains(ev.target)) closeMarkMenu(); }, { once: true, capture: true }), 0);
+      m.querySelector('[data-mdel]').onclick = () => { ufPush(); UF.d.meas.splice(mi, 1); closeMarkMenu(); ufChanged(); };
+      return; } }
   if (UF.skOn) return ufSkContext(e);
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 6 / UF.tr.s;
   const rm = ufRoomAt(px, py); if (rm) return ufRoomMenu(e, rm);
@@ -10389,35 +10404,26 @@ function ufTechRender() {
         const a1 = Math.atan2(fy - hy, fx - hx), a2 = Math.atan2(dg.side[1], dg.side[0]); let df = a2 - a1; while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
         g.arc(hx, hy, len, a1, a2, df < 0); g.stroke(); }
     });
-    // wymiary (zasada „od–do”, każdy wymiar raz): zielone — moduły każdej ścianki, niebieskie — suma ścianki (gdy ma kilka modułów),
-    // bursztynowe — wymiary wewnętrzne: od lica ścianki do lica przeciwległej ścianki (nigdy do krawędzi stoiska)
-    const BT = 450, RB = [], drawn = new Set(), once = k => { if (drawn.has(k)) return false; drawn.add(k); return true; };
+    // wymiary: zielone — pojedyncze ścianki (moduły), niebieskie — długości lic jak na planie edytora (odcinki między ściankami, razem z wysokością)
+    const BT = 450, drawn = new Set(), once = k => { if (drawn.has(k)) return false; drawn.add(k); return true; };
     geo.runs.forEach(r => {
       const hz = r.ori === 0, ps = r.parts.filter(q => q.op.t !== 'post').slice().sort((p, q) => hz ? p.x0 - q.x0 : p.y0 - q.y0); if (!ps.length) return;
       const hi = hz ? D : L, edge = r.line <= BT ? -1 : r.line >= hi - BT ? 1 : 0, th = (ps[0][hz ? 'y1' : 'x1'] - ps[0][hz ? 'y0' : 'x0']) / 2, toC = r.line < hi / 2 ? 1 : -1;
       const sgn = edge ? edge : toC, nrm = hz ? [0, sgn] : [sgn, 0], line = r.line + sgn * th, pt = v => hz ? [X(v), Y(line)] : [X(line), Y(v)];
-      const a0 = hz ? Math.min(...ps.map(q => q.x0)) : Math.min(...ps.map(q => q.y0)), b0 = hz ? Math.max(...ps.map(q => q.x1)) : Math.max(...ps.map(q => q.y1));
       ps.forEach(q => { const a = hz ? q.x0 : q.y0, b = hz ? q.x1 : q.y1; if (once(`g|${r.ori}|${Math.round(line)}|${Math.round(a)}|${Math.round(b)}`)) dim(pt(a), pt(b), nrm[0], nrm[1], 34, num(b - a), '#2f855a', 21); });
-      if (ps.length > 1 && once(`b|${r.ori}|${Math.round(line)}|${Math.round(a0)}|${Math.round(b0)}`)) dim(pt(a0), pt(b0), nrm[0], nrm[1], 84, num(b0 - a0), '#2b6cb0', 23);
-      RB.push({ hz, c: r.line, th, a: a0, b: b0, parts: new Set(r.parts) });
     });
-    // wymiary wewnętrzne: najbliższa przeciwległa ścianka równoległa (z nakładaniem ≥ 30 cm), bez ścianki po drodze
-    [true, false].forEach(hzF => { const list = RB.filter(q => q.hz === hzF);
-      list.forEach(A => {
-        let best = null;
-        list.forEach(B => { if (B === A || B.c <= A.c) return; const gap = (B.c - B.th) - (A.c + A.th); if (gap < 30) return; const lo = Math.max(A.a, B.a), hi = Math.min(A.b, B.b); if (hi - lo < 300) return; if (!best || gap < best.gap) best = { B, gap, lo, hi }; });
-        if (!best) return;
-        const yA = A.c + A.th, yB = best.B.c - best.B.th, blocked = m => geo.parts.some(q => !A.parts.has(q) && !best.B.parts.has(q) && (hzF ? q.x0 - 1 <= m && m <= q.x1 + 1 && q.y1 > yA + 2 && q.y0 < yB - 2 : q.y0 - 1 <= m && m <= q.y1 + 1 && q.x1 > yA + 2 && q.x0 < yB - 2));
-        const w = best.hi - best.lo, m = [0.5, 0.3, 0.7, 0.15, 0.85].map(f => best.lo + w * f).find(v => !blocked(v)); if (m === undefined) return;
-        if (!once(`a|${hzF}|${Math.round(yA)}|${Math.round(yB)}|${Math.round(m / 200)}`)) return;
-        dim(hzF ? [X(m), Y(yA)] : [X(yA), Y(m)], hzF ? [X(m), Y(yB)] : [X(yB), Y(m)], hzF ? 1 : 0, hzF ? 0 : 1, 0, num(yB - yA), '#b7791f', 22);
-      }); });
+    [...geo.faces, ...(geo.inner || [])].forEach(fc => {
+      const hz = fc.ori === 0, nrm = hz ? [0, fc.inn] : [fc.inn, 0], jn = fc.joins || [], segs = []; let s0 = fc.a;
+      jn.forEach(q => { segs.push([s0, q.c - q.g / 2]); s0 = q.c + q.g / 2; }); segs.push([s0, fc.b]);
+      segs.forEach(([a, b]) => { if (b - a < 30 || !once(`f|${fc.ori}|${Math.round(fc.f)}|${fc.inn}|${Math.round(a)}|${Math.round(b)}`)) return;
+        dim(hz ? [X(a), Y(fc.f)] : [X(fc.f), Y(a)], hz ? [X(b), Y(fc.f)] : [X(fc.f), Y(b)], nrm[0], nrm[1], 92, `${num(b - a)} × ${num(fc.h)}`, '#2b6cb0', 22); });
+    });
     // pomiary miarką z planu zostają na rysunku (różowe)
     (d.meas || []).forEach(m => { const len = Math.hypot(m.bx - m.ax, m.by - m.ay); if (len < 1) return; const dx = m.bx - m.ax, dy = m.by - m.ay, diag = Math.abs(dx) > 0.5 && Math.abs(dy) > 0.5;
       dim([X(m.ax), Y(m.ay)], [X(m.bx), Y(m.by)], -dy / len, dx / len, 0, num(len) + (diag ? ` (${num(Math.abs(dx))} × ${num(Math.abs(dy))})` : ''), '#d53f8c', 22); });
     // wymiary całkowite: długość i głębokość stoiska
     dim([X(0), Y(0)], [X(L), Y(0)], 0, -1, 135, `${num(L)}`, '#1a202c', 28); dim([X(0), Y(0)], [X(0), Y(D)], -1, 0, 135, `${num(D)}`, '#1a202c', 28);
-    txt('zielony — moduły ścianki · niebieski — suma ścianki · bursztynowy — wymiar wewnętrzny (lico–lico) · czarny — wymiary stoiska' + ((d.meas || []).length ? ' · różowy — pomiary miarką' : ''), bx + 18, by + bh - 18, 20, '#4a5568', 'left', 'middle', 500);
+    txt('zielony — pojedyncze ścianki (moduły) · niebieski — długość lica × wysokość (jak na planie) · czarny — wymiary stoiska' + ((d.meas || []).length ? ' · różowy — pomiary miarką' : ''), bx + 18, by + bh - 18, 20, '#4a5568', 'left', 'middle', 500);
   }
   // ---------- FRONT i BOK (rzuty ścianek od alejki) ----------
   const open = k => !!st.open[k], front = ['s', 'n', 'w', 'e'].find(open) || 's', side = (front === 's' || front === 'n' ? ['e', 'w'] : ['s', 'n']).find(open) || (front === 's' || front === 'n' ? 'e' : 's');
@@ -10465,7 +10471,7 @@ function ufTechOpen() {
   let cv; try { cv = ufTechRender(); } catch (e) { console.warn('rys-tech', e); return toast('Rysunek techniczny się nie udał: ' + e.message, 'error', 6000); }
   const url = cv.toDataURL('image/png'), nm = 'Rys-tech' + (S.project && S.project.name ? ' - ' + S.project.name : '');
   const m = openModal({ title: 'Rys-tech — rysunek techniczny K-Frame', wide: true,
-    body: `<div class="hint" style="margin-bottom:8px">Widok z góry (siatka co 1 m, moduły i sumy ścianek, wymiary wewnętrzne lico–lico), front i bok od alejki. Do wydruku albo zapisu jako PDF (A3 poziomo) lub PNG.</div><div style="overflow:auto;max-height:68vh;border:1px solid var(--line)"><img src="${url}" alt="Rys-tech" style="width:100%;display:block"></div>`,
+    body: `<div class="hint" style="margin-bottom:8px">Widok z góry (siatka co 1 m, wymiary pojedynczych ścianek i długości lic jak na planie), front i bok od alejki. Do wydruku albo zapisu jako PDF (A3 poziomo) lub PNG.</div><div style="overflow:auto;max-height:68vh;border:1px solid var(--line)"><img src="${url}" alt="Rys-tech" style="width:100%;display:block"></div>`,
     footer: `<button class="btn" data-print>🖨 Drukuj</button><button class="btn" data-pdf>📄 Zapisz PDF</button><button class="btn" data-dl>⬇ Pobierz PNG</button><button class="btn btn-solid" data-c>Zamknij</button>` });
   m.el.querySelector('[data-c]').onclick = () => m.close();
   m.el.querySelector('[data-dl]').onclick = () => { const a = document.createElement('a'); a.href = url; a.download = nm.replace(/[\\/:*?"<>|]+/g, '_') + '.png'; document.body.appendChild(a); a.click(); a.remove(); };
