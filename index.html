@@ -8263,7 +8263,7 @@ const ufFsDec = v => Array.isArray(v) ? v.map(ufFsDec) : v && typeof v === 'obje
 async function ufSave() {
   clearTimeout(UF.tmr); UF.tmr = 0;
   if (!UF.d || !UF.pid || !S.project || S.project.id !== UF.pid) return;
-  let m3 = {}; try { if (UF.d.pieces && UF.d.pieces.length) m3 = { max3d: ufMaxBuild(false).text, max3dAt: nowIso() }; } catch (e) { console.warn('max3d', e); }         // model dla 3ds Max (skrypt „INDEX 3D” czyta go wprost z bazy)
+  let m3 = {}; try { if (UF.d.pieces && UF.d.pieces.length) m3 = { max3d: ufMaxBuild(false).text, max3dAt: nowIso(), max3dV: MAX3D_VER }; } catch (e) { console.warn('max3d', e); }         // model dla 3ds Max (skrypt „INDEX 3D” czyta go wprost z bazy)
   try { await DB.update(C_PROJECTS, UF.pid, { ultraFrame: ufFsEnc(JSON.parse(JSON.stringify(UF.d))), ...m3 }); UF.saveErr = false; }
   catch (e) { console.warn('ultra frame', e); if (!UF.saveErr) { UF.saveErr = true; toast('Nie udało się zapisać układu ścianek: ' + e.message, 'error', 8000); } }
 }
@@ -10645,11 +10645,12 @@ function ufTechRender() {
 }
 // plik .index3d dla skryptu 3ds Max „INDEX 3D” (tekst, jednostki mm, osie Maxa: X w prawo, Y w głąb, Z w górę)
 // BOX|nazwa|W/D|x0|y0|z0|x1|y1|z1   FLOOR|x0|y0|x1|y1   GFX|znak|klucz lica|x,y,z;x,y,z;x,y,z;x,y,z|u,v;u,v;u,v;u,v|tekstura (adres http albo data:image; tylko w pliku — Max przy imporcie z bazy bierze ją z elementu po kluczu)
+const MAX3D_VER = 3;          // wersja formatu modelu dla Maxa (3: grubość podłogi, kątownik, drzwi z ramką); starsze projekty publikują się ponownie przy otwarciu edytora
 function ufMaxBuild(withTex = true) {
   const d = UF.d, geo = ufGeom(d), st = d.stand, L = st.L, D = st.D, out = [];
   const f1 = v => String(Math.round(v * 100) / 100);
   const asc = t => String(t == null ? 'x' : t).replace(/ł/g, 'l').replace(/Ł/g, 'L').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\-]+/g, '_') || 'x';
-  out.push('INDEX3D|2', `SCENE|${asc((S.project && S.project.name) || 'stoisko')}|${f1(L)}|${f1(D)}|mm`);
+  out.push('INDEX3D|2', `VER|${MAX3D_VER}`, `SCENE|${asc((S.project && S.project.name) || 'stoisko')}|${f1(L)}|${f1(D)}|mm`);
   geo.parts.forEach(q => out.push(['BOX', (q.op.t === 'door' ? 'Drzwi_' : 'Sciana_') + asc(q.op.id), q.op.t === 'door' ? 'D' : 'W', f1(q.x0), f1(D - q.y1), 0, f1(q.x1), f1(D - q.y0), f1(q.run ? q.run.h : d.H)].join('|')));
   out.push(['FLOORT', ufFpOn() ? f1(ufFpTh()) : 0].join('|'));
   ufFloorRects().forEach(r => out.push(['FLOOR', f1(r.x), f1(D - r.y - r.h), f1(r.x + r.w), f1(D - r.y)].join('|')));          // podłoga: prostokąt albo prostokąty własnego kształtu
@@ -10917,7 +10918,7 @@ async function openUltraFrame() { if (isViewer() || !featOn('uf')) return;
   $('uf-pane').classList.remove('hidden'); $('viewer').classList.add('uf-on');
   if (!UF.ro) { UF.ro = new ResizeObserver(() => { if (UF.open) ufDraw(); }); UF.ro.observe($('uf-pane')); }
   ufDraw(); ufSyncBar();
-  if (has && !S.project.max3d && !isViewer()) setTimeout(() => { if (UF.open && UF.d && UF.d.pieces.length) ufSave(); }, 2500);       // jednorazowa publikacja modelu dla 3ds Max w projektach zapisanych wcześniej
+  if (has && (!S.project.max3d || (S.project.max3dV || 0) < MAX3D_VER) && !isViewer()) setTimeout(() => { if (UF.open && UF.d && UF.d.pieces.length) ufSave(); }, 2500);       // jednorazowa publikacja modelu dla 3ds Max w projektach zapisanych wcześniej
 }
 // zmiana systemu w otwartym edytorze (czyści ułożone ścianki)
 async function ufSwitchSystem() {
