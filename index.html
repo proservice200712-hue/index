@@ -8741,7 +8741,7 @@ function ufRenderTop(W) {
   const d = UF.d, st = d.stand, geo = ufGeom(d), F = 'Segoe UI, Arial, sans-serif', M = 170, TOPM = 200, s = (W - 2 * M) / st.L, X = x => M + x * s, Y = y => TOPM + y * s;
   const fp = ufFloorPlan(st.L, st.D, ufFpDir()), grain = ufFpGrain(), kk = ufFpKinds(fp, grain), sys = ufK() ? 'K-Frame' : 'Ultra Frame';
   const cnt = new Map(); fp.pieces.forEach(p => { const k = kk.dk(p); const r = cnt.get(k) || { n: 0, w: p.w, h: p.h }; r.n++; cnt.set(k, r); });
-  const rows = (fp.full.length ? 1 : 0) + kk.kinds.length, yL = Y(st.D) + 90, H = Math.round(yL + rows * 40 + 120);
+  const rows = (fp.full.length ? 1 : 0) + kk.kinds.length, yL = Y(st.D) + 90, aisleA = ufAisleLen(), H = Math.round(yL + rows * 40 + 120 + (aisleA.total > 0 ? 44 : 0));
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
   g.fillStyle = '#1a202c'; g.font = `700 44px ${F}`; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(`${sys} — rozrys podłogi, widok z góry`, M, 78);
   g.fillStyle = '#4a5568'; g.font = `400 24px ${F}`; g.fillText(`płyty ${lenPL(UF_FPB[0])} × ${lenPL(UF_FPB[1])} ${UNIT()}${ufFpTh() ? ' · grubość podłogi ' + lenPL(ufFpTh()) + ' ' + UNIT() : ''}${grain ? ' · ' + UF_GRAIN_TXT[grain] : ''}`, M, 114);
@@ -8762,6 +8762,7 @@ function ufRenderTop(W) {
   cv.ufNS = geo.parts.filter(q => q.run && !ufStdPiece(q.op, q.run)).map(q => ({ p: [[q.x0, q.y0], [q.x1, q.y0], [q.x1, q.y1], [q.x0, q.y1]].flatMap(([x, y]) => [Math.round(X(x) / W * 1e4) / 1e4, Math.round(Y(y) / H * 1e4) / 1e4]) }));
   const edge = [...fp.full, ...fp.pieces].reduce((a, t) => a + 2 * (t.w + t.h), 0);
   g.fillStyle = '#2d3748'; g.font = `700 26px ${F}`; g.fillText(`Razem formatek: ${fp.total} (płyt ${lenPL(UF_SHEET[0])} × ${lenPL(UF_SHEET[1])}: ${ufSheets(fp)}) · cięć: ${fp.cuts} · odpad ${numPL(Math.max(0, fp.waste) / 1e6)} m² · okleina: ${numPL(edge / 1000)} m`, M, y + 14);
+  if (aisleA.total > 0) { g.fillStyle = '#2b6cb0'; g.fillText(`Kątownik aluminiowy ${lenPL(UF_ANGLE)} × ${lenPL(UF_ANGLE)} ${UNIT()} przy podłodze (wzdłuż alejki): ${numPL(aisleA.total / 1000)} m — ${aisleA.parts.map(p => `${p.nm} ${numPL(p.len / 1000)} m`).join(' + ')}`, M, y + 58); }
   return cv;
 }
 function ufFpLegend(fp) {          // legenda liter formatek: kolorowy znaczek, litera, wymiar, ilość
