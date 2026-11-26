@@ -11243,6 +11243,7 @@ function openExportDialog() {
     ['a4', '📋', 'Tabela A4', 'lista elementów z wymiarami i podsumowaniem, osobna kartka A4', true],
     ['csv', '📊', 'Excel (CSV)', 'lista elementów do arkusza', false],
     ['json', '💾', 'JSON', 'pełna kopia danych projektu', false],
+    ['tex', '🖼', 'Tekstury do Maxa', 'pliki JPG grafik elementów do wybranego folderu: znak_wymiar_typ.jpg (nadpisuje bez pytania)', false],
   ];
   const m = openModal({
     title: '⇩ Eksport', wide: false,
@@ -11281,6 +11282,10 @@ function openExportDialog() {
   const preview = async () => {
     if (prevFor === w + lang + zoom + cats.join() + S.photos.map(p => p.noExp ? 'x' : 'o').join('')) return;
     prevFor = w + lang + zoom + cats.join() + S.photos.map(p => p.noExp ? 'x' : 'o').join(''); const nr = ++prevNr, box = $('exp-prev'); EXP_SCOPE = cats.slice();
+    if (w === 'tex') {
+      const its = texItems(); box.innerHTML = its.length ? `<pre class="exp-txt">${esc(its.slice(0, 12).map(i => i.name).join('\n'))}${its.length > 12 ? '\n… (' + its.length + ' plików)' : ''}</pre>` : '<div class="hint">W tym zakresie nie ma elementów z wklejoną grafiką.</div>';
+      return;
+    }
     if (w === 'csv' || w === 'json') {
       const rows = exportRows().slice(0, 6);
       box.innerHTML = `<pre class="exp-txt">${esc(w === 'csv' ? rows.map(r => [r.znak, r.typ, r.gross, r.qty].join(';')).join('\n') : JSON.stringify(rows.map(r => ({ znak: r.znak, typ: r.typ, wymiar: r.gross })), null, 1))}${exportRows().length > 6 ? '\n…' : ''}</pre>`;
@@ -11311,7 +11316,7 @@ function openExportDialog() {
     clearTimeout(zTimer); zTimer = setTimeout(preview, 250);
   });
   $('exp-za').onclick = () => { zoom = null; preview(); };
-  const ext = () => ({ a3: '.pdf', a4: '_tabela.pdf', csv: '.csv', json: '.json' })[w];
+  const ext = () => ({ a3: '.pdf', a4: '_tabela.pdf', csv: '.csv', json: '.json', tex: '' })[w];
   const sync = () => {
     const printable = what.find(x => x[0] === w)[4];
     if (!printable) mode = 'save';
@@ -11319,13 +11324,13 @@ function openExportDialog() {
     m.el.querySelectorAll('.exp-m[data-m]').forEach(x => { x.classList.toggle('on', x.dataset.m === mode); x.disabled = x.dataset.m === 'print' && !printable; });
     m.el.querySelectorAll('.exp-m[data-l]').forEach(x => x.classList.toggle('on', x.dataset.l === lang));
     m.el.querySelector('.exp-lang-fld').classList.toggle('hidden', !printable);
-    m.el.querySelector('.exp-ver').classList.toggle('hidden', mode !== 'save');
+    m.el.querySelector('.exp-ver').classList.toggle('hidden', mode !== 'save' || w === 'tex');
     m.el.querySelector('.exp-zoom').classList.toggle('hidden', w !== 'a3');
     m.el.querySelector('.exp-scope').classList.toggle('hidden', w === 'json');
     m.el.querySelectorAll('.exp-chk input').forEach(x => { x.checked = cats.includes(x.dataset.cat); x.parentElement.classList.toggle('on', x.checked); });
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     $('exp-file').innerHTML = `Plik: <b>${esc(fileBase(v) + ext())}</b>`;
-    $('exp-go').textContent = mode === 'print' ? '🖨 Drukuj' : '💾 Zapisz';
+    $('exp-go').textContent = w === 'tex' ? '🖼 Eksportuj do folderu…' : mode === 'print' ? '🖨 Drukuj' : '💾 Zapisz';
     preview();
   };
   m.el.querySelectorAll('.exp-opt').forEach(x => x.onclick = () => { w = x.dataset.w; sync(); });
@@ -11335,6 +11340,12 @@ function openExportDialog() {
   $('exp-v').addEventListener('input', sync);
   m.el.querySelector('[data-c]').onclick = () => m.close();
   $('exp-go').onclick = async () => {
+    if (w === 'tex') {          // wybór folderu musi nastąpić od razu po kliknięciu (zgoda przeglądarki wymaga gestu użytkownika)
+      const its = (EXP_SCOPE = cats.slice(), texItems()); EXP_SCOPE = 'all';
+      if (!its.length) return toast('W tym zakresie nie ma elementów z wklejoną grafiką', 'error');
+      let dirp = null; if (window.showDirectoryPicker) { try { dirp = await window.showDirectoryPicker({ mode: 'readwrite', id: 'index-tekstury' }); } catch (e) { return; } }
+      m.close(); return exportTextures(its, dirp);
+    }
     const v = Math.max(1, parseInt($('exp-v').value, 10) || 1);
     const pend = todosOpen(S.project);      // nieodhaczone notatki „!?” — przypomnienie przed eksportem
     if (pend.length && !await confirmBox(`<b>Są rzeczy do zrobienia lub sprawdzenia (${pend.length}):</b><ul style="margin:8px 0 8px 20px">${pend.slice(0, 8).map(t => `<li>${esc(t.text)}</li>`).join('')}${pend.length > 8 ? `<li>… i ${pend.length - 8} więcej</li>` : ''}</ul>Eksportować mimo to?`, 'Eksportuj mimo to', false)) return;
@@ -11348,6 +11359,38 @@ function openExportDialog() {
     try { await exportDoc(w, mode, v, lang); } finally { A3_ZOOM = null; EXP_SCOPE = 'all'; EXP_PAGES = ['classic']; }
   };
   sync();
+}
+// TEKSTURY DO MAXA: grafiki elementów (miniatury wklejone w INDEX) jako pliki JPG: <znak>_<szer>x<wys><jedn>_<typ>.jpg
+const fileSafe = t => String(t == null ? '' : t).replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+function texItems() {
+  const items = [], used = new Set();
+  exportRows().forEach(r => {
+    const e = r.el, t = typeById(e.typeId), tn = fileSafe(String((t && t.name) || e.typeId).replace(/^Tkanina\s+/i, '').replace(/\s*\(.*\)\s*$/, ''));
+    const size = hasDims(e) ? `${numIn(fromMM(Number(e.w) > 0 ? e.w : grossOf(e).w))}x${numIn(fromMM(Number(e.h) > 0 ? e.h : grossOf(e).h))}${UNIT()}` : '';
+    const add = (url, piece) => { if (!url) return; let nm = [fileSafe(markOf(e)), size, tn].filter(Boolean).join('_') + (piece ? '_' + fileSafe(piece) : ''), k = nm, i = 2; while (used.has(k.toLowerCase())) k = nm + '_' + (i++); used.add(k.toLowerCase()); items.push({ name: k + '.jpg', url }); };
+    if (e.multi) multiLabels(e).forEach((lb, i) => add(pieceThumb(e, i), i ? lb : ''));
+    else add(e.thumb);
+  });
+  return items;
+}
+async function exportTextures(items, dir) {
+  const wk = toast(`Eksportuję tekstury 0/${items.length}… 0%`, '', 600000); await new Promise(r => setTimeout(r, 30));
+  let ok = 0, bad = [];
+  try {
+    for (const it of items) {
+      try {
+        const im = await loadImg(it.url), c = document.createElement('canvas'); c.width = im.naturalWidth || im.width; c.height = im.naturalHeight || im.height;
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0);
+        const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.95));
+        if (dir) { const fh = await dir.getFileHandle(it.name, { create: true }), w2 = await fh.createWritable(); await w2.write(blob); await w2.close(); }      // nadpisuje bez pytania
+        else { download(it.name, blob); await new Promise(r => setTimeout(r, 350)); }
+        ok++;
+      } catch (e) { bad.push(it.name + ' (' + e.message + ')'); }
+      wk.textContent = `Eksportuję tekstury ${ok + bad.length}/${items.length}… ${Math.round((ok + bad.length) / items.length * 100)}%`;
+    }
+  } finally { wk.remove(); }
+  if (S.project) addLog(S.project.id, `Wyeksportowano tekstury do Maxa: ${ok} plików JPG`);
+  toast(bad.length ? `Zapisano ${ok} z ${items.length} plików. Nie udało się: ${bad.slice(0, 3).join('; ')}${bad.length > 3 ? '…' : ''}` : `Zapisano ${ok} plików JPG${dir ? ' w wybranym folderze (istniejące nadpisane)' : ' (do folderu Pobrane — ta przeglądarka nie pozwala wybrać folderu)'}`, bad.length ? 'error' : 'success', 7000);
 }
 // element ukryty okiem (tblHidden) nie idzie do eksportu — razem z nim wysłona jego lightboxa i drzwi jego ściany
 let EXP_SCOPE = 'all';                  // zakres eksportu: 'all' (bez filtra — widok w aplikacji) albo lista kategorii: classic | hang | uf
