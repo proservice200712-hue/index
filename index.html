@@ -9292,8 +9292,9 @@ function ufDraw(light) {
     }
   }
   // miarka: zapisane pomiary + pomiar na żywo (od pierwszego punktu do kursora)
-  if (UF.measOn || (UF.meas || []).length) {
-    const mc = '#d53f8c', one = (a, b, live) => {
+  UF.measHits = [];
+  if (UF.measOn || (UF.d.meas || []).length) {
+    const mc = '#d53f8c', one = (a, b, live, idx) => {
       const ax = X(a[0]), ay = Y(a[1]), bx = X(b[0]), by = Y(b[1]), dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), px = Math.hypot(bx - ax, by - ay);
       g.save(); g.setLineDash(live ? [7, 5] : []); if (px > 14) drawArrowLine(g, ax, ay, bx, by, 9, mc, 2); else { g.strokeStyle = mc; g.lineWidth = 2; g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke(); } g.setLineDash([]);
       [[ax, ay], [bx, by]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 2; g.strokeStyle = mc; g.stroke(); });
@@ -9301,9 +9302,11 @@ function ufDraw(light) {
       g.font = `700 13px ${F}`; const w1 = g.measureText(t1).width; g.font = `600 11px ${F}`; const w2 = t2 ? g.measureText(t2).width : 0, bw = Math.max(w1, w2) + 14, bh = t2 ? 36 : 22, mx = (ax + bx) / 2, my = (ay + by) / 2 - 16 - bh / 2;
       g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(mx - bw / 2, my - bh / 2, bw, bh); g.strokeStyle = mc; g.lineWidth = 1.5; g.strokeRect(mx - bw / 2, my - bh / 2, bw, bh);
       g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#97266d'; g.font = `700 13px ${F}`; g.fillText(t1, mx, t2 ? my - 7 : my); if (t2) { g.font = `600 11px ${F}`; g.fillStyle = '#702459'; g.fillText(t2, mx, my + 9); }
+      if (!live && idx !== undefined) UF.measHits.push({ x: mx - bw / 2, y: my - bh / 2, w: bw, h: bh, i: idx });
       g.restore();
     };
-    (UF.meas || []).forEach(m => one(m.a, m.b, false));
+    (UF.d.meas || []).forEach((m, i) => one([m.ax, m.ay], [m.bx, m.by], false, i));
+    if (UF.measOn && !UF.measA && UF.measMouse) { const mk = UF.measMouse, kx = X(mk[0]), ky = Y(mk[1]); g.save(); g.beginPath(); g.arc(kx, ky, mk[2] ? 7 : 3.5, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = mc; if (mk[2] === 'c') { g.fillStyle = mc; g.fill(); } g.stroke(); g.restore(); }       // magnes: pełne kółko = narożnik, puste = krawędź
     if (UF.measOn && UF.measA && UF.measMouse) one(UF.measA, ufMeasEnd(UF.measA, UF.measMouse, (UF.measMode === 'o') !== !!UF.measShift), true);
   }
   // zaczepy podczas przeciągania + duch klocka
@@ -9516,27 +9519,34 @@ function ufZoomAt(px, py, k) {
 // „Połącz grafiki” (administrator): tryb, w którym klik w znacznik jednej grafiki i drugiej łączy je w jedną (nitka); ✕ na kresce rozłącza
 // MIARKA: dwa punkty na planie → odległość (po skosie albo poziom/pion); punkty przyciągają się do narożników ścianek i stoiska
 function ufMeasToggle() {
-  UF.measOn = !UF.measOn; UF.measA = null; UF.measMouse = null; if (!UF.measOn) UF.meas = []; else { UF.linkOn = false; UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; UF.measMode = UF.measMode || 'd'; }
+  UF.measOn = !UF.measOn; UF.measA = null; UF.measMouse = null; if (UF.measOn) { UF.linkOn = false; UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; UF.measMode = UF.measMode || 'd'; }
   ufSyncBar(); ufDraw(true);
   if (UF.measOn) toast('Miarka: kliknij pierwszy punkt, potem drugi (przyciąga do narożników). Przycisk obok przełącza skos ↔ poziom/pion, Esc kończy.', '', 5000);
 }
 function ufMeasSnap(wx, wy) {
-  const tol = 12 / UF.tr.s, st = UF.d.stand, geo = UF.geo || ufGeom(UF.d); let best = null, bd = tol;
+  const sc = UF.tr.s, tol = 12 / sc, etol = 10 / sc, st = UF.d.stand, geo = UF.geo || ufGeom(UF.d); let best = null, bd = tol;
   const pts = [[0, 0], [st.L, 0], [st.L, st.D], [0, st.D]]; geo.parts.forEach(q => pts.push([q.x0, q.y0], [q.x1, q.y0], [q.x1, q.y1], [q.x0, q.y1]));
   pts.forEach(p => { const dd = Math.hypot(p[0] - wx, p[1] - wy); if (dd < bd) { bd = dd; best = p; } });
-  return best ? [best[0], best[1]] : [wx, wy];
+  if (best) return [best[0], best[1], 'c'];                      // narożnik
+  const segs = [[0, 0, st.L, 0], [st.L, 0, st.L, st.D], [st.L, st.D, 0, st.D], [0, st.D, 0, 0]];
+  geo.parts.forEach(q => segs.push([q.x0, q.y0, q.x1, q.y0], [q.x1, q.y0, q.x1, q.y1], [q.x1, q.y1, q.x0, q.y1], [q.x0, q.y1, q.x0, q.y0]));
+  let eb = null; bd = etol;
+  segs.forEach(([x1, y1, x2, y2]) => { const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((wx - x1) * dx + (wy - y1) * dy) / l2)), px = x1 + t * dx, py = y1 + t * dy, dd = Math.hypot(px - wx, py - wy); if (dd < bd) { bd = dd; eb = [px, py]; } });
+  return eb ? [eb[0], eb[1], 'e'] : [wx, wy, ''];                // krawędź ścianki / obrys stoiska albo wolny punkt
 }
 function ufMeasEnd(a, b, orth) { return orth ? (Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]) ? [b[0], a[1]] : [a[0], b[1]]) : b; }
-function ufMeasClick(wx, wy, shift) {
+function ufMeasClick(wx, wy, shift, px, py) {
+  const hit = (UF.measHits || []).find(h => px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h);
+  if (hit && !UF.measA) { ufPush(); UF.d.meas.splice(hit.i, 1); ufChanged(); toast('Pomiar usunięty', '', 2000); return; }       // klik w opis pomiaru = usunięcie
   const p = ufMeasSnap(wx, wy);
   if (!UF.measA) { UF.measA = p; UF.measMouse = p; ufDraw(true); return; }
   const orth = (UF.measMode === 'o') !== !!shift, b = ufMeasEnd(UF.measA, p, orth);
-  if (Math.hypot(b[0] - UF.measA[0], b[1] - UF.measA[1]) > 0.5) (UF.meas = UF.meas || []).push({ a: UF.measA, b });
+  if (Math.hypot(b[0] - UF.measA[0], b[1] - UF.measA[1]) > 0.5) { ufPush(); (UF.d.meas = UF.d.meas || []).push({ ax: UF.measA[0], ay: UF.measA[1], bx: b[0], by: b[1] }); ufChanged(); }
   UF.measA = null; ufDraw(true);
 }
 function ufLinkToggle() {
   if (!isAdmin() || !UF.open) return;
-  UF.linkOn = !UF.linkOn; UF.linkA = null; UF.linkMouse = null; if (UF.linkOn) { UF.measOn = false; UF.measA = null; UF.meas = []; UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; }
+  UF.linkOn = !UF.linkOn; UF.linkA = null; UF.linkMouse = null; if (UF.linkOn) { UF.measOn = false; UF.measA = null; UF.skOn && ufSkOff(); UF.sel = null; UF.rot = false; }
   ufSyncBar(); ufDraw(true);
   if (UF.linkOn) toast('Połącz grafiki: kliknij znacznik pierwszej grafiki, potem drugiej (w tej samej płaszczyźnie). ✕ na kresce rozłącza, Esc kończy.', '', 6000);
 }
@@ -9567,7 +9577,7 @@ function ufPointer(e) {
   if (e.button === 1) { e.preventDefault(); return ufPan(e); }
   closeMarkMenu();
   const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py);
-  if (UF.measOn) { e.preventDefault(); return ufMeasClick(wx, wy, e.shiftKey); }
+  if (UF.measOn) { e.preventDefault(); return ufMeasClick(wx, wy, e.shiftKey, px, py); }
   if (UF.linkOn && isAdmin()) { e.preventDefault(); return ufLinkClick(px, py); }
   const ar = (UF.arrows || []).find(q => Math.hypot(q.x - px, q.y - py) < 16);
   if (ar) { ufPush(); UF.d.stand.open[ar.k] = !UF.d.stand.open[ar.k]; ufChanged(); return; }
@@ -10402,9 +10412,12 @@ function ufTechRender() {
         if (!once(`a|${hzF}|${Math.round(yA)}|${Math.round(yB)}|${Math.round(m / 200)}`)) return;
         dim(hzF ? [X(m), Y(yA)] : [X(yA), Y(m)], hzF ? [X(m), Y(yB)] : [X(yB), Y(m)], hzF ? 1 : 0, hzF ? 0 : 1, 0, num(yB - yA), '#b7791f', 22);
       }); });
+    // pomiary miarką z planu zostają na rysunku (różowe)
+    (d.meas || []).forEach(m => { const len = Math.hypot(m.bx - m.ax, m.by - m.ay); if (len < 1) return; const dx = m.bx - m.ax, dy = m.by - m.ay, diag = Math.abs(dx) > 0.5 && Math.abs(dy) > 0.5;
+      dim([X(m.ax), Y(m.ay)], [X(m.bx), Y(m.by)], -dy / len, dx / len, 0, num(len) + (diag ? ` (${num(Math.abs(dx))} × ${num(Math.abs(dy))})` : ''), '#d53f8c', 22); });
     // wymiary całkowite: długość i głębokość stoiska
     dim([X(0), Y(0)], [X(L), Y(0)], 0, -1, 135, `${num(L)}`, '#1a202c', 28); dim([X(0), Y(0)], [X(0), Y(D)], -1, 0, 135, `${num(D)}`, '#1a202c', 28);
-    txt('zielony — moduły ścianki · niebieski — suma ścianki · bursztynowy — wymiar wewnętrzny (lico–lico) · czarny — wymiary stoiska', bx + 18, by + bh - 18, 20, '#4a5568', 'left', 'middle', 500);
+    txt('zielony — moduły ścianki · niebieski — suma ścianki · bursztynowy — wymiar wewnętrzny (lico–lico) · czarny — wymiary stoiska' + ((d.meas || []).length ? ' · różowy — pomiary miarką' : ''), bx + 18, by + bh - 18, 20, '#4a5568', 'left', 'middle', 500);
   }
   // ---------- FRONT i BOK (rzuty ścianek od alejki) ----------
   const open = k => !!st.open[k], front = ['s', 'n', 'w', 'e'].find(open) || 's', side = (front === 's' || front === 'n' ? ['e', 'w'] : ['s', 'n']).find(open) || (front === 's' || front === 'n' ? 'e' : 's');
@@ -10731,7 +10744,7 @@ async function closeUltraFrame() {
   $('uf-cv').addEventListener('pointerdown', ufPointer);
   $('uf-cv').addEventListener('pointermove', e => {          // najechana ścianka też świeci
     if (UF.drag || !UF.tr || !UF.geo) return;
-    if (UF.measOn) { if (UF.measA) { const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py); UF.measMouse = ufMeasSnap(wx, wy); UF.measShift = e.shiftKey; ufDraw(true); } return; }
+    if (UF.measOn) { const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py); UF.measMouse = ufMeasSnap(wx, wy); UF.measShift = e.shiftKey; ufDraw(true); return; }
     if (UF.linkOn && UF.linkA) { UF.linkMouse = ufCanvasPos(e); ufDraw(true); return; }
     const [px, py] = ufCanvasPos(e), [wx, wy] = ufWorld(px, py), tol = 4 / UF.tr.s;
     const q = UF.geo.parts.filter(q => wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol).sort((a, b) => (a.x1 - a.x0) * (a.y1 - a.y0) - (b.x1 - b.x0) * (b.y1 - b.y0))[0], id = q ? q.op.id : null;
@@ -10869,7 +10882,7 @@ async function closeUltraFrame() {
     if (document.querySelector('.modal-back')) return;
     const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (e.key === 'Escape') t.blur(); return; }
     const k = e.key; let h = true;
-    if (UF.measOn && k === 'Escape') { if (UF.measA) UF.measA = null; else { UF.measOn = false; UF.meas = []; } ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }
+    if (UF.measOn && k === 'Escape') { if (UF.measA) UF.measA = null; else { UF.measOn = false; } ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }
     if (UF.linkOn && k === 'Escape') { if (UF.linkA) UF.linkA = null; else UF.linkOn = false; ufSyncBar(); ufDraw(true); e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }
     if (UF.skOn) {      // tryb rysowania kreską
       if (k === 'Escape') { if (UF.skDraft) { UF.skDraft = null; ufDraw(true); } else ufSkOff(); }
