@@ -211,6 +211,8 @@
   .hdr-project .pfair { color: var(--mid); font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
   .hdr-project .pfair:not(:empty)::before { content: '·'; margin-right: 12px; color: var(--gray); }
   .hdr-spacer { flex: 1; }
+  .header-author { text-align: right; font-size: 0.56rem; font-weight: 600; line-height: 1.25; letter-spacing: 0.6px; color: #a0aec0; text-transform: uppercase; white-space: nowrap; flex-shrink: 0; user-select: none; }
+  @media (max-width: 560px) { .header-author { font-size: 0.5rem; } }
   .avatar { width: 34px; height: 34px; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; color: #fff; cursor: pointer; user-select: none; flex: 0 0 auto; }
   .langs { display: flex; gap: 6px; align-items: center; }
   .lang { width: 28px; height: 28px; padding: 2px; border: none; background: none; cursor: pointer; border-radius: 50% !important; opacity: .55; transition: opacity .15s, transform .15s; display: flex; }
@@ -1135,6 +1137,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10 7.5v5l4.2-2.5z" fill="currentColor" stroke="none"/></svg>
   </button>
   <div class="avatar hidden" id="avatar" onclick="toggleUserMenu(event)"></div>
+  <div class="header-author" data-noi18n>Powered by<br>Gólecki</div>
 </header>
 
 <div id="app-row">
