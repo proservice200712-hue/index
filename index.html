@@ -8365,7 +8365,8 @@ function ufDimEdit(h) {
   inp.type = 'text'; inp.inputMode = 'decimal'; inp.value = numIn(fromMM(h.val)); inp.title = 'Nowy wymiar, Enter = zatwierdź, Esc = anuluj';
   inp.style.cssText = `position:absolute;z-index:6;left:${Math.round(h.x + h.w / 2 - 42)}px;top:${Math.round(h.y + h.h / 2 - 14)}px;width:84px;padding:4px 6px;font:700 13px Segoe UI,Arial,sans-serif;text-align:center;border:2px solid #38a169;background:#fff;color:#22543d`;
   wrap.appendChild(inp);
-  const done = ok => { if (fin) return; fin = true; const v = toMM(inp.value); inp.remove(); if (ok && Number.isFinite(v)) ufSetGap(h.c, h.which, v); };
+  if (h.runOp) inp.title = 'Długość całej ściany (wszystkie segmenty razem) — można wpisać działanie, np. 300+10 albo +10 / -5. Enter = zatwierdź, Esc = anuluj';
+  const done = ok => { if (fin) return; fin = true; let s = inp.value.trim(); if (/^[+\-]/.test(s)) s = numIn(fromMM(h.val)) + s; const cv0 = calcVal(s), v = cv0 === '' ? NaN : toMM(cv0); inp.remove(); if (ok && Number.isFinite(v)) { if (h.runOp) ufSetRunLen(h.runOp, v); else ufSetGap(h.c, h.which, v); } };
   inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); done(false); } });
   inp.addEventListener('blur', () => done(false));
   setTimeout(() => { inp.focus(); inp.select(); }, 0);
@@ -9506,6 +9507,22 @@ function ufDraw(light) {
       UF.dimHits.push({ x: cx2 - bw / 2, y: cy2 - bh / 2, w: bw, h: bh, c, which, val });
     }));
   }
+  // wymiar CAŁEJ ściany (zaznaczona ścianka złożona z kilku segmentów): linia ze strzałkami; kliknij liczbę, aby zmienić długość całej ściany
+  if (sel && !(UF.drag && UF.drag.moved)) {
+    const q0 = geo.parts.find(p => p.op.id === sel), rn = q0 && q0.op.t === 'w' && q0.run;
+    if (rn && rn.ops.filter(o2 => o2.t !== 'post').length > 1) {
+      const hzr = rn.ori === 0, lo = Math.min(...rn.parts.map(p => hzr ? p.x0 : p.y0)), hi = Math.max(...rn.parts.map(p => hzr ? p.x1 : p.y1)), tot = hi - lo;
+      const mid = hzr ? st.D / 2 : st.L / 2, out = rn.line >= mid ? 1 : -1, off = out * 40, c0 = hzr ? Y(rn.line) + off : X(rn.line) + off;
+      const a = hzr ? [X(lo), c0] : [c0, Y(lo)], b = hzr ? [X(hi), c0] : [c0, Y(hi)], mc = '#2b6cb0';
+      g.strokeStyle = '#90cdf4'; g.lineWidth = 1; g.beginPath();
+      [[lo, a], [hi, b]].forEach(([v, pt]) => { if (hzr) { g.moveTo(X(v), Y(rn.line)); g.lineTo(pt[0], pt[1] + out * 5); } else { g.moveTo(X(rn.line), Y(v)); g.lineTo(pt[0] + out * 5, pt[1]); } }); g.stroke();
+      drawArrowLine(g, a[0], a[1], b[0], b[1], 6, mc, 1.4);
+      g.font = `700 11px ${F}`; const txt = lenPL(Math.round(tot * 10) / 10), bw = Math.max(40, g.measureText(txt).width + 14), bh = 18, cx2 = (a[0] + b[0]) / 2, cy2 = (a[1] + b[1]) / 2;
+      g.fillStyle = 'rgba(255,255,255,.96)'; g.fillRect(cx2 - bw / 2, cy2 - bh / 2, bw, bh); g.strokeStyle = mc; g.lineWidth = 1; g.strokeRect(cx2 - bw / 2, cy2 - bh / 2, bw, bh);
+      g.fillStyle = '#2a4365'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, cx2, cy2 + 0.5);
+      UF.dimHits.push({ x: cx2 - bw / 2, y: cy2 - bh / 2, w: bw, h: bh, runOp: q0.op, val: Math.round(tot * 10) / 10, tip: 'cała ściana' });
+    }
+  }
   UF.kar = [];          // zielone strzałki przesuwania ukryte — ścianki przesuwa się strzałkami na klawiaturze (ufKMove)
   ufSkPaint(g, X, Y, s, F);
   if (!d.pieces.length) {
@@ -9880,20 +9897,38 @@ function ufSetLen(o, len) {
   UF.undo.pop();
   toast(UF_OVL_MSG + ' — po zmianie szerokości ściana wjechałaby na inną ściankę (w żadną stronę nie ma miejsca)', 'error', 4000);
 }
+// długość CAŁEJ ściany (wszystkie sklejone segmenty, ze słupkami): różnicę dokładamy do zaznaczonego segmentu — początek ściany stoi, kolejne segmenty się przesuwają
+const ufRunSpan = (run, hz) => run ? Math.max(...run.parts.map(p => hz ? p.x1 : p.y1)) - Math.min(...run.parts.map(p => hz ? p.x0 : p.y0)) : 0;
+function ufSetRunLen(o, total) {
+  const run = ufGeom(UF.d).runs.find(r => r.ops.includes(o)); if (!run) return ufSetLen(o, total);
+  ufSetLen(o, o.len + (total - ufRunSpan(run, (o.dir & 1) === 0)));
+}
 function ufWallMenu(e, wx, wy, tol) {
   const q = (UF.geo || ufGeom(UF.d)).parts.find(q => q.op.t === 'w' && wx >= q.x0 - tol && wx <= q.x1 + tol && wy >= q.y0 - tol && wy <= q.y1 + tol);
   if (!q) return;
   const o = q.op; UF.sel = o.id; UF.rot = false; ufDraw(); ufSyncBar();
   const full = o.len0 || o.len, K = ufK(), drzwiOk = !(K ? full < UF_KDW + 40 : Math.abs(full - 992) > 1);
+  const runN = q.run ? q.run.ops.filter(p2 => p2.t !== 'post').length : 0, runLen = q.run ? ufRunSpan(q.run, (o.dir & 1) === 0) : 0;
   const m = document.createElement('div'); m.className = 'menu mark-menu';
   const opts = !drzwiOk ? [] : K ? [['flush', 'drzwi zlicowane z płytą'], ['proud', 'drzwi wpuszczone (w głąb ścianki)']] : UF_DOOR_HS.map(([k, v]) => [k, 'drzwi wysokość ' + lenPL(v)]);
   m.innerHTML = `<div class="mm-h">Ścianka ${lenPL(o.len)} ${UNIT()}</div>
     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px 6px"><span>szerokość</span><input type="text" inputmode="decimal" data-wl value="${numIn(fromMM(o.len))}" style="width:72px;padding:3px 6px;font-weight:700;text-align:center" title="Nowa szerokość ścianki — Enter zatwierdza. Początek ścianki stoi, kolejne ścianki tej ściany przesuwają się."><span>${UNIT()}</span><button type="button" data-wlok class="btn btn-sm">OK</button></div>`
+    + (runN > 1 ? `<div style="display:flex;align-items:center;gap:6px;padding:0 10px 6px"><span>cała ściana</span><input type="text" inputmode="decimal" data-wr value="${numIn(fromMM(Math.round(runLen * 10) / 10))}" style="width:72px;padding:3px 6px;font-weight:700;text-align:center" title="Długość całej ściany (${runN} segmenty razem) — różnica trafia do zaznaczonego segmentu; Enter zatwierdza. Można wpisać działanie albo +10 / -5."><span>${UNIT()}</span><button type="button" data-wrok class="btn btn-sm">OK</button></div>` : '')
     + (opts.length ? '<div class="mm-sep"></div><div class="mm-h">zamień na:</div>' + opts.map(([k, v]) => `<button type="button" data-wd="${k}">🚪 ${v}</button>`).join('') : `<div class="hint" style="padding:2px 10px 6px">${K ? `drzwi: moduł min. ${lenPL(UF_KDW + 40)} ${UNIT()}` : `drzwi tylko z modułu ${lenPL(992)} ${UNIT()}`}</div>`);
   document.body.appendChild(m);
-  const wl = m.querySelector('[data-wl]'), wlOk = () => { const v = toMM(wl.value); closeMarkMenu(); if (Number.isFinite(v)) ufSetLen(o, v); };
-  m.querySelector('[data-wlok]').onclick = wlOk;
-  wl.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); wlOk(); } else if (ev.key === 'Escape') { ev.preventDefault(); closeMarkMenu(); } });
+  // szerokość można wpisać jako działanie: 83,9+10 · 90-6,1 · 2*45 — albo względnie od obecnej: +10 / -5 (dodaje / odejmuje od widocznej wartości)
+  // pola: „szerokość” = ten segment, „cała ściana” = długość wszystkich sklejonych segmentów razem (różnica trafia do zaznaczonego segmentu)
+  const wire = (inp, okBtn, apply) => {
+    if (!inp) return; const cur = inp.value, pv = document.createElement('span'); pv.style.cssText = 'font-weight:700;color:var(--green,#2f855a);min-width:0'; inp.after(pv);
+    const val = () => { let t = inp.value.trim(); if (/^[+\-]/.test(t)) t = cur + t; const c = calcVal(t); return c === '' ? NaN : toMM(c); };
+    const go = () => { const v = val(); if (!Number.isFinite(v)) return toast('Nie rozumiem wpisanej wartości — wpisz liczbę albo działanie, np. 83,9+10', 'error', 3500); closeMarkMenu(); apply(v); };
+    inp.addEventListener('input', () => { const t = inp.value.trim(), v = val(); pv.textContent = /[+\-*/x×]/.test(t.replace(/^[+\-]/, '')) || /^[+\-]/.test(t) ? (Number.isFinite(v) ? '= ' + numIn(fromMM(Math.round(v * 10) / 10)) : '?') : ''; });
+    inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); go(); } else if (ev.key === 'Escape') { ev.preventDefault(); closeMarkMenu(); } });
+    if (okBtn) okBtn.onclick = go;
+  };
+  const wl = m.querySelector('[data-wl]');
+  wire(wl, m.querySelector('[data-wlok]'), v => ufSetLen(o, v));
+  wire(m.querySelector('[data-wr]'), m.querySelector('[data-wrok]'), v => ufSetRunLen(o, v));
   setTimeout(() => { wl.focus(); wl.select(); }, 0);
   const rc = m.getBoundingClientRect();
   m.style.left = clamp(e.clientX, 6, innerWidth - rc.width - 6) + 'px'; m.style.top = clamp(e.clientY, 6, innerHeight - rc.height - 6) + 'px';
@@ -11294,7 +11329,8 @@ function openExportDialog() {
     if (prevFor === w + lang + zoom + cats.join() + S.photos.map(p => p.noExp ? 'x' : 'o').join('')) return;
     prevFor = w + lang + zoom + cats.join() + S.photos.map(p => p.noExp ? 'x' : 'o').join(''); const nr = ++prevNr, box = $('exp-prev'); EXP_SCOPE = cats.slice();
     if (w === 'tex') {
-      const its = texItems(); box.innerHTML = its.length ? `<pre class="exp-txt">${esc(its.slice(0, 12).map(i => i.name).join('\n'))}${its.length > 12 ? '\n… (' + its.length + ' plików)' : ''}</pre>` : '<div class="hint">W tym zakresie nie ma elementów z wklejoną grafiką.</div>';
+      let its; EXP_UFEL = true; try { its = texItems(); } finally { EXP_UFEL = false; }
+      box.innerHTML = its.length ? `<pre class="exp-txt">${esc(its.slice(0, 12).map(i => i.name).join('\n'))}${its.length > 12 ? '\n… (' + its.length + ' plików)' : ''}</pre>` : '<div class="hint">W tym zakresie nie ma elementów z wklejoną grafiką.</div>';
       return;
     }
     if (w === 'csv' || w === 'json') {
@@ -11352,7 +11388,7 @@ function openExportDialog() {
   m.el.querySelector('[data-c]').onclick = () => m.close();
   $('exp-go').onclick = async () => {
     if (w === 'tex') {          // wybór folderu musi nastąpić od razu po kliknięciu (zgoda przeglądarki wymaga gestu użytkownika)
-      const its = (EXP_SCOPE = cats.slice(), texItems()); EXP_SCOPE = 'all';
+      let its; EXP_UFEL = true; try { EXP_SCOPE = cats.slice(); its = texItems(); } finally { EXP_UFEL = false; EXP_SCOPE = 'all'; }
       if (!its.length) return toast('W tym zakresie nie ma elementów z wklejoną grafiką', 'error');
       let dirp = null; if (window.showDirectoryPicker) { try { dirp = await window.showDirectoryPicker({ mode: 'readwrite', id: 'index-tekstury' }); } catch (e) { return; } }
       m.close(); return exportTextures(its, dirp);
@@ -11417,8 +11453,10 @@ function ufPhotoSet() {
 function expCatOfEl(e) {
   const main = (e.backFor || e.doorFor) && S.elements.find(x => x.id === (e.backFor || e.doorFor)), el = main || e;
   if (isHang(el)) return 'hang';
-  return el.ufKey || (el.photoId && ufPhotoSet().has(el.photoId)) ? 'uf' : 'classic';
+  // elementy graficzne z Ultra Frame idą do klasycznego indexu — zakres „Ultra-Frame” to tylko jego wizki (3D, wizualizacja, widok z góry); wyjątek: eksport tekstur do Maxa
+  return EXP_UFEL && (el.ufKey || (el.photoId && ufPhotoSet().has(el.photoId))) ? 'uf' : 'classic';
 }
+let EXP_UFEL = false;                   // true tylko na czas eksportu tekstur do Maxa: elementy Ultra Frame liczą się wtedy do zakresu „Ultra-Frame”
 const expCatOfPhoto = p => hangElOfPhoto(p.id) ? 'hang' : (ufPhotoSet().has(p.id) || p.ufViz) ? 'uf' : 'classic';
 // wizki do eksportu: bez wyłączonych oczkiem i tylko z wybranych zakresów
 const expPhotos = () => S.photos.filter(p => !p.noExp && (EXP_SCOPE === 'all' || EXP_SCOPE.includes(expCatOfPhoto(p))));
