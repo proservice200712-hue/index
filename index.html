@@ -11749,15 +11749,17 @@ async function renderIndexA3(stamp) {
     const mN = r.el.multi ? multiN(r.el) : 0, qw = mN ? 0 : (r.qty || 1) > 1 ? 110 : 0;      // Multi: jedno okienko, kafelki J1, J2… obok siebie, ilość przy każdym
     const hwOn = isHang(r.el) && d && !vizEls.has(r.el.id), hwL = hwOn ? hwList(r.el) : [], hpim = hwOn ? hwImgs['pod/prof-' + hangProf(r.el)[0] + '.png'] : null, hwH = hwOn ? 168 : 0;
     const hwW = hwOn ? (hpim ? hpim.width / hpim.height * 120 : 60) + 44 + hwL.length * 112 : 0;
-    const mCols = mN ? Math.max(1, Math.min(mN, Math.floor((areaW - LM - 10) / (FW + MTG)))) : 1, mExtra = mN ? (Math.ceil(mN / mCols) - 1) * (FH + MLB + 20) : 0;
-    const w = Math.max(LM + mCols * FW + (mCols - 1) * MTG + 10 + qw, 230, hwW);
+    // Multi: odstęp kafelków co najmniej tak duży jak etykieta „J1 ×2” (małe kafelki nie mogą jej zasłaniać)
+    let mPitch = FW + MTG; if (mN) { g.font = `800 ${FS}px ${PDF_FONT}`; const ml = multiLabels(r.el); mPitch = Math.max(FW, ...ml.map((lb, i) => g.measureText(lb).width + g.measureText('×' + pieceQty(r.el, i)).width + 44)) + MTG; }
+    const mCols = mN ? Math.max(1, Math.min(mN, Math.floor((areaW - LM - 10 + MTG) / mPitch))) : 1, mExtra = mN ? (Math.ceil(mN / mCols) - 1) * (FH + MLB + 20) : 0;
+    const w = Math.max(LM + (mN ? (mCols - 1) * mPitch + Math.max(FW, mPitch - MTG) : FW) + 10 + qw, 230, hwW);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
     const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ, w - 56, 3);
     g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
     const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
     const head = 20 + title.length * 34 + (mN ? MLB : 0);
     const notes = (!d ? 40 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
-    return { r, d, FW, FH, LM, BM, sm, w, mN, mCols, mExtra, h: head + FH + BM + notes + hwH + mExtra, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
+    return { r, d, FW, FH, LM, BM, sm, w, mN, mCols, mExtra, mPitch, h: head + FH + BM + notes + hwH + mExtra, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
   };
   // okienka w rzędach (kolejność: alfabetycznie albo od najwyższych — co lepiej wypełnia arkusz)
   // okienka po kolei (A, B, C… / 1, 2, 3…) w rzędach; obs = blok wizek u góry — rzędy obok niego go omijają
@@ -11990,7 +11992,7 @@ async function renderIndexA3(stamp) {
         const labs = multiLabels(r.el), gbm = isHang(r.el) ? 0 : r.spad, bb = gbm ? (r.el.bleedBox || { l: gbm, r: gbm, t: gbm, b: gbm }) : null, skx2 = r.bw ? FW / r.bw : k, sky2 = r.bh ? FH / r.bh : k;
         const bl2 = bb ? Math.min(FW / 4, Math.max(6, bb.l * skx2)) : 0, br2 = bb ? Math.min(FW / 4, Math.max(6, bb.r * skx2)) : 0, bt2 = bb ? Math.min(FH / 4, Math.max(6, bb.t * sky2)) : 0, bb2 = bb ? Math.min(FH / 4, Math.max(6, bb.b * sky2)) : 0;
         for (let i = 0; i < cd.mN; i++) {
-          const col = i % cd.mCols, row = Math.floor(i / cd.mCols), tx = fx + col * (FW + MTG), ty = row === 0 ? fy : fy + FH + BM + MLB + (row - 1) * (FH + MLB + 20);
+          const col = i % cd.mCols, row = Math.floor(i / cd.mCols), tx = fx + col * cd.mPitch, ty = row === 0 ? fy : fy + FH + BM + MLB + (row - 1) * (FH + MLB + 20);
           const lb = labs[i], qt = '×' + pieceQty(r.el, i); g.font = `800 ${FS}px ${PDF_FONT}`;
           const lw = g.measureText(lb).width + 22, qw2 = g.measureText(qt).width + 22;
           g.fillStyle = '#2d3748'; g.fillRect(tx, ty - 38, lw, 34); g.fillStyle = '#edf2f7'; g.fillRect(tx + lw, ty - 38, qw2, 34); g.strokeStyle = '#cbd5e0'; g.lineWidth = 1.5; g.strokeRect(tx + lw, ty - 38, qw2, 34);
