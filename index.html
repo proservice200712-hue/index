@@ -11483,7 +11483,7 @@ function exportRows() {
     return { znak: markOf(e), wizka: e.photoId ? photoNo(e.photoId) : '', typ: typeLabel(e), opis: e.name || '',
       w: hasDims(e) ? (Number(e.w) > 0 ? e.w : g.w) : '', h: hasDims(e) ? (Number(e.h) > 0 ? e.h : g.h) : '', d: hasDims(e) && ['box', 'arc'].includes(dimsMode(e)) ? depthOf(e) : '',
       net: netTxt(e), gross: grossTxt(e), spad: g.b, bw: hasDims(e) ? g.w : '', bh: hasDims(e) ? g.h : '',
-      qty: qtyOf(e), m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e), kto: userLabel(e.updatedBy || e.createdBy), color: colorOf(e), el: e };
+      qty: qtyOf(e), m2: hasDims(e) ? areaOf(e) : '', uwagi: notesOf(e).replace(/^K-Frame · (?!malowanie)[^·]*/, 'K-frame'), kto: userLabel(e.updatedBy || e.createdBy), color: colorOf(e), el: e };
   });
 }
 function exportCsv(name) {
@@ -11695,7 +11695,11 @@ async function renderIndexA3(stamp) {
   const [c, g] = newCanvas(PW, PH, EXP_Q);
   let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
   pageHeader(g, PW, PH, logo, '', stamp, sc);
-  const rows = exportRows();
+  // element Multi (kilka grafik jednego wymiaru: J1, J2…): każda pozycja dostaje własne okienko z własną grafiką i ilością
+  const rows = exportRows().flatMap(r => !r.el.multi ? [r] : multiLabels(r.el).map((lb, i) => {
+    const q = pieceQty(r.el, i), th = pieceThumb(r.el, i);
+    return { ...r, mi: i, znak0: r.znak, znak: lb, qty: q, m2: r.m2 !== '' && r.qty ? Math.round(r.m2 / r.qty * q * 100) / 100 : r.m2, el: { ...r.el, id: r.el.id + '~m' + i, multi: false, thumb: th, thumbVec: i === 0 ? r.el.thumbVec : '', qty: q } };
+  }));
   // --- wizki obok siebie
   const imgs = [];
   for (const ph of expPhotos()) { try { imgs.push({ ph, img: await loadImg(ph.url) }); } catch (e) { imgs.push({ ph, img: null }); } }
@@ -11874,7 +11878,7 @@ async function renderIndexA3(stamp) {
   let x = M + (side ? side.x : (availW - photoW(Hp)) / 2);
   imgs.forEach((o, i) => {
     const w = Hp * asp[i];
-    const here = rows.flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, el: { ...r.el, shape: l.shape } })));
+    const here = rows.filter(r => !r.mi).flatMap(r => locsOf(r.el).filter(l => l.photoId === o.ph.id).map(l => ({ ...r, znak: r.znak0 || r.znak, el: { ...r.el, shape: l.shape } })));
     if (o.img) drawPhotoMarks(g, o.img, x, top, w, Hp, here, Math.max(18, Math.min(30, Hp / 26)), o.ph);
     else { g.fillStyle = '#edf2f7'; g.fillRect(x, top, w, Hp); }
     if (imgs.length > 1 || S.photos.length > 1) { g.fillStyle = 'rgba(26,32,44,.8)'; g.fillRect(x, top, 64, 40); g.fillStyle = '#fff'; g.font = `700 26px ${PDF_FONT}`; g.fillText('#' + photoNo(o.ph.id), x + 12, top + 29); }
