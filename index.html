@@ -4970,7 +4970,7 @@ function loadEmptyTiff() {
 const sdCat = e => e.typeId === 'blackback' || e.typeId === 'lightbox' ? 'Tekstylia' : e.typeId === 'folia-laminat' ? 'Vinyls' : e.typeId === 'podwieszana' ? 'Susp' : null;
 const sdKind = e => e.typeId === 'blackback' ? 'Blackback' : e.typeId === 'lightbox' ? 'Lightbox' : e.typeId === 'folia-laminat' ? (e.laminate ? 'Folia_laminat' : 'Folia') : 'Podwieszenie';
 const sdCm = mm => String(Math.round(Number(mm) || 0) / 10).replace('.', ',');
-// pliki elementu: [{ key: 'o' (grafika) | 'i' (zadruk wewnątrz podwieszenia), cat, name, wPx, hPx, gv, gh }] — wymiar pliku = do druku (ze spadami), w nazwie netto
+// pliki elementu: [{ key: 'o' (grafika) | 'i' (zadruk wewnątrz podwieszenia), cat, name, wPx, hPx, gv, gh }] — wymiar pliku i wymiar w nazwie = do druku (ze spadami)
 function sdSpecs(e) {
   const cat = sdCat(e); if (!cat || !hasDims(e)) return [];
   const px = mm => Math.round(mm / 25.4 * 96 * 100) / 100, mk = safeName(markOf(e)), q = qtyOf(e), suf = (e.seg ? '_Eltex' : '') + (q > 1 ? `_x${q}szt` : '');
@@ -4981,13 +4981,13 @@ function sdSpecs(e) {
       if (!pl.length) return;
       const W = pl.reduce((a, p) => a + p.gw, 0), H = Math.max(...pl.map(p => p.gh)), t = Math.max(...pl.map(p => p.bb.t)), hn = Math.max(...pl.map(p => p.h)), gv = []; let x = 0;
       pl.forEach(p => { gv.push(px(x + p.bb.l), px(x + p.bb.l + p.w)); x += p.gw; });
-      out.push({ key, cat, name: nm(pl.reduce((a, p) => a + p.w, 0), hn, ex), wPx: px(W), hPx: px(H), gv: [...new Set(gv)], gh: [px(t), px(t + hn)] });
+      out.push({ key, cat, name: nm(W, H, ex), wPx: px(W), hPx: px(H), gv: [...new Set(gv)], gh: [px(t), px(t + hn)] });
     });
     return out;
   }
   const g = grossOf(e), k = g.box || { l: g.b, r: g.b, t: g.b, b: g.b };
   if (!(g.w > 0 && g.h > 0)) return [];
-  return [{ key: 'o', cat, name: nm(e.w, e.h), wPx: px(g.w), hPx: px(g.h), gv: [px(k.l), px(g.w - k.r)], gh: [px(k.t), px(g.h - k.b)] }];
+  return [{ key: 'o', cat, name: nm(g.w, g.h), wPx: px(g.w), hPx: px(g.h), gv: [px(k.l), px(g.w - k.r)], gh: [px(k.t), px(g.h - k.b)] }];
 }
 async function sdState() {
   const p = S.project; if (!p || !window.showDirectoryPicker) return 'off';
@@ -5041,6 +5041,8 @@ async function sdSync(o = {}) {
               fh = await sub.getFileHandle(f.name, { create: true }); const w = await fh.createWritable(); await w.write(blob); await w.close();
             } finally { tt.remove(); }
             const file = await fh.getFile(); await sdReg(e, f.key, { n: f.name, s: file.size, c: f.cat }); made++;
+            // poprzedni pusty plik tego elementu pod starą nazwą (np. po zmianie wymiaru) — znika, jeśli nikt go nie wypełnił
+            if (reg && reg.n && reg.n !== f.name && !reg.filled) { try { const os = await dir.getDirectoryHandle(reg.c || f.cat), of = await (await os.getFileHandle(reg.n)).getFile(); if (of.size === reg.s) { await os.removeEntry(reg.n); addLog(p.id, `Folder stoiska: usunięto pusty plik pod starą nazwą ${reg.c || f.cat}/${reg.n}`, e.id); } } catch (er) { /* nie ma już starego pliku */ } }
             addLog(p.id, `Folder stoiska: utworzono pusty plik ${f.cat}/${f.name}`, e.id);
             continue;
           }
