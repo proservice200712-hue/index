@@ -11695,11 +11695,7 @@ async function renderIndexA3(stamp) {
   const [c, g] = newCanvas(PW, PH, EXP_Q);
   let logo = null; try { logo = await loadImg($('hdr-logo').src); } catch (e) {}
   pageHeader(g, PW, PH, logo, '', stamp, sc);
-  // element Multi (kilka grafik jednego wymiaru: J1, J2…): każda pozycja dostaje własne okienko z własną grafiką i ilością
-  const rows = exportRows().flatMap(r => !r.el.multi ? [r] : multiLabels(r.el).map((lb, i) => {
-    const q = pieceQty(r.el, i), th = pieceThumb(r.el, i);
-    return { ...r, mi: i, znak0: r.znak, znak: lb, qty: q, m2: r.m2 !== '' && r.qty ? Math.round(r.m2 / r.qty * q * 100) / 100 : r.m2, el: { ...r.el, id: r.el.id + '~m' + i, multi: false, thumb: th, thumbVec: i === 0 ? r.el.thumbVec : '', qty: q } };
-  }));
+  const rows = exportRows();
   // --- wizki obok siebie
   const imgs = [];
   for (const ph of expPhotos()) { try { imgs.push({ ph, img: await loadImg(ph.url) }); } catch (e) { imgs.push({ ph, img: null }); } }
@@ -11710,6 +11706,7 @@ async function renderIndexA3(stamp) {
   // --- rozpiska: wspólna skala dla wszystkich okienek, możliwie największa (proporcje między elementami zostają)
   const thumbs = {};
   for (const r of rows) if (r.el.thumb) { try { thumbs[r.el.id] = await loadImg(r.el.thumb); } catch (e) {} }
+  for (const r of rows) if (r.el.multi) for (let i = 0; i < multiN(r.el); i++) { const u = pieceThumb(r.el, i); if (u) { try { thumbs[r.el.id + '#m' + i] = await loadImg(u); } catch (e) {} } }       // Multi: grafika każdej pozycji (J1, J2…)
   const pthumbs = {}; // konstrukcje podwieszane: podgląd każdej płaszczyzny zewnętrznej
   for (const r of rows) if (isHang(r.el)) {
     for (const [i, q] of (planesOf(r.el) || []).entries()) if (q.thumb) { try { pthumbs[r.el.id + '#' + i] = await loadImg(q.thumb); } catch (e) {} }
@@ -11736,7 +11733,7 @@ async function renderIndexA3(stamp) {
     });
     g.restore();
   };
-  const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24;
+  const areaW = availW, FS = 24, GX = 56, GY = 34, MINF = 24, MTG = 16, MLB = 44;       // Multi: odstęp kafelków, miejsce na etykietę (J1 ×2) nad kafelkiem
   const withD = rows.filter(r => r.w !== '');
   const maxH = Math.max(1, ...withD.map(r => r.bh)), maxW = Math.max(1, ...withD.map(r => r.bw));
   const cardOf = (r, k) => {
@@ -11749,17 +11746,18 @@ async function renderIndexA3(stamp) {
     const hpRows = hpN.length ? (hpN.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0, hpInRows = hpIn.length ? (hpIn.length > 1 ? 1 : 0) + 1 + (hpBl ? 1 : 0) : 0;
     const sm = d && !hpN.length && !r.el.doorFor && !r.el.backFor ? seamsOf(r.el).filter(q => q.p < (Number(r.w) || 0)) : [];       // podział grafiki: wymiary części w eksporcie (bez kreski)
     const LM = !d ? 0 : hpN.length ? (hpBl ? 104 : 60) : gb ? 104 : 60, BM = (!d ? 0 : hpN.length ? (hpIn.length ? FH + 106 + hpRows * 46 + (hpInRows - 1) * 46 : 14 + hpRows * 46) : gb ? 88 : 48) + (sm.length ? 46 : 0);
-    const qw = (r.qty || 1) > 1 ? 110 : 0;
+    const mN = r.el.multi ? multiN(r.el) : 0, qw = mN ? 0 : (r.qty || 1) > 1 ? 110 : 0;      // Multi: jedno okienko, kafelki J1, J2… obok siebie, ilość przy każdym
     const hwOn = isHang(r.el) && d && !vizEls.has(r.el.id), hwL = hwOn ? hwList(r.el) : [], hpim = hwOn ? hwImgs['pod/prof-' + hangProf(r.el)[0] + '.png'] : null, hwH = hwOn ? 168 : 0;
     const hwW = hwOn ? (hpim ? hpim.width / hpim.height * 120 : 60) + 44 + hwL.length * 112 : 0;
-    const w = Math.max(LM + FW + 10 + qw, 230, hwW);
+    const mCols = mN ? Math.max(1, Math.min(mN, Math.floor((areaW - LM - 10) / (FW + MTG)))) : 1, mExtra = mN ? (Math.ceil(mN / mCols) - 1) * (FH + MLB + 20) : 0;
+    const w = Math.max(LM + mCols * FW + (mCols - 1) * MTG + 10 + qw, 230, hwW);
     g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
     const title = wrapCanvas(g, (r.opis ? r.opis + ' — ' : '') + r.typ, w - 56, 3);
     g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
     const nlines = r.uwagi ? wrapCanvas(g, r.uwagi, w - 10, 3) : [];
-    const head = 20 + title.length * 34;
+    const head = 20 + title.length * 34 + (mN ? MLB : 0);
     const notes = (!d ? 40 : 0) + nlines.length * 28 + (nlines.length ? 10 : 0);
-    return { r, d, FW, FH, LM, BM, sm, w, h: head + FH + BM + notes + hwH, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
+    return { r, d, FW, FH, LM, BM, sm, w, mN, mCols, mExtra, h: head + FH + BM + notes + hwH + mExtra, title, nlines, head, hwH, hw: hwOn ? { pim: hpim, items: hwL } : null };
   };
   // okienka w rzędach (kolejność: alfabetycznie albo od najwyższych — co lepiej wypełnia arkusz)
   // okienka po kolei (A, B, C… / 1, 2, 3…) w rzędach; obs = blok wizek u góry — rzędy obok niego go omijają
@@ -11913,12 +11911,12 @@ async function renderIndexA3(stamp) {
       g.fillStyle = '#1a202c'; g.font = `600 ${FS * 1.2}px ${PDF_FONT}`;
       cd.title.forEach((ln, i) => g.fillText(ln, bx + 54, by + 32 + i * 34));
       const fx = bx + LM, fy = by + cd.head;
-      if ((r.qty || 1) > 1) { // ilość obok miniatury: „×3”
+      if (!cd.mN && (r.qty || 1) > 1) { // ilość obok miniatury: „×3”
         g.fillStyle = '#1a202c'; g.font = `800 ${FS * 1.5}px ${PDF_FONT}`; const qt = '×' + r.qty, qr = Math.max(FS * 1.25, (g.measureText(qt).width + 26) / 2);
         g.lineWidth = 3; g.strokeStyle = '#1a202c'; g.beginPath(); g.arc(fx + FW + 16 + qr, fy + qr, qr, 0, Math.PI * 2); g.stroke();
         g.textAlign = 'center'; g.fillText(qt, fx + FW + 16 + qr, fy + qr + FS * .5); g.textAlign = 'left';
       }
-      const th = thumbs[r.el.id];
+      const th = thumbs[r.el.id + (cd.mN ? '#m0' : '')] || (cd.mN ? null : undefined);
       const hpl = isHang(r.el) && d ? (planesOf(r.el) || []).filter(q => q.side !== 'inside') : [];
       const insA = isHang(r.el) && d && r.el.inside ? (planesOf(r.el) || []).filter(q => q.side === 'inside') : [];
       const hBlA = hpl.length > 0 && hangBleedAny(hangBleed(r.el)), outRowsA = hpl.length ? (hpl.length > 1 ? 1 : 0) + 1 + (hBlA ? 1 : 0) : 0, inFy = fy + FH + 36 + outRowsA * 46 + 24;
@@ -11988,9 +11986,25 @@ async function renderIndexA3(stamp) {
           for (let i = 0; i < xs.length - 1; i++) { ext(X0(xs[i]), fy + FH, X0(xs[i]), ry + 4); ext(X0(xs[i + 1]), fy + FH, X0(xs[i + 1]), ry + 4); hDim(X0(xs[i]), X0(xs[i + 1]), ry, xs[i + 1] - xs[i]); }
         }
       }
+      if (cd.mN) {       // Multi: etykieta nad każdym kafelkiem (J1 ×2), kolejne kafelki obok pierwszego (bez wymiarów, ze spadem)
+        const labs = multiLabels(r.el), gbm = isHang(r.el) ? 0 : r.spad, bb = gbm ? (r.el.bleedBox || { l: gbm, r: gbm, t: gbm, b: gbm }) : null, skx2 = r.bw ? FW / r.bw : k, sky2 = r.bh ? FH / r.bh : k;
+        const bl2 = bb ? Math.min(FW / 4, Math.max(6, bb.l * skx2)) : 0, br2 = bb ? Math.min(FW / 4, Math.max(6, bb.r * skx2)) : 0, bt2 = bb ? Math.min(FH / 4, Math.max(6, bb.t * sky2)) : 0, bb2 = bb ? Math.min(FH / 4, Math.max(6, bb.b * sky2)) : 0;
+        for (let i = 0; i < cd.mN; i++) {
+          const col = i % cd.mCols, row = Math.floor(i / cd.mCols), tx = fx + col * (FW + MTG), ty = row === 0 ? fy : fy + FH + BM + MLB + (row - 1) * (FH + MLB + 20);
+          const lb = labs[i], qt = '×' + pieceQty(r.el, i); g.font = `800 ${FS}px ${PDF_FONT}`;
+          const lw = g.measureText(lb).width + 22, qw2 = g.measureText(qt).width + 22;
+          g.fillStyle = '#2d3748'; g.fillRect(tx, ty - 38, lw, 34); g.fillStyle = '#edf2f7'; g.fillRect(tx + lw, ty - 38, qw2, 34); g.strokeStyle = '#cbd5e0'; g.lineWidth = 1.5; g.strokeRect(tx + lw, ty - 38, qw2, 34);
+          g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(lb, tx + lw / 2, ty - 13); g.fillStyle = '#1a202c'; g.fillText(qt, tx + lw + qw2 / 2, ty - 13); g.textAlign = 'left';
+          if (i === 0) continue;       // pierwszy kafelek jest już narysowany razem z wymiarami
+          const im = thumbs[r.el.id + '#m' + i];
+          if (im) { const s2 = Math.min(FW / im.width, FH / im.height), dw = im.width * s2, dh = im.height * s2; g.drawImage(crispCanvas(im, dw * EXP_Q, dh * EXP_Q) || im, tx + (FW - dw) / 2, ty + (FH - dh) / 2, dw, dh); }
+          if (!noFrame) { g.strokeStyle = '#a0aec0'; g.lineWidth = 2; g.strokeRect(tx, ty, FW, FH); }
+          if (bb && !noFrame) { g.setLineDash([10, 7]); g.strokeStyle = '#f4a6b4'; g.lineWidth = 2; g.strokeRect(tx + bl2, ty + bt2, FW - bl2 - br2, FH - bt2 - bb2); g.setLineDash([]); }
+        }
+      }
       if (cd.nlines.length) {
         g.fillStyle = '#4a5568'; g.font = `italic 400 ${FS * .9}px ${PDF_FONT}`;
-        const ny = fy + FH + BM + (!d ? 72 : 30);
+        const ny = fy + FH + BM + cd.mExtra + (!d ? 72 : 30);
         cd.nlines.forEach((ln, i) => g.fillText(ln, bx, ny + i * 30));
       }
       if (cd.hw) {       // na dole: najpierw rodzaj użytego profilu, obok kafelki osprzętu do podwieszenia (bez numerów i opisów; linka — z długością)
