@@ -5003,28 +5003,36 @@ async function sdSideIcons() {
   const spans = [...document.querySelectorAll('.sd-ic[data-sdp]')]; if (!spans.length || !isAdmin()) return;
   let names = new Map(), perm = new Map();
   try { const db = await sdIdb(); names = await new Promise(res => { const m = new Map(), r = db.transaction('h').objectStore('h').openCursor(); r.onsuccess = () => { const c = r.result; if (!c) return res(m); if (!String(c.key).includes('|') && c.value && c.value.name) m.set(c.key, c.value); c.continue(); }; r.onerror = () => res(m); }); } catch (e) { /* bez IndexedDB */ }
-  for (const [pid, hd] of names) { try { perm.set(pid, (await hd.queryPermission({ mode: 'readwrite' })) === 'granted'); } catch (e) { perm.set(pid, false); } }
+  const gone = new Set();
+  for (const [pid, hd] of names) { try { perm.set(pid, (await hd.queryPermission({ mode: 'readwrite' })) === 'granted'); } catch (e) { perm.set(pid, false); } if (perm.get(pid) && !(await sdAlive(hd))) gone.add(pid); }
   spans.forEach(sp => {
     const p = S.projects.find(x => x.id === sp.dataset.sdp); sp.className = 'sd-ic'; sp.title = ''; if (!p || p.diskUse === false) return;
     const hd = names.get(p.id), nm = hd && hd.name;
-    if (hd && perm.get(p.id)) { sp.classList.add('on'); sp.title = 'Folder stoiska połączony: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : ''); }
+    if (hd && gone.has(p.id)) { sp.classList.add('off'); sp.title = 'Folder stoiska: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : '') + ' — w tej chwili niedostępny (dysk odłączony?)'; }
+    else if (hd && perm.get(p.id)) { sp.classList.add('on'); sp.title = 'Folder stoiska połączony: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : ''); }
     else if (hd) { sp.classList.add('off'); sp.title = 'Folder stoiska: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : '') + ' — w tej chwili niepołączony (otwórz stoisko i kliknij „Połącz folder”)'; }
     else if (p.diskPath) { sp.classList.add('off'); sp.title = 'Folder stoiska: ' + p.diskPath + ' — na tym komputerze jeszcze niepołączony'; }
   });
 }
+async function sdAlive(dir) {
+  try { await dir.values().next(); return true; }
+  catch (e) { return !(e && /NotFound|NotReadable|InvalidState/.test(e.name || '')); }
+}
 async function sdState() {
   const p = S.project; if (!p || !window.showDirectoryPicker || p.diskUse === false) return 'off';
   const dir = await sdGet(p.id); if (!dir) return 'none';
-  try { return (await dir.queryPermission({ mode: 'readwrite' })) === 'granted' ? 'ok' : 'perm'; } catch (e) { return 'perm'; }
+  let g = false; try { g = (await dir.queryPermission({ mode: 'readwrite' })) === 'granted'; } catch (e) { /* bez zgody */ }
+  if (!g) return 'perm';
+  return (await sdAlive(dir)) ? 'ok' : 'gone';
 }
 async function sdBtnRefresh() {
   sdSideIcons();
   const b = $('sd-btn'); if (!b) return;
   const st = await sdState(), p = S.project || {};
   b.classList.toggle('hidden', st === 'off');
-  b.textContent = st === 'ok' ? '🗂 Folder ✓' : st === 'perm' ? '🗂 Połącz folder' : '🗂 Folder stoiska';
-  b.style.background = st === 'perm' ? '#dd6b20' : ''; b.style.color = st === 'perm' ? '#fff' : '';
-  b.title = st === 'ok' ? `Folder stoiska połączony${p.diskPath ? ' (' + p.diskPath + ')' : ''} — kliknij, aby od razu sprawdzić pliki (nowe puste pliki, miniatury z wypełnionych)`
+  b.textContent = st === 'ok' ? '🗂 Folder ✓' : st === 'perm' ? '🗂 Połącz folder' : st === 'gone' ? '🗂 Folder niedostępny' : '🗂 Folder stoiska';
+  b.style.background = st === 'perm' ? '#dd6b20' : st === 'gone' ? '#a0aec0' : ''; b.style.color = st === 'perm' || st === 'gone' ? '#fff' : '';
+  b.title = st === 'gone' ? `Folder stoiska jest w tej chwili niedostępny${p.diskPath ? ' (' + p.diskPath + ')' : ''} — dysk odłączony? Po podłączeniu kliknij, aby sprawdzić pliki` : st === 'ok' ? `Folder stoiska połączony${p.diskPath ? ' (' + p.diskPath + ')' : ''} — kliknij, aby od razu sprawdzić pliki (nowe puste pliki, miniatury z wypełnionych)`
     : st === 'perm' ? 'Kliknij, aby zezwolić INDEX na zapis w folderze stoiska na tym komputerze' : 'Wskaż folder stoiska na dysku — INDEX utworzy w nim pliki do druku (Tekstylia, Vinyls, Susp)';
 }
 async function sdClick() {
@@ -5058,6 +5066,7 @@ async function sdSync(o = {}) {
   const dir = await sdGet(p.id); if (!dir) return;
   let perm = 'prompt'; try { perm = await dir.queryPermission({ mode: 'readwrite' }); if (perm !== 'granted' && o.ask) perm = await dir.requestPermission({ mode: 'readwrite' }); } catch (e) { /* bez zgody */ }
   if (perm !== 'granted') { sdBtnRefresh(); return; }
+  if (!(await sdAlive(dir))) { sdBtnRefresh(); if (!o.quiet) toast('Folder stoiska jest niedostępny' + (p.diskPath ? ' (' + p.diskPath + ')' : '') + ' — dysk odłączony? Pliki sprawdzę po podłączeniu', 'error', 6000); return; }
   SD.busy = true; let made = 0, thumbs = 0, errs = 0, moved = 0, found = 0, conf = []; const t = o.quiet ? null : toast('Sprawdzam folder stoiska…', '', 300000);
   const known = new Set(S.elements.flatMap(e => Object.values(e.druk || {}).map(r => (r.c || '') + '/' + r.n)));     // pliki wszystkich elementów (nie przejmujemy cudzego)
   const listNow = [];
