@@ -612,7 +612,10 @@
   .tchip.ext b { cursor: pointer; color: var(--gray); margin-left: 2px; }
   .team-add { display: flex; gap: 6px; }
   .team-add input { flex: 1; padding: 6px 9px; border: 1.5px solid var(--line); font-size: .85rem; }
-  .stand-row .sd-ic { font-size: .72rem; line-height: 1; cursor: help; }
+  .stand-row .sd-ic { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; box-sizing: border-box; cursor: help; }
+  .stand-row .sd-ic.on { background: #38a169; border: 2px solid #38a169; }      /* folder połączony i dostępny */
+  .stand-row .sd-ic.off { background: #fff; border: 2px solid #38a169; }        /* folder jest, ale w tej chwili niepołączony */
+  .stand-row .sd-ic:not(.on):not(.off) { display: none; }
   .stand-row .sm { margin-left: 6px; font-size: 0.7rem; color: var(--gray); white-space: nowrap; }
   .stand-empty { padding: 5px 10px 8px 34px; font-size: 0.74rem; color: var(--mid); font-style: italic; }
   .arch { opacity: .5; }
@@ -4995,17 +4998,18 @@ function sdSpecs(e) {
   if (!(g.w > 0 && g.h > 0)) return [];
   return [{ key: 'o', cat, name: nm(g.w, g.h), wPx: px(g.w), hPx: px(g.h), gv: [px(k.l), px(g.w - k.r)], gh: [px(k.t), px(g.h - k.b)] }];
 }
-// lista stoisk w panelu bocznym: mała ikonka folderu przy stoiskach połączonych z folderem na tym komputerze (blada — ścieżka wpisana, ale tu niepołączony)
+// lista stoisk w panelu bocznym: zielone kółko — folder połączony na tym komputerze; zielony okrąg — folder jest (ścieżka albo uchwyt bez zgody), ale w tej chwili niepołączony
 async function sdSideIcons() {
   const spans = [...document.querySelectorAll('.sd-ic[data-sdp]')]; if (!spans.length || !isAdmin()) return;
-  let names = new Map();
-  try { const db = await sdIdb(); names = await new Promise(res => { const m = new Map(), r = db.transaction('h').objectStore('h').openCursor(); r.onsuccess = () => { const c = r.result; if (!c) return res(m); if (!String(c.key).includes('|') && c.value && c.value.name) m.set(c.key, c.value.name); c.continue(); }; r.onerror = () => res(m); }); } catch (e) { /* bez IndexedDB */ }
+  let names = new Map(), perm = new Map();
+  try { const db = await sdIdb(); names = await new Promise(res => { const m = new Map(), r = db.transaction('h').objectStore('h').openCursor(); r.onsuccess = () => { const c = r.result; if (!c) return res(m); if (!String(c.key).includes('|') && c.value && c.value.name) m.set(c.key, c.value); c.continue(); }; r.onerror = () => res(m); }); } catch (e) { /* bez IndexedDB */ }
+  for (const [pid, hd] of names) { try { perm.set(pid, (await hd.queryPermission({ mode: 'readwrite' })) === 'granted'); } catch (e) { perm.set(pid, false); } }
   spans.forEach(sp => {
-    const p = S.projects.find(x => x.id === sp.dataset.sdp); if (!p || p.diskUse === false) { sp.innerHTML = ''; return; }
-    const nm = names.get(p.id);
-    if (nm) { sp.innerHTML = '🗂'; sp.title = 'Folder stoiska połączony na tym komputerze: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : ''); sp.style.opacity = ''; }
-    else if (p.diskPath) { sp.innerHTML = '🗂'; sp.title = 'Folder stoiska: ' + p.diskPath + ' — na tym komputerze jeszcze niepołączony'; sp.style.opacity = '.35'; }
-    else sp.innerHTML = '';
+    const p = S.projects.find(x => x.id === sp.dataset.sdp); sp.className = 'sd-ic'; sp.title = ''; if (!p || p.diskUse === false) return;
+    const hd = names.get(p.id), nm = hd && hd.name;
+    if (hd && perm.get(p.id)) { sp.classList.add('on'); sp.title = 'Folder stoiska połączony: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : ''); }
+    else if (hd) { sp.classList.add('off'); sp.title = 'Folder stoiska: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : '') + ' — w tej chwili niepołączony (otwórz stoisko i kliknij „Połącz folder”)'; }
+    else if (p.diskPath) { sp.classList.add('off'); sp.title = 'Folder stoiska: ' + p.diskPath + ' — na tym komputerze jeszcze niepołączony'; }
   });
 }
 async function sdState() {
@@ -5014,6 +5018,7 @@ async function sdState() {
   try { return (await dir.queryPermission({ mode: 'readwrite' })) === 'granted' ? 'ok' : 'perm'; } catch (e) { return 'perm'; }
 }
 async function sdBtnRefresh() {
+  sdSideIcons();
   const b = $('sd-btn'); if (!b) return;
   const st = await sdState(), p = S.project || {};
   b.classList.toggle('hidden', st === 'off');
