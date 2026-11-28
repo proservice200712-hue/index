@@ -7467,7 +7467,26 @@ function graphFit() {
   applyGraphView();
 }
 (function graphNav() {
-  const box = $('el-scroll');
+  const box = $('el-scroll'), gp = new Map(); let gpin = null, gpUsed = false;
+  // telefon / tablet: dwa palce przybliżają i przesuwają widok (jak kółko myszy i przeciąganie)
+  box.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch' || S.elView !== 'graph' || !box.querySelector('#gstage')) return;
+    gp.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (gp.size === 2) {
+      const [a, b] = [...gp.values()]; gpin = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: G.s, tx0: G.tx, ty0: G.ty, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; gpUsed = true; G.panned = true;
+      e.stopImmediatePropagation(); e.preventDefault();
+    }
+  }, true);
+  window.addEventListener('pointermove', e => {
+    if (!gp.has(e.pointerId)) return; gp.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!gpin || gp.size < 2) return;
+    const [a, b] = [...gp.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, r = box.getBoundingClientRect();
+    const ns = clamp(gpin.s0 * d / gpin.d0, 0.2, 4), k = ns / gpin.s0, zb = s => s > 2 ? 4 : s > 1 ? 2 : 1, zm = zb(ns) !== zb(G.s);
+    G.s = ns; G.tx = (mx - r.left) - ((gpin.mx - r.left) - gpin.tx0) * k; G.ty = (my - r.top) - ((gpin.my - r.top) - gpin.ty0) * k; applyGraphView();
+    if (zm) { clearTimeout(G.crispT); G.crispT = setTimeout(() => crispGraphThumbs(box), 250); }
+  }, { passive: true });
+  const gpEnd = e => { if (!gp.delete(e.pointerId)) return; if (gp.size < 2) gpin = null; if (!gp.size) setTimeout(() => { gpUsed = false; }, 0); };
+  window.addEventListener('pointerup', gpEnd); window.addEventListener('pointercancel', gpEnd);
   box.addEventListener('wheel', e => {
     if (S.elView !== 'graph' || !box.querySelector('#gstage')) return;
     e.preventDefault();
@@ -7484,6 +7503,7 @@ function graphFit() {
     const x0 = e.clientX, y0 = e.clientY, tx0 = G.tx, ty0 = G.ty;
     let pan = false;
     const mv = ev => {
+      if (gpin || gpUsed) return;                    // dwa palce: przybliżanie (pierwszy palec nie przesuwa)
       if (!pan && !middle && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
       if (!pan) { pan = true; box.classList.add('panning'); }
       G.tx = tx0 + ev.clientX - x0; G.ty = ty0 + ev.clientY - y0; applyGraphView();
@@ -11133,6 +11153,27 @@ async function closeUltraFrame() {
     const up = () => { cv.removeEventListener('pointermove', mv); cv.removeEventListener('pointerup', up); cv.removeEventListener('pointercancel', up); if (moved) ufChanged(); };
     cv.addEventListener('pointermove', mv); cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
   }, true);
+  { const cv = $('uf-cv'), up = new Map(); let pin = null;
+    $('uf-pane').addEventListener('pointerdown', e => {      // na rodzicu w fazie przechwytywania: przed rysowaniem kreską i przeciąganiem klocków
+      if (e.pointerType !== 'touch' || !UF.tr || e.target !== cv) return;
+      up.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (up.size !== 2) return;
+      e.stopImmediatePropagation(); e.preventDefault();
+      const dr = UF.drag;                              // pierwszy palec zaczął przeciąganie — cofamy je, dwa palce to przybliżanie
+      if (dr) { document.removeEventListener('pointermove', ufDragMove, true); document.removeEventListener('pointerup', ufDragEnd, true); if (dr.orig && dr.orig.forEach) UF.d.pieces.forEach(p => { const o = dr.orig.get(p.id); if (o) { Object.assign(p, o); if (!o.len0) delete p.len0; } }); UF.drag = null; }
+      if (UF.skDraft) UF.skDraft = null;
+      const [a, b] = [...up.values()]; pin = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, s0: UF.tr.s, ox0: UF.tr.ox, oy0: UF.tr.oy, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    }, true);
+    window.addEventListener('pointermove', e => {
+      if (!up.has(e.pointerId)) return; up.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (!pin || up.size < 2) return;
+      const [a, b] = [...up.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, r = cv.getBoundingClientRect();
+      const ns = clamp(pin.s0 * d / pin.d0, 0.012, 3), k = ns / pin.s0;
+      UF.vw = { s: ns, ox: (mx - r.left) - ((pin.mx - r.left) - pin.ox0) * k, oy: (my - r.top) - ((pin.my - r.top) - pin.oy0) * k }; ufDraw(true);
+    }, { passive: true });
+    const ufTEnd = e => { if (!up.delete(e.pointerId)) return; if (up.size < 2 && pin) { pin = null; ufDraw(); } };
+    window.addEventListener('pointerup', ufTEnd); window.addEventListener('pointercancel', ufTEnd);
+    cv.style.touchAction = 'none'; }
   $('uf-cv').addEventListener('pointerdown', ufPointer);
   $('uf-cv').addEventListener('pointermove', e => {          // najechana ścianka też świeci
     if (UF.drag || !UF.tr || !UF.geo) return;
