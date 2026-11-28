@@ -612,6 +612,7 @@
   .tchip.ext b { cursor: pointer; color: var(--gray); margin-left: 2px; }
   .team-add { display: flex; gap: 6px; }
   .team-add input { flex: 1; padding: 6px 9px; border: 1.5px solid var(--line); font-size: .85rem; }
+  .stand-row .sd-ic { font-size: .72rem; line-height: 1; cursor: help; }
   .stand-row .sm { margin-left: 6px; font-size: 0.7rem; color: var(--gray); white-space: nowrap; }
   .stand-empty { padding: 5px 10px 8px 34px; font-size: 0.74rem; color: var(--mid); font-style: italic; }
   .arch { opacity: .5; }
@@ -3312,6 +3313,7 @@ function sideTarget() {
 
 function renderSide() {
   if (!S.me || !sideState.open) return;
+  setTimeout(sdSideIcons, 0);         // ikonki folderu stoiska (uchwyty folderów w IndexedDB tego komputera)
   const adm = isAdmin(), showArch = adm && S.showArch;
   const stands = S.projects.filter(canSee).filter(p => showArch || !standArchived(p));
   // ręczna kolejność (sideOrder) ma pierwszeństwo, reszta jak dotąd
@@ -3335,7 +3337,7 @@ function renderSide() {
         ${adm && real ? `<button class="ed" title="Edytuj targi" onclick="event.stopPropagation(); openFairForm('${f.id}')">✎</button>` : ''}
       </div>` + (!open ? '' : list.length ? list.map(p => `
       <div class="stand-row ${sel && sel.kind === 'stand' && sel.id === p.id ? 'sel' : ''} ${p.id === openPid ? 'open' : ''} ${p.archived ? 'arch' : ''}" onclick="sideClickStand('${p.id}')" ${adm ? `draggable="true" data-kind="stand" data-id="${p.id}" data-group="${f.id}"` : ''}>
-        <span class="sn">${esc(p.name)}</span>${p.archived ? '<span class="arch-tag">archiwum</span>' : ''}
+        <span class="sn">${esc(p.name)}</span>${p.archived ? '<span class="arch-tag">archiwum</span>' : ''}<span class="sd-ic" data-sdp="${p.id}"></span>
         <span class="st">${teamHtml(p)}</span>
         <span class="sm">▦ ${p.elementsCount || 0}</span>
         <button class="ed" title="Zmień nazwę, terminy, zespół" onclick="event.stopPropagation(); openProjectForm('${p.id}')">✎</button>
@@ -4965,7 +4967,7 @@ async function copyPhoto(ph) {
 const SD = { db: null, busy: false, tmr: 0, poll: 0, asked: new Set() };
 function sdIdb() { return SD.db || (SD.db = new Promise((res, rej) => { const r = indexedDB.open('index-stand-dirs', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); }
 async function sdGet(pid) { try { const db = await sdIdb(); return await new Promise(res => { const r = db.transaction('h').objectStore('h').get(pid); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); } catch (e) { return null; } }
-async function sdSet(pid, hd) { try { const db = await sdIdb(); await new Promise(res => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(hd, pid); t.oncomplete = () => res(); t.onerror = () => res(); }); } catch (e) { } }
+async function sdSet(pid, hd) { try { const db = await sdIdb(); await new Promise(res => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(hd, pid); t.oncomplete = () => res(); t.onerror = () => res(); }); } catch (e) { } setTimeout(sdSideIcons, 0); }
 let emptyTiffLoad = null;
 function loadEmptyTiff() {
   if (window.EmptyTiff) return Promise.resolve();
@@ -4992,6 +4994,19 @@ function sdSpecs(e) {
   const g = grossOf(e), k = g.box || { l: g.b, r: g.b, t: g.b, b: g.b };
   if (!(g.w > 0 && g.h > 0)) return [];
   return [{ key: 'o', cat, name: nm(g.w, g.h), wPx: px(g.w), hPx: px(g.h), gv: [px(k.l), px(g.w - k.r)], gh: [px(k.t), px(g.h - k.b)] }];
+}
+// lista stoisk w panelu bocznym: mała ikonka folderu przy stoiskach połączonych z folderem na tym komputerze (blada — ścieżka wpisana, ale tu niepołączony)
+async function sdSideIcons() {
+  const spans = [...document.querySelectorAll('.sd-ic[data-sdp]')]; if (!spans.length || !isAdmin()) return;
+  let names = new Map();
+  try { const db = await sdIdb(); names = await new Promise(res => { const m = new Map(), r = db.transaction('h').objectStore('h').openCursor(); r.onsuccess = () => { const c = r.result; if (!c) return res(m); if (!String(c.key).includes('|') && c.value && c.value.name) m.set(c.key, c.value.name); c.continue(); }; r.onerror = () => res(m); }); } catch (e) { /* bez IndexedDB */ }
+  spans.forEach(sp => {
+    const p = S.projects.find(x => x.id === sp.dataset.sdp); if (!p || p.diskUse === false) { sp.innerHTML = ''; return; }
+    const nm = names.get(p.id);
+    if (nm) { sp.innerHTML = '🗂'; sp.title = 'Folder stoiska połączony na tym komputerze: ' + nm + (p.diskPath ? ' (' + p.diskPath + ')' : ''); sp.style.opacity = ''; }
+    else if (p.diskPath) { sp.innerHTML = '🗂'; sp.title = 'Folder stoiska: ' + p.diskPath + ' — na tym komputerze jeszcze niepołączony'; sp.style.opacity = '.35'; }
+    else sp.innerHTML = '';
+  });
 }
 async function sdState() {
   const p = S.project; if (!p || !window.showDirectoryPicker || p.diskUse === false) return 'off';
