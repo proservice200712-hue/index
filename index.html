@@ -3859,7 +3859,7 @@ function openProjectForm(pid, fairId) { if (isViewer()) return;
         <div class="hint">Dla niektórych klientów elementy numeruje się cyframi. Wysłony zostają jako W1, W2…</div></div>
       <div class="fld"><label>Uwagi</label><textarea id="pf-notes">${esc(p.notes || '')}</textarea></div>
       <div class="fld"><label>Folder stoiska na dysku</label>
-        <div style="display:flex;gap:6px;align-items:center"><input type="text" id="pf-dir" value="${esc(p.diskPath || '')}" placeholder="np. D:\\Targi\\2026\\Kuba 2" style="flex:1;min-width:0"><button type="button" class="btn" id="pf-dirb" title="Wskaż ten folder — INDEX będzie w nim tworzył pliki do druku (na tym komputerze)">📁 Wskaż folder…</button></div>
+        <div style="display:flex;gap:6px;align-items:center"><input type="text" id="pf-dir" value="${esc(p.diskPath || '')}" placeholder="np. D:\\Targi\\2026\\Kuba 2" style="flex:1;min-width:0"><button type="button" class="btn" id="pf-dirb" title="Wskaż ten folder — INDEX będzie w nim tworzył pliki do druku (na tym komputerze)">📁 Wskaż folder…</button><label class="pchip" title="Wyłączone: INDEX nie tworzy i nie sprawdza plików tego stoiska (ścieżka i folder zostają zapamiętane)" style="white-space:nowrap;cursor:pointer"><input type="checkbox" id="pf-diruse" ${p.diskUse === false ? '' : 'checked'}> użyj folderu</label></div>
         <div class="hint" id="pf-dirh">INDEX tworzy w nim puste pliki do druku (TIFF CMYK 96 dpi, przezroczyste płótno, prowadnice na spadach): Tekstylia (Blackback, Lightbox), Vinyls (folia), Susp (podwieszenia). Wypełniony plik → miniatura na stronie.</div></div>`,
     footer: `${pid && isAdmin() ? '<button class="btn btn-red" id="pf-del">Usuń stoisko</button><button class="btn" id="pf-copy" style="margin-right:auto" title="Nowe stoisko z tymi samymi wizkami i elementami — np. na kolejną edycję targów">⧉ Kopiuj stoisko</button>' : ''}
       <button class="btn" data-c>Anuluj</button><button class="btn btn-solid" id="pf-ok">${pid ? 'Zapisz' : 'Utwórz'}</button>`,
@@ -3867,6 +3867,8 @@ function openProjectForm(pid, fairId) { if (isViewer()) return;
   m.el.querySelector('[data-c]').onclick = () => m.close();
   let numbering = p.numbering === '123' ? '123' : 'abc', pickedDir = null;
   if (pid) sdGet(pid).then(hd => { const x = $('pf-dirh'); if (hd && x) x.insertAdjacentHTML('beforeend', ` <b>Na tym komputerze połączony z folderem „${esc(hd.name)}”.</b>`); });
+  const dirUse = () => { const on = $('pf-diruse').checked; $('pf-dir').disabled = !on; $('pf-dirb').disabled = !on; $('pf-dir').style.opacity = $('pf-dirb').style.opacity = on ? '' : '.5'; $('pf-dirh').style.opacity = on ? '' : '.5'; };
+  $('pf-diruse').onchange = dirUse; dirUse();
   $('pf-dirb').onclick = async () => {
     if (!window.showDirectoryPicker) return toast('Ta przeglądarka nie zapisuje plików w folderach — użyj Chrome albo Edge', 'error', 5000);
     try { pickedDir = await window.showDirectoryPicker({ id: 'index-stoisko', mode: 'readwrite' }); } catch (e) { return; }
@@ -3917,7 +3919,7 @@ function openProjectForm(pid, fairId) { if (isViewer()) return;
       fair: fo ? fo.name : (p.fairId ? '' : p.fair || ''), city: fo ? fo.city || '' : (p.fairId ? '' : p.city || ''),
       deadlineGfx: $('pf-dl').value, deadlinePack: $('pf-pk').value, eventStart: $('pf-ev').value, eventEnd: $('pf-evend').value,
       notes: $('pf-notes').value.trim(),
-      diskPath: $('pf-dir').value.trim(),
+      diskPath: $('pf-dir').value.trim(), diskUse: $('pf-diruse').checked,
       users: p.users || (isAdmin() ? [] : [S.me.id]),
       team: clone(team),
       numbering,
@@ -3936,9 +3938,11 @@ function openProjectForm(pid, fairId) { if (isViewer()) return;
         if (p.eventStart !== d.eventStart) changes.push('start targów → ' + fmtDateTime(d.eventStart));
         if (p.name !== d.name) changes.push('nazwa → ' + d.name);
         if (teamNames(p.team) !== teamNames(d.team)) changes.push('zespół → ' + teamNames(d.team));
+        if ((p.diskUse !== false) !== d.diskUse) changes.push('folder na dysku ' + (d.diskUse ? 'włączony' : 'wyłączony'));
         if ((p.diskPath || '') !== d.diskPath) changes.push('folder na dysku → ' + (d.diskPath || 'brak'));
         await DB.update(C_PROJECTS, pid, d);
-        if (pickedDir) { await sdSet(pid, pickedDir); setTimeout(() => { sdBtnRefresh(); sdSync({}); }, 600); }
+        if (pickedDir) await sdSet(pid, pickedDir);
+        setTimeout(() => { sdBtnRefresh(); if (d.diskUse && pickedDir) sdSync({}); }, 600);
         addLog(pid, 'Zmieniono ustawienia projektu' + (changes.length ? ': ' + changes.join(', ') : ''));
         m.close(); toast('Zapisano', 'success');
       } else {
@@ -4990,7 +4994,7 @@ function sdSpecs(e) {
   return [{ key: 'o', cat, name: nm(g.w, g.h), wPx: px(g.w), hPx: px(g.h), gv: [px(k.l), px(g.w - k.r)], gh: [px(k.t), px(g.h - k.b)] }];
 }
 async function sdState() {
-  const p = S.project; if (!p || !window.showDirectoryPicker) return 'off';
+  const p = S.project; if (!p || !window.showDirectoryPicker || p.diskUse === false) return 'off';
   const dir = await sdGet(p.id); if (!dir) return 'none';
   try { return (await dir.queryPermission({ mode: 'readwrite' })) === 'granted' ? 'ok' : 'perm'; } catch (e) { return 'perm'; }
 }
@@ -5015,10 +5019,10 @@ async function sdClick() {
   await sdSync({ ask: true }); sdBtnRefresh();
 }
 function sdKick() { clearTimeout(SD.tmr); SD.tmr = setTimeout(() => sdSync({ quiet: true }), 3000);
-  if (!SD.poll) SD.poll = setInterval(() => { if (S.project && document.visibilityState === 'visible') sdSync({ quiet: true }); }, 20000); }
+  if (!SD.poll) SD.poll = setInterval(() => { if (S.project && document.visibilityState === 'visible') sdSync({ quiet: true }); }, 60000); }
 async function sdReg(e, key, rec) { e.druk = { ...(e.druk || {}), [key]: rec }; await DB.update(pElements(S.project.id), e.id, { druk: e.druk }); }
 async function sdSync(o = {}) {
-  const p = S.project; if (!p || !isAdmin() || isViewer() || (S.tour && S.tour.show) || SD.busy || !window.showDirectoryPicker) return;
+  const p = S.project; if (!p || p.diskUse === false || !isAdmin() || isViewer() || (S.tour && S.tour.show) || SD.busy || !window.showDirectoryPicker) return;
   const dir = await sdGet(p.id); if (!dir) return;
   let perm = 'prompt'; try { perm = await dir.queryPermission({ mode: 'readwrite' }); if (perm !== 'granted' && o.ask) perm = await dir.requestPermission({ mode: 'readwrite' }); } catch (e) { /* bez zgody */ }
   if (perm !== 'granted') { sdBtnRefresh(); return; }
