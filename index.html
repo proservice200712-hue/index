@@ -4962,7 +4962,7 @@ async function copyPhoto(ph) {
 //  Tekstylia — Blackback, Lightbox; Vinyls — folia (zwykła, z laminatem lub bez; cięta po konturze to wektor — pomijana); Susp — podwieszenia.
 //  Nazwa: znak_szer x wys cm_rodzaj[_Eltex][_xNszt]. Plik wypełniony (zmienił rozmiar) → miniatura elementu na stronie.
 // =====================================================================
-const SD = { db: null, busy: false, tmr: 0, poll: 0 };
+const SD = { db: null, busy: false, tmr: 0, poll: 0, asked: new Set() };
 function sdIdb() { return SD.db || (SD.db = new Promise((res, rej) => { const r = indexedDB.open('index-stand-dirs', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); }
 async function sdGet(pid) { try { const db = await sdIdb(); return await new Promise(res => { const r = db.transaction('h').objectStore('h').get(pid); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); } catch (e) { return null; } }
 async function sdSet(pid, hd) { try { const db = await sdIdb(); await new Promise(res => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(hd, pid); t.oncomplete = () => res(); t.onerror = () => res(); }); } catch (e) { } }
@@ -5038,7 +5038,7 @@ async function sdSync(o = {}) {
   const dir = await sdGet(p.id); if (!dir) return;
   let perm = 'prompt'; try { perm = await dir.queryPermission({ mode: 'readwrite' }); if (perm !== 'granted' && o.ask) perm = await dir.requestPermission({ mode: 'readwrite' }); } catch (e) { /* bez zgody */ }
   if (perm !== 'granted') { sdBtnRefresh(); return; }
-  SD.busy = true; let made = 0, thumbs = 0, errs = 0, moved = 0, found = 0; const t = o.quiet ? null : toast('Sprawdzam folder stoiska…', '', 300000);
+  SD.busy = true; let made = 0, thumbs = 0, errs = 0, moved = 0, found = 0, conf = []; const t = o.quiet ? null : toast('Sprawdzam folder stoiska…', '', 300000);
   const known = new Set(S.elements.flatMap(e => Object.values(e.druk || {}).map(r => (r.c || '') + '/' + r.n)));     // pliki wszystkich elementów (nie przejmujemy cudzego)
   const listNow = [];
   try {
@@ -5089,6 +5089,19 @@ async function sdSync(o = {}) {
         } catch (er) { errs++; console.warn('folder stoiska', f.name, er); }
       }
     }
+    // kilka plików z tym samym początkiem nazwy (znak elementu, np. stary wypełniony i nowy pusty po zmianie wymiaru) — po sprawdzeniu pytamy, który zostaje
+    if (S.project && S.project.id === p.id) {
+      const listing = {}, knownNow = new Set(S.elements.flatMap(e => Object.values(e.druk || {}).map(r => (r.c || '') + '/' + r.n)));
+      for (const e of S.elements) {
+        const specs = sdSpecs(e), mk = safeName(markOf(e)), own = new Set(Object.values(e.druk || {}).map(r => r.n)); if (!specs.length) continue;
+        for (const f of specs) {
+          if (!listing[f.cat]) { listing[f.cat] = []; const sub = await dir.getDirectoryHandle(f.cat).catch(() => null);
+            if (sub) for await (const [n, hd] of sub.entries()) if (hd.kind === 'file' && /\.tiff?$/i.test(n)) { const fl = await hd.getFile(); listing[f.cat].push({ n, s: fl.size, t: fl.lastModified }); } }
+          const cand = listing[f.cat].filter(x => x.n.startsWith(mk + '_') && !(knownNow.has(f.cat + '/' + x.n) && !own.has(x.n)) && (specs.length > 1 ? (f.key === 'i') === /_wewn/i.test(x.n) : true));
+          if (cand.length >= 2) conf.push({ eid: e.id, key: f.key, cat: f.cat, expect: f.name, empty: Math.max(5e6, f.wPx * f.hPx * 5 / 200), files: cand });
+        }
+      }
+    }
     // pliki elementów usuniętych z INDEX: do podfolderu „Stare” w tym samym folderze (np. Tekstylia/Stare)
     if (S.project && S.project.id === p.id) {
       const ids = new Set(S.elements.map(e => e.id)), prev = await sdListGet(p.id), gone = prev.filter(x => !ids.has(x.eid));
@@ -5108,6 +5121,41 @@ async function sdSync(o = {}) {
   if (msg.length) toast('Folder stoiska: ' + msg.join(', '), 'success', 7000);
   else if (!o.quiet) toast('Folder stoiska: wszystkie pliki są na miejscu', 'success', 3000);
   if (errs && !o.quiet) toast(`Folder stoiska: ${errs} plików nie udało się obsłużyć (szczegóły w konsoli)`, 'error', 6000);
+  // pytanie o pliki z tym samym początkiem nazwy: przy automatycznym sprawdzaniu raz na sesję (i nie w trakcie innego okna), po kliknięciu przycisku folderu — zawsze
+  if (conf.length && (o.ask || !modalStack.length)) {
+    let any = false;
+    for (const c of conf) {
+      const sig = c.cat + '|' + c.files.map(x => x.n).sort().join('|'); if (!o.ask && SD.asked.has(sig)) continue; SD.asked.add(sig);
+      if (await sdAskConflict(dir, c)) any = true;
+    }
+    if (any) setTimeout(() => sdSync({ quiet: true }), 400);
+  }
+}
+// dwa (lub więcej) pliki jednego elementu w folderze: który brać pod uwagę — pozostałe są usuwane z dysku
+function sdAskConflict(dir, c) {
+  const e = S.elements.find(x => x.id === c.eid); if (!e || !S.project) return Promise.resolve(false);
+  const list = c.files.slice().sort((a, b) => b.t - a.t), pid = S.project.id;
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    const m = openModal({ title: `Folder stoiska — ${list.length} pliki elementu ${esc(markOf(e))}`,
+      body: `<div class="hint" style="margin-bottom:8px">W folderze <b>${esc(c.cat)}</b> są pliki zaczynające się od „${esc(safeName(markOf(e)))}_”. Zaznacz, który ma być brany pod uwagę — pozostałe zostaną <b>usunięte z dysku</b> (bez kosza). Obecny wymiar elementu: <b>${esc(c.expect)}</b>.</div>`
+        + list.map((x, i) => `<label style="display:flex;gap:8px;align-items:baseline;padding:6px 4px;border-top:1px solid var(--line);cursor:pointer"><input type="radio" name="sd-c" value="${i}" ${i === 0 ? 'checked' : ''}><span><b>${esc(x.n)}</b><br><small style="color:var(--gray)">${fileSizeTxt(x.s)}${x.s <= c.empty ? ' (pusty)' : ''} · zmieniony ${fmtDateTime(new Date(x.t).toISOString())}${x.n === c.expect ? ' · nazwa z obecnym wymiarem' : ''}</small></span></label>`).join(''),
+      footer: '<button class="btn" data-c>Później</button><button class="btn btn-red" id="sd-ok">Zostaw zaznaczony, resztę usuń</button>', onClose: () => fin(false) });
+    m.el.querySelector('[data-c]').onclick = () => m.close();
+    m.el.querySelector('#sd-ok').onclick = async () => {
+      const keep = list[+(m.el.querySelector('input[name="sd-c"]:checked') || { value: 0 }).value], rest = list.filter(x => x !== keep);
+      m.el.querySelector('#sd-ok').disabled = true;
+      try {
+        const sub = await dir.getDirectoryHandle(c.cat);
+        for (const x of rest) { await sub.removeEntry(x.n); addLog(pid, `Folder stoiska: usunięto ${c.cat}/${x.n} (zostaje ${keep.n})`, e.id); }
+        const prev = (e.druk || {})[c.key], same = prev && prev.n === keep.n;
+        // zostaje inny plik niż śledzony: wypełniony → przy najbliższym sprawdzeniu miniatura z niego; pusty → bez miniatury
+        await DB.update(pElements(pid), e.id, { druk: { ...(e.druk || {}), [c.key]: { n: keep.n, c: c.cat, x: c.expect, s: same ? prev.s : keep.s <= c.empty ? keep.s : 0, ...(prev && prev.filled ? { filled: prev.filled } : {}) } } });
+        toast(`Zostaje ${keep.n}${rest.length ? ', usunięto ' + rest.length : ''}`, 'success', 4000);
+        m.close(); fin(true);
+      } catch (er) { toast('Nie udało się: ' + er.message, 'error', 6000); m.el.querySelector('#sd-ok').disabled = false; }
+    };
+  });
 }
 // eksport wizki: plik „stoisko_targi_data.png”, od razu do zapamiętanego folderu (pulpit); „do innego folderu” — pyta o miejsce
 const EXP_IDB = { db: null };
