@@ -4050,10 +4050,10 @@ function renderProjectHeader() {
   $('hdr-actions').innerHTML = `
     ${isAdmin() ? `<button class="btn" onclick="copyOrder()" title="Skopiuj listę elementów do schowka — do wklejenia w mailu">📋 Zlecenie</button>` : ''}
     ${isAdmin() ? `<button class="btn" onclick="openFilesDialog()" title="Pliki pomocnicze stoiska: offsety, informacje dla produkcji…">📎 Pliki${standFileCount(p) ? ' (' + standFileCount(p) + ')' : ''}</button>` : ''}
-    ${isAdmin() ? `<button class="btn" onclick="openExportDialog()">⇩ Eksport</button>` : ''}
-    ${isAdmin() && window.showDirectoryPicker ? `<button class="btn hidden" id="sd-btn" onclick="sdClick()"></button>` : ''}`;
+    ${isAdmin() ? `<button class="btn" onclick="openExportDialog()">⇩ Eksport</button>` : ''}`;
+  // folder stoiska na dysku: po lewej od Offset Wizard (tuż po prawej od „‹ Projekty”)
+  $('hdr-ow').innerHTML = (isAdmin() && window.showDirectoryPicker ? `<button class="btn btn-sm hidden" id="sd-btn" onclick="sdClick()" style="margin-right:6px"></button>` : '') + owBtn('btn btn-sm');
   sdBtnRefresh();
-  $('hdr-ow').innerHTML = owBtn('btn btn-sm');      // Offset Wizard: tuż po prawej od „‹ Projekty”
 }
 // Offset Wizard (admin) — zawsze ostatni w nagłówku, tuż przed flagami; w projekcie od razu wie, którego stoiska dotyczy
 const owBtn = (cls = 'btn') => featOn('ow') ? `<button class="${cls}" onclick="openOffsetWizard()" title="Offset Wizard — offsety liter przestrzennych (jak makro Corela „Offsety dla Fusion”): wczytaj DXF / PDF z Corela, przesuwaj otwory i profile, eksport DXF do Fusion">⌖ Offset Wizard</button>` : '';
